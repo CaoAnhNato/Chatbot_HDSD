@@ -49,11 +49,11 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Vector DB & Local Storage
-chroma_data/
+/chroma_data/
 qdrant_data/
 backend/data/processed/*.json
-backend/data/extracted_images/*
-!backend/data/extracted_images/.gitkeep
+!backend/chroma_data/**
+!backend/data/extracted_images/**
 backend/data/logs/*
 !backend/data/logs/.gitkeep
 *.log
