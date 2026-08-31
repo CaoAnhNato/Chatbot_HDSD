@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  chatbot-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hdsd-chatbot-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - QWEN_API_KEY=${QWEN_API_KEY}
+      - VECTOR_DB_TYPE=qdrant
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6333
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      - qdrant
+      - redis
+    restart: unless-stopped
+
+  chatbot-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hdsd-chatbot-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      - chatbot-backend
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: hdsd-vector-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: hdsd-semantic-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_storage:/data
+    restart: unless-stopped
+
+volumes:
+  qdrant_storage:
+  redis_storage:
