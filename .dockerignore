@@ -1,0 +1,12 @@
+.venv/
+venv/
+.git/
+.agents/
+frontend/
+node_modules/
+chroma_data/
+qdrant_data/
+__pycache__/
+*.pyc
+*.log
+*.jsonl
