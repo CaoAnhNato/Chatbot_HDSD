@@ -3,7 +3,7 @@ import json
 import time
 import uuid
 import re
-from typing import AsyncGenerator, List, Tuple, Optional
+from typing import AsyncGenerator, List, Tuple, Optional, Any, Dict
 from app.core.config import settings
 from app.models.chat import ChatRequest, ChatResponse, ContactSupportInfo
 from app.models.chunk import DocumentChunk
