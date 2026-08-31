@@ -22,8 +22,20 @@ class Settings(BaseSettings):
     def effective_api_key(self) -> str:
         return self.DASHSCOPE_API_KEY or self.QWEN_API_KEY
 
+    # Embedding & HuggingFace Space Microservice Settings
+    EMBEDDING_MODEL_NAME: str = "AITeamVN/Vietnamese_Embedding_v2"
+    EMBEDDING_DIMENSION: int = 1024
+    HF_SPACE_URL: str = "https://hf.co/spaces/Nato1306/vietnamese-embedding-api"
+    HF_EMBEDDING_API_URL: str = "https://nato1306-vietnamese-embedding-api.hf.space"
+    USE_REMOTE_EMBEDDING: bool = False
+
+    # Cloud Database & Supabase Settings
+    DATABASE_URL: Optional[str] = None
+    SUPABASE_URL: Optional[str] = None
+    SUPABASE_ANON_KEY: Optional[str] = None
+
     # Vector Database Settings
-    VECTOR_DB_TYPE: str = "chroma"  # "chroma" (default) or "qdrant"
+    VECTOR_DB_TYPE: str = "chroma"  # "chroma", "qdrant", or "pgvector"
     QDRANT_HOST: str = "localhost"
     QDRANT_PORT: int = 6333
     QDRANT_COLLECTION: str = "hdsd_chunks"
@@ -31,9 +43,6 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION_PHUONG: str = "hdsd_phuong_chunks"
     DEFAULT_COLLECTION: str = "hdsd_phuong_chunks"
     CHROMA_PERSIST_DIRECTORY: str = "./chroma_data"
-
-    # Embedding Settings
-    EMBEDDING_MODEL_NAME: str = "AITeamVN/Vietnamese_Embedding_v2"
 
     # Storage Settings
     IMAGE_STORAGE_PATH: str = "./data/extracted_images"
@@ -49,6 +58,12 @@ class Settings(BaseSettings):
     LOG_DIR: str = "./data/logs"
     CHAT_AUDIT_LOG_FILE: str = "chat_audit.jsonl"
     CHAT_ERROR_LOG_FILE: str = "chat_errors.jsonl"
+
+    # Deployment & CI/CD Metadata
+    GITHUB_REPO_URL: str = "https://github.com/CaoAnhNato/Chatbot_HDSD.git"
+    VERCEL_FRONTEND_URL: str = "https://chatbot-hdsd.vercel.app"
+    RAILWAY_BACKEND_URL: str = "https://chatbot-hdsd-backend.up.railway.app"
+    CORS_ORIGINS: str = "http://localhost:3000,https://chatbot-hdsd.vercel.app"
 
     class Config:
         env_file = (".env", "../.env", "backend/.env")
