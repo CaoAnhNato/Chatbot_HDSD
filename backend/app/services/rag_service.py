@@ -39,6 +39,21 @@ def clean_display_content(text: str) -> str:
     return cleaned.strip()
 
 
+def normalize_cdn_image_url(url: str) -> str:
+    """Chuẩn hóa mọi image URL sang BASE_IMAGE_CDN_URL với filename an toàn."""
+    if not url:
+        return ""
+    import urllib.parse
+    clean_url = url.strip()
+    if "/" in clean_url:
+        filename = clean_url.split("/")[-1]
+    else:
+        filename = clean_url
+    unquoted = urllib.parse.unquote(filename)
+    safe_filename = urllib.parse.quote(unquoted)
+    return f"{settings.BASE_IMAGE_CDN_URL}/{safe_filename}"
+
+
 class RAGService:
     """
     Streamlined Hierarchical RAG Service (Two-Tier Architecture):
@@ -225,8 +240,9 @@ class RAGService:
             for chunk in chunks:
                 if chunk.metadata.image_urls:
                     for img in chunk.metadata.image_urls:
-                        if img not in image_urls:
-                            image_urls.append(img)
+                        normalized_img = normalize_cdn_image_url(img)
+                        if normalized_img and normalized_img not in image_urls:
+                            image_urls.append(normalized_img)
                 if chunk.metadata.youtube_info:
                     yt_link = chunk.metadata.youtube_info.display_link
                     if yt_link not in youtube_links:
@@ -486,8 +502,9 @@ class RAGService:
             for chunk in chunks:
                 if chunk.metadata.image_urls:
                     for img in chunk.metadata.image_urls:
-                        if img not in image_urls:
-                            image_urls.append(img)
+                        normalized_img = normalize_cdn_image_url(img)
+                        if normalized_img and normalized_img not in image_urls:
+                            image_urls.append(normalized_img)
                 if chunk.metadata.youtube_info:
                     yt_link = chunk.metadata.youtube_info.display_link
                     if yt_link not in youtube_links:

@@ -1,5 +1,9 @@
+import os
+from pathlib import Path
 from pydantic_settings import BaseSettings
 from typing import Optional
+
+BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 
 class Settings(BaseSettings):
@@ -43,10 +47,10 @@ class Settings(BaseSettings):
     CHROMA_COLLECTION_DN: str = "hdsd_chunks"
     CHROMA_COLLECTION_PHUONG: str = "hdsd_phuong_chunks"
     DEFAULT_COLLECTION: str = "hdsd_phuong_chunks"
-    CHROMA_PERSIST_DIRECTORY: str = "./chroma_data"
+    CHROMA_PERSIST_DIRECTORY: str = str(BACKEND_DIR / "chroma_data")
 
     # Storage Settings
-    IMAGE_STORAGE_PATH: str = "./data/extracted_images"
+    IMAGE_STORAGE_PATH: str = str(BACKEND_DIR / "data" / "extracted_images")
     BASE_IMAGE_CDN_URL: str = "https://chatbothdsd-production.up.railway.app/static/images"
 
     # Redis Cache Settings
@@ -56,7 +60,7 @@ class Settings(BaseSettings):
 
     # Audit & Error Logging Settings
     ENABLE_AUDIT_LOG: bool = True
-    LOG_DIR: str = "./data/logs"
+    LOG_DIR: str = str(BACKEND_DIR / "data" / "logs")
     CHAT_AUDIT_LOG_FILE: str = "chat_audit.jsonl"
     CHAT_ERROR_LOG_FILE: str = "chat_errors.jsonl"
 

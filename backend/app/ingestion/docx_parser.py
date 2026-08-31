@@ -52,6 +52,14 @@ def extract_rich_markdown_paragraph(paragraph) -> str:
     return raw_text
 
 
+def sanitize_ascii_slug(text: str) -> str:
+    import unicodedata
+    nfkd = unicodedata.normalize('NFKD', text)
+    ascii_str = nfkd.encode('ASCII', 'ignore').decode('ASCII')
+    clean = re.sub(r'[^a-zA-Z0-9_\-]', '_', ascii_str).lower()
+    return re.sub(r'_+', '_', clean).strip('_')
+
+
 class DocxParser:
     def parse_docx(self, file_path: str) -> List[DocumentChunk]:
         """
@@ -64,7 +72,7 @@ class DocxParser:
 
         doc = Document(file_path)
         doc_filename = os.path.basename(file_path)
-        doc_prefix = re.sub(r"[^\w\-_]", "_", os.path.splitext(doc_filename)[0])[:30]
+        doc_prefix = sanitize_ascii_slug(os.path.splitext(doc_filename)[0])[:30]
 
         # 1. Extract and map all images by relationship ID (rId)
         rid_to_url = media_extractor.extract_and_map_images(doc, doc_prefix=doc_prefix)
