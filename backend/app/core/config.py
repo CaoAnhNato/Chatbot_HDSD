@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     # Storage Settings
     IMAGE_STORAGE_PATH: str = "./data/extracted_images"
-    BASE_IMAGE_CDN_URL: str = "http://localhost:8000/static/images"
+    BASE_IMAGE_CDN_URL: str = "https://chatbothdsd-production.up.railway.app/static/images"
 
     # Redis Cache Settings
     REDIS_ENABLED: bool = False

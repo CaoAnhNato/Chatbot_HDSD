@@ -55,7 +55,9 @@ class MediaExtractor:
                     with open(filepath, "wb") as f:
                         f.write(part.blob)
 
-                    cdn_url = f"{settings.BASE_IMAGE_CDN_URL}/{filename}"
+                    import urllib.parse
+                    safe_filename = urllib.parse.quote(filename)
+                    cdn_url = f"{settings.BASE_IMAGE_CDN_URL}/{safe_filename}"
                     rid_to_url[rId] = cdn_url
                     
             logger.info(f"Extracted {len(rid_to_url)} images from docx to {self.output_dir}")

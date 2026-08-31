@@ -8,6 +8,7 @@ import { User, Bot, ExternalLink, ZoomIn } from 'lucide-react';
 import { YouTubeEmbed } from './YouTubeEmbed';
 import { ContactCard } from './ContactCard';
 import { QuickActionChips } from './QuickActionChips';
+import { resolveImageUrl } from '@/lib/utils';
 
 interface MessageItemProps {
   message: ChatMessage;
@@ -32,7 +33,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
       text = text.replace(/\[IMAGE_(\d+)\]/g, (match, idxStr) => {
         const idx = parseInt(idxStr, 10) - 1;
         if (idx >= 0 && idx < message.images!.length) {
-          return `\n\n![Ảnh minh họa ${idx + 1}](${message.images![idx]})\n\n`;
+          const imgUrl = resolveImageUrl(message.images![idx]);
+          return `\n\n![Ảnh minh họa ${idx + 1}](${imgUrl})\n\n`;
         }
         return '';
       });
@@ -78,24 +80,28 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
-                  img: ({ node, src, alt, ...props }) => (
-                    <div className="my-3 relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm inline-block max-w-full hover:shadow-md transition">
-                      <img
-                        src={src}
-                        alt={alt || 'UI Preview'}
-                        className="max-h-80 w-auto object-contain cursor-pointer transition-transform group-hover:scale-[1.01]"
-                        onClick={() => src && onImageClick(src, alt || 'Ảnh minh họa')}
-                        {...props}
-                      />
-                      <button
-                        onClick={() => src && onImageClick(src, alt || 'Ảnh minh họa')}
-                        className="absolute bottom-2.5 right-2.5 bg-slate-900/80 hover:bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-md"
-                        title="Xem phóng to"
-                      >
-                        <ZoomIn className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ),
+                  img: ({ node, src, alt, ...props }) => {
+                    const finalSrc = resolveImageUrl(src || '');
+                    return (
+                      <div className="my-3 relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm inline-block max-w-full hover:shadow-md transition">
+                        <img
+                          src={finalSrc}
+                          alt={alt || 'UI Preview'}
+                          className="max-h-80 w-auto object-contain cursor-pointer transition-transform group-hover:scale-[1.01]"
+                          onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
+                          loading="lazy"
+                          {...props}
+                        />
+                        <button
+                          onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
+                          className="absolute bottom-2.5 right-2.5 bg-slate-900/80 hover:bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-md"
+                          title="Xem phóng to"
+                        >
+                          <ZoomIn className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  },
                   a: ({ node, href, children, ...props }) => {
                     const isYouTube = href && (href.includes('youtube.com') || href.includes('youtu.be'));
                     if (isYouTube && href) {

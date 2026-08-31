@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { X } from 'lucide-react';
+import { resolveImageUrl } from '@/lib/utils';
 
 interface MediaViewerProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export const MediaViewer: React.FC<MediaViewerProps> = ({
         </div>
         <div className="p-4 flex items-center justify-center overflow-auto max-h-[calc(90vh-60px)] bg-slate-100/50">
           <img
-            src={imageUrl}
+            src={resolveImageUrl(imageUrl)}
             alt={altText}
             className="max-h-full max-w-full object-contain rounded-xl shadow-md bg-white border border-slate-200"
           />
