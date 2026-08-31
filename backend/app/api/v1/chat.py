@@ -51,9 +51,11 @@ async def export_audit_log():
     """
     Direct download endpoint for the JSONL audit log file.
     """
+    os.makedirs(settings.LOG_DIR, exist_ok=True)
     log_file = os.path.join(settings.LOG_DIR, settings.CHAT_AUDIT_LOG_FILE)
     if not os.path.exists(log_file):
-        raise HTTPException(status_code=404, detail="Audit log file does not exist yet.")
+        with open(log_file, "w", encoding="utf-8") as f:
+            pass  # Create empty file
     return FileResponse(
         path=log_file,
         filename="chat_audit.jsonl",

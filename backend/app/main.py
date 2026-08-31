@@ -19,15 +19,20 @@ async def lifespan(app: FastAPI):
     Automatically warms up Vector Embedding, BM25 Index, and HTTP/2 API session pool on startup.
     Gracefully cleans up network sessions on shutdown.
     """
-    logger.info("🚀 [Startup] Đang khởi động và làm ấm (Warm-up) toàn bộ hệ thống HDSD Chatbot...")
-    try:
-        # 1. Warm up Vector Retrieval (ChromaDB ONNX + BM25 Sparse Index)
-        await rag_service.warmup()
-        # 2. Warm up Qwen LLM API (HTTP/2 Connection Pool & SSL Handshake)
-        await qwen_service.warmup()
-        logger.info("🔥 [Startup] Hoàn tất warm-up hệ thống! Sẵn sàng phục vụ yêu cầu với tốc độ tối đa (TTFT < 1s).")
-    except Exception as e:
-        logger.warning(f"⚠️ [Startup] Có lỗi trong quá trình warm-up: {e}")
+    logger.info("🚀 [Startup] Đang khởi động toàn bộ hệ thống HDSD Chatbot...")
+    
+    async def _do_warmup():
+        try:
+            # 1. Warm up Vector Retrieval (ChromaDB ONNX + BM25 Sparse Index)
+            await rag_service.warmup()
+            # 2. Warm up Qwen LLM API (HTTP/2 Connection Pool & SSL Handshake)
+            await qwen_service.warmup()
+            logger.info("🔥 [Startup] Hoàn tất warm-up hệ thống! Sẵn sàng phục vụ yêu cầu với tốc độ tối đa (TTFT < 1s).")
+        except Exception as e:
+            logger.warning(f"⚠️ [Startup] Có lỗi trong quá trình warm-up: {e}")
+
+    # Launch warmup in background so port binds immediately (< 500ms)
+    asyncio.create_task(_do_warmup())
 
     yield
 
