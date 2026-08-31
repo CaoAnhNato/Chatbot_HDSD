@@ -30,8 +30,9 @@ class Settings(BaseSettings):
     USE_REMOTE_EMBEDDING: bool = False
 
     # Cloud Database & Supabase Settings
-    DATABASE_URL: Optional[str] = None
-    SUPABASE_URL: Optional[str] = None
+    DATABASE_URL: Optional[str] = "postgresql://postgres:cEzQV7AuXRXnmxGb@db.tykwgiubhnxedlpxszdn.supabase.co:5432/postgres"
+    SUPABASE_URL: Optional[str] = "https://tykwgiubhnxedlpxszdn.supabase.co"
+    SUPABASE_PASS: str = "cEzQV7AuXRXnmxGb"
     SUPABASE_ANON_KEY: Optional[str] = None
 
     # Vector Database Settings
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
     VERCEL_FRONTEND_URL: str = "https://chatbot-hdsd.vercel.app"
     RAILWAY_BACKEND_URL: str = "https://chatbot-hdsd-backend.up.railway.app"
     CORS_ORIGINS: str = "http://localhost:3000,https://chatbot-hdsd.vercel.app"
-
+    
     class Config:
         env_file = (".env", "../.env", "backend/.env")
         env_file_encoding = "utf-8"
