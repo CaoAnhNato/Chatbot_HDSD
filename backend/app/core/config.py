@@ -63,8 +63,8 @@ class Settings(BaseSettings):
     # Deployment & CI/CD Metadata
     GITHUB_REPO_URL: str = "https://github.com/CaoAnhNato/Chatbot_HDSD.git"
     VERCEL_FRONTEND_URL: str = "https://chatbot-hdsd.vercel.app"
-    RAILWAY_BACKEND_URL: str = "https://chatbot-hdsd-backend.up.railway.app"
-    CORS_ORIGINS: str = "http://localhost:3000,https://chatbot-hdsd.vercel.app"
+    RAILWAY_BACKEND_URL: str = "https://chatbothdsd-production.up.railway.app"
+    CORS_ORIGINS: str = "http://localhost:3000,https://chatbot-hdsd.vercel.app,https://chatbothdsd-production.up.railway.app"
     
     class Config:
         env_file = (".env", "../.env", "backend/.env")
