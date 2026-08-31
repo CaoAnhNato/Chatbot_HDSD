@@ -19,6 +19,7 @@ from app.services.intent_router import (
 from app.services.suggestion_service import suggestion_service
 from app.services.qwen_service import qwen_service
 from app.services.cqr_service import cqr_service
+from app.services.chat_history_service import chat_history_service
 from app.core.audit_logger import audit_logger
 from app.utils.prompts import format_context_for_prompt
 from app.utils.prompt_templates import build_qa_system_prompt, FACTOID_NANSWER_TAG, STANDARD_ESCALATION_TEXT
@@ -79,6 +80,42 @@ class RAGService:
         if collection_name not in self.retrievers:
             self.retrievers[collection_name] = HybridRetriever(chroma_store=ChromaVectorStore(collection_name=collection_name))
         return self.retrievers[collection_name]
+
+    def _dispatch_save_history(
+        self,
+        session_id: str,
+        user_query: str,
+        answer: str,
+        intent: str,
+        role: str = "phuong",
+        images: Optional[List[str]] = None,
+        youtube_links: Optional[List[str]] = None,
+        quick_action_chips: Optional[List[Any]] = None,
+        contact_support: Optional[ContactSupportInfo] = None,
+        source_chunks: Optional[List[Any]] = None
+    ):
+        """Dispatches non-blocking async persistence to Supabase."""
+        try:
+            resp = ChatResponse(
+                session_id=session_id,
+                answer=answer,
+                intent=intent,
+                images=images or [],
+                youtube_links=youtube_links or [],
+                quick_action_chips=quick_action_chips or [],
+                contact_support=contact_support,
+                source_chunks=[c.model_dump() if hasattr(c, "model_dump") else c for c in (source_chunks or [])]
+            )
+            asyncio.create_task(
+                chat_history_service.save_chat_interaction_async(
+                    session_id=session_id,
+                    user_query=user_query,
+                    bot_response=resp,
+                    role=role
+                )
+            )
+        except Exception as e:
+            logger.error(f"Failed to dispatch chat history persistence: {e}")
 
     async def warmup(self):
         """Warms up embedding, vectorstores, and sparse index."""
@@ -167,6 +204,14 @@ class RAGService:
                     execution_time_ms=elapsed_ms
                 )
                 suggested_chips = suggestion_service.get_suggested_chips(query=query, limit=3)
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=refusal_reason,
+                    intent="security_violation",
+                    role=role,
+                    quick_action_chips=suggested_chips
+                )
                 return ChatResponse(
                     session_id=session_id,
                     answer=refusal_reason,
@@ -187,6 +232,14 @@ class RAGService:
                     execution_time_ms=elapsed_ms
                 )
                 chips = intent_res.quick_action_chips or suggestion_service.get_suggested_chips(query=query, limit=3)
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=intent_res.direct_answer,
+                    intent=intent_res.intent,
+                    role=role,
+                    quick_action_chips=chips
+                )
                 return ChatResponse(
                     session_id=session_id,
                     answer=intent_res.direct_answer,
@@ -210,6 +263,15 @@ class RAGService:
                     query=query,
                     target_module="LIÊN HỆ HỖ TRỢ",
                     limit=3
+                )
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=answer,
+                    intent=intent_res.intent,
+                    role=role,
+                    contact_support=contact_info,
+                    quick_action_chips=suggested_chips
                 )
                 return ChatResponse(
                     session_id=session_id,
@@ -275,6 +337,18 @@ class RAGService:
                     status="SUCCESS",
                     execution_time_ms=elapsed_ms
                 )
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=answer,
+                    intent="knowledge_query",
+                    role=role,
+                    images=image_urls,
+                    youtube_links=youtube_links,
+                    quick_action_chips=suggested_chips,
+                    contact_support=contact_info if is_contact_inquiry else None,
+                    source_chunks=chunks
+                )
                 return ChatResponse(
                     session_id=session_id,
                     answer=answer,
@@ -318,6 +392,16 @@ class RAGService:
                     status="FALLBACK_SUPPORT",
                     execution_time_ms=elapsed_ms
                 )
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=nanswer_text,
+                    intent="factoid_nanswer",
+                    role=role,
+                    contact_support=contact_info,
+                    quick_action_chips=suggested_chips,
+                    source_chunks=chunks
+                )
                 return ChatResponse(
                     session_id=session_id,
                     answer=nanswer_text,
@@ -336,6 +420,17 @@ class RAGService:
                 intent="knowledge_query_targeted_qa",
                 status="SUCCESS",
                 execution_time_ms=elapsed_ms
+            )
+
+            self._dispatch_save_history(
+                session_id=session_id,
+                user_query=raw_query,
+                answer=cleaned_answer,
+                intent="knowledge_query",
+                role=role,
+                quick_action_chips=suggested_chips,
+                contact_support=contact_info if is_contact_inquiry else None,
+                source_chunks=chunks
             )
 
             return ChatResponse(
@@ -360,6 +455,14 @@ class RAGService:
                 intent="error_fallback",
                 status="ERROR",
                 execution_time_ms=elapsed_ms
+            )
+            self._dispatch_save_history(
+                session_id=session_id,
+                user_query=raw_query,
+                answer=fallback_answer,
+                intent="error_fallback",
+                role=role,
+                contact_support=contact_info
             )
             return ChatResponse(
                 session_id=session_id,
@@ -409,6 +512,13 @@ class RAGService:
                     "intent": "guardrail_triggered"
                 })
                 yield sse_event("token", {"content": guardrail_msg})
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=guardrail_msg,
+                    intent="guardrail_triggered",
+                    role=role
+                )
                 yield sse_event("done", {
                     "session_id": session_id,
                     "full_answer": guardrail_msg
@@ -440,6 +550,15 @@ class RAGService:
                 for line in lines:
                     yield sse_event("token", {"content": line + "\n"})
                     await asyncio.sleep(0.005)
+
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=intent_res.direct_answer,
+                    intent=intent_res.intent,
+                    role=role,
+                    quick_action_chips=intent_res.quick_action_chips
+                )
 
                 yield sse_event("done", {
                     "session_id": session_id,
@@ -475,6 +594,15 @@ class RAGService:
                     "quick_action_chips": [c.model_dump() for c in suggested_chips]
                 })
                 yield sse_event("token", {"content": answer})
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=answer,
+                    intent=intent_res.intent,
+                    role=role,
+                    contact_support=contact_info,
+                    quick_action_chips=suggested_chips
+                )
                 yield sse_event("done", {
                     "session_id": session_id,
                     "full_answer": answer
@@ -561,6 +689,19 @@ class RAGService:
                     execution_time_ms=elapsed_ms
                 )
 
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=final_answer,
+                    intent="knowledge_query",
+                    role=role,
+                    images=image_urls,
+                    youtube_links=youtube_links,
+                    quick_action_chips=suggested_chips,
+                    contact_support=contact_info if is_contact_inquiry else None,
+                    source_chunks=chunks
+                )
+
                 yield sse_event("done", {
                     "session_id": session_id,
                     "full_answer": final_answer,
@@ -642,6 +783,17 @@ class RAGService:
                     execution_time_ms=elapsed_ms
                 )
 
+                self._dispatch_save_history(
+                    session_id=session_id,
+                    user_query=raw_query,
+                    answer=nanswer_text,
+                    intent="factoid_nanswer",
+                    role=role,
+                    contact_support=contact_info,
+                    quick_action_chips=suggested_chips,
+                    source_chunks=chunks
+                )
+
                 yield sse_event("done", {
                     "session_id": session_id,
                     "full_answer": nanswer_text,
@@ -666,6 +818,17 @@ class RAGService:
                 execution_time_ms=elapsed_ms
             )
 
+            self._dispatch_save_history(
+                session_id=session_id,
+                user_query=raw_query,
+                answer=cleaned_answer,
+                intent="knowledge_query",
+                role=role,
+                quick_action_chips=suggested_chips,
+                contact_support=contact_info if is_contact_inquiry else None,
+                source_chunks=chunks
+            )
+
             yield sse_event("done", {
                 "session_id": session_id,
                 "full_answer": cleaned_answer,
@@ -680,6 +843,14 @@ class RAGService:
             elapsed_ms = (time.perf_counter() - start_time) * 1000
             logger.error(f"Error in chat stream: {e}", exc_info=True)
             fallback_answer = "Hệ thống đang tạm thời gián đoạn xử lý. Vui lòng thử lại sau giây lát hoặc liên hệ bộ phận hỗ trợ kỹ thuật:"
+            self._dispatch_save_history(
+                session_id=session_id,
+                user_query=raw_query,
+                answer=fallback_answer,
+                intent="error_fallback",
+                role=role,
+                contact_support=contact_info
+            )
             yield sse_event("token", {"content": fallback_answer})
             yield sse_event("done", {
                 "session_id": session_id,
