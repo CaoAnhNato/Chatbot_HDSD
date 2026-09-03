@@ -1,8 +1,6 @@
 # MODULE 05: SINGLE-PASS MULTI-ASPECT STRATEGY & DOMAIN ROUTER
 
-> **Tài liệu Kỹ thuật Chi tiết - Phân hệ Định tuyến Chiến lược & Phân hệ Nghiệp vụ Đa chiều**
-> **Tài liệu gốc tham chiếu:** [SYSTEM_DOCUMENTATION.md](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/Bussiness_Rules/docs/SYSTEM_DOCUMENTATION.md)
-> **Quy chuẩn thiết kế:** [CHATBOT_SYSTEM_DESIGN_STANDARDS.md](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/Bussiness_Rules/docs/CHATBOT_SYSTEM_DESIGN_STANDARDS.md)
+> **Đặc tả kiến trúc toàn diện:** [PROJECT_CANVAS_ARCHITECTURE.md](../PROJECT_CANVAS_ARCHITECTURE.md)
 
 ---
 

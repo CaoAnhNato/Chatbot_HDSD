@@ -66,3 +66,12 @@ backend/data/logs/*
 *.swo
 .DS_Store
 Thumbs.db
+
+# Internal Progress, Drafts & Slide Documents
+Bussiness_Rules/docs/PROJECT_PROGRESS_SUMMARY.md
+Bussiness_Rules/docs/SRS*.pdf
+Bussiness_Rules/docs/tieu-du-an-slides.docx
+Bussiness_Rules/docs/fail_case.md
+Bussiness_Rules/docs/chat.md
+Bussiness_Rules/docs/test_case.md
+Bussiness_Rules/docs/image/fail_case/
