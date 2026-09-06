@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, ChatSession, QuickActionChip } from '@/types/chat';
-import { sendMessageStream } from '@/lib/api';
+import { sendMessageStream, fetchChatSessions, fetchSessionHistory } from '@/lib/api';
 import {
   loadSessions,
   saveSession,
@@ -87,9 +87,28 @@ export const ChatContainer: React.FC = () => {
     altText: '',
   });
 
-  // Tải danh sách lịch sử phiên khi khởi động
+  // Tải danh sách lịch sử phiên khi khởi động (Local trước để hiện tức thì, sau đó đồng bộ từ Cloud Supabase)
   useEffect(() => {
-    setSessions(loadSessions());
+    const initSessions = async () => {
+      const local = loadSessions();
+      if (local.length > 0) {
+        setSessions(local);
+      }
+      try {
+        const cloudSessions = await fetchChatSessions();
+        if (cloudSessions && cloudSessions.length > 0) {
+          // Bảo lưu messages đã có trong local nếu cloud chỉ trả về summary rỗng
+          const merged = cloudSessions.map((cs) => {
+            const found = local.find((ls) => ls.id === cs.id);
+            return found && found.messages && found.messages.length > 0 ? found : cs;
+          });
+          setSessions(merged);
+        }
+      } catch (err) {
+        console.warn('Could not sync sessions from cloud, keeping local state:', err);
+      }
+    };
+    initSessions();
   }, []);
 
   // Hàm lưu phiên hội thoại độc lập (pure helper)
@@ -112,7 +131,15 @@ export const ChatContainer: React.FC = () => {
     };
 
     saveSession(sessionObj);
-    setSessions(loadSessions());
+    setSessions((prev) => {
+      const idx = prev.findIndex((s) => s.id === sid);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = sessionObj;
+        return copy;
+      }
+      return [sessionObj, ...prev];
+    });
   };
 
   const handleRoleChange = (newRole: 'phuong' | 'dn') => {
@@ -128,9 +155,25 @@ export const ChatContainer: React.FC = () => {
     setMessages([getWelcomeMessage(activeRole)]);
   };
 
-  const handleSelectSession = (session: ChatSession) => {
+  const handleSelectSession = async (session: ChatSession) => {
     setActiveRole(session.role);
     setSessionId(session.id);
+
+    // Nếu phiên chưa có messages (do tải summary từ Cloud), gọi API lấy toàn bộ tin nhắn
+    if (!session.messages || session.messages.length === 0) {
+      try {
+        const msgs = await fetchSessionHistory(session.id);
+        if (msgs && msgs.length > 0) {
+          setMessages(msgs);
+          session.messages = msgs;
+          saveSession(session);
+          return;
+        }
+      } catch (err) {
+        console.warn(`Could not load messages for session ${session.id}:`, err);
+      }
+    }
+
     setMessages(session.messages && session.messages.length > 0 ? session.messages : [getWelcomeMessage(session.role)]);
   };
 

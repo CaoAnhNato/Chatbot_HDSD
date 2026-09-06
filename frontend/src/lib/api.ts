@@ -1,5 +1,5 @@
 import axios from "axios";
-import { ChatApiResponse } from "@/types/chat";
+import { ChatApiResponse, ChatSession, ChatMessage } from "@/types/chat";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -9,6 +9,35 @@ const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+export const fetchChatSessions = async (limit: number = 50): Promise<ChatSession[]> => {
+  try {
+    const response = await apiClient.get(`/chat/sessions?limit=${limit}`);
+    if (response.data && response.data.success) {
+      return response.data.data;
+    }
+    return [];
+  } catch (err) {
+    console.warn("Failed to fetch chat sessions from server:", err);
+    return [];
+  }
+};
+
+export const fetchSessionHistory = async (sessionId: string): Promise<ChatMessage[]> => {
+  try {
+    const response = await apiClient.get(`/chat/history/${sessionId}`);
+    if (response.data && response.data.success) {
+      return response.data.data.map((m: any) => ({
+        ...m,
+        timestamp: m.timestamp || m.created_at || new Date().toISOString(),
+      }));
+    }
+    return [];
+  } catch (err) {
+    console.warn(`Failed to fetch session history for ${sessionId}:`, err);
+    return [];
+  }
+};
 
 export const sendMessageToBot = async (
   query: string,

@@ -230,14 +230,39 @@ class HybridRetriever:
         logger.info(f"Hybrid search returned {len(result_chunks)} chunks for query '{query}' (Target: {target_module}, Conf: {confidence_score:.2f}, PreferChild: {prefer_child})")
         return result_chunks
 
-    def get_parent_chunk_by_module(self, module_name: str) -> Optional[DocumentChunk]:
-        """Trích xuất trực tiếp Parent Chunk của một module cho Mode A (< 1ms)."""
+    def get_parent_chunk_by_module(self, module_name: str, query: Optional[str] = None) -> Optional[DocumentChunk]:
+        """
+        Trích xuất trực tiếp Parent Chunk của một module cho Mode A (< 1ms).
+        Tự động bỏ qua các heading/mục lục rỗng (< 100 ký tự) và phân giải nhánh con chính xác theo query.
+        """
         self._ensure_bm25_index()
         norm_mod = module_name.strip().lower()
+        candidates: List[DocumentChunk] = []
+
         for chunk in self.corpus_chunks:
             if not chunk.metadata.is_child:
                 sec_title = (chunk.metadata.section_title or "").strip().lower()
                 mod_name = (chunk.metadata.module or "").strip().lower()
                 if norm_mod == sec_title or norm_mod == mod_name or norm_mod in sec_title:
-                    return chunk
-        return None
+                    # Bỏ qua các heading rỗng chỉ có vài chục ký tự
+                    if len(chunk.text_content.strip()) > 100:
+                        candidates.append(chunk)
+
+        if not candidates:
+            return None
+
+        if len(candidates) == 1 or not query:
+            return candidates[0]
+
+        # Phân giải đa nhánh (ví dụ: Báo cáo TNLĐ vs Báo cáo ATVSLĐ) dựa trên độ trùng khớp từ khóa trong query
+        norm_query = query.strip().lower()
+        scored = []
+        for c in candidates:
+            sec_title = (c.metadata.section_title or "").strip().lower()
+            keywords = [w for w in sec_title.replace("-", " ").replace(".", " ").split() if len(w) > 2]
+            score = sum(1 for kw in keywords if kw in norm_query)
+            scored.append((score, c))
+
+        scored.sort(key=lambda x: x[0], reverse=True)
+        return scored[0][1]
+

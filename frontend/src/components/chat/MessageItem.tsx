@@ -137,14 +137,14 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               >
                 {processedContent}
               </ReactMarkdown>
-            ) : (
+            ) : !message.contact_support ? (
               <div className="flex items-center gap-2 py-1 text-slate-500">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse delay-150"></span>
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse delay-300"></span>
                 <span className="text-xs ml-1 text-slate-500 font-medium">Đang tra cứu tài liệu HDSD...</span>
               </div>
-            )}
+            ) : null}
 
             {message.quick_action_chips && onSelectChip && (
               <QuickActionChips chips={message.quick_action_chips} onSelect={onSelectChip} />

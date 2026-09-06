@@ -151,6 +151,7 @@ class ChatHistoryService:
                     rows = cur.fetchall()
                     messages = []
                     for r in rows:
+                        created_iso = r[8].isoformat() if r[8] else None
                         messages.append({
                             "id": str(r[0]),
                             "role": r[1],
@@ -160,11 +161,39 @@ class ChatHistoryService:
                             "youtube_links": r[5] or [],
                             "quick_action_chips": r[6] or [],
                             "contact_support": r[7],
-                            "created_at": r[8].isoformat() if r[8] else None
+                            "created_at": created_iso,
+                            "timestamp": created_iso
                         })
                     return messages
         except Exception as e:
             logger.error(f"Failed to retrieve session messages for {session_id}: {e}")
+            return []
+
+    def get_all_sessions(self, limit: int = 50) -> List[dict]:
+        """Fetch latest chat sessions summary from Supabase."""
+        try:
+            with self._get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        SELECT id, role, title, created_at, updated_at
+                        FROM chat_sessions
+                        ORDER BY updated_at DESC
+                        LIMIT %s;
+                    """, (limit,))
+                    rows = cur.fetchall()
+                    sessions = []
+                    for r in rows:
+                        sessions.append({
+                            "id": str(r[0]),
+                            "role": r[1] or "dn",
+                            "title": r[2] or "Cuộc hội thoại",
+                            "createdAt": r[3].isoformat() if r[3] else None,
+                            "updatedAt": r[4].isoformat() if r[4] else None,
+                            "messages": []
+                        })
+                    return sessions
+        except Exception as e:
+            logger.error(f"Failed to retrieve sessions from Supabase: {e}")
             return []
 
 

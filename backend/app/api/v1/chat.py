@@ -79,3 +79,21 @@ async def get_session_history(session_id: str):
         logger.error(f"Failed to fetch session history for {session_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@router.get("/sessions")
+async def get_all_sessions(limit: int = 50):
+    """
+    Retrieves latest chat sessions summary directly from Supabase PostgreSQL.
+    """
+    try:
+        sessions = chat_history_service.get_all_sessions(limit=limit)
+        return ApiResponse(
+            success=True,
+            message=f"Retrieved {len(sessions)} sessions",
+            data=sessions
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch sessions: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+

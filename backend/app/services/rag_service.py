@@ -143,7 +143,7 @@ class RAGService:
         retriever = self.get_retriever(collection_name=collection, role=role)
 
         if strategy == STRATEGY_PROCEDURAL_EXTRACTIVE and target_module:
-            parent_chunk = retriever.get_parent_chunk_by_module(target_module)
+            parent_chunk = retriever.get_parent_chunk_by_module(target_module, query=query)
             if parent_chunk:
                 return [parent_chunk]
 
@@ -203,7 +203,7 @@ class RAGService:
                     status="REFUSED_SAFETY",
                     execution_time_ms=elapsed_ms
                 )
-                suggested_chips = suggestion_service.get_suggested_chips(query=query, limit=3)
+                suggested_chips = suggestion_service.get_suggested_chips(query=query, role=role, limit=3)
                 self._dispatch_save_history(
                     session_id=session_id,
                     user_query=raw_query,
@@ -231,7 +231,7 @@ class RAGService:
                     status="SUCCESS",
                     execution_time_ms=elapsed_ms
                 )
-                chips = intent_res.quick_action_chips or suggestion_service.get_suggested_chips(query=query, limit=3)
+                chips = intent_res.quick_action_chips or suggestion_service.get_suggested_chips(query=query, role=role, limit=3)
                 self._dispatch_save_history(
                     session_id=session_id,
                     user_query=raw_query,
@@ -261,6 +261,7 @@ class RAGService:
                 )
                 suggested_chips = suggestion_service.get_suggested_chips(
                     query=query,
+                    role=role,
                     target_module="LIÊN HỆ HỖ TRỢ",
                     limit=3
                 )
@@ -313,6 +314,7 @@ class RAGService:
             # 5. Determine 3 Suggested Follow-up Action Chips
             suggested_chips = suggestion_service.get_suggested_chips(
                 query=query,
+                role=role,
                 target_module=target_module,
                 primary_chunk=chunks[0] if chunks else None,
                 limit=3
@@ -322,11 +324,14 @@ class RAGService:
 
             # MODE A: Procedural Extractive Verbatim (< 50ms) -> Bypass LLM hoàn toàn, kèm Ảnh & Video
             if strategy == STRATEGY_PROCEDURAL_EXTRACTIVE and chunks:
-                primary_chunk = chunks[0]
-                raw_content = primary_chunk.text_content
-                cleaned_body = clean_display_content(raw_content)
-                intro = f"Dưới đây là hướng dẫn chi tiết quy trình **{primary_chunk.metadata.section_title}** trên hệ thống:\n\n"
-                answer = intro + cleaned_body
+                if is_contact_inquiry:
+                    answer = ""
+                else:
+                    primary_chunk = chunks[0]
+                    raw_content = primary_chunk.text_content
+                    cleaned_body = clean_display_content(raw_content)
+                    intro = f"Dưới đây là hướng dẫn chi tiết quy trình **{primary_chunk.metadata.section_title}** trên hệ thống:\n\n"
+                    answer = intro + cleaned_body
 
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
                 audit_logger.log_interaction(
@@ -584,6 +589,7 @@ class RAGService:
                 )
                 suggested_chips = suggestion_service.get_suggested_chips(
                     query=query,
+                    role=role,
                     target_module="LIÊN HỆ HỖ TRỢ",
                     limit=3
                 )
@@ -641,6 +647,7 @@ class RAGService:
             # 5. Determine 3 Suggested Follow-up Action Chips
             suggested_chips = suggestion_service.get_suggested_chips(
                 query=query,
+                role=role,
                 target_module=target_module,
                 primary_chunk=chunks[0] if chunks else None,
                 limit=3
@@ -665,20 +672,24 @@ class RAGService:
 
             # MODE A: Procedural Extractive Verbatim Stream (< 50ms) -> Trả về trực tiếp, bypass LLM
             if strategy == STRATEGY_PROCEDURAL_EXTRACTIVE and chunks:
-                primary_chunk = chunks[0]
-                raw_content = primary_chunk.text_content
-                cleaned_body = clean_display_content(raw_content)
-                intro = f"Dưới đây là hướng dẫn chi tiết quy trình **{primary_chunk.metadata.section_title}** trên hệ thống:\n\n"
-                full_text = intro + cleaned_body
+                if is_contact_inquiry:
+                    final_answer = ""
+                else:
+                    primary_chunk = chunks[0]
+                    raw_content = primary_chunk.text_content
+                    cleaned_body = clean_display_content(raw_content)
+                    intro = f"Dưới đây là hướng dẫn chi tiết quy trình **{primary_chunk.metadata.section_title}** trên hệ thống:\n\n"
+                    full_text = intro + cleaned_body
 
-                lines = full_text.split("\n")
-                for line in lines:
-                    accumulated_answer.append(line + "\n")
-                    yield sse_event("token", {"content": line + "\n"})
-                    await asyncio.sleep(0.008)
+                    lines = full_text.split("\n")
+                    for line in lines:
+                        accumulated_answer.append(line + "\n")
+                        yield sse_event("token", {"content": line + "\n"})
+                        await asyncio.sleep(0.008)
+
+                    final_answer = "".join(accumulated_answer).strip()
 
                 elapsed_ms = (time.perf_counter() - start_time) * 1000
-                final_answer = "".join(accumulated_answer).strip()
 
                 audit_logger.log_interaction(
                     session_id=session_id,
