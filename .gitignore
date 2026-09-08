@@ -75,3 +75,13 @@ Bussiness_Rules/docs/fail_case.md
 Bussiness_Rules/docs/chat.md
 Bussiness_Rules/docs/test_case.md
 Bussiness_Rules/docs/image/fail_case/
+
+# Local SQLite & Runtime DB
+backend/data/*.db
+*.db
+*.tsbuildinfo
+
+# External References
+/GovGraph/
+/chat/
+/data/

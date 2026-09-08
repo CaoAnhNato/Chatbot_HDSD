@@ -8,6 +8,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Multimodal HDSD Chatbot Assistant"
+    BACKEND_DIR: Path = BACKEND_DIR
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     PORT: int = 8000
@@ -31,13 +32,29 @@ class Settings(BaseSettings):
     EMBEDDING_DIMENSION: int = 1024
     HF_SPACE_URL: str = "https://hf.co/spaces/Nato1306/vietnamese-embedding-api"
     HF_EMBEDDING_API_URL: str = "https://nato1306-vietnamese-embedding-api.hf.space"
+    HF_TOKEN: str = "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"
     USE_REMOTE_EMBEDDING: bool = False
 
-    # Cloud Database & Supabase Settings
-    DATABASE_URL: Optional[str] = "postgresql://postgres:cEzQV7AuXRXnmxGb@db.tykwgiubhnxedlpxszdn.supabase.co:5432/postgres"
+
+    # Database Settings (Local SQLite vs Cloud PostgreSQL)
+    DATABASE_URL: Optional[str] = None
     SUPABASE_URL: Optional[str] = "https://tykwgiubhnxedlpxszdn.supabase.co"
     SUPABASE_PASS: str = "cEzQV7AuXRXnmxGb"
     SUPABASE_ANON_KEY: Optional[str] = None
+
+    @property
+    def effective_database_url(self) -> Optional[str]:
+        """Trả về DATABASE_URL cho Cloud, hoặc None cho Local Development để dùng SQLite."""
+        if self.ENVIRONMENT == "development" and not os.environ.get("DATABASE_URL"):
+            return None
+        return self.DATABASE_URL
+
+    @property
+    def effective_image_cdn_url(self) -> str:
+        """Tự động chuyển đổi giữa Local Static Server (development) và Cloud CDN (production)."""
+        if self.ENVIRONMENT == "development":
+            return f"http://localhost:{self.PORT}/static/images"
+        return self.BASE_IMAGE_CDN_URL
 
     # Vector Database Settings
     VECTOR_DB_TYPE: str = "chroma"  # "chroma", "qdrant", or "pgvector"
@@ -77,3 +94,8 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if settings.HF_TOKEN:
+    os.environ["HF_TOKEN"] = settings.HF_TOKEN
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = settings.HF_TOKEN
+

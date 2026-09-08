@@ -52,7 +52,7 @@ def normalize_cdn_image_url(url: str) -> str:
         filename = clean_url
     unquoted = urllib.parse.unquote(filename)
     safe_filename = urllib.parse.quote(unquoted)
-    return f"{settings.BASE_IMAGE_CDN_URL}/{safe_filename}"
+    return f"{settings.effective_image_cdn_url}/{safe_filename}"
 
 
 class RAGService:

@@ -26,6 +26,7 @@ Phân loại câu hỏi của người dùng thành:
 
 2. "target_module" (CHỈ CHỌN 1 TRONG CÁC PHÂN HỆ CHÍNH THỨC SAU, nếu không thuộc danh sách thì bắt buộc để null):
 {modules_bullet}
+* QUY TẮC BẮT BUỘC: Nếu câu hỏi của người dùng nói chung chung về một nghiệp vụ có nhiều phân hệ con (ví dụ: 'báo cáo tai nạn', 'khai báo tai nạn' nhưng KHÔNG nêu rõ 'định kỳ' hay 'đột xuất'), TUYỆT ĐỐI KHÔNG tự ý suy đoán chọn một module cụ thể. Bắt buộc đặt "target_module": null.
 
 3. "strategy":
    - "procedural_extractive": BẤT KỲ KHI NÀO người dùng hỏi về CÁCH THỰC HIỆN, VỊ TRÍ TRUY CẬP, NƠI BẮT ĐẦU THAO TÁC, HƯỚNG DẪN QUY TRÌNH (ví dụ: 'đổi mật khẩu ở đâu', 'đổi mật khẩu chỗ nào', 'sửa thông tin tài khoản cấp dưới ở đâu', 'làm sao để đăng ký', 'các bước báo cáo', 'vào đâu để...', 'bấm vào đâu để...', 'hướng dẫn tạo tài khoản') của một phân hệ nghiệp vụ chính thức.

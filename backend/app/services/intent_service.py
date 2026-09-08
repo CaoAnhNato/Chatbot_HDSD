@@ -7,6 +7,7 @@ from app.models.chat import QuickActionChip
 from app.services.qwen_service import qwen_service
 from app.core.domain_registry import domain_registry
 from app.utils.prompt_templates import build_router_system_prompt
+from app.services.semantic_router import semantic_router
 from app.core.logger import logger
 
 SECURITY_PATTERNS = [
@@ -52,29 +53,7 @@ STANDARD_CAPABILITY_CHIPS_DN = [
 STANDARD_CAPABILITY_CHIPS = STANDARD_CAPABILITY_CHIPS_PHUONG
 
 
-class IntentResult:
-    def __init__(
-        self,
-        intent: str,
-        direct_answer: Optional[str] = None,
-        quick_action_chips: Optional[List[QuickActionChip]] = None,
-        confidence_score: float = 1.0,
-        matched_exemplar: Optional[str] = None,
-        all_scores: Optional[Dict[str, float]] = None,
-        target_module: Optional[str] = None,
-        strategy: str = "targeted_qa"
-    ):
-        self.intent = intent
-        self.direct_answer = direct_answer
-        self.quick_action_chips = quick_action_chips
-        self.confidence_score = confidence_score
-        self.matched_exemplar = matched_exemplar  # Chứa lý do phân loại từ AI Router
-        self.all_scores = all_scores or {intent: confidence_score}
-        self.target_module = target_module
-        self.strategy = strategy
-
-    def __iter__(self):
-        return iter((self.intent, self.direct_answer))
+from app.models.intent import IntentResult
 
 
 class IntentService:
@@ -345,8 +324,21 @@ class IntentService:
         return None
 
     def _check_ambiguity(self, normalized: str, role: str = "phuong") -> Optional[IntentResult]:
-        """Tầng 0.6: Phát hiện câu hỏi mơ hồ/thiếu thực thể và kích hoạt làm rõ (Make-Clear)."""
+        """
+        Tầng 0.6: Phát hiện câu hỏi mơ hồ/thiếu thực thể và kích hoạt làm rõ (Make-Clear).
+        Áp dụng mô hình Multi-tier:
+        1. Fast-path: Regex Pre-stripping loại bỏ từ đệm giao tiếp + exact match danh sách lõi (< 0.05ms).
+        2. Deep Semantic Match: DenseSemanticRouter (AITeamVN Embedding Cosine Similarity).
+        """
         clean = normalized.strip()
+
+        # Tầng 0.55: Pre-stripping tiền tố giao tiếp tự nhiên (hỗ trợ bóc tách lồng nhau đa tầng)
+        PREFIX_PATTERN = r"^(cho\s+(tôi|em|mình|ad)(\s+(xin|xem|hỏi))?|(tôi|em|mình|ad)?\s*muốn\s+(xem|biết|hỏi|tìm)|làm\s+ơn\s+(cho|hướng\s+dẫn)?|xin|hướng\s+dẫn|quy\s+trình|cách|tìm|về|xem)\s+"
+        prev_clean = ""
+        core_clean = clean
+        while prev_clean != core_clean:
+            prev_clean = core_clean
+            core_clean = re.sub(PREFIX_PATTERN, "", core_clean).strip()
 
         # 1. Mơ hồ về Báo cáo Tai nạn lao động (Phường/Xã hoặc Doanh nghiệp)
         tnld_general = [
@@ -356,8 +348,17 @@ class IntentService:
             "báo cáo tnld", "bao cao tnlđ",
             "tai nạn lao động", "tai nan lao dong", "tnlđ", "tnld"
         ]
-        has_general_tnld = any(clean == k or clean == f"hướng dẫn {k}" or clean == f"quy trình {k}" or clean == f"cách {k}" for k in tnld_general)
-        is_specific_type = any(t in clean for t in ["định kỳ", "dinh ky", "đột xuất", "dot xuat", "sơ lược", "nạn nhân", "nghề nghiệp", "phường/xã", "thông tin phường"])
+        has_general_tnld = any(
+            clean == k or core_clean == k or clean == f"hướng dẫn {k}" or clean == f"quy trình {k}" or clean == f"cách {k}"
+            for k in tnld_general
+        )
+        is_specific_type = any(
+            t in clean for t in [
+                "định kỳ", "dinh ky", "đột xuất", "dot xuat", "sơ lược", "nạn nhân",
+                "nghề nghiệp", "phường/xã", "thông tin phường", "kích thước", "file",
+                "đính kèm", "dung lượng", "bao nhiêu", "ở đâu"
+            ]
+        )
 
         if has_general_tnld and not is_specific_type:
             if role == "phuong":
@@ -393,10 +394,23 @@ class IntentService:
         account_general = [
             "tài khoản", "tai khoan",
             "tài khoản phường", "tai khoan phuong",
-            "tài khoản phường xã", "tai khoan phuong xa"
+            "tài khoản phường xã", "tai khoan phuong xa",
+            "thao tác tài khoản", "thao tac tai khoan",
+            "quản lý tài khoản", "quan ly tai khoan",
+            "thông tin tài khoản", "thong tin tai khoan"
         ]
-        has_general_acc = any(clean == k or clean == f"hướng dẫn {k}" or clean == f"thao tác {k}" for k in account_general)
-        is_specific_acc = any(t in clean for t in ["tạo", "tao", "mới", "moi", "sửa", "sua", "chỉnh", "chinh", "khôi phục", "khoi phuc", "quên", "quen", "xóa", "xoa", "tổng quan", "tong quan", "chức năng"])
+        has_general_acc = any(
+            clean == k or core_clean == k or clean == f"hướng dẫn {k}" or clean == f"thao tác {k}"
+            for k in account_general
+        )
+        is_specific_acc = any(
+            t in clean for t in [
+                "tạo", "tao", "mới", "moi", "sửa", "sua", "chỉnh", "chinh",
+                "khôi phục", "khoi phuc", "quên", "quen", "xóa", "xoa",
+                "tổng quan", "tong quan", "chức năng", "đổi mật khẩu", "doi mat khau",
+                "cá nhân", "ca nhan", "cán bộ", "can bo"
+            ]
+        )
 
         if role == "phuong" and has_general_acc and not is_specific_acc:
             return IntentResult(
@@ -414,6 +428,14 @@ class IntentService:
                 target_module=None,
                 strategy="targeted_qa"
             )
+
+        # 3. Tầng 0.6: Dense Semantic Router (Deep Embedding Similarity)
+        try:
+            semantic_result = semantic_router.match_ambiguity(clean, role=role)
+            if semantic_result is not None:
+                return semantic_result
+        except Exception as e:
+            logger.error(f"Error checking semantic_router in _check_ambiguity: {e}")
 
         return None
 

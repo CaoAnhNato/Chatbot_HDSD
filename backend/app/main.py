@@ -11,6 +11,7 @@ from app.api.v1.chat import router as chat_router
 from app.api.v1.ingestion import router as ingestion_router
 from app.services.rag_service import rag_service
 from app.services.qwen_service import qwen_service
+from app.services.semantic_router import semantic_router
 
 
 @asynccontextmanager
@@ -26,7 +27,9 @@ async def lifespan(app: FastAPI):
         try:
             # 1. Warm up Vector Retrieval (ChromaDB ONNX + BM25 Sparse Index)
             await rag_service.warmup()
-            # 2. Warm up Qwen LLM API (HTTP/2 Connection Pool & SSL Handshake)
+            # 2. Warm up Semantic Router (Embedding Anchors) in background thread
+            await asyncio.to_thread(semantic_router.warmup)
+            # 3. Warm up Qwen LLM API (HTTP/2 Connection Pool & SSL Handshake)
             await qwen_service.warmup()
             logger.info("🔥 [Startup] Hoàn tất warm-up hệ thống! Sẵn sàng phục vụ yêu cầu với tốc độ tối đa (TTFT < 1s).")
         except Exception as e:

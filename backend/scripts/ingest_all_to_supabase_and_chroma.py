@@ -29,7 +29,17 @@ from sentence_transformers import SentenceTransformer
 
 # Load embedding model (1024 dimensions)
 print("⏳ Loading embedding model:", settings.EMBEDDING_MODEL_NAME)
-embedding_model = SentenceTransformer(settings.EMBEDDING_MODEL_NAME)
+try:
+    embedding_model = SentenceTransformer(
+        settings.EMBEDDING_MODEL_NAME,
+        token=settings.HF_TOKEN if settings.HF_TOKEN else None,
+        model_kwargs={"local_files_only": True}
+    )
+except Exception:
+    embedding_model = SentenceTransformer(
+        settings.EMBEDDING_MODEL_NAME,
+        token=settings.HF_TOKEN if settings.HF_TOKEN else None
+    )
 
 SUPABASE_CONN_STR = settings.DATABASE_URL or "postgresql://postgres:cEzQV7AuXRXnmxGb@db.tykwgiubhnxedlpxszdn.supabase.co:5432/postgres"
 
