@@ -1,0 +1,830 @@
+[
+  {
+    "id": "GOLDEN_007",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "COLLOQUIAL",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "so luong bc appr linh vuc y te ubnd xa ld theo tung thang nam 2026"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_017",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "So sánh tai nạn lao động 2025 và 2026?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_043",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "So sánh tổng số vụ tai nạn lao động trên địa bàn tỉnh giữa Quý 1 và Quý 2 năm 2026 xem xu hướng tăng hay giảm?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_044",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "COLLOQUIAL",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "so sanh so luong bc y te q1 va q2 2026 ld"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_EXEC_01",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Tổng số vụ tai nạn lao động trên toàn tỉnh năm 2025 tăng hay giảm bao nhiêu phần trăm so với năm 2024?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_COLLOQ_03",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "kinh phi khuyen cong phong kinh te q1 voi q2 2025 tang hay giam"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "THREAD_01_T3",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Số lượng này đang tăng hay giảm ?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_EXEC_02",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "PART_TO_WHOLE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình PART_TO_WHOLE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Trong tổng diện tích sàn xây dựng nhà ở hoàn thành năm 2025 toàn tỉnh, nhà ở xã hội chiếm tỷ trọng bao nhiêu phần trăm?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "PART_TO_WHOLE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'PART_TO_WHOLE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_COLLOQ_05",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "ty trong dat nong nghiep tren tong dien tich dat tu nhien tinh 2025"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "THREAD_02_T3",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "PART_TO_WHOLE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình PART_TO_WHOLE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Cụ thể huyện đó có bao nhiêu trạm chưa đạt và tỷ lệ đạt chuẩn là bao nhiêu %?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "PART_TO_WHOLE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'PART_TO_WHOLE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_EXEC_03",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Xếp hạng 5 huyện, thành phố có kinh phí giải ngân khuyến công cao nhất toàn tỉnh năm 2025?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_COLLOQ_04",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "top 5 tx tp co truong THCS dat chuan nam 2025"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "THREAD_01_T4",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Ở những đơn vị nào xảy ra nhiều nhất ?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "THREAD_02_T2",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Huyện nào có số lượng thấp nhất ?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_EXEC_04",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Đối chiếu tỷ lệ trạm y tế xã đạt Bộ tiêu chí quốc gia về y tế năm 2025 giữa các địa phương, đơn vị nào cao nhất và thấp nhất?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_SPEC_03",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Số cơ sở công nghiệp nông thôn được hỗ trợ kinh phí khuyến công của phòng trong năm 2025 theo báo cáo đã phê duyệt là bao nhiêu?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_COLLOQ_06",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "bang tong hop so ca nghien ma tuy cac phong 2025 2026"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_005",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "COLLOQUIAL",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "ds ubnd xa ld thuoc linh vuc cong thuong kd co bc appr chi tieu an toan ve sinh 2026 kem ten phong ban"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_006",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Cán bộ phụ trách lĩnh vực Nội vụ của xã đã hoàn thành bao nhiêu chỉ tiêu trong các nhiệm vụ cải cách hành chính được giao năm 2026?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_015",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "JUNIOR",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Đơn vị nào phụ trách duyệt biểu mẫu lao động Lâm Đồng 2026?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_016",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "RANKING_TOP_K",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình RANKING_TOP_K; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Xã nào có ca ngộ độc cao nhất 2026?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "RANKING_TOP_K",
+      "subquery_count": 1,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'RANKING_TOP_K' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_025",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Báo cáo danh sách tất cả các sở, ban, ngành và đơn vị trực thuộc tỉnh Lâm Đồng kèm mã đơn vị."
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_026",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Danh mục các nhiệm vụ trọng tâm đã được phê duyệt triển khai trong năm 2026 gồm những nhiệm vụ nào?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_035",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Danh sách cán bộ phụ trách nhiệm vụ thuộc lĩnh vực Công thương hoặc Y tế kèm phòng ban và số lượng chỉ tiêu đã hoàn thành trong các báo cáo đã duyệt năm 2026."
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_036",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "CROSS_ENTITY_COMPARISON",
+    "persona": "AUDITOR",
+    "description": "Mẫu hình phân tích đa hình CROSS_ENTITY_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Để phục vụ công tác thanh tra tính trung thực và toàn vẹn dữ liệu, yêu cầu đối chiếu thông tin cán bộ phụ trách nhiệm vụ (user, user_mission) với các báo cáo đã duyệt năm 2026 (fact_report_criteria) nhằm truy vết, phát hiện những chỉ tiêu nào có giá trị (value) bị để trống, rỗng hoặc bằng 0 bất thường để làm rõ trách nhiệm thẩm định và phê duyệt?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "CROSS_ENTITY_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'CROSS_ENTITY_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_037",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "IT_OPS",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Kiểm tra tính toàn vẹn liên kết và phân công hệ thống: Liệt kê các nhiệm vụ đã được gán cho văn phòng (office_mission) trong năm 2026 tại tỉnh Lâm Đồng nhưng hiện chưa có bất kỳ bản ghi phân công cán bộ phụ trách nào trong bảng user_mission?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_038",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "CROSS_ENTITY_COMPARISON",
+    "persona": "JUNIOR",
+    "description": "Mẫu hình phân tích đa hình CROSS_ENTITY_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Dạ anh chị cho em hỏi thăm một chút với ạ, sáng nay sếp có bảo em rà soát số liệu báo cáo năm 2026 của tỉnh mình mà em mới nhận việc nên chưa rành hệ thống lắm. Anh chị tra giúp em xem những đơn vị, phòng ban nào đã nộp báo cáo kết quả thực hiện các chỉ tiêu về mảng lao động việc làm trong năm 2026 kèm theo họ tên cán bộ được giao phụ trách nhiệm vụ đó với ạ, để em tiện liên hệ đối chiếu hồ sơ. Em cảm ơn anh chị nhiều!"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "CROSS_ENTITY_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'CROSS_ENTITY_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_039",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "COLLOQUIAL",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "ds can bo phong ban ld phu trach bc y te 2026"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_040",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "JUNIOR",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Dạ em chào các anh chị ạ, em mới vào làm ở văn phòng xã nên đang tập tổng hợp số liệu theo dõi nhiệm vụ năm 2026. Sếp đang giục em rà soát để làm báo cáo định kỳ, anh chị cho em xin danh sách các văn phòng và phòng ban đang tham gia thực hiện các nhiệm vụ thuộc lĩnh vực Y tế trong năm 2026 với ạ? Em cảm ơn các anh chị đã hỗ trợ em ạ!"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_041",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Báo cáo danh sách các biểu mẫu thu thập dữ liệu triển khai trong năm 2026 kèm đơn vị chủ trì ban hành và thời hạn nộp báo cáo."
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "GOLDEN_042",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "CROSS_ENTITY_COMPARISON",
+    "persona": "JUNIOR",
+    "description": "Mẫu hình phân tích đa hình CROSS_ENTITY_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Dạ kính gửi các anh chị ạ, em là chuyên viên mới tiếp nhận công việc nên còn nhiều chỗ chưa rõ quy trình. Sếp đang giao cho em nhiệm vụ rà soát tình hình nộp số liệu, anh chị cho em xin danh sách cụ thể các xã, phường nào trên địa bàn tỉnh mình đã nộp báo cáo chỉ tiêu y tế trong năm 2026 kèm theo họ tên cán bộ được phân công phụ trách của từng xã phường đó với ạ, để em tiện liên hệ đối chiếu và hoàn thiện hồ sơ lưu trữ ạ. Em xin cảm ơn các anh chị nhiều ạ!"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "CROSS_ENTITY_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'CROSS_ENTITY_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "THREAD_05_T2",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Cán bộ nào phụ trách những chỉ tiêu đó ?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_AUDIT_03",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Đơn vị nào thuộc Sở Công thương báo cáo chỉ tiêu số cơ sở công nghiệp nông thôn được hỗ trợ khuyến công năm 2025 có số liệu bằng 0 hoặc để trống bất thường?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_AUDIT_04",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Danh sách các đơn vị trực thuộc ngành y tế có báo cáo phòng chống tệ nạn xã hội năm 2025 bị từ chối phê duyệt?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_SPEC_04",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "TEMPORAL_COMPARISON",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình TEMPORAL_COMPARISON; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Chỉ tiêu tiêm chủng mở rộng cho trẻ em 6 tháng đầu năm 2026 của đơn vị đã hoàn thành bao nhiêu phần trăm so với kế hoạch năm được giao?"
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "TEMPORAL_COMPARISON",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'TEMPORAL_COMPARISON' and result.latency_ms <= 800.0"
+  },
+  {
+    "id": "CAND_SPEC_05",
+    "category": "DYNAMIC_PARALLEL_DAG",
+    "routing_track": "DYNAMIC_PARALLEL_DAG",
+    "sub_type": "MULTI_CRITERIA_PROFILE",
+    "persona": "EXECUTIVE",
+    "description": "Mẫu hình phân tích đa hình MULTI_CRITERIA_PROFILE; Router lập DAG plan phân rã N subqueries song song.",
+    "input": {
+      "prompt": "Tổng hợp danh sách các chỉ tiêu phổ cập giáo dục và cơ sở vật chất trường học giao cho phòng trong năm học 2025-2026 kèm tiến độ thực hiện."
+    },
+    "expected": {
+      "routing_track": "DYNAMIC_PARALLEL_DAG",
+      "intent": "COMPLEX_DAG_ANALYTICS",
+      "complexity": "HIGH_PARALLEL_DAG",
+      "dag_archetype": "MULTI_CRITERIA_PROFILE",
+      "subquery_count": 2,
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 800.0
+    },
+    "verification_rule": "assert result.route == 'DYNAMIC_PARALLEL_DAG' and result.dag_archetype == 'MULTI_CRITERIA_PROFILE' and result.latency_ms <= 800.0"
+  }
+]

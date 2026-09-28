@@ -1,0 +1,68 @@
+{
+  "selected_tables": [
+    "dwh_internal.fact_report_criteria",
+    "dwh_internal.office",
+    "dwh_internal.criteria",
+    "dwh_internal.deparment",
+    "dwh_internal.collection_form",
+    "dwh_internal.office_mission",
+    "dwh_internal.user_mission",
+    "dwh_internal.user"
+  ],
+  "bridge_tables": [],
+  "join_paths": [
+    {
+      "source_table": "dwh_internal.fact_report_criteria",
+      "target_table": "dwh_internal.office",
+      "on_clause": "f.office_id = office.id",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.fact_report_criteria",
+      "target_table": "dwh_internal.criteria",
+      "on_clause": "f.criteria_id = criteria.id",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.fact_report_criteria",
+      "target_table": "dwh_internal.user_mission",
+      "on_clause": "fact_report_criteria.mission_id = user_mission.mission_id",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.office",
+      "target_table": "dwh_internal.deparment",
+      "on_clause": "office.department_code = deparment.code",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.office",
+      "target_table": "dwh_internal.office_mission",
+      "on_clause": "office_mission.office_id = office.id",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.deparment",
+      "target_table": "dwh_internal.collection_form",
+      "on_clause": "collection_form.department_code = deparment.code",
+      "join_type": "INNER JOIN"
+    },
+    {
+      "source_table": "dwh_internal.user_mission",
+      "target_table": "dwh_internal.user",
+      "on_clause": "user_mission.user_id = \"user\".id",
+      "join_type": "INNER JOIN"
+    }
+  ],
+  "schema_slice_ddl": "CREATE TABLE dwh_internal.fact_report_criteria (\n    fact_sk VARCHAR(64) -- Khóa thay thế dòng fact,\n    year VARCHAR(4) -- Năm báo cáo số liệu (2024, 2025, 2026),\n    value TEXT -- Giá trị số liệu báo cáo dạng văn bản (cần ép kiểu an toàn NULLIF TRIM),\n    report_status VARCHAR(32) -- Trạng thái báo cáo: approved, pending, draft, rejected,\n    report_date TIMESTAMPTZ -- Mốc thời gian nộp hoặc phê duyệt báo cáo,\n    tenant_code VARCHAR(64) -- Mã tỉnh thành phố (68: Lâm Đồng, 79: TP.HCM),\n    department_code VARCHAR(64) -- Mã sở ban ngành hoặc UBND huyện,\n    office_id UUID -- Định danh phòng ban chuyên môn trực thuộc nộp số liệu,\n    criteria_id UUID -- Định danh chỉ tiêu kinh tế xã hội,\n    report_id UUID -- Định danh báo cáo tổng hợp\n);\n\nCREATE TABLE dwh_internal.office (\n    id UUID -- Định danh duy nhất phòng ban,\n    office_name VARCHAR(255) -- Tên phòng ban chuyên môn (Phòng Kinh tế, Phòng Văn Hóa, Phòng Nội vụ...),\n    department_code VARCHAR(64) -- Khóa ngoại trỏ đến sở ngành hoặc UBND chủ quản,\n    tenant_code VARCHAR(64) -- Mã địa phương cấp tỉnh\n);\n\nCREATE TABLE dwh_internal.criteria (\n    id UUID -- Khóa chính chỉ tiêu,\n    code VARCHAR(128) -- Mã định danh kỹ thuật chỉ tiêu (vd: tai_nan_lao_dong_2),\n    name TEXT -- Tên chỉ tiêu báo cáo kinh tế xã hội,\n    parent_id UUID -- Khóa ngoại trỏ chỉ tiêu cha,\n    level INTEGER -- Cấp độ phân cấp cây chỉ tiêu (0: Nhóm, 1: Chỉ tiêu cha, 2: Chỉ tiêu con lá),\n    status VARCHAR(32) -- Trạng thái chỉ tiêu,\n    year_code VARCHAR(4) -- Năm áp dụng chỉ tiêu\n);\n\nCREATE TABLE dwh_internal.deparment (\n    code VARCHAR(64) -- Mã định danh cơ quan hành chính (vd: 68-1-02),\n    name TEXT -- Tên cơ quan hành chính (UBND Tỉnh Lâm Đồng, Sở LĐTBXH, Sở Xây dựng...),\n    tenant_code VARCHAR(64) -- Mã địa phương cấp tỉnh quản lý,\n    level INTEGER -- Cấp độ hành chính (0: Tỉnh/Thành phố, 1: Sở/Ngành/UBND Huyện),\n    parent_id VARCHAR(64) -- Mã cơ quan cấp trên trực tiếp\n);\n\nCREATE TABLE dwh_internal.collection_form (\n    id UUID -- Định danh biểu mẫu thu thập,\n    code VARCHAR(64) -- Mã biểu mẫu quy định (vd: BM_ATVSLD_01, BM_KHUYENCONG_02),\n    name TEXT -- Tên biểu mẫu thu thập thông tin,\n    year_code VARCHAR(4) -- Năm ban hành hoặc áp dụng biểu mẫu (lưu ý tên cột là year_code),\n    department_code VARCHAR(64) -- Mã cơ quan ban hành biểu mẫu,\n    start_date TIMESTAMPTZ -- Ngày bắt đầu triển khai thu thập biểu mẫu,\n    end_date TIMESTAMPTZ -- Thời hạn kết thúc nộp biểu mẫu thu thập,\n    tenant_code VARCHAR(64) -- Mã địa phương cấp tỉnh (vd: 68),\n    is_disabled BOOLEAN -- Trạng thái vô hiệu hóa của biểu mẫu,\n    deleted_date TIMESTAMPTZ -- Thời gian xóa bản ghi (soft delete),\n    status VARCHAR(32) -- Tình trạng biểu mẫu (active, deprecated),\n    etl_updated_at TIMESTAMPTZ -- Mốc thời gian cập nhật ETL\n);\n\nCREATE TABLE dwh_internal.office_mission (\n    id UUID -- Định danh bản ghi phân công phòng ban,\n    office_id UUID -- Định danh phòng ban văn phòng,\n    mission_id UUID -- Định danh nhiệm vụ,\n    mission_name VARCHAR(255) -- Tên nhiệm vụ,\n    scope_name VARCHAR(255) -- Tên lĩnh vực,\n    tenant_code VARCHAR(64) -- Mã địa phương,\n    department_code VARCHAR(64) -- Mã sở ban ngành,\n    deleted_date TIMESTAMP -- Thời gian xóa mềm\n);\n\nCREATE TABLE dwh_internal.user_mission (\n    id UUID -- Định danh bản ghi phân công,\n    user_id UUID -- Định danh cán bộ được phân công,\n    mission_id UUID -- Định danh nhiệm vụ được giao,\n    office_id UUID -- Định danh phòng ban của cán bộ,\n    office_name VARCHAR(255) -- Tên phòng ban,\n    mission_name VARCHAR(255) -- Tên nhiệm vụ được giao,\n    scope_name VARCHAR(255) -- Tên lĩnh vực nhiệm vụ,\n    tenant_code VARCHAR(64) -- Mã địa phương,\n    department_code VARCHAR(64) -- Mã sở ban ngành,\n    deleted_date TIMESTAMP -- Thời gian xóa mềm\n);\n\nCREATE TABLE dwh_internal.user (\n    id UUID -- Định danh cán bộ,\n    name TEXT -- Họ và tên cán bộ công chức,\n    username TEXT -- Tên đăng nhập hệ thống,\n    position TEXT -- Chức vụ của cán bộ,\n    department_code TEXT -- Mã đơn vị cơ quan,\n    department_name TEXT -- Tên đơn vị cơ quan,\n    tenant_code TEXT -- Mã địa phương,\n    deleted_at TIMESTAMP -- Thời gian xóa mềm\n);",
+  "data_contracts": [
+    "NULLIF(TRIM(f.value), '')::numeric",
+    "report_status = 'approved'",
+    "WITH leaf_criteria AS (SELECT c.id, c.code, c.name FROM dwh_internal.criteria c WHERE NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id))"
+  ],
+  "discovery_response": null,
+  "suggested_action_chips": [],
+  "latency_ms": 11.9,
+  "trace_id": "trace_snapshot_stage4_001",
+  "confidence_score": 0.95
+}

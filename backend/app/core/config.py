@@ -1,101 +1,22 @@
-import os
+"""
+Module: backend/app/core/config.py
+Chức năng: Tái xuất bản (Re-export) cấu hình tập trung từ backend/config.py
+để đảm bảo tính tương thích ngược 100% cho mọi module trong backend/app/ và các script kiểm thử.
+Tuân thủ chuẩn Ponytail Lean: DRY (Don't Repeat Yourself), một nguồn chân lý duy nhất (Single Source of Truth).
+"""
+
+import sys
 from pathlib import Path
-from pydantic_settings import BaseSettings
-from typing import Optional
 
-BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+# Định vị thư mục backend và đảm bảo có trong sys.path
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
 
+# Nhập khẩu cấu hình thống nhất từ backend/config.py
+try:
+    from config import settings, Settings, BACKEND_DIR, WORKSPACE_DIR
+except ImportError:
+    from backend.config import settings, Settings, BACKEND_DIR, WORKSPACE_DIR
 
-class Settings(BaseSettings):
-    PROJECT_NAME: str = "Multimodal HDSD Chatbot Assistant"
-    BACKEND_DIR: Path = BACKEND_DIR
-    ENVIRONMENT: str = "development"
-    DEBUG: bool = True
-    PORT: int = 8000
-    HOST: str = "0.0.0.0"
-
-    # Qwen / DashScope API Settings
-    DASHSCOPE_API_KEY: str = ""
-    QWEN_API_KEY: str = ""
-    QWEN_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    QWEN_MODEL_NAME: str = "qwen3.7-flash"
-    LLM_TEMPERATURE: float = 0.2
-    LLM_TOP_P: float = 0.5
-    LLM_MAX_TOKENS: int = 2048
-
-    @property
-    def effective_api_key(self) -> str:
-        return self.DASHSCOPE_API_KEY or self.QWEN_API_KEY
-
-    # Embedding & HuggingFace Space Microservice Settings
-    EMBEDDING_MODEL_NAME: str = "AITeamVN/Vietnamese_Embedding_v2"
-    EMBEDDING_DIMENSION: int = 1024
-    HF_SPACE_URL: str = "https://hf.co/spaces/Nato1306/vietnamese-embedding-api"
-    HF_EMBEDDING_API_URL: str = "https://nato1306-vietnamese-embedding-api.hf.space"
-    HF_TOKEN: str = "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"
-    USE_REMOTE_EMBEDDING: bool = False
-
-
-    # Database Settings (Local SQLite vs Cloud PostgreSQL)
-    DATABASE_URL: Optional[str] = None
-    SUPABASE_URL: Optional[str] = "https://tykwgiubhnxedlpxszdn.supabase.co"
-    SUPABASE_PASS: str = "cEzQV7AuXRXnmxGb"
-    SUPABASE_ANON_KEY: Optional[str] = None
-
-    @property
-    def effective_database_url(self) -> Optional[str]:
-        """Trả về DATABASE_URL cho Cloud, hoặc None cho Local Development để dùng SQLite."""
-        if self.ENVIRONMENT == "development" and not os.environ.get("DATABASE_URL"):
-            return None
-        return self.DATABASE_URL
-
-    @property
-    def effective_image_cdn_url(self) -> str:
-        """Tự động chuyển đổi giữa Local Static Server (development) và Cloud CDN (production)."""
-        if self.ENVIRONMENT == "development":
-            return f"http://localhost:{self.PORT}/static/images"
-        return self.BASE_IMAGE_CDN_URL
-
-    # Vector Database Settings
-    VECTOR_DB_TYPE: str = "chroma"  # "chroma", "qdrant", or "pgvector"
-    QDRANT_HOST: str = "localhost"
-    QDRANT_PORT: int = 6333
-    QDRANT_COLLECTION: str = "hdsd_chunks"
-    CHROMA_COLLECTION_DN: str = "hdsd_chunks"
-    CHROMA_COLLECTION_PHUONG: str = "hdsd_phuong_chunks"
-    DEFAULT_COLLECTION: str = "hdsd_phuong_chunks"
-    CHROMA_PERSIST_DIRECTORY: str = str(BACKEND_DIR / "chroma_data")
-
-    # Storage Settings
-    IMAGE_STORAGE_PATH: str = str(BACKEND_DIR / "data" / "extracted_images")
-    BASE_IMAGE_CDN_URL: str = "https://chatbothdsd-production.up.railway.app/static/images"
-
-    # Redis Cache Settings
-    REDIS_ENABLED: bool = False
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-
-    # Audit & Error Logging Settings
-    ENABLE_AUDIT_LOG: bool = True
-    LOG_DIR: str = str(BACKEND_DIR / "data" / "logs")
-    CHAT_AUDIT_LOG_FILE: str = "chat_audit.jsonl"
-    CHAT_ERROR_LOG_FILE: str = "chat_errors.jsonl"
-
-    # Deployment & CI/CD Metadata
-    GITHUB_REPO_URL: str = "https://github.com/CaoAnhNato/Chatbot_HDSD.git"
-    VERCEL_FRONTEND_URL: str = "https://chatbot-hdsd.vercel.app"
-    RAILWAY_BACKEND_URL: str = "https://chatbothdsd-production.up.railway.app"
-    CORS_ORIGINS: str = "http://localhost:3000,https://chatbot-hdsd.vercel.app,https://chatbothdsd-production.up.railway.app"
-    
-    class Config:
-        env_file = (".env", "../.env", "backend/.env")
-        env_file_encoding = "utf-8"
-        extra = "ignore"
-
-
-settings = Settings()
-
-if settings.HF_TOKEN:
-    os.environ["HF_TOKEN"] = settings.HF_TOKEN
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = settings.HF_TOKEN
-
+__all__ = ["settings", "Settings", "BACKEND_DIR", "WORKSPACE_DIR"]

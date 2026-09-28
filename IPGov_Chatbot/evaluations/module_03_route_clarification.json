@@ -1,0 +1,114 @@
+[
+  {
+    "id": "THREAD_01_T1",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "CITIZEN",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Hệ thống này có chức năng gì ?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "THREAD_01_T2",
+    "category": "CLARIFICATION",
+    "routing_track": "CLARIFICATION",
+    "sub_type": "SLOT_FILLING_REQUIRED",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi thiếu tham số hoặc mập mờ ngữ cảnh; Router yêu cầu làm rõ qua Action Chips.",
+    "input": {
+      "prompt": "Số vụ tai nạn lao động gần đây là bao nhiêu ?"
+    },
+    "expected": {
+      "routing_track": "CLARIFICATION",
+      "intent": "CLARIFICATION_NEEDED",
+      "missing_slots": [
+        "temporal_period"
+      ],
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "CLARIFY",
+      "sla_max_latency_ms": 2.0
+    },
+    "verification_rule": "assert result.route == 'CLARIFICATION' and result.intent == 'CLARIFICATION_NEEDED' and len(result.missing_slots) > 0 and result.latency_ms <= 2.0"
+  },
+  {
+    "id": "THREAD_03_T1",
+    "category": "CLARIFICATION",
+    "routing_track": "CLARIFICATION",
+    "sub_type": "SLOT_FILLING_REQUIRED",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi thiếu tham số hoặc mập mờ ngữ cảnh; Router yêu cầu làm rõ qua Action Chips.",
+    "input": {
+      "prompt": "Cho tôi xem số liệu giải ngân kinh phí khuyến công."
+    },
+    "expected": {
+      "routing_track": "CLARIFICATION",
+      "intent": "CLARIFICATION_NEEDED",
+      "missing_slots": [
+        "temporal_year"
+      ],
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "CLARIFY",
+      "sla_max_latency_ms": 2.0
+    },
+    "verification_rule": "assert result.route == 'CLARIFICATION' and result.intent == 'CLARIFICATION_NEEDED' and len(result.missing_slots) > 0 and result.latency_ms <= 2.0"
+  },
+  {
+    "id": "THREAD_04_T1",
+    "category": "CLARIFICATION",
+    "routing_track": "CLARIFICATION",
+    "sub_type": "SLOT_FILLING_REQUIRED",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi thiếu tham số hoặc mập mờ ngữ cảnh; Router yêu cầu làm rõ qua Action Chips.",
+    "input": {
+      "prompt": "Năm 2026 có những biểu mẫu thu thập dữ liệu nào ?"
+    },
+    "expected": {
+      "routing_track": "CLARIFICATION",
+      "intent": "CLARIFICATION_NEEDED",
+      "missing_slots": [
+        "target_scope"
+      ],
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "CLARIFY",
+      "sla_max_latency_ms": 2.0
+    },
+    "verification_rule": "assert result.route == 'CLARIFICATION' and result.intent == 'CLARIFICATION_NEEDED' and len(result.missing_slots) > 0 and result.latency_ms <= 2.0"
+  },
+  {
+    "id": "THREAD_04_T3",
+    "category": "CLARIFICATION",
+    "routing_track": "CLARIFICATION",
+    "sub_type": "SLOT_FILLING_REQUIRED",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi thiếu tham số hoặc mập mờ ngữ cảnh; Router yêu cầu làm rõ qua Action Chips.",
+    "input": {
+      "prompt": "Báo cáo này của phòng đã nộp và duyệt chưa ?"
+    },
+    "expected": {
+      "routing_track": "CLARIFICATION",
+      "intent": "CLARIFICATION_NEEDED",
+      "missing_slots": [
+        "entity_or_time_slot"
+      ],
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "CLARIFY",
+      "sla_max_latency_ms": 2.0
+    },
+    "verification_rule": "assert result.route == 'CLARIFICATION' and result.intent == 'CLARIFICATION_NEEDED' and len(result.missing_slots) > 0 and result.latency_ms <= 2.0"
+  }
+]

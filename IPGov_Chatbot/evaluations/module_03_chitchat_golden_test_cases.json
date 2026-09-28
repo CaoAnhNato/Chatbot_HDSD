@@ -1,0 +1,241 @@
+[
+  {
+    "id": "CHIT_01",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GREETING_FORMAL",
+    "persona": "EXECUTIVE",
+    "description": "Chào hỏi trang trọng từ Lãnh đạo cấp Tỉnh/Sở; kiểm tra kích hoạt Pre-Router Bypass, không tốn token LLM và không truy vấn CSDL.",
+    "input": {
+      "prompt": "Kính chào đồng chí trợ lý ảo công vụ. Tôi đang chuẩn bị tài liệu cho phiên họp Thường trực UBND Tỉnh sáng nay."
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GREETING",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📊 Báo cáo KTXH tổng hợp toàn tỉnh 2025-2026",
+        "💰 Tiến độ giải ngân vốn đầu tư công",
+        "⚡ Chỉ đạo điều hành & An toàn vệ sinh lao động"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.tokens_used == 0 and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_02",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GREETING_BUSINESS",
+    "persona": "CITIZEN",
+    "description": "Chào hỏi từ đại diện Doanh nghiệp; điều hướng sang phân hệ tra cứu biểu mẫu và quy định công nghiệp.",
+    "input": {
+      "prompt": "Xin chào bạn, tôi là đại diện doanh nghiệp trên địa bàn, cần tra cứu một số thông tin và biểu mẫu báo cáo."
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GREETING",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📋 Danh mục biểu mẫu báo cáo đang áp dụng",
+        "🏭 Số liệu khuyến công & phát triển công nghiệp",
+        "🛡️ Quy định an toàn vệ sinh lao động"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.tokens_used == 0 and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_03",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GREETING_CASUAL",
+    "persona": "COLLOQUIAL",
+    "description": "Chào hỏi ngắn gọn kiểu hội thoại thường ngày; phản hồi nhanh gọn và cấp lối tắt tra cứu DWH.",
+    "input": {
+      "prompt": "Hello chatbot!"
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GREETING",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📊 Tra cứu số liệu năm 2026",
+        "📋 Danh mục 8 lĩnh vực DWH",
+        "❓ Hướng dẫn sử dụng chatbot"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.tokens_used == 0 and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_04",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GRATITUDE_FORMAL",
+    "persona": "SPECIALIST",
+    "description": "Cảm ơn trang trọng sau khi nhận số liệu; bắt buộc bảo lưu ngữ cảnh ActiveQuestFrame trong RAM cho câu hỏi drill-down tiếp theo.",
+    "input": {
+      "prompt": "Cảm ơn trợ lý đã cung cấp số liệu kịp thời và chi tiết cho báo cáo của phòng."
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GRATITUDE",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "PRESERVE",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📈 So sánh với kỳ trước (YoY)",
+        "🏢 Xem chi tiết theo đơn vị con",
+        "📥 Xuất bảng số liệu ra Excel"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.active_quest_preserved is True and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_05",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GRATITUDE_CASUAL",
+    "persona": "COLLOQUIAL",
+    "description": "Cảm ơn ngắn gọn khẩu ngữ; giữ nguyên context hiện hành và cung cấp action chips so sánh đối chiếu.",
+    "input": {
+      "prompt": "Cảm ơn nhé!"
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GRATITUDE",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "PRESERVE",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📈 So sánh chuỗi thời gian",
+        "📊 Đối chiếu với bình quân tỉnh",
+        "📥 Tải kết quả vừa tra cứu"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.active_quest_preserved is True and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_06",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "GRATITUDE_PRAISE",
+    "persona": "AUDITOR",
+    "description": "Cảm ơn kèm đánh giá hài lòng về độ chuẩn xác số liệu; ghi log telemetry và giữ nguyên khung quest.",
+    "input": {
+      "prompt": "Cảm ơn bạn nhiều, thông tin rất rõ ràng, đối chiếu số liệu rất chuẩn xác."
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "GRATITUDE",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "PRESERVE",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "🔍 Kiểm tra độ tươi mới dữ liệu (ETL Freshness)",
+        "🏢 Đối chiếu chéo giữa các đơn vị",
+        "📑 Xem số quyết định phê duyệt báo cáo"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.active_quest_preserved is True and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_07",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "FAREWELL_SHIFT_END",
+    "persona": "SPECIALIST",
+    "description": "Tạm biệt kết thúc ca làm việc; giải phóng RAM an toàn (Teardown) và chuyển trạng thái phiên sang RESOLVED.",
+    "input": {
+      "prompt": "Tạm biệt nhé, hẹn gặp lại vào ca trực ngày mai."
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "FAREWELL",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "TEARDOWN",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "🔄 Bắt đầu phiên tra cứu mới",
+        "📊 Xem lại tóm tắt phiên hôm nay"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.active_quest is None and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_08",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "FAREWELL_TASK_DONE",
+    "persona": "EXECUTIVE",
+    "description": "Thông báo hoàn thành nhiệm vụ và nghỉ làm việc; dọn dẹp bộ nhớ đệm tạm thời trên RAM.",
+    "input": {
+      "prompt": "Xong việc rồi, tôi đã lấy đủ số liệu tổng hợp, cảm ơn trợ lý nhiều, nghỉ thôi!"
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "FAREWELL",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "TEARDOWN",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "🔄 Mở phiên tra cứu mới",
+        "📥 Xuất tệp tóm tắt toàn bộ phiên"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.active_quest is None and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_09",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "PRAISE_PERFORMANCE",
+    "persona": "AUDITOR",
+    "description": "Khen ngợi tốc độ và độ chuẩn xác của bot; phản hồi khiêm tốn công vụ và giữ nguyên ngữ cảnh.",
+    "input": {
+      "prompt": "Chatbot tra cứu nhanh và chuẩn đấy, dữ liệu trích xuất rất khớp với thực tế kiểm tra!"
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "PRAISE",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "PRESERVE",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "📊 Tra cứu chỉ tiêu kiểm tra tiếp theo",
+        "📑 Xuất biên bản đối soát dữ liệu",
+        "❓ Xem chi tiết nguồn dữ liệu (Lineage)"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.tokens_used == 0 and result.latency_ms < 2.0"
+  },
+  {
+    "id": "CHIT_10",
+    "category": "CHITCHAT_BYPASS",
+    "sub_type": "STATUS_INQUIRY",
+    "persona": "SPECIALIST",
+    "description": "Thăm hỏi trạng thái sẵn sàng phục vụ của hệ thống; phản hồi xác nhận trực chiến 24/7 kèm điều hướng 4 lĩnh vực trọng tâm.",
+    "input": {
+      "prompt": "Chào bạn, hôm nay hệ thống DWH có trực sẵn sàng phục vụ công tác tra cứu không?"
+    },
+    "expected": {
+      "routing_track": "CHITCHAT_BYPASS",
+      "intent": "STATUS_INQUIRY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 2.0,
+      "action_chips": [
+        "💼 Lĩnh vực Lao động & Nội vụ",
+        "🏗️ Lĩnh vực Xây dựng",
+        "⚡ Lĩnh vực Công thương",
+        "🏥 Lĩnh vực Y tế"
+      ]
+    },
+    "verification_rule": "assert result.route == 'CHITCHAT_BYPASS' and result.tokens_used == 0 and result.latency_ms < 2.0"
+  }
+]

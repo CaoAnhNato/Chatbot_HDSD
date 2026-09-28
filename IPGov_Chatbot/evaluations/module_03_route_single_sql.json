@@ -1,0 +1,170 @@
+[
+  {
+    "id": "GOLDEN_008",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "ds ubnd xa ld 2026 bc appr nhung value chi tieu lao dong bi null hoac rong"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "GOLDEN_018",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "ds chi tieu null target ld 2026"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "GOLDEN_045",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "Phục vụ công tác thanh tra và kiểm toán tuân thủ quy chế nộp báo cáo định kỳ năm 2026 tại tỉnh Lâm Đồng, yêu cầu thống kê số lượng báo cáo đã nộp theo từng tháng trong năm 2026 để đánh giá tiến độ thực hiện, đối chiếu thời hạn quy định và xác định các tháng có hiện tượng dồn nộp báo cáo trễ hạn bất thường?"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "GOLDEN_046",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "JUNIOR",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "Dạ kính gửi các anh chị trong phòng, em là chuyên viên mới được giao theo dõi tiến độ thu thập số liệu trên địa bàn tỉnh Lâm Đồng năm 2026. Dạ sếp có dặn em phải chủ động theo dõi thời hạn để kịp làm phiếu đôn đốc các đơn vị nộp biểu mẫu đúng hẹn, nên các anh chị cho em xin danh sách các biểu mẫu thu thập dữ liệu có thời hạn kết thúc trong tháng 5 năm 2026 với ạ? Em cảm ơn các anh chị rất nhiều ạ!"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "GOLDEN_047",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "Để phục vụ công tác kiểm tra tính toàn vẹn và độ tin cậy của dữ liệu báo cáo năm 2026 tại tỉnh Lâm Đồng, yêu cầu rà soát và truy vết các chỉ tiêu có cùng mã chỉ tiêu hoặc tên chỉ tiêu nhưng bị ghi nhận trùng lặp nhiều dòng dữ liệu trong cùng một báo cáo (report_id) nhằm phát hiện lỗi trùng lặp số liệu và các bất thường trong quá trình lập báo cáo?"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "GOLDEN_048",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "bc ld 2026 value null hoac zero nhung status approved"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "THREAD_05_T1",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "Có chỉ tiêu nào của lĩnh vực y tế năm 2025 bị để trống hoặc bằng 0 bất thường không ?"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  },
+  {
+    "id": "CAND_AUDIT_07",
+    "category": "SINGLE_SQL",
+    "routing_track": "SINGLE_SQL",
+    "sub_type": "AD_HOC_TEXT_TO_SQL",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi truy vấn ad-hoc ngoài semantic catalog; kích hoạt LLM text-to-SQL 1 bước kèm schema pruning.",
+    "input": {
+      "prompt": "Rà soát các đơn vị trực thuộc Sở Nông nghiệp và Phát triển nông thôn có chỉ tiêu diện tích cây trồng hàng năm trong năm 2025 để trống hoặc ghi nhận bằng 0 bất thường?"
+    },
+    "expected": {
+      "routing_track": "SINGLE_SQL",
+      "intent": "COMPLEX_RAW_SQL",
+      "complexity": "MEDIUM_SINGLE_SQL",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 1500.0
+    },
+    "verification_rule": "assert result.route == 'SINGLE_SQL' and result.intent == 'COMPLEX_RAW_SQL' and result.latency_ms <= 1500.0"
+  }
+]

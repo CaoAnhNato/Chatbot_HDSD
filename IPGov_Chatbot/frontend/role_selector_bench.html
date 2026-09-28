@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPGov Chatbot - Test Bench Thử Nghiệm Module 1, 2, 3</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    pre, code { font-family: 'JetBrains Mono', monospace; }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-track { background: #f1f5f9; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 h-screen flex flex-col overflow-hidden">
+
+  <!-- Header Bar - Tối giản theo chuẩn Chatbot HDSD -->
+  <header class="bg-white border-b border-slate-200 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-sm z-20">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 text-white">
+        <i class="fa-solid fa-robot text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-base font-bold tracking-tight text-slate-800 flex items-center gap-2">
+          IPGov Chatbot
+          <span class="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-medium">
+            Test Bench • Mod 1-2-3
+          </span>
+        </h1>
+        <p class="text-xs text-slate-500">Thử nghiệm định tuyến &amp; đàm thoại H-DFT (Gateway, Guardrails, Router)</p>
+      </div>
+    </div>
+
+    <!-- Phân quyền Dropdown List (Thay thế các nút bấm cồng kềnh) -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
+        <label for="role-select" class="text-xs font-semibold text-slate-600 shrink-0">
+          <i class="fa-solid fa-user-shield text-blue-600 mr-1"></i> Phân quyền:
+        </label>
+        <select id="role-select" class="bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm cursor-pointer transition">
+          <option value="lamdong_leader" selected>🏛️ Lãnh đạo UBND Tỉnh Lâm Đồng (Level 0 • Tỉnh)</option>
+          <option value="hcm_leader">🏛️ Lãnh đạo UBND TP. Hồ Chí Minh (Level 0 • Tỉnh)</option>
+          <option value="lamdong_dept_noivu">🏢 Lãnh đạo Sở Nội Vụ Lâm Đồng (Level 1 • Sở)</option>
+          <option value="lamdong_phong_kinhte">💼 Trưởng Phòng Kinh Tế H. Đức Trọng (Level 2 • Phòng)</option>
+          <option value="lamdong_phong_xaydung">💼 Trưởng Phòng Xây Dựng TP. Đà Lạt (Level 2 • Phòng)</option>
+          <option value="public_citizen">👤 Người Dân / Doanh Nghiệp (Level 3 • Công Dân)</option>
+        </select>
+      </div>
+
+      <!-- Chế độ Debug Mode Toggle -->
+      <label class="flex items-center gap-1.5 cursor-pointer text-xs font-medium text-slate-700 bg-slate-50 hover:bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 select-none transition-colors shadow-sm" title="Bật/Tắt hiển thị chi tiết kỹ thuật Module 1-2-3">
+        <input type="checkbox" id="debug-mode-toggle" class="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 cursor-pointer">
+        <span class="flex items-center gap-1"><i class="fa-solid fa-code text-[11px] text-slate-500"></i> Debug Mode</span>
+      </label>
+
+      <button id="reset-chat-btn" class="px-3 py-2 text-xs font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl border border-slate-200 flex items-center gap-1.5 transition-colors shadow-sm" title="Làm mới phiên chat">
+        <i class="fa-solid fa-rotate-right text-xs"></i>
+        <span class="hidden sm:inline">Làm mới</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Chat Flow (Đơn cột như Chatbot HDSD & Streamlit) -->
+  <main class="flex-1 max-w-4xl w-full mx-auto flex flex-col overflow-hidden bg-slate-100">
+    
+    <!-- Danh sách tin nhắn cuộn -->
+    <div id="messages-container" class="flex-1 overflow-y-auto px-4 py-6 space-y-5 scrollbar-thin">
+      
+      <!-- Welcome Message Bubble -->
+      <div class="flex gap-3 justify-start">
+        <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+          <i class="fa-solid fa-robot text-base"></i>
+        </div>
+        <div class="max-w-[85%] rounded-2xl rounded-tl-none px-5 py-4 bg-white text-slate-800 border border-slate-200/80 shadow-sm text-sm leading-relaxed space-y-2.5">
+          <p class="font-semibold text-slate-900">👋 Chào mừng bạn đến với môi trường thử nghiệm IPGov Chatbot!</p>
+          <p class="text-slate-600">
+            Hệ thống hỗ trợ tự động định tuyến và kiểm soát an toàn qua 3 Module: <strong>Mod 1 Gateway</strong> (HBAC JWT), <strong>Mod 2 Guardrails</strong> (PII, DDL Shield) và <strong>Mod 3 Router</strong> (Fast Track, Dynamic DAG, Clarification, Chitchat Bypass).
+          </p>
+          <div class="pt-1">
+            <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">💡 Bấm thử nhanh các câu hỏi đặc trưng Module 3:</span>
+            <div class="flex flex-wrap gap-1.5 mt-2">
+              <button onclick="handleChipClick('số vụ tai nạn lao động 2026 là bao nhiêu?')" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition font-medium text-left">
+                ⚡ Fast Track: "số vụ tai nạn lao động 2026 là bao nhiêu?"
+              </button>
+              <button onclick="handleChipClick('So sánh tai nạn lao động 2025 và 2026?')" class="px-2.5 py-1 text-xs rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 transition font-medium text-left">
+                🔀 Dynamic DAG: "So sánh tai nạn lao động 2025 và 2026?"
+              </button>
+              <button onclick="handleChipClick('cho tôi xem kinh phí khuyến công')" class="px-2.5 py-1 text-xs rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition font-medium text-left">
+                ❓ Clarification Chips: "cho tôi xem kinh phí khuyến công"
+              </button>
+              <button onclick="handleChipClick('Kính chào đồng chí trợ lý ảo!')" class="px-2.5 py-1 text-xs rounded-lg bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 transition font-medium text-left">
+                💬 Chitchat: "Kính chào đồng chí trợ lý ảo!"
+              </button>
+              <button onclick="handleChipClick('DROP TABLE bao_cao_kinh_te; --')" class="px-2.5 py-1 text-xs rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 transition font-medium text-left">
+                🛡️ Guardrails: "DROP TABLE bao_cao_kinh_te; --"
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Thanh nhập Chat ở đáy (Chat Input Bar) -->
+    <div class="p-4 border-t border-slate-200 bg-white/95 backdrop-blur-sm shrink-0">
+      <form id="chat-form" class="max-w-4xl mx-auto flex items-center gap-3">
+        <div class="relative flex-1">
+          <input
+            type="text"
+            id="prompt-input"
+            autocomplete="off"
+            placeholder="Nhập câu hỏi thử nghiệm và nhấn Enter (ví dụ: 'Số vụ tai nạn lao động 2025?')..."
+            class="w-full rounded-xl bg-slate-50 border border-slate-300 px-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white transition"
+          />
+        </div>
+        <button
+          type="submit"
+          id="send-btn"
+          class="rounded-xl bg-blue-600 hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 text-white px-6 py-3.5 text-sm font-semibold flex items-center gap-2 shadow-sm transition active:scale-95 shrink-0"
+        >
+          <i class="fa-solid fa-paper-plane text-xs"></i>
+          <span>Gửi</span>
+        </button>
+      </form>
+    </div>
+
+  </main>
+
+  <!-- Modal Báo Lỗi & Ghi Chú (Tối Giản, Gọn Gàng) -->
+  <div id="feedback-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-5 shadow-2xl relative flex flex-col gap-3">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+        <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-pen-to-square text-amber-500"></i> Ghi Chú / Báo Lỗi Định Tuyến
+        </h3>
+        <button onclick="closeFeedbackModal()" class="text-slate-400 hover:text-slate-600 text-sm p-1 rounded-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1">
+        <div><span class="text-slate-400 font-mono">Trace:</span> <span id="fb-trace-id" class="font-mono font-semibold text-blue-600"></span></div>
+        <div><span class="text-slate-400 font-mono">Prompt:</span> <span id="fb-prompt" class="text-slate-800 font-medium"></span></div>
+      </div>
+
+      <div>
+        <label for="fb-category" class="block text-xs font-semibold text-slate-700 mb-1">Nhóm lỗi phân loại:</label>
+        <select id="fb-category" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <option value="ROUTING_MISMATCH" selected>ROUTING_MISMATCH (Nhầm lẫn luồng định tuyến)</option>
+          <option value="GUARDRAIL_FALSE_POS">GUARDRAIL_FALSE_POS (Chặn nhầm câu hỏi hợp lệ)</option>
+          <option value="GUARDRAIL_FALSE_NEG">GUARDRAIL_FALSE_NEG (Lọt câu hỏi vi phạm an ninh)</option>
+          <option value="SLOT_EXTRACTION_ERROR">SLOT_EXTRACTION_ERROR (Sai địa bàn / năm / chỉ tiêu)</option>
+          <option value="ANAPHORA_FAIL">ANAPHORA_FAIL (Lỗi tham chiếu đại từ)</option>
+          <option value="TOPIC_SHIFT_FAILED">TOPIC_SHIFT_FAILED (Không dọn context khi đổi chủ đề)</option>
+          <option value="SQL_LOGIC_ERROR">SQL_LOGIC_ERROR (Sai logic truy vấn CSDL)</option>
+          <option value="TONE_INCORRECT">TONE_INCORRECT (Sai Persona công vụ)</option>
+          <option value="OTHER">OTHER (Lỗi khác)</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="fb-note" class="block text-xs font-semibold text-slate-700 mb-1">Ghi chú lỗi chi tiết (*):</label>
+        <textarea id="fb-note" rows="2" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Mô tả cụ thể vấn đề hoặc lý do sai lệch..."></textarea>
+      </div>
+
+      <div>
+        <label for="fb-expected" class="block text-xs font-semibold text-slate-700 mb-1">Cổng / Kết quả kỳ vọng (Tùy chọn):</label>
+        <input type="text" id="fb-expected" class="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Ví dụ: TEMPLATE_FAST_TRACK hoặc DYNAMIC_PARALLEL_DAG" />
+      </div>
+
+      <div class="flex items-center justify-between pt-2 border-t border-slate-100">
+        <span id="fb-status-msg" class="text-xs text-slate-500"></span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="closeFeedbackModal()" class="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs text-slate-700 font-medium transition">
+            Hủy
+          </button>
+          <button type="button" id="fb-submit-btn" onclick="submitFeedback()" class="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+            <i class="fa-regular fa-paper-plane text-xs"></i>
+            <span>Lưu Ghi Chú</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic Kế Thừa Gọn Gàng Cho Test Bench -->
+  <script>
+    // 1. Hồ sơ vai trò HBAC
+    const PROFILES = {
+      lamdong_leader: {
+        id: "lamdong_leader",
+        label: "Lãnh đạo UBND Tỉnh Lâm Đồng",
+        tenant_code: "68",
+        role_level: 0,
+        user_id: "u_ld_001",
+        username: "lanhdao_ubnd_lamdong"
+      },
+      hcm_leader: {
+        id: "hcm_leader",
+        label: "Lãnh đạo UBND TP. Hồ Chí Minh",
+        tenant_code: "79",
+        role_level: 0,
+        user_id: "u_hcm_001",
+        username: "lanhdao_ubnd_hcm"
+      },
+      lamdong_dept_noivu: {
+        id: "lamdong_dept_noivu",
+        label: "Lãnh đạo Sở Nội Vụ Lâm Đồng",
+        tenant_code: "68",
+        department_code: "68-1-01",
+        role_level: 1,
+        user_id: "u_snv_001",
+        username: "lanhdao_sonoi_vu"
+      },
+      lamdong_phong_kinhte: {
+        id: "lamdong_phong_kinhte",
+        label: "Trưởng Phòng Kinh Tế (H. Đức Trọng)",
+        tenant_code: "68",
+        department_code: "68-1-02",
+        office_id: "Phòng Kinh tế",
+        role_level: 2,
+        user_id: "u_pkt_001",
+        username: "truongphong_kinhte_lamdong"
+      },
+      lamdong_phong_xaydung: {
+        id: "lamdong_phong_xaydung",
+        label: "Trưởng Phòng Xây Dựng (TP. Đà Lạt)",
+        tenant_code: "68",
+        department_code: "68-1-03",
+        office_id: "Phòng Xây dựng",
+        role_level: 2,
+        user_id: "u_pxd_001",
+        username: "truongphong_xaydung_lamdong"
+      },
+      public_citizen: {
+        id: "public_citizen",
+        label: "Người Dân / Doanh Nghiệp (Public)",
+        tenant_code: "68",
+        role_level: 3,
+        user_id: "u_pub_999",
+        username: "congdan_tra_cuu"
+      }
+    };
+
+    let currentSessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+    let currentFeedbackContext = null;
+
+    // Sinh token JWT kiểm thử
+    function getTestJWT(profile) {
+      const header = { alg: "HS256", typ: "JWT" };
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        sub: profile.user_id,
+        username: profile.username,
+        tenant_code: profile.tenant_code,
+        department_code: profile.department_code || null,
+        office_id: profile.office_id || null,
+        role_level: profile.role_level,
+        iat: now,
+        exp: now + 3600
+      };
+      const b64Header = btoa(JSON.stringify(header)).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+      const b64Payload = btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+      return `${b64Header}.${b64Payload}.mock_sig_pass`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function escapeForAttr(str) {
+      if (!str) return "";
+      return String(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/`/g, '\\`');
+    }
+
+    function getRouteBadgeClass(route) {
+      switch (route) {
+        case "CHITCHAT_BYPASS":
+          return "bg-cyan-100 text-cyan-800 border border-cyan-300";
+        case "CLARIFICATION":
+          return "bg-amber-100 text-amber-800 border border-amber-300";
+        case "TEMPLATE_FAST_TRACK":
+          return "bg-emerald-100 text-emerald-800 border border-emerald-300";
+        case "DYNAMIC_PARALLEL_DAG":
+          return "bg-purple-100 text-purple-800 border border-purple-300";
+        case "SINGLE_SQL":
+          return "bg-blue-100 text-blue-800 border border-blue-300";
+        case "SECURITY_DENIAL":
+          return "bg-rose-100 text-rose-800 border border-rose-300";
+        default:
+          return "bg-slate-100 text-slate-800 border border-slate-300";
+      }
+    }
+
+    // Client-side Fallback Evaluator (khi server offline)
+    function evaluateLocalFallback(prompt, profile) {
+      const lower = prompt.toLowerCase();
+      // Guardrail Check
+      const ddlKeywords = ["drop table", "drop database", "delete from", "truncate table", "--", "/*"];
+      for (const kw of ddlKeywords) {
+        if (lower.includes(kw)) {
+          return {
+            mod1Pass: true,
+            mod2Pass: false,
+            mod3Pass: false,
+            violationType: "injection",
+            violationMessage: `Yêu cầu chứa cú pháp DDL/DML đột biến CSDL bị cấm: '${kw}'.`,
+            route: "SECURITY_DENIAL",
+            intent: "UNKNOWN",
+            latencyMs: 0.1,
+            bypassResponse: null,
+            chips: []
+          };
+        }
+      }
+      if (/(?:xin\s+(?:số\s+)?(?:điện\s+thoại|sđt)|cccd|số\s+tài\s+khoản)/i.test(prompt)) {
+        return {
+          mod1Pass: true,
+          mod2Pass: false,
+          mod3Pass: false,
+          violationType: "pii",
+          violationMessage: "Yêu cầu bị từ chối do cố gắng truy vấn dữ liệu định danh cá nhân (PII) theo NĐ 13/2023/NĐ-CP.",
+          route: "SECURITY_DENIAL",
+          intent: "UNKNOWN",
+          latencyMs: 0.1,
+          bypassResponse: null,
+          chips: []
+        };
+      }
+      if ((profile.tenant_code === "68" || lower.includes("lâm đồng")) && lower.includes("dầu khí")) {
+        return {
+          mod1Pass: true,
+          mod2Pass: false,
+          mod3Pass: false,
+          violationType: "out_of_scope",
+          violationMessage: "Lâm Đồng là tỉnh miền núi Tây Nguyên, không có số liệu khai thác dầu khí.",
+          route: "SECURITY_DENIAL",
+          intent: "UNKNOWN",
+          latencyMs: 0.1,
+          bypassResponse: null,
+          chips: []
+        };
+      }
+
+      // Router Module 3 Check
+      if (/^(xin\s+chào|chào\s+|hello|hi\b|kính\s+chào|cảm\s+ơn|tạm\s+biệt)/i.test(prompt)) {
+        return {
+          mod1Pass: true,
+          mod2Pass: true,
+          mod3Pass: true,
+          violationType: null,
+          violationMessage: null,
+          route: "CHITCHAT_BYPASS",
+          intent: "GREETING",
+          latencyMs: 1.2,
+          bypassResponse: "Kính chào đồng chí/quý bạn! Tôi là Trợ lý ảo công vụ. Tôi có thể hỗ trợ tra cứu báo cáo số liệu và thủ tục hành chính.",
+          chips: ["Báo cáo tai nạn lao động 2025", "Tiến độ giải ngân vốn đầu tư công", "Thủ tục đăng ký doanh nghiệp"]
+        };
+      }
+
+      if (/nào|bao\s+nhiêu|tổng\s+số|tỷ\s+lệ|so\s+sánh/i.test(prompt)) {
+        return {
+          mod1Pass: true,
+          mod2Pass: true,
+          mod3Pass: true,
+          violationType: null,
+          violationMessage: null,
+          route: "TEMPLATE_FAST_TRACK",
+          intent: "DIRECT_LOOKUP",
+          latencyMs: 2.4,
+          bypassResponse: "Đã phân loại thành công vào cổng Tra Cứu Số Liệu Cố Định (Fast Track). Sẵn sàng chuyển tới Module 5 Compiler.",
+          chips: ["Phân tích theo từng huyện", "So sánh với năm 2024", "Xuất file Excel"]
+        };
+      }
+
+      return {
+        mod1Pass: true,
+        mod2Pass: true,
+        mod3Pass: true,
+        violationType: null,
+        violationMessage: null,
+        route: "DYNAMIC_PARALLEL_DAG",
+        intent: "MULTI_CRITERIA_ANALYSIS",
+        latencyMs: 3.1,
+        bypassResponse: "Yêu cầu đa chiều phức tạp, được định tuyến vào cổng Phân Tích Song Song (DAG).",
+        chips: []
+      };
+    }
+
+    // Xử lý gửi tin nhắn
+    async function handleSendMessage(promptText) {
+      const container = document.getElementById("messages-container");
+      const roleKey = document.getElementById("role-select").value;
+      const profile = PROFILES[roleKey] || PROFILES.lamdong_leader;
+      const traceId = "tr_" + Math.random().toString(36).substr(2, 9);
+
+      // 1. Hiển thị Bubble Người dùng (Căn phải)
+      const userBubble = document.createElement("div");
+      userBubble.className = "flex gap-3 justify-end";
+      userBubble.innerHTML = `
+        <div class="max-w-[80%] rounded-2xl rounded-tr-none px-4 py-3 bg-blue-600 text-white text-[14px] shadow-sm leading-relaxed">
+          ${escapeHtml(promptText)}
+        </div>
+        <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 text-xs shadow-sm">
+          <i class="fa-solid fa-user"></i>
+        </div>
+      `;
+      container.appendChild(userBubble);
+      container.scrollTop = container.scrollHeight;
+
+      // 2. Hiển thị Bot Bubble Tạm (Đang kiểm tra...)
+      const botBubble = document.createElement("div");
+      botBubble.className = "flex gap-3 justify-start";
+      const botContentId = "bot-msg-" + traceId;
+      botBubble.innerHTML = `
+        <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 text-sm shadow-sm">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div id="${botContentId}" class="max-w-[85%] rounded-2xl rounded-tl-none px-5 py-4 bg-white text-slate-800 border border-slate-200 shadow-sm text-sm space-y-2">
+          <div class="flex items-center gap-2 text-xs text-slate-400">
+            <i class="fa-solid fa-spinner animate-spin text-blue-600"></i>
+            <span>Đang kiểm tra luồng định tuyến Module 1, 2, 3...</span>
+          </div>
+        </div>
+      `;
+      container.appendChild(botBubble);
+      container.scrollTop = container.scrollHeight;
+
+      // Gọi SSE Stream hoặc fallback
+      let resData = null;
+      try {
+        const token = getTestJWT(profile);
+        const resp = await fetch("/api/v1/chat/stream", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            prompt: promptText,
+            session_id: currentSessionId
+          })
+        });
+
+        if (resp.ok && resp.body) {
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder("utf-8");
+          let sseText = "";
+          let isBlocked = false;
+          let violationType = "";
+          let violationMessage = "";
+          let route = null;
+          let intent = null;
+          let latencyMs = 0;
+          let bypassResponse = "";
+          let chips = [];
+          let serverError = null;
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            sseText += decoder.decode(value, { stream: true });
+            const lines = sseText.split("\n\n");
+            sseText = lines.pop() || "";
+
+            for (const block of lines) {
+              if (block.includes("event: error")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  try {
+                    const d = JSON.parse(match[1]);
+                    serverError = d.error || "Lỗi máy chủ.";
+                  } catch (_) {}
+                }
+              } else if (block.includes("event: guardrail_blocked")) {
+                isBlocked = true;
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  const d = JSON.parse(match[1]);
+                  violationType = d.violation_type || "Bảo mật";
+                  violationMessage = d.message || "Bị chặn an ninh.";
+                }
+              } else if (block.includes("event: router_routed")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  const d = JSON.parse(match[1]);
+                  route = d.route || route;
+                  intent = d.intent || intent;
+                  latencyMs = d.latency_ms || latencyMs;
+                }
+              } else if (block.includes("event: content_chunk")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  const d = JSON.parse(match[1]);
+                  bypassResponse += d.chunk || "";
+                }
+              } else if (block.includes("event: action_chips")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  const d = JSON.parse(match[1]);
+                  chips = d.chips || [];
+                }
+              } else if (block.includes("event: clarification_requested")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  const d = JSON.parse(match[1]);
+                  if (!bypassResponse) bypassResponse = d.message || "Vui lòng chọn thông tin làm rõ:";
+                  if (d.options && d.options.length > 0) {
+                    chips = d.options.map(o => o.label || o.text || o);
+                  }
+                }
+              }
+            }
+          }
+
+          if (serverError) {
+            resData = {
+              mod1Pass: false,
+              mod2Pass: false,
+              mod3Pass: false,
+              violationType: "Xác thực / Hệ thống",
+              violationMessage: serverError,
+              route: "ERROR",
+              intent: "SERVER_ERROR",
+              latencyMs: 0,
+              bypassResponse: `❌ Lỗi máy chủ: ${serverError}`,
+              chips: []
+            };
+          } else {
+            // Mặc định câu thông báo trực quan theo từng cổng định tuyến nếu chưa có output từ compiler
+            if (!bypassResponse) {
+              if (route === "TEMPLATE_FAST_TRACK") {
+                bypassResponse = "📊 Yêu cầu tra cứu số liệu cố định đã được tiếp nhận thành công vào cổng Fast Track. Sẵn sàng kết nối Module 5 SQL Compiler.";
+              } else if (route === "DYNAMIC_PARALLEL_DAG") {
+                bypassResponse = "🔄 Yêu cầu so sánh / phân tích đa chiều phức tạp đã được tiếp nhận và phân rã thành biểu đồ DAG. Sẵn sàng thực thi song song.";
+              } else if (route === "SINGLE_SQL") {
+                bypassResponse = "🔍 Yêu cầu kiểm tra chi tiết đã được tiếp nhận vào cổng Single SQL.";
+              }
+            }
+
+            resData = {
+              mod1Pass: true,
+              mod2Pass: !isBlocked,
+              mod3Pass: !isBlocked && route !== null,
+              violationType,
+              violationMessage,
+              route: isBlocked ? "SECURITY_DENIAL" : (route || "UNKNOWN"),
+              intent: intent || (isBlocked ? "SECURITY_DENIAL" : "UNKNOWN"),
+              latencyMs,
+              bypassResponse,
+              chips
+            };
+          }
+        } else {
+          throw new Error("Server response not ok");
+        }
+      } catch (err) {
+        // Fallback local logic
+        resData = evaluateLocalFallback(promptText, profile);
+      }
+
+      // Render kết quả chuẩn xác vào botBubble
+      const contentEl = document.getElementById(botContentId);
+      const mod1Pass = resData.mod1Pass;
+      const mod2Pass = resData.mod2Pass;
+      const mod3Pass = resData.mod3Pass;
+      const isBlocked = !mod2Pass;
+      const isDebug = document.getElementById("debug-mode-toggle") ? document.getElementById("debug-mode-toggle").checked : false;
+
+      let chipsHtml = "";
+      if (resData.chips && resData.chips.length > 0) {
+        chipsHtml = `
+          <div class="pt-2 flex flex-wrap gap-1.5">
+            ${resData.chips.map(c => `
+              <button onclick="handleChipClick('${escapeForAttr(c)}')" class="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition font-medium">
+                ${escapeHtml(c)}
+              </button>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      contentEl.innerHTML = `
+        <!-- Khối hiển thị chi tiết kỹ thuật (Ẩn khi tắt Debug Mode) -->
+        <div class="debug-details-box ${isDebug ? '' : 'hidden'} space-y-2.5 pb-2.5 border-b border-slate-100">
+          <!-- 1. KIỂM TRA ĐẠT / KHÔNG ĐẠT 3 MODULE -->
+          <div class="flex flex-wrap items-center gap-2 text-xs">
+            <span class="font-bold text-slate-500 uppercase tracking-wider text-[11px]">Trạng Thái:</span>
+            
+            <span class="px-2.5 py-0.5 rounded-full ${mod1Pass ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'} font-semibold flex items-center gap-1">
+              <i class="fa-solid ${mod1Pass ? 'fa-circle-check text-emerald-500' : 'fa-circle-xmark text-rose-500'}"></i> Mod 1 Gateway: ${mod1Pass ? 'PASS' : 'FAIL'}
+            </span>
+
+            <span class="px-2.5 py-0.5 rounded-full ${mod2Pass ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'} font-semibold flex items-center gap-1">
+              <i class="fa-solid ${mod2Pass ? 'fa-circle-check text-emerald-500' : 'fa-circle-xmark text-rose-500'}"></i> Mod 2 Guardrails: ${mod2Pass ? 'PASS' : 'BLOCKED'}
+            </span>
+
+            <span class="px-2.5 py-0.5 rounded-full ${mod3Pass ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-400 border border-slate-200'} font-semibold flex items-center gap-1">
+              <i class="fa-solid ${mod3Pass ? 'fa-circle-check text-emerald-500' : 'fa-circle-minus text-slate-400'}"></i> Mod 3 Router: ${mod3Pass ? 'PASS' : 'SKIPPED'}
+            </span>
+          </div>
+
+          <!-- 2. ROUTING GATE TẠI MODULE 3 -->
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-600 font-semibold">Cổng Định Tuyến (Routing Gate):</span>
+              <span class="font-mono text-[11px] text-slate-400">Độ trễ: ${resData.latencyMs} ms</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded-lg ${getRouteBadgeClass(resData.route)} font-mono font-bold text-xs">
+                ${resData.route}
+              </span>
+              <span class="text-slate-600 font-medium">Ý định: <strong class="text-slate-800">${resData.intent}</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. PHẢN HỒI CHAT TỰ NHIÊN (Người dùng cuối) -->
+        <div class="text-[13px] text-slate-800 leading-relaxed space-y-2 pt-1">
+          ${isBlocked ? `
+            <div class="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-1">
+              <div class="font-bold flex items-center gap-1.5 text-rose-700">
+                <i class="fa-solid fa-shield-halved"></i> Bị từ chối an toàn (${resData.violationType})
+              </div>
+              <p>${escapeHtml(resData.violationMessage)}</p>
+            </div>
+          ` : `
+            <div>${escapeHtml(resData.bypassResponse || "Đã tiếp nhận yêu cầu.")}</div>
+          `}
+          ${chipsHtml}
+        </div>
+
+        <!-- 4. FOOTER & NÚT BÁO LỖI -->
+        <div class="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+          <span class="text-[11px] text-slate-400 font-mono">Trace: ${traceId}</span>
+          <button id="btn-feedback-${traceId}" onclick="openFeedbackModal('${traceId}', '${currentSessionId}', \`${escapeForAttr(promptText)}\`, '${resData.route}', '${resData.intent}')" class="px-2 py-0.5 text-[11px] rounded-lg text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center gap-1 transition-colors font-medium">
+            <i class="fa-regular fa-comment-dots text-amber-600"></i> <span>Báo lỗi &amp; Note</span>
+          </button>
+        </div>
+      `;
+
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function handleChipClick(chipText) {
+      document.getElementById("prompt-input").value = chipText;
+      document.getElementById("chat-form").dispatchEvent(new Event("submit"));
+    }
+
+    // Modal Feedback
+    function openFeedbackModal(traceId, sessionId, promptText, defaultRoute, defaultIntent) {
+      currentFeedbackContext = { traceId, sessionId, promptText, defaultRoute, defaultIntent };
+      document.getElementById("fb-trace-id").textContent = traceId;
+      document.getElementById("fb-prompt").textContent = promptText.length > 50 ? promptText.substr(0, 50) + "..." : promptText;
+      document.getElementById("fb-category").value = "ROUTING_MISMATCH";
+      document.getElementById("fb-note").value = "";
+      document.getElementById("fb-expected").value = "";
+      document.getElementById("fb-status-msg").textContent = "";
+
+      const modal = document.getElementById("feedback-modal");
+      modal.classList.remove("hidden");
+      document.getElementById("fb-note").focus();
+    }
+
+    function closeFeedbackModal() {
+      document.getElementById("feedback-modal").classList.add("hidden");
+      currentFeedbackContext = null;
+    }
+
+    async function submitFeedback() {
+      if (!currentFeedbackContext) return;
+      const note = document.getElementById("fb-note").value.trim();
+      const statusMsg = document.getElementById("fb-status-msg");
+      if (!note) {
+        statusMsg.innerHTML = '<span class="text-rose-500 font-medium">Vui lòng nhập ghi chú!</span>';
+        document.getElementById("fb-note").focus();
+        return;
+      }
+
+      const category = document.getElementById("fb-category").value;
+      const expected = document.getElementById("fb-expected").value.trim();
+      const submitBtn = document.getElementById("fb-submit-btn");
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span>Đang lưu...</span>';
+
+      const payload = {
+        trace_id: currentFeedbackContext.traceId,
+        session_id: currentFeedbackContext.sessionId,
+        turn_index: 1,
+        prompt: currentFeedbackContext.promptText,
+        error_category: category,
+        severity: "MAJOR",
+        user_note: note,
+        expected_behavior: expected || null,
+        expected_route: expected || null,
+        actual_route: currentFeedbackContext.defaultRoute,
+        actual_intent: currentFeedbackContext.defaultIntent,
+        tags: ["gui_bench", "human_annotation"]
+      };
+
+      try {
+        const resp = await fetch("/api/v1/chat/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        if (resp.ok) {
+          const res = await resp.json();
+          statusMsg.innerHTML = `<span class="text-emerald-600 font-semibold">✓ Đã lưu (${res.annotation_id})!</span>`;
+          const btn = document.getElementById(`btn-feedback-${currentFeedbackContext.traceId}`);
+          if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-check text-emerald-600"></i> <span class="text-emerald-700 font-semibold">Đã ghi chú</span>';
+            btn.className = "px-2.5 py-1 text-xs rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 cursor-default";
+            btn.onclick = null;
+          }
+          setTimeout(() => {
+            closeFeedbackModal();
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-regular fa-paper-plane text-xs"></i> <span>Lưu Ghi Chú</span>';
+          }, 800);
+        } else {
+          throw new Error("API call failed");
+        }
+      } catch (e) {
+        // Fallback lưu local
+        const local = JSON.parse(localStorage.getItem("ipgov_quest_annotations") || "[]");
+        payload.annotation_id = "local_" + Math.random().toString(36).substr(2, 8);
+        local.push(payload);
+        localStorage.setItem("ipgov_quest_annotations", JSON.stringify(local));
+
+        statusMsg.innerHTML = '<span class="text-amber-600 font-medium">✓ Đã lưu tạm offline.</span>';
+        const btn = document.getElementById(`btn-feedback-${currentFeedbackContext.traceId}`);
+        if (btn) {
+          btn.innerHTML = '<i class="fa-solid fa-check text-amber-600"></i> <span class="text-amber-700 font-semibold">Đã ghi chú (Local)</span>';
+          btn.className = "px-2.5 py-1 text-xs rounded-lg bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5 cursor-default";
+          btn.onclick = null;
+        }
+        setTimeout(() => {
+          closeFeedbackModal();
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="fa-regular fa-paper-plane text-xs"></i> <span>Lưu Ghi Chú</span>';
+        }, 800);
+      }
+    }
+
+    // Sự kiện khởi tạo
+    document.addEventListener("DOMContentLoaded", () => {
+      const chatForm = document.getElementById("chat-form");
+      const promptInput = document.getElementById("prompt-input");
+      const resetBtn = document.getElementById("reset-chat-btn");
+      const debugToggle = document.getElementById("debug-mode-toggle");
+
+      // Khôi phục trạng thái Debug Mode từ localStorage (mặc định tắt cho người dùng)
+      const savedDebug = localStorage.getItem("ipgov_debug_mode") === "true";
+      if (debugToggle) {
+        debugToggle.checked = savedDebug;
+        debugToggle.addEventListener("change", (e) => {
+          const isShow = e.target.checked;
+          localStorage.setItem("ipgov_debug_mode", isShow ? "true" : "false");
+          document.querySelectorAll(".debug-details-box").forEach(el => {
+            if (isShow) el.classList.remove("hidden");
+            else el.classList.add("hidden");
+          });
+        });
+      }
+
+      chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = promptInput.value.trim();
+        if (!text) return;
+        promptInput.value = "";
+        handleSendMessage(text);
+      });
+
+      resetBtn.addEventListener("click", () => {
+        currentSessionId = "sess_" + Math.random().toString(36).substr(2, 9);
+        const container = document.getElementById("messages-container");
+        container.innerHTML = `
+          <div class="flex gap-3 justify-start">
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+              <i class="fa-solid fa-robot text-base"></i>
+            </div>
+            <div class="max-w-[85%] rounded-2xl rounded-tl-none px-5 py-4 bg-white text-slate-800 border border-slate-200/80 shadow-sm text-sm leading-relaxed space-y-2">
+              <p class="font-semibold text-slate-900">🔄 Đã làm mới phiên hội thoại (${currentSessionId})!</p>
+              <p class="text-slate-600">Hãy nhập câu hỏi tiếp theo để kiểm tra luồng định tuyến.</p>
+            </div>
+          </div>
+        `;
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,887 @@
+{
+  "test_suite": "IPGov_Chatbot_Module_01_Gateway_Suite",
+  "version": "1.0.0",
+  "total_cases": 31,
+  "description": "Bộ kiểm thử chất lượng cấp Enterprise cho Module 1: API Gateway & SSE Dispatcher. Bao gồm xác thực JWT, giải mã phân quyền HBAC 6 profiles mẫu, cô lập đa người thuê (Multi-Tenancy 68 vs 79), luồng SSE Handshake (TTFE < 50ms), hợp đồng snapshot Stage 1 (RequestSessionContextDTO), và kiểm soát biên Payload Ingress.",
+  "categories": [
+    "HBAC_PROFILE_EXTRACTION",
+    "MULTI_TENANCY_ISOLATION",
+    "SSE_HANDSHAKE_SLA",
+    "STAGE1_SNAPSHOT_CONTRACT",
+    "SESSION_LIFECYCLE",
+    "AUTHORIZATION_HEADER_SECURITY",
+    "INGRESS_PAYLOAD_BOUNDARY",
+    "TOKEN_TAMPERING_SECURITY",
+    "TOKEN_EXPIRATION_SECURITY",
+    "PARSER_POISONING_SECURITY"
+  ],
+  "cases": [
+    {
+      "id": "MOD01_HBAC_001",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "lamdong_province_leader",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Lãnh đạo UBND Tỉnh Lâm Đồng (Role Level 0, Tenant 68, Department None). Kiểm tra thuộc tính is_province_level=True và quyền hạn toàn tỉnh.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_province_leader>"
+        },
+        "body": {
+          "prompt": "Báo cáo tiến độ và tỷ lệ giải ngân vốn đầu tư công tỉnh Lâm Đồng năm 2025.",
+          "session_id": "sess_ld_lead_001"
+        },
+        "jwt_claims": {
+          "user_id": "u_ld_001",
+          "username": "lanhdao_ubnd_lamdong",
+          "tenant_code": "68",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 0
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_ld_001",
+          "username": "lanhdao_ubnd_lamdong",
+          "tenant_code": "68",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 0,
+          "is_province_level": true,
+          "is_department_level": false,
+          "is_office_level": false,
+          "is_public": false
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_ld_lead_001",
+            "user_id": "u_ld_001",
+            "tenant_code": "68",
+            "role_level": 0,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '68' and user_ctx.role_level == 0 and user_ctx.department_code is None and user_ctx.is_province_level is True and event_1_data['tenant_code'] == '68' and event_1_data['role_level'] == 0"
+    },
+    {
+      "id": "MOD01_HBAC_002",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "tphcm_province_leader",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Lãnh đạo UBND TP.HCM (Role Level 0, Tenant 79, Department None). Kiểm tra thẩm quyền cấp Tỉnh/Thành phố của địa bàn TP.HCM.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_tphcm_province_leader>"
+        },
+        "body": {
+          "prompt": "Báo cáo chỉ số cải cách hành chính (PAR Index) và sự hài lòng của người dân TP.HCM năm 2025.",
+          "session_id": "sess_hcm_lead_002"
+        },
+        "jwt_claims": {
+          "user_id": "u_hcm_001",
+          "username": "lanhdao_ubnd_tphcm",
+          "tenant_code": "79",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 0
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_hcm_001",
+          "username": "lanhdao_ubnd_tphcm",
+          "tenant_code": "79",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 0,
+          "is_province_level": true,
+          "is_department_level": false,
+          "is_office_level": false,
+          "is_public": false
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_hcm_lead_002",
+            "user_id": "u_hcm_001",
+            "tenant_code": "79",
+            "role_level": 0,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '79' and user_ctx.role_level == 0 and user_ctx.department_code is None and user_ctx.is_province_level is True and event_1_data['tenant_code'] == '79'"
+    },
+    {
+      "id": "MOD01_HBAC_003",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "tphcm_so_noivu",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Giám đốc Sở Nội Vụ TP.HCM (Role Level 1, Department 79-1-01, Tenant 79). Kiểm tra thuộc tính is_department_level=True.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_tphcm_so_noivu>"
+        },
+        "body": {
+          "prompt": "Tổng hợp chỉ tiêu tuyển dụng và bổ nhiệm cán bộ công chức Sở Nội Vụ TP.HCM năm 2025.",
+          "session_id": "sess_snv_003"
+        },
+        "jwt_claims": {
+          "user_id": "u_snv_001",
+          "username": "giamdoc_so_noivu_hcm",
+          "tenant_code": "79",
+          "department_code": "79-1-01",
+          "office_id": null,
+          "role_level": 1
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_snv_001",
+          "username": "giamdoc_so_noivu_hcm",
+          "tenant_code": "79",
+          "department_code": "79-1-01",
+          "office_id": null,
+          "role_level": 1,
+          "is_province_level": false,
+          "is_department_level": true,
+          "is_office_level": false,
+          "is_public": false
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_snv_003",
+            "user_id": "u_snv_001",
+            "tenant_code": "79",
+            "role_level": 1,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '79' and user_ctx.role_level == 1 and user_ctx.department_code == '79-1-01' and user_ctx.is_department_level is True and event_1_data['role_level'] == 1"
+    },
+    {
+      "id": "MOD01_HBAC_004",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "lamdong_phong_kinhte",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Trưởng phòng Kinh tế Lâm Đồng (Role Level 2, Department 68-1-02, Office 'Phòng Kinh tế', Tenant 68). Kiểm tra thuộc tính is_office_level=True.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_phong_kinhte>"
+        },
+        "body": {
+          "prompt": "Năm 2025, tổng số người được đào tạo từ nguồn kinh phí khuyến công tại Phòng Kinh tế là bao nhiêu?",
+          "session_id": "sess_pkt_004"
+        },
+        "jwt_claims": {
+          "user_id": "u_pkt_001",
+          "username": "truongphong_kinhte_lamdong",
+          "tenant_code": "68",
+          "department_code": "68-1-02",
+          "office_id": "Phòng Kinh tế",
+          "role_level": 2
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_pkt_001",
+          "username": "truongphong_kinhte_lamdong",
+          "tenant_code": "68",
+          "department_code": "68-1-02",
+          "office_id": "Phòng Kinh tế",
+          "role_level": 2,
+          "is_province_level": false,
+          "is_department_level": false,
+          "is_office_level": true,
+          "is_public": false
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_pkt_004",
+            "user_id": "u_pkt_001",
+            "tenant_code": "68",
+            "role_level": 2,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '68' and user_ctx.role_level == 2 and user_ctx.department_code == '68-1-02' and user_ctx.office_id == 'Phòng Kinh tế' and user_ctx.is_office_level is True"
+    },
+    {
+      "id": "MOD01_HBAC_005",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "lamdong_phong_xaydung",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Chuyên viên Xây dựng Lâm Đồng (Role Level 2, Department 68-1-02, Office 'Phòng ban xây dựng', Tenant 68). Kiểm tra trích xuất chính xác văn phòng chuyên môn.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_phong_xaydung>"
+        },
+        "body": {
+          "prompt": "Tổng số giấy phép xây dựng nhà ở đã phê duyệt trong quý 2 năm 2025.",
+          "session_id": "sess_pxd_005"
+        },
+        "jwt_claims": {
+          "user_id": "u_pxd_001",
+          "username": "chuyenvien_xaydung_lamdong",
+          "tenant_code": "68",
+          "department_code": "68-1-02",
+          "office_id": "Phòng ban xây dựng",
+          "role_level": 2
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_pxd_001",
+          "username": "chuyenvien_xaydung_lamdong",
+          "tenant_code": "68",
+          "department_code": "68-1-02",
+          "office_id": "Phòng ban xây dựng",
+          "role_level": 2,
+          "is_province_level": false,
+          "is_department_level": false,
+          "is_office_level": true,
+          "is_public": false
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_pxd_005",
+            "user_id": "u_pxd_001",
+            "tenant_code": "68",
+            "role_level": 2,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '68' and user_ctx.role_level == 2 and user_ctx.department_code == '68-1-02' and user_ctx.office_id == 'Phòng ban xây dựng' and user_ctx.is_office_level is True"
+    },
+    {
+      "id": "MOD01_HBAC_006",
+      "category": "HBAC_PROFILE_EXTRACTION",
+      "persona": "public_citizen",
+      "description": "Xác thực Bearer JWT và trích xuất ngữ cảnh Công dân vãng lai tra cứu số liệu công khai (Role Level 3, Tenant 68, Department None, Office None). Kiểm tra thuộc tính is_public=True.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_public_citizen>"
+        },
+        "body": {
+          "prompt": "Hướng dẫn đăng ký thủ tục cấp đổi giấy phép lái xe trực tuyến tại Cổng DVC quốc gia.",
+          "session_id": "sess_pub_006"
+        },
+        "jwt_claims": {
+          "user_id": "u_pub_999",
+          "username": "congdan_tra_cuu",
+          "tenant_code": "68",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 3
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "media_type": "text/event-stream",
+        "user_context": {
+          "user_id": "u_pub_999",
+          "username": "congdan_tra_cuu",
+          "tenant_code": "68",
+          "department_code": null,
+          "office_id": null,
+          "role_level": 3,
+          "is_province_level": false,
+          "is_department_level": false,
+          "is_office_level": false,
+          "is_public": true
+        },
+        "event_1": {
+          "event": "connected",
+          "data": {
+            "session_id": "sess_pub_006",
+            "user_id": "u_pub_999",
+            "tenant_code": "68",
+            "role_level": 3,
+            "message": "Kết nối thành công đến Trợ lý ảo Tra cứu DWH Chính phủ điện tử."
+          }
+        }
+      },
+      "verification_rule": "assert user_ctx.tenant_code == '68' and user_ctx.role_level == 3 and user_ctx.department_code is None and user_ctx.office_id is None and user_ctx.is_public is True"
+    },
+    {
+      "id": "MOD01_TENANCY_001",
+      "category": "MULTI_TENANCY_ISOLATION",
+      "persona": "tphcm_province_leader",
+      "description": "Kiểm tra tính cô lập đa người thuê Tenant 79 TP.HCM: Đảm bảo RequestSessionContextDTO chỉ gắn tenant_code='79', tuyệt đối không rò rỉ hoặc fallback về tenant mặc định '68'.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_tphcm_province_leader>"
+        },
+        "body": {
+          "prompt": "Báo cáo tổng ngân sách chi thường xuyên của TP.HCM quý 4 năm 2025.",
+          "session_id": "sess_iso_hcm_007"
+        }
+      },
+      "expected": {
+        "snapshot_tenant_code": "79",
+        "snapshot_role_level": 0,
+        "event_1_tenant_code": "79",
+        "forbidden_tenant_codes": ["68"]
+      },
+      "verification_rule": "assert snapshot.user_context.tenant_code == '79' and snapshot.user_context.tenant_code != '68' and event_1_data['tenant_code'] == '79'"
+    },
+    {
+      "id": "MOD01_TENANCY_002",
+      "category": "MULTI_TENANCY_ISOLATION",
+      "persona": "lamdong_phong_kinhte",
+      "description": "Kiểm tra tính cô lập đa người thuê Tenant 68 Lâm Đồng: Xác thực Department Code '68-1-02' thuộc đúng không gian phân vùng tỉnh Lâm Đồng, ngăn chặn hoàn toàn việc rò rỉ mã tiền tố '79'.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_phong_kinhte>"
+        },
+        "body": {
+          "prompt": "Tổng hợp chỉ tiêu kế hoạch kinh tế - xã hội huyện Đơn Dương năm 2025.",
+          "session_id": "sess_iso_ld_008"
+        }
+      },
+      "expected": {
+        "snapshot_tenant_code": "68",
+        "snapshot_department_code": "68-1-02",
+        "snapshot_role_level": 2,
+        "event_1_tenant_code": "68"
+      },
+      "verification_rule": "assert snapshot.user_context.tenant_code == '68' and snapshot.user_context.department_code.startswith('68-') and not snapshot.user_context.department_code.startswith('79-')"
+    },
+    {
+      "id": "MOD01_SSE_001",
+      "category": "SSE_HANDSHAKE_SLA",
+      "persona": "lamdong_province_leader",
+      "description": "Kiểm định cấu trúc chuẩn hóa của Sự kiện đầu tiên Event 1 (connected), xác nhận đầy đủ 7 keys bắt buộc: session_id, trace_id, user_id, tenant_code, role_level, timestamp, message.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_province_leader>"
+        },
+        "body": {
+          "prompt": "Tình hình thu ngân sách nhà nước quý 1 năm 2026.",
+          "session_id": "sess_sse_009"
+        }
+      },
+      "expected": {
+        "event_type": "connected",
+        "payload_required_keys": [
+          "session_id",
+          "trace_id",
+          "user_id",
+          "tenant_code",
+          "role_level",
+          "timestamp",
+          "message"
+        ],
+        "line_format_start": "event: connected\ndata: {",
+        "line_format_end": "\n\n"
+      },
+      "verification_rule": "assert raw_event.startswith('event: connected\\n') and raw_event.endswith('\\n\\n') and set(['session_id', 'trace_id', 'user_id', 'tenant_code', 'role_level', 'timestamp', 'message']).issubset(set(data.keys()))"
+    },
+    {
+      "id": "MOD01_SSE_002",
+      "category": "SSE_HANDSHAKE_SLA",
+      "persona": "public_citizen",
+      "description": "Kiểm định SLA Time to First Event (TTFE) < 50ms theo Blueprint 07 khi sinh Event 1 connected nhằm đảm bảo phản hồi tức thì cho người dùng.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_public_citizen>"
+        },
+        "body": {
+          "prompt": "Biểu mức thu lệ phí đăng ký cư trú năm 2025.",
+          "session_id": "sess_ttfe_010"
+        }
+      },
+      "expected": {
+        "ttfe_sla_ms": 50.0,
+        "first_event": "connected",
+        "status": "PASS"
+      },
+      "verification_rule": "assert measured_ttfe_ms < 50.0, f'TTFE {measured_ttfe_ms}ms vượt chuẩn cam kết SLA 50ms'"
+    },
+    {
+      "id": "MOD01_SSE_003",
+      "category": "SSE_HANDSHAKE_SLA",
+      "persona": "tphcm_so_noivu",
+      "description": "Kiểm định giao thức phản hồi HTTP Streaming: Header text/event-stream, Cache-Control: no-cache, Connection: keep-alive, và X-Accel-Buffering: no.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer <JWT_tphcm_so_noivu>"
+        },
+        "body": {
+          "prompt": "Quy hoạch cán bộ nguồn cấp sở giai đoạn 2026-2030.",
+          "session_id": "sess_headers_011"
+        }
+      },
+      "expected": {
+        "content_type": "text/event-stream",
+        "cache_control": "no-cache",
+        "connection": "keep-alive",
+        "x_accel_buffering": "no"
+      },
+      "verification_rule": "assert 'text/event-stream' in resp_headers['content-type'] and resp_headers.get('cache-control') == 'no-cache' and resp_headers.get('connection') == 'keep-alive' and resp_headers.get('x-accel-buffering') == 'no'"
+    },
+    {
+      "id": "MOD01_SNAPSHOT_001",
+      "category": "STAGE1_SNAPSHOT_CONTRACT",
+      "persona": "lamdong_province_leader",
+      "description": "Kiểm định khởi tạo DTO Snapshot Stage 1 (RequestSessionContextDTO) đầy đủ: trace_id định dạng UUID4, session_id, user_context, raw_prompt và created_at_epoch.",
+      "input": {
+        "raw_prompt": "Báo cáo chỉ tiêu phát triển kinh tế xã hội năm 2025 của tỉnh Lâm Đồng.",
+        "persona_key": "lamdong_province_leader",
+        "session_id": "sess_snap_012"
+      },
+      "expected": {
+        "dto_type": "RequestSessionContextDTO",
+        "trace_id_format": "UUIDv4",
+        "session_id": "sess_snap_012",
+        "raw_prompt": "Báo cáo chỉ tiêu phát triển kinh tế xã hội năm 2025 của tỉnh Lâm Đồng.",
+        "created_at_epoch_valid": true,
+        "user_context_type": "UserSecurityContextDTO"
+      },
+      "verification_rule": "assert uuid.UUID(snapshot.trace_id) and snapshot.session_id == 'sess_snap_012' and snapshot.raw_prompt == input_prompt and snapshot.created_at_epoch > 1700000000.0"
+    },
+    {
+      "id": "MOD01_SNAPSHOT_002",
+      "category": "STAGE1_SNAPSHOT_CONTRACT",
+      "persona": "lamdong_phong_xaydung",
+      "description": "Kiểm định trích xuất và bảo toàn Client IP trong Snapshot Stage 1 phục vụ ghi log nhật ký an ninh (Audit Trail).",
+      "input": {
+        "raw_prompt": "Danh mục dự án đầu tư công nhóm B phê duyệt năm 2025.",
+        "persona_key": "lamdong_phong_xaydung",
+        "client_ip": "192.168.10.55",
+        "session_id": "sess_snap_ip_013"
+      },
+      "expected": {
+        "snapshot_client_ip": "192.168.10.55",
+        "snapshot_office_id": "Phòng ban xây dựng",
+        "snapshot_department_code": "68-1-02",
+        "session_id": "sess_snap_ip_013"
+      },
+      "verification_rule": "assert snapshot.client_ip == '192.168.10.55' and snapshot.user_context.office_id == 'Phòng ban xây dựng' and snapshot.user_context.department_code == '68-1-02'"
+    },
+    {
+      "id": "MOD01_SESSION_001",
+      "category": "SESSION_LIFECYCLE",
+      "persona": "tphcm_so_noivu",
+      "description": "Client chủ động gửi session_id tùy chọn: Gateway tiếp nhận và giữ nguyên session_id này trong suốt vòng đời snapshot và Event 1.",
+      "input": {
+        "custom_session_id": "sess_custom_client_provided_998877",
+        "persona_key": "tphcm_so_noivu",
+        "prompt": "Báo cáo kết quả sát hạch viên chức ngành y tế năm 2025."
+      },
+      "expected": {
+        "snapshot_session_id": "sess_custom_client_provided_998877",
+        "event_1_session_id": "sess_custom_client_provided_998877"
+      },
+      "verification_rule": "assert snapshot.session_id == 'sess_custom_client_provided_998877' and event_1_data['session_id'] == 'sess_custom_client_provided_998877'"
+    },
+    {
+      "id": "MOD01_SESSION_002",
+      "category": "SESSION_LIFECYCLE",
+      "persona": "public_citizen",
+      "description": "Client không gửi session_id (giá trị None / null): Gateway tự động sinh mã phiên mới theo định dạng 'sess_<12_hex_chars>' đảm bảo tính duy nhất.",
+      "input": {
+        "custom_session_id": null,
+        "persona_key": "public_citizen",
+        "prompt": "Hướng dẫn cấp đổi thẻ BHYT trực tuyến."
+      },
+      "expected": {
+        "session_id_pattern": "^sess_[0-9a-f]{12}$",
+        "is_not_empty": true
+      },
+      "verification_rule": "assert re.match(r'^sess_[0-9a-f]{12}$', snapshot.session_id) is not None and event_1_data['session_id'] == snapshot.session_id"
+    },
+    {
+      "id": "MOD01_AUTH_SEC_001",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "unauthenticated_guest",
+      "description": "Xử lý yêu cầu hoàn toàn thiếu Header Authorization: Gateway không làm sập tiến trình, phát sự kiện 'event: error' giải thích rõ ràng và đóng kết nối.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {},
+        "body": {
+          "prompt": "Tra cứu thông tin ngân sách địa phương.",
+          "session_id": "sess_no_auth_016"
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "event_type": "error",
+        "error_message": "Xác thực thất bại: Thiếu Authorization Header. Bắt buộc phải có Bearer Token.",
+        "has_connected_event": false
+      },
+      "verification_rule": "assert 'event: error' in stream_content and 'Thiếu Authorization Header' in stream_content and 'event: connected' not in stream_content"
+    },
+    {
+      "id": "MOD01_AUTH_SEC_002",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "malformed_auth_client",
+      "description": "Xử lý Header Authorization sai định dạng: Sử dụng lược đồ 'Basic <token>', chuỗi token trần không có tiền tố Bearer, hoặc 'Bearer ' rỗng.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Basic dXNlcm5hbWU6cGFzc3dvcmQxMjM="
+        },
+        "body": {
+          "prompt": "Kiểm tra thủ tục đăng ký đất đai.",
+          "session_id": "sess_malformed_017"
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "event_type": "error",
+        "error_message_contains": "Định dạng Authorization Header không hợp lệ (cần 'Bearer <token>')",
+        "has_connected_event": false
+      },
+      "verification_rule": "assert 'event: error' in stream_content and 'Định dạng Authorization Header không hợp lệ' in stream_content and 'event: connected' not in stream_content"
+    },
+    {
+      "id": "MOD01_AUTH_SEC_003",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "tampered_jwt_attacker",
+      "description": "Xử lý JWT bị can thiệp sửa đổi trái phép phần thân payload hoặc giả mạo chữ ký HMAC-SHA256: Gateway từ chối truy cập và phát event error.",
+      "input": {
+        "endpoint": "/api/v1/chat/stream",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyX2lkIjoiZmFrZSJ9.invalid_signature_xxx"
+        },
+        "body": {
+          "prompt": "Truy xuất danh sách cán bộ diện bảo vệ chính trị nội bộ.",
+          "session_id": "sess_tamper_018"
+        }
+      },
+      "expected": {
+        "http_status": 200,
+        "event_type": "error",
+        "error_message_contains": "Chữ ký JWT không hợp lệ hoặc đã bị chỉnh sửa trái phép.",
+        "has_connected_event": false
+      },
+      "verification_rule": "assert 'event: error' in stream_content and 'Chữ ký JWT không hợp lệ' in stream_content and 'event: connected' not in stream_content"
+    },
+    {
+      "id": "MOD01_INGRESS_001",
+      "category": "INGRESS_PAYLOAD_BOUNDARY",
+      "persona": "public_citizen",
+      "description": "Kiểm tra biên tối đa của Ingress Prompt: Chấp nhận chuỗi đúng 4000 ký tự hợp lệ; Chặn và trả về HTTP 422 Unprocessable Entity khi vượt quá 4001 ký tự.",
+      "input": {
+        "valid_prompt_len": 4000,
+        "invalid_prompt_len": 4001,
+        "headers": {
+          "Authorization": "Bearer <JWT_public_citizen>"
+        }
+      },
+      "expected": {
+        "valid_case_status": 200,
+        "invalid_case_status": 422,
+        "pydantic_error_type": "string_too_long"
+      },
+      "verification_rule": "assert valid_resp.status_code == 200 and invalid_resp.status_code == 422 and any(e['type'] == 'string_too_long' for e in invalid_resp.json()['detail'])"
+    },
+    {
+      "id": "MOD01_INGRESS_002",
+      "category": "INGRESS_PAYLOAD_BOUNDARY",
+      "persona": "lamdong_phong_kinhte",
+      "description": "Kiểm tra biên tối thiểu của Ingress Prompt: Chặn chuỗi rỗng 0 ký tự ('') ngay tại lớp Ingress FastAPI Pydantic với mã lỗi HTTP 422.",
+      "input": {
+        "prompt": "",
+        "session_id": "sess_empty_prompt_020",
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_phong_kinhte>"
+        }
+      },
+      "expected": {
+        "http_status": 422,
+        "pydantic_error_type": "string_too_short"
+      },
+      "verification_rule": "assert resp.status_code == 422 and any(e['type'] == 'string_too_short' and e['loc'] == ['body', 'prompt'] for e in resp.json()['detail'])"
+    },
+    {
+      "id": "SEC_MOD01_001",
+      "category": "TOKEN_TAMPERING_SECURITY",
+      "persona": "External Adversary (Signature Forger)",
+      "description": "Kẻ tấn công sửa đổi chuỗi chữ ký (signature) bằng giá trị ngẫu nhiên nhằm kiểm thử cơ chế xác thực toàn vẹn HMAC-SHA256.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidV9sZF8wMDEiLCJ1c2VybmFtZSI6ImxhbmhkYW9fdWJuZF9sYW1kb25nIiwidGVuYW50X2NvZGUiOiI2OCIsInJvbGVfbGV2ZWwiOjAsImlhdCI6MTc5MDA2ODEyOSwiZXhwIjoxNzkwMTU0NTI5fQ.invalidsignaturebadmac1234567890abcdef"
+        },
+        "body": {
+          "prompt": "Báo cáo tổng kết kinh phí khuyến công năm 2025",
+          "session_id": "sess_tamper_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 401,
+        "error_type": "ValueError",
+        "message": "Chữ ký JWT không hợp lệ hoặc đã bị chỉnh sửa trái phép."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'không hợp lệ hoặc đã bị chỉnh sửa' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_002",
+      "category": "TOKEN_TAMPERING_SECURITY",
+      "persona": "Privilege Escalation Attacker (Malicious Citizen)",
+      "description": "Người dùng vãng lai (role_level=3) can thiệp sửa đổi payload trong token thành role_level=0 (Lãnh đạo Tỉnh) nhưng giữ nguyên chữ ký cũ nhằm leo thang đặc quyền.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjogInVfcHViXzk5OSIsICJ1c2VybmFtZSI6ICJjb25nZGFuX3RyYV9jdXUiLCAidGVuYW50X2NvZGUiOiAiNjgiLCAicm9sZV9sZXZlbCI6IDAsICJpYXQiOiAxNzkwMDY4MTI5LCAiZXhwIjogMTc5MDE1NDUyOX0.B2MNi7PVTdKQmTLE_MSvvcv8EAKU5zJwUOq-CYCck5E"
+        },
+        "body": {
+          "prompt": "Báo cáo ngân sách chi tiết và các tài liệu mật toàn tỉnh năm 2025",
+          "session_id": "sess_tamper_002"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 401,
+        "error_type": "ValueError",
+        "message": "Chữ ký JWT không hợp lệ hoặc đã bị chỉnh sửa trái phép."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'Chữ ký JWT không hợp lệ' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_003",
+      "category": "TOKEN_TAMPERING_SECURITY",
+      "persona": "Fuzzing & Parser Exploiter",
+      "description": "Kẻ tấn công gửi chuỗi token có cấu trúc dị dạng (4 phân đoạn ngăn cách bởi dấu chấm thay vì 3 phần chuẩn RFC 7519) để gây crash hàm giải mã chuỗi.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdCJ9.extra_segment.invalidsignature"
+        },
+        "body": {
+          "prompt": "Tra cứu số liệu công vụ nội bộ",
+          "session_id": "sess_fuzz_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 400,
+        "error_type": "ValueError",
+        "message": "Cấu trúc JWT không hợp lệ (phải gồm 3 phần ngăn cách bởi dấu chấm)."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'Cấu trúc JWT không hợp lệ' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_004",
+      "category": "TOKEN_EXPIRATION_SECURITY",
+      "persona": "Replay Attacker (Stale Session)",
+      "description": "Kẻ tấn công sử dụng lại token đã hết hạn 1 giờ trước (exp < current_timestamp - 3600) thu thập từ nhật ký phiên làm việc cũ.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidV9sZF8wMDEiLCJ1c2VybmFtZSI6ImxhbmhkYW9fdWJuZF9sYW1kb25nIiwidGVuYW50X2NvZGUiOiI2OCIsInJvbGVfbGV2ZWwiOjAsImlhdCI6MTc5MDA2ODEyOSwiZXhwIjoxNzkwMDY0NTI5fQ.7iZmpxfrs0dsJy4zRe2iMxxPP-OdIH97N9PRHbyXVGM"
+        },
+        "body": {
+          "prompt": "Tra cứu báo cáo thống kê tai nạn lao động quý 4 năm 2025",
+          "session_id": "sess_replay_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 401,
+        "error_type": "ValueError",
+        "message": "JWT Token đã hết hạn sử dụng (Token Expired)."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'hết hạn sử dụng' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_005",
+      "category": "TOKEN_EXPIRATION_SECURITY",
+      "persona": "Concurrent Session Exploiter",
+      "description": "Token gửi lên vừa hết hạn trước thời điểm Gateway kiểm tra 10 giây (exp = current_time - 10s), kiểm thử việc không cho phép dung sai thời gian không hợp lệ.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidV9wa3RfMDAxIiwidXNlcm5hbWUiOiJ0cnVvbmdwaG9uZ19raW5odGVfbGFtZG9uZyIsInRlbmFudF9jb2RlIjoiNjgiLCJyb2xlX2xldmVsIjoyLCJpYXQiOjE3OTAwNjgxMTksImV4cCI6MTc5MDA2ODEyOX0.abcdef1234567890"
+        },
+        "body": {
+          "prompt": "Xem danh sách hồ sơ thẩm định tháng trước",
+          "session_id": "sess_expired_002"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 401,
+        "error_type": "ValueError",
+        "message": "JWT Token đã hết hạn sử dụng (Token Expired)."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'hết hạn sử dụng' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_006",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "Protocol Misconfiguration Prober",
+      "description": "Client gửi tiêu đề xác thực sử dụng lược đồ Basic Authentication thay vì Bearer Token chuẩn theo giao thức.",
+      "input": {
+        "headers": {
+          "Authorization": "Basic dXNlcm5hbWU6cGFzc3dvcmQxMjM="
+        },
+        "body": {
+          "prompt": "Tra cứu kế hoạch ngân sách phòng kinh tế",
+          "session_id": "sess_proto_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 400,
+        "error_type": "ValueError",
+        "message": "Định dạng Authorization Header không hợp lệ (cần 'Bearer <token>')."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'Định dạng Authorization Header không hợp lệ' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_007",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "Anonymous Prober (Unauthenticated Access)",
+      "description": "Yêu cầu gọi vào Gateway bị bỏ trống hoàn toàn tiêu đề Authorization (Header rỗng hoặc null).",
+      "input": {
+        "headers": {
+          "Authorization": ""
+        },
+        "body": {
+          "prompt": "Tra cứu danh sách công chức sở nội vụ",
+          "session_id": "sess_anon_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 401,
+        "error_type": "ValueError",
+        "message": "Thiếu Authorization Header. Bắt buộc phải có Bearer Token."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and 'Thiếu Authorization Header' in error_message"
+    },
+    {
+      "id": "SEC_MOD01_008",
+      "category": "AUTHORIZATION_HEADER_SECURITY",
+      "persona": "Header Truncation Attacker",
+      "description": "Header chỉ chứa tiền tố 'Bearer ' kèm khoảng trắng mà không có chuỗi token phía sau.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer "
+        },
+        "body": {
+          "prompt": "Thống kê chỉ tiêu khuyến công năm 2025",
+          "session_id": "sess_trunc_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 400,
+        "error_type": "ValueError",
+        "message": "Định dạng Authorization Header không hợp lệ (cần 'Bearer <token>')."
+      },
+      "verification_rule": "assert error_type == 'ValueError' and ('Định dạng Authorization Header không hợp lệ' in error_message or 'Cấu trúc JWT không hợp lệ' in error_message)"
+    },
+    {
+      "id": "SEC_MOD01_009",
+      "category": "INGRESS_PAYLOAD_BOUNDARY",
+      "persona": "Denial-of-Service (Buffer Flooder)",
+      "description": "Gửi payload prompt dài 4050 ký tự vượt quá giới hạn tối đa 4000 ký tự (max_length=4000) nhằm kiểm thử lớp bảo vệ Pydantic Ingress.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_province_leader>"
+        },
+        "body": {
+          "prompt_len": 4050,
+          "session_id": "sess_dos_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 422,
+        "error_type": "RequestValidationError",
+        "message": "String should have at most 4000 characters",
+        "validation_error_loc": [
+          "body",
+          "prompt"
+        ]
+      },
+      "verification_rule": "assert response.status_code == 422 and 'string_too_long' in str(response.json())"
+    },
+    {
+      "id": "SEC_MOD01_010",
+      "category": "INGRESS_PAYLOAD_BOUNDARY",
+      "persona": "Zero-Payload Glitch Tester",
+      "description": "Gửi chuỗi prompt rỗng (0 ký tự) vi phạm ràng buộc min_length=1 tại schema ChatStreamRequest.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_province_leader>"
+        },
+        "body": {
+          "prompt": "",
+          "session_id": "sess_empty_001"
+        }
+      },
+      "expected": {
+        "status": "REJECTED",
+        "http_status": 422,
+        "error_type": "RequestValidationError",
+        "message": "String should have at least 1 character",
+        "validation_error_loc": [
+          "body",
+          "prompt"
+        ]
+      },
+      "verification_rule": "assert response.status_code == 422 and 'string_too_short' in str(response.json())"
+    },
+    {
+      "id": "SEC_MOD01_011",
+      "category": "PARSER_POISONING_SECURITY",
+      "persona": "Parser Poisoning Adversary",
+      "description": "Chèn ký tự Null Byte (\\x00) và Unicode surrogate pairs nhằm mục đích ngắt chuỗi parser C/Python và giấu lệnh DROP TABLE.",
+      "input": {
+        "headers": {
+          "Authorization": "Bearer <JWT_lamdong_province_leader>"
+        },
+        "body": {
+          "prompt": "Tra cứu số liệu công vụ \u0000 DROP TABLE fact_report_criteria;",
+          "session_id": "sess_poison_001"
+        }
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "http_status": 200,
+        "guardrail_violation": "injection",
+        "matched_pattern": "DROP TABLE"
+      },
+      "verification_rule": "assert result.is_safe is False and result.violation_type == ViolationTypeEnum.INJECTION"
+    }
+  ]
+}

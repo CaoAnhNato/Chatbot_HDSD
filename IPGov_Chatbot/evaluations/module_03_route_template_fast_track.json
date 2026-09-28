@@ -1,0 +1,947 @@
+[
+  {
+    "id": "CAND_EXEC_05",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Tỷ lệ phòng học kiên cố hóa trên địa bàn toàn tỉnh năm 2025 đạt bao nhiêu phần trăm và tăng bao nhiêu phần trăm so với năm 2024?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_EXEC_06",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Top 3 địa phương dẫn đầu toàn tỉnh về tốc độ giảm tỷ lệ hộ nghèo trong năm 2025?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_EXEC_07",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Bảng tổng hợp diện tích và sản lượng cây công nghiệp chủ lực của từng huyện trên địa bàn tỉnh qua hai năm 2024 và 2025?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_EXEC_08",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Tổng hợp toàn tỉnh năm 2025 có bao nhiêu cơ sở gây ô nhiễm môi trường nghiêm trọng đã được xử lý triệt để, phân theo từng đơn vị quản lý?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_SPEC_01",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Báo cáo tình hình an toàn, vệ sinh lao động quý 1 năm 2026 của phòng đã được phê duyệt chưa hay vẫn đang chờ duyệt?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_SPEC_02",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Năm 2026 Phòng Xây dựng phải thực hiện những biểu mẫu thu thập số liệu nào và thời hạn nộp biểu mẫu quý 1 là khi nào?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_SPEC_06",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Báo cáo công tác giảm nghèo và bình đẳng giới tháng vừa qua của phòng có bị trả lại hoặc từ chối phê duyệt không, lý do cụ thể là gì?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_SPEC_08",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Thời hạn nộp báo cáo định kỳ kiểm kê đất đai và thống kê nguồn thải năm 2026 của Phòng Tài nguyên và Môi trường là ngày nào?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_AUDIT_01",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Những đơn vị trực thuộc Sở Nội vụ nào chưa nộp hoặc nộp trễ hạn báo cáo an toàn vệ sinh lao động năm 2025?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_SPEC_07",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Diện tích gieo trồng cây vụ đông xuân của địa bàn do phòng theo dõi trong quý 1 năm 2026 tăng hay giảm bao nhiêu phần trăm so với cùng kỳ năm 2025?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_AUDIT_02",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Toàn tỉnh hiện có bao nhiêu báo cáo lĩnh vực xây dựng năm 2025 đang tồn đọng ở trạng thái chờ duyệt hoặc bị từ chối phê duyệt?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_AUDIT_06",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Trên phạm vi toàn tỉnh, cơ quan nào chưa hoàn thành nộp báo cáo định kỳ chỉ tiêu du lịch và dịch vụ văn hóa năm 2025?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_AUDIT_05",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Đối chiếu số liệu chỉ tiêu phòng học mầm non kiên cố năm 2025, có những đơn vị nào báo cáo số liệu bằng 0 hoặc để trống bất thường?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_AUDIT_08",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Toàn tỉnh có bao nhiêu báo cáo thống kê đất đai và tài nguyên nước năm 2025 chưa được phê duyệt chính thức và đang tồn đọng ở trạng thái chờ duyệt?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_COLLOQ_02",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "tong dien tich nha o hoan thanh ubnd tinh 2025"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_COLLOQ_01",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "so vu tai nan lao dong phong VSLD nam 2025"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_COLLOQ_08",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "chi tieu KT-XH nong nghiep 2025 ubnd tinh co nhung muc nao"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_COLLOQ_07",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "ds bc du lich phong Van hoa chua duoc duyet 2026"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_CITIZEN_01",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Năm 2026 xã đã hỗ trợ đào tạo nghề cho bao nhiêu lao động nông thôn?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_CITIZEN_02",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "UBND xã hiện có những biểu mẫu tờ khai hay phiếu thu thập thông tin nào áp dụng cho hộ kinh doanh cá thể?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_CITIZEN_03",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Từ đầu năm 2026 đến nay Trạm y tế xã đã ghi nhận bao nhiêu ca mắc sốt xuất huyết?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_CITIZEN_04",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Tiến độ các dự án nhà ở xã hội trên địa bàn tỉnh năm 2025 - 2026 đã hoàn thành bao nhiêu mét vuông sàn?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "CAND_CITIZEN_05",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Đợt kiểm tra an toàn thực phẩm gần nhất tại xã có bao nhiêu cơ sở đạt chuẩn và bao nhiêu cơ sở bị xử lý vi phạm?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "THREAD_02_T1",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Toàn tỉnh năm 2025 có bao nhiêu trạm y tế đạt chuẩn quốc gia ?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "THREAD_04_T2",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "SPECIALIST",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Biểu mẫu nào của Phòng Xây dựng sắp đến hạn nộp ?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_001",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "EXECUTIVE",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Năm 2026, toàn xã ghi nhận bao nhiêu vụ tai nạn lao động trong các báo cáo đã duyệt?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_002",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "chi tieu lao dong viec lam ubnd xa tinh ld 2026 bc appr"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_003",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "EXECUTIVE",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Tổng số báo cáo đã được phê duyệt trong năm 2026 của xã thuộc hai lĩnh vực Y tế và Công thương là bao nhiêu?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_004",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "top 5 xa ld so vu vi pham an toan ve sinh lao dong nhieu nhat 2026 bc appr"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_011",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "JUNIOR",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Cho em xin số liệu an toàn thực phẩm 2026 tỉnh Lâm Đồng"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_012",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "chi tieu giam ngheo ld 2026"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_013",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "EXECUTIVE",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Tổng số báo cáo Nội vụ Lâm Đồng 2026?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_014",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "tong bc appr so nv ld 2026"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_021",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Cán bộ cho tôi hỏi, ở tỉnh Lâm Đồng trong năm nay có những nhiệm vụ hay chương trình nào về hỗ trợ việc làm và đào tạo nghề cho người lao động vậy?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_022",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "CITIZEN",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Hộ kinh doanh buôn bán như chúng tôi thì hiện có các biểu mẫu thu thập thông tin hay tờ khai nào cần phải kê khai nộp lên xã không cán bộ?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_023",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "JUNIOR",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Dạ anh/chị cho em hỏi chút ạ, em mới nhận việc ở văn phòng xã nên chưa rành hệ thống lắm. Sếp vừa giao em rà soát lại để chuẩn bị triển khai cho các thôn/tổ dân phố, thì hiện tại trong năm 2026 này có những biểu mẫu thu thập thông tin nào đang được kích hoạt và còn hiệu lực áp dụng vậy ạ? Cho em xin danh sách chi tiết các mẫu phiếu đó với ạ!"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_024",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "JUNIOR",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Dạ thưa anh/chị, bên em đang chuẩn bị làm kế hoạch theo dõi chỉ tiêu định kỳ cho xã mà sếp bảo em phải lọc riêng ra, nhưng em tìm mãi chưa thấy hết. Anh/chị cho em xin danh sách các tiêu chí đánh giá thuộc mảng nhiệm vụ Cải cách hành chính hoặc mảng Lao động việc làm trên phần mềm với ạ, em cảm ơn anh/chị nhiều!"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_027",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "ds phong ban ubnd tinh ld"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_028",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "ds bieu mau collection form active 2026"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_029",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "EXECUTIVE",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Thống kê tổng số lượng chỉ tiêu được giao theo từng lĩnh vực trong năm 2026."
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_030",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Để phục vụ công tác kiểm tra tính đầy đủ và toàn vẹn của danh mục đã ban hành, yêu cầu thống kê tổng số lượng nhiệm vụ thu thập dữ liệu (mission) theo từng lĩnh vực (scope) và phân loại chi tiết theo trạng thái hoạt động (active/inactive), loại trừ các bản ghi đã bị xóa mềm?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_031",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "EXECUTIVE",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Thống kê tổng số cán bộ phụ trách nhiệm vụ theo từng phòng ban trong năm 2026."
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_032",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "AUDITOR",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Để phục vụ công tác kiểm toán tuân thủ quy chế và kiểm tra tiến độ nộp báo cáo năm 2026, yêu cầu thống kê tổng số lượng báo cáo đã nộp theo từng văn phòng (office) hoặc phòng ban (deparment), phân loại theo trạng thái báo cáo nhằm đối chiếu và phát hiện các đơn vị chậm trễ hoặc vi phạm thời hạn quy định?"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_033",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "IT_OPS",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "Thống kê tổng số dòng dữ liệu chỉ tiêu báo cáo (fact_report_criteria) của tỉnh Lâm Đồng trong năm 2026 phân nhóm theo phiên bản (version) và trạng thái báo cáo (report_status) nhằm kiểm tra tính toàn vẹn luồng dữ liệu sau các chu kỳ nạp ETL."
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  },
+  {
+    "id": "GOLDEN_034",
+    "category": "TEMPLATE_FAST_TRACK",
+    "routing_track": "TEMPLATE_FAST_TRACK",
+    "sub_type": "STANDARD_METRIC_COMPILER",
+    "persona": "COLLOQUIAL",
+    "description": "Câu hỏi tra cứu chỉ số đơn chuẩn tắc (85% traffic); DuckDB compiler biên dịch trực tiếp sang SQL template.",
+    "input": {
+      "prompt": "tong so chi tieu hoan thanh theo phong ban ld 2026"
+    },
+    "expected": {
+      "routing_track": "TEMPLATE_FAST_TRACK",
+      "intent": "FAST_METRIC_COMPILER",
+      "complexity": "LOW_TEMPLATE",
+      "zero_llm_token": false,
+      "zero_sql": false,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 300.0
+    },
+    "verification_rule": "assert result.route == 'TEMPLATE_FAST_TRACK' and result.intent == 'FAST_METRIC_COMPILER' and result.latency_ms <= 300.0"
+  }
+]

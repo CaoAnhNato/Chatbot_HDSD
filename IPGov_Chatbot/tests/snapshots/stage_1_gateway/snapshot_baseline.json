@@ -1,0 +1,15 @@
+{
+  "trace_id": "trace_snapshot_baseline_001",
+  "session_id": "sess_0915f0bced53",
+  "raw_prompt": "Năm 2025, tổng số người được đào tạo từ nguồn kinh phí khuyến công tại Phòng Kinh tế là bao nhiêu?",
+  "user_context": {
+    "user_id": "u_pkt_001",
+    "username": "truongphong_kinhte_lamdong",
+    "tenant_code": "68",
+    "department_code": "68-1-02",
+    "office_id": "Phòng Kinh tế",
+    "role_level": 2
+  },
+  "client_ip": null,
+  "created_at_epoch": 1790612027.0544467
+}

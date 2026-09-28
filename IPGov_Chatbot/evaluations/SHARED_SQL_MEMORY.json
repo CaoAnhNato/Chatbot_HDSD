@@ -1,0 +1,199 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-09-22T01:28:54.932527Z",
+  "system_description": "Bộ nhớ chia sẻ (Shared Memory) tập trung giữa 3 Sub-Agents SQL và 2 Judges của IPGov Chatbot.",
+  "global_schema_rules": {
+    "target_schema": "dwh_internal",
+    "fact_table": "dwh_internal.fact_report_criteria",
+    "fact_primary_key": "fact_sk (BẢNG KHÔNG CÓ CỘT id. Tuyệt đối không dùng f.id)",
+    "department_table": "dwh_internal.deparment (LƯU Ý LỖI CHÍNH TẢ: Tên bảng THIẾU CHỮ 't')",
+    "department_join": "f.department_code = d.code (Tên phòng ban là d.name, mã là d.code)",
+    "value_datatype": "TEXT -> BẮT BUỘC ép kiểu an toàn: NULLIF(f.value, '')::numeric khi SUM, AVG, MAX, MIN, LAG, LEAD, hoặc so sánh toán học",
+    "year_datatype": "VARCHAR(4) -> BẮT BUỘC so sánh chuỗi ký tự: f.year = '2026' hoặc f.year = '2025' (không dùng số nguyên 2026)",
+    "tenant_filter": "BẮT BUỘC có bind parameter: f.tenant_code = :tenant_code (Lâm Đồng = '68', TP.HCM = '79')",
+    "soft_delete_filter": "BẮT BUỘC: f.report_delete_date IS NULL trên fact, và deleted_date IS NULL / deleted_at IS NULL trên dim tables",
+    "official_report_status": "Mặc định lấy số liệu chính thức: LOWER(f.report_status) = 'approved' trừ khi câu hỏi yêu cầu rõ draft/pending/rejected",
+    "security_guardrail": "Chỉ sinh SELECT / WITH CTE. Tuyệt đối cấm INSERT, UPDATE, DELETE, DROP, ALTER. Nếu câu hỏi xâm phạm PII (CCCD, SĐT) hoặc hỏi ngoài kho DWH -> Trả về sql = '' và ghi rõ lý do từ chối."
+  },
+  "verified_domain_mappings": {
+    "lao_dong_atvsld": {
+      "scope_name_pattern": "%Lao động%",
+      "criteria_indicators": {
+        "so_vu_tai_nan": "f.code = 'tong_so_vu_2' OR f.code ILIKE '%TNLD%' OR f.name ILIKE '%số vụ tai nạn lao động%'",
+        "so_nguoi_chet": "f.code = 'so_nguoi_chet' OR f.name ILIKE '%chết do tai nạn%'",
+        "dao_tao_nghe": "f.name ILIKE '%đào tạo nghề%' OR f.code ILIKE '%DTN%'"
+      }
+    },
+    "xay_dung": {
+      "scope_name_pattern": "%Xây dựng%",
+      "criteria_indicators": {
+        "san_xay_dung": "f.name ILIKE '%diện tích sàn%' OR f.code ILIKE '%SAN_XD%'",
+        "nha_o_xa_hoi": "f.name ILIKE '%nhà ở xã hội%' OR f.code ILIKE '%NOXH%'"
+      }
+    },
+    "cong_thuong_khuyen_cong": {
+      "scope_name_pattern": "%Công thương%",
+      "criteria_indicators": {
+        "kinh_phi_khuyen_cong": "f.name ILIKE '%kinh phí khuyến công%' OR f.name ILIKE '%giải ngân%'",
+        "so_nguoi_dao_tao": "f.name ILIKE '%người được đào tạo%'"
+      }
+    },
+    "y_te": {
+      "scope_name_pattern": "%Y tế%",
+      "criteria_indicators": {
+        "tram_dat_chuan": "f.name ILIKE '%đạt chuẩn quốc gia%' OR f.code ILIKE '%YTE_CHUAN%'",
+        "tiem_chung": "f.name ILIKE '%tiêm chủng%' OR f.code ILIKE '%TIEM_CHUNG%'"
+      }
+    },
+    "giam_ngheo": {
+      "scope_name_pattern": "%Giảm nghèo% OR %Xã hội%",
+      "criteria_indicators": {
+        "ty_le_ho_ngheo": "f.name ILIKE '%tỷ lệ hộ nghèo%' OR f.code ILIKE '%HO_NGHEO%'"
+      }
+    }
+  },
+  "anti_patterns_registry": [
+    {
+      "trap_id": "TRAP_01_FACT_ID_HALLUCINATION",
+      "detected_by": "judge_db_reality",
+      "symptom": "Dùng fact_report_criteria.id trong SELECT hoặc JOIN hoặc COUNT",
+      "root_cause": "Bảng fact_report_criteria không có cột id, khóa thay thế surrogate key là fact_sk.",
+      "correction": "Sử dụng fact_report_criteria.fact_sk cho khóa chính hoặc COUNT(DISTINCT f.fact_sk)."
+    },
+    {
+      "trap_id": "TRAP_02_DEPARTMENT_SPELLING",
+      "detected_by": "judge_db_reality",
+      "symptom": "Truy vấn dwh_internal.department bị báo lỗi table does not exist",
+      "root_cause": "Tên bảng trong CSDL PostgreSQL thực tế thiếu chữ 't': dwh_internal.deparment.",
+      "correction": "Luôn viết chính xác dwh_internal.deparment và nối f.department_code = d.code."
+    },
+    {
+      "trap_id": "TRAP_03_VALUE_TYPE_CASTING",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi function sum(text) does not exist hoặc invalid input syntax for type numeric: ''",
+      "root_cause": "Cột f.value lưu dưới dạng TEXT và có các dòng chứa chuỗi rỗng rác.",
+      "correction": "Bắt buộc bọc NULLIF(f.value, '')::numeric trước khi SUM, AVG, MAX, MIN hoặc tính toán tỷ lệ."
+    },
+    {
+      "trap_id": "TRAP_04_YEAR_STRING_COMPARISON",
+      "detected_by": "judge_db_reality",
+      "symptom": "So sánh f.year = 2026 dạng số nguyên làm PostgreSQL không tối ưu index hoặc cảnh báo kiểu",
+      "root_cause": "Cột year trong CSDL là VARCHAR(4).",
+      "correction": "Luôn so sánh dạng chuỗi: f.year = '2026' hoặc f.year = '2025'."
+    },
+    {
+      "trap_id": "TRAP_05_DOUBLE_COUNTING_METRICS",
+      "detected_by": "judge_semantic",
+      "symptom": "Cộng dồn cả chỉ tiêu tổng hợp và chỉ tiêu chi tiết thành phần gây phóng đại số liệu",
+      "root_cause": "Bảng Fact lưu cả dòng tổng hợp toàn ngành và dòng chi tiết từng nhóm.",
+      "correction": "Chỉ lấy chỉ tiêu tổng hoặc chỉ tiêu lá cụ thể bằng f.code hoặc lọc distinct criteria_id."
+    },
+    {
+      "trap_id": "TRAP_06_PII_SECURITY_LEAK",
+      "detected_by": "judge_semantic",
+      "symptom": "Sinh SQL SELECT CCCD, CMND, số điện thoại riêng của cán bộ",
+      "root_cause": "Không phát hiện câu hỏi vi phạm quyền riêng tư dữ liệu công dân/cán bộ.",
+      "correction": "Tuyệt đối từ chối truy vấn thông tin nhạy cảm. Trả về sql = '' kèm thông báo từ chối an toàn."
+    },
+    {
+      "trap_id": "TRAP_07_PH_I_T__CH_I_TRUY_V_N_V__",
+      "detected_by": "judge_semantic",
+      "symptom": "Phải từ chối truy vấn và trả về SQL rỗng.",
+      "root_cause": "Lệch ngữ nghĩa hoặc vi phạm an toàn",
+      "correction": "Bám sát intent câu hỏi và cơ chế bảo vệ PII",
+      "first_seen_in": "CAND_CITIZEN_08",
+      "timestamp": "2026-09-22T01:27:00.373741Z"
+    },
+    {
+      "trap_id": "TRAP_08_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column s.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column s.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "DISC_01",
+      "timestamp": "2026-09-22T01:27:00.379564Z"
+    },
+    {
+      "trap_id": "TRAP_09_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column s.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column s.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "THREAD_01_T1",
+      "timestamp": "2026-09-22T01:27:00.380440Z"
+    },
+    {
+      "trap_id": "TRAP_10_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "CAND_SPEC_01",
+      "timestamp": "2026-09-22T01:28:54.816855Z"
+    },
+    {
+      "trap_id": "TRAP_11_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "CAND_SPEC_02",
+      "timestamp": "2026-09-22T01:28:54.818846Z"
+    },
+    {
+      "trap_id": "TRAP_12_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "CAND_SPEC_05",
+      "timestamp": "2026-09-22T01:28:54.822774Z"
+    },
+    {
+      "trap_id": "TRAP_13_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "CAND_CITIZEN_04",
+      "timestamp": "2026-09-22T01:28:54.857620Z"
+    },
+    {
+      "trap_id": "TRAP_14_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column c.unit does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column c.unit does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "DISC_04",
+      "timestamp": "2026-09-22T01:28:54.868002Z"
+    },
+    {
+      "trap_id": "TRAP_15_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "DISC_05",
+      "timestamp": "2026-09-22T01:28:54.871272Z"
+    },
+    {
+      "trap_id": "TRAP_16_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column cf.year does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "THREAD_04_T1",
+      "timestamp": "2026-09-22T01:28:54.923310Z"
+    },
+    {
+      "trap_id": "TRAP_17_L_I_RUNTIME_POSTGRESQL_17",
+      "detected_by": "judge_db_reality",
+      "symptom": "Lỗi Runtime PostgreSQL 17: (psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "root_cause": "(psycopg2.errors.UndefinedColumn) column r.name does not exist",
+      "correction": "Tuân thủ nghiêm ngặt quy tắc trong global_schema_rules",
+      "first_seen_in": "THREAD_04_T3",
+      "timestamp": "2026-09-22T01:28:54.932521Z"
+    }
+  ],
+  "feedback_loop_history": []
+}

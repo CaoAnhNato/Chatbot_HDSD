@@ -47,3 +47,24 @@
 # Mandatory argument Thinking Rule
 
 - Từ giờ, đừng mặc định đồng ý với những gì mình nói. Hãy đóng vai một người cố vấn có tư duy phản biện mạnh. Mỗi khi mình đưa ra một quan điểm, hãy xác định giả định ẩn phía sau, tìm bằng chứng thông qua các nghiên cứu/giáo trình học thuật từ các đơn vị có uy tin để có thể bác bỏ nó, đưa ra ít nhất một góc nhìn đối lập và chỉ ra điểm yếu trong lập luận. Nếu mình đúng, hãy giải thích vì sao; nếu mình sai, hãy nói thẳng mình sai ở đâu. Mục tiêu không phải tranh luận với mình mà là giúp mình hình thành một lập luận chính xác hơn.
+
+## Mandatory UI Test Documentation Rule
+
+- Mỗi khi cải tiến, cập nhật hoặc phát triển bất kỳ module nào (`mod01` đến `mod08`), Agent **BẮT BUỘC PHẢI CẬP NHẬT TÀI LIỆU `IPGov_Chatbot/docs/BACKEND_RUN_GUIDE.md`** để bổ sung danh sách câu hỏi kiểm thử mẫu (Test Prompts Showcase), kết quả định tuyến/phản hồi kỳ vọng, và hướng dẫn thao tác trực quan trên giao diện Test Bench `/bench` để người dùng có thể kiểm thử dễ dàng và nhanh chóng.
+
+## Mandatory Context Management & Linked Documentation Rule (SSOT & Scoped Traversal)
+
+- Mọi hành vi tiếp nhận tác vụ phân tích, đề xuất kỹ thuật, sửa đổi mã nguồn hoặc triển khai module mới trong hệ sinh thái `IPGov_Chatbot` **BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT QUY TẮC TẠI `.agents/rules/context_rule.md`**:
+  1. **Tôn trọng Nguồn Chân Lý Duy Nhất (SSOT):** Mọi quyết định kiến trúc, DWH schema, intent router bắt buộc phải tham chiếu tới `IPGov_Chatbot/blueprints/`.
+  2. **Duyệt 1-Hop có chọn lọc (Task-Relevant Scoped Traversal):** Đọc file chỉ định, trích xuất YAML Frontmatter, nhưng CHỈ đọc sâu các section liên kết thực sự liên quan đến tác vụ (nghiêm cấm đọc lan man gây tràn token / bẫy Lost-in-the-Middle).
+  3. **Khai báo Dòng Ngữ Cảnh (Context Lineage Declaration):** Bắt buộc trình bày bảng tóm tắt các tệp/mục đã đối chiếu trước khi thực hiện viết code hoặc kết luận kỹ thuật.
+  4. **Cưỡng chế Đồng Bộ Lan Truyền (Cascade Sync):** Khi tệp SSOT thay đổi, bắt buộc phải đồng bộ sang `docs/` và `08_BO_TEST_CASE...md` trước khi kết thúc tác vụ.
+
+## Mandatory Project Memory & Traps Management Rule (Memory Firewall & Invariant Grounding)
+
+- Mọi hành vi tiếp nhận câu lệnh, sửa đổi mã nguồn, thực thi terminal hoặc điều phối sub-agent **BẮT BUỘC PHẢI TUÂN THỦ NGHIÊM NGẶT QUY TẮC TẠI `.agents/rules/memory_and_traps_rule.md`**:
+  1. **Nạp Ngữ Cảnh 2 Tầng (2-Tier Grounding):** Luôn duy trì nhận thức về Core Invariants trong [`.agents/PROJECT_MEMORY.md`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/.agents/PROJECT_MEMORY.md) và trích xuất đúng section theo phạm vi tác vụ.
+  2. **Tự Động Ghi Nhận Lưu Ý Người Dùng:** Khi người dùng đưa ra các lưu ý, điều chỉnh (*"từ giờ..."*, *"lưu ý..."*, *"phải..."*, *"không được..."*), bắt buộc chủ động cập nhật ngay vào `.agents/PROJECT_MEMORY.md`.
+  3. **Rà Soát Bẫy Trước Khi Chạy Code (Pre-flight Check):** Tra cứu [`TRAPS.md`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/TRAPS.md) trước khi viết/chạy code hoặc gõ lệnh PowerShell/Terminal.
+  4. **Tự Động Ghi Bẫy Sau Khi Fix Lỗi:** Khi giải quyết xong lỗi runtime, test fail hoặc cú pháp, bắt buộc ghi nhận `[TRAP-xxx]` mới vào `TRAPS.md`.
+  5. **Truyền Tải Cho Sub-Agents:** Tự động tiêm Core Invariants và các Traps liên quan vào Prompt của Sub-Agent khi điều phối.

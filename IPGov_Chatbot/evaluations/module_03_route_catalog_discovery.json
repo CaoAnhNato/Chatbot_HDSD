@@ -1,0 +1,202 @@
+[
+  {
+    "id": "DISC_01",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Hệ thống này có chức năng gì?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_02",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Hệ thống đang theo dõi số liệu của những ngành, lĩnh vực nào?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_03",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Số liệu báo cáo trong hệ thống có từ năm nào đến năm nào?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_04",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Chỉ tiêu tỷ lệ giải ngân kinh phí khuyến công được tính như thế nào?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_05",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Hệ thống hiện có những loại biểu mẫu báo cáo nào đang áp dụng?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_06",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Tài khoản chuyên viên cấp phòng thì tôi tra cứu được những dữ liệu nào?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_07",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Chatbot có hỗ trợ xuất dữ liệu ra bảng Excel hoặc file PDF không?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_08",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Báo cáo có những trạng thái duyệt nào và trạng thái nào là số liệu chính thức?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_09",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Dữ liệu báo cáo hôm nay đã được cập nhật từ phần mềm tác nghiệp về kho dữ liệu tổng hợp chưa?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  },
+  {
+    "id": "DISC_10",
+    "category": "CATALOG_DISCOVERY",
+    "routing_track": "CATALOG_DISCOVERY",
+    "sub_type": "METADATA_CAPABILITY",
+    "persona": "SPECIALIST",
+    "description": "Khám phá danh mục hệ thống: tra cứu bảng metadata DuckDB RAM, bypass Fact DWH.",
+    "input": {
+      "prompt": "Xin chào, tôi là cán bộ mới thì nên bắt đầu tra cứu số liệu như thế nào?"
+    },
+    "expected": {
+      "routing_track": "CATALOG_DISCOVERY",
+      "intent": "META_CAPABILITY",
+      "zero_llm_token": true,
+      "zero_sql": true,
+      "active_quest_action": "INIT",
+      "sla_max_latency_ms": 50.0
+    },
+    "verification_rule": "assert result.route == 'CATALOG_DISCOVERY' and result.intent == 'META_CAPABILITY' and result.zero_sql is True and result.latency_ms <= 50.0"
+  }
+]
