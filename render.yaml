@@ -1,0 +1,7 @@
+# Render Blueprint
+databases:
+  - name: ipgov-postgres
+    databaseName: vna_wom_dev
+    user: vna_wom_dev
+    region: singapore
+    plan: free
