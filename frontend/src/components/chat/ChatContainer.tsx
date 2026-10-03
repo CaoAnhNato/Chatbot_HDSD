@@ -15,6 +15,11 @@ import { ChatInput } from './ChatInput';
 import { MediaViewer } from './MediaViewer';
 import { ChatSidebar } from './ChatSidebar';
 import {
+  PRESET_ROLES,
+  UserRoleProfile,
+  generateMockJWT,
+} from '@/components/RoleSelector';
+import {
   Bot,
   RefreshCcw,
   ShieldCheck,
@@ -23,57 +28,95 @@ import {
   PanelLeft,
 } from 'lucide-react';
 
-const WELCOME_CHIPS_PHUONG: QuickActionChip[] = [
-  { id: 'chip_p_create', label: '➕ Tạo tài khoản Phường/Xã', query_text: 'Hướng dẫn tạo mới tài khoản phường xã' },
-  { id: 'chip_p_edit', label: '✏️ Sửa tài khoản', query_text: 'Cách sửa thông tin tài khoản tuyến dưới' },
-  { id: 'chip_p_reset', label: '🔓 Khôi phục mật khẩu', query_text: 'Cách khôi phục mật khẩu tài khoản phường xã' },
-  { id: 'chip_p_del', label: '🗑️ Xóa tài khoản', query_text: 'Làm sao để xóa tài khoản phường xã?' },
-  { id: 'chip_p_dotxuat', label: '🚨 Báo cáo TNLĐ đột xuất', query_text: 'Quy trình báo cáo tai nạn lao động đột xuất không theo HĐLĐ' },
-  { id: 'chip_p_dinhky', label: '📊 Báo cáo TNLĐ định kỳ', query_text: 'Hướng dẫn báo cáo tai nạn lao động định kỳ cho người không có HĐLĐ' },
-  { id: 'chip_p_info', label: '👤 Đổi thông tin cán bộ', query_text: 'Hướng dẫn thay đổi thông tin cá nhân cán bộ' },
-  { id: 'chip_p_contact', label: '📞 Hotline hỗ trợ', query_text: 'Cho tôi thông tin hotline hỗ trợ kỹ thuật' },
+const CHIPS_LEVEL_0: QuickActionChip[] = [
+  { id: 'chip_l0_1', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
+  { id: 'chip_l0_2', label: '⚠️ TNLĐ toàn tỉnh 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
+  { id: 'chip_l0_3', label: '📈 Xếp hạng khuyến công 2026', query_text: 'Xếp hạng các huyện có kinh phí khuyến công cao nhất năm 2026' },
+  { id: 'chip_l0_4', label: '🏢 Danh mục Sở Ban Ngành', query_text: 'Báo cáo danh sách tất cả các sở, ban, ngành và đơn vị trực thuộc tỉnh Lâm Đồng' },
+  { id: 'chip_l0_5', label: '📋 Biểu mẫu active 2026', query_text: 'Hiện tại trong năm 2026 có những biểu mẫu thu thập thông tin nào đang kích hoạt?' },
+  { id: 'chip_l0_6', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
 ];
 
-const WELCOME_CHIPS_DN: QuickActionChip[] = [
-  { id: 'chip_reg', label: '📝 Đăng ký tài khoản', query_text: 'Hướng dẫn đăng ký tài khoản mới' },
-  { id: 'chip_pwd', label: '🔑 Thay đổi mật khẩu', query_text: 'Hướng dẫn đổi mật khẩu' },
-  { id: 'chip_dn', label: '🏢 Đổi thông tin DN', query_text: 'Hướng dẫn thay đổi thông tin doanh nghiệp' },
-  { id: 'chip_tnld', label: '⚠️ Báo cáo TNLĐ', query_text: 'Hướng dẫn nộp báo cáo tai nạn lao động' },
-  { id: 'chip_atvsld', label: '🛡️ Báo cáo ATVSLĐ', query_text: 'Hướng dẫn nộp báo cáo An toàn vệ sinh lao động' },
-  { id: 'chip_stat', label: '📊 Xem số liệu thống kê', query_text: 'Làm sao để xem thống kê báo cáo?' },
-  { id: 'chip_contact', label: '📞 Hotline & Zalo hỗ trợ', query_text: 'Cho tôi thông tin hotline và zalo hỗ trợ kỹ thuật' },
+const CHIPS_LEVEL_1: QuickActionChip[] = [
+  { id: 'chip_l1_1', label: '📋 Biểu mẫu active 2026', query_text: 'Hiện tại trong năm 2026 có những biểu mẫu thu thập thông tin nào đang kích hoạt?' },
+  { id: 'chip_l1_2', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
+  { id: 'chip_l1_3', label: '🏢 Danh sách phòng ban trực thuộc', query_text: 'Báo cáo danh sách các đơn vị và phòng ban trực thuộc' },
+  { id: 'chip_l1_4', label: '⚠️ Tình hình an toàn lao động 2026', query_text: 'Năm 2026 có bao nhiêu vụ tai nạn lao động?' },
+  { id: 'chip_l1_5', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
 ];
 
-const WELCOME_CONTACT_PHUONG = {
-  title: 'THÔNG TIN LIÊN HỆ HỖ TRỢ KỸ THUẬT (PHƯỜNG/XÃ)',
-  working_hours: 'Thứ 2 - Thứ 6 (Sáng: 07h30 – 11h30, Chiều: 13h00 – 17h00)',
-  hotlines: ['028 3535 2524'],
+const CHIPS_LEVEL_2: QuickActionChip[] = [
+  { id: 'chip_l2_1', label: '📊 Báo cáo phòng ban gần nhất', query_text: 'Kiểm tra trạng thái nộp báo cáo của các phòng ban trong kỳ gần nhất' },
+  { id: 'chip_l2_2', label: '⚠️ TNLĐ toàn tỉnh 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
+  { id: 'chip_l2_3', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
+  { id: 'chip_l2_4', label: '🔍 Hướng dẫn cán bộ mới', query_text: 'Tôi là cán bộ mới thì nên bắt đầu tra cứu số liệu như thế nào?' },
+  { id: 'chip_l2_5', label: '📞 Hotline hỗ trợ kỹ thuật', query_text: 'Cho tôi thông tin hotline hỗ trợ kỹ thuật' },
+];
+
+const CHIPS_LEVEL_3: QuickActionChip[] = [
+  { id: 'chip_l3_1', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
+  { id: 'chip_l3_2', label: '📋 Hướng dẫn tra cứu công khai', query_text: 'Hướng dẫn tra cứu các chỉ tiêu kinh tế - xã hội công khai của tỉnh' },
+  { id: 'chip_l3_3', label: '📈 Số liệu tai nạn lao động 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
+  { id: 'chip_l3_4', label: '📞 Hotline hỗ trợ công dân', query_text: 'Cho tôi thông tin hotline hỗ trợ công dân' },
+];
+
+const getWelcomeContact = (role: UserRoleProfile) => {
+  if (role.role_level === 0) {
+    return {
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (LÃNH ĐẠO CẤP TỈNH • ${role.tenant_name})`,
+      working_hours: 'Hỗ trợ 24/7 • Dữ liệu đồng bộ trực tiếp từ CSDL vna_wom_dev',
+      hotlines: ['028 3535 2524'],
+    };
+  }
+  if (role.role_level === 1) {
+    return {
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (LÃNH ĐẠO SỞ / BAN / NGÀNH)`,
+      working_hours: 'Hỗ trợ 24/7 • Phân quyền cấp Sở trực thuộc',
+      hotlines: ['028 3535 2524'],
+    };
+  }
+  if (role.role_level === 2) {
+    return {
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (TRƯỞNG PHÒNG CHUYÊN MÔN)`,
+      working_hours: 'Hỗ trợ 24/7 • Phân quyền cấp đơn vị cơ sở',
+      hotlines: ['028 3535 2523', '028 3535 2524'],
+    };
+  }
+  return {
+    title: `TRỢ LÝ TRA CỨU DWH (CÔNG DÂN / DOANH NGHIỆP)`,
+    working_hours: 'Hỗ trợ 24/7 • Tra cứu thông tin chỉ tiêu công khai',
+    hotlines: ['028 3535 2523'],
+  };
 };
 
-const WELCOME_CONTACT_DN = {
-  title: 'THÔNG TIN LIÊN HỆ HỖ TRỢ KỸ THUẬT (DOANH NGHIỆP)',
-  working_hours: 'Thứ 2 - Thứ 6 (Sáng: 08h00 – 11h00, Chiều: 13h00 – 17h00)',
-  hotlines: ['028 3535 2523', '028 3535 2524'],
-  zalo: '0967 862 523',
+const getRoleChips = (level: number): QuickActionChip[] => {
+  switch (level) {
+    case 0:
+      return CHIPS_LEVEL_0;
+    case 1:
+      return CHIPS_LEVEL_1;
+    case 2:
+      return CHIPS_LEVEL_2;
+    default:
+      return CHIPS_LEVEL_3;
+  }
 };
 
-const getWelcomeMessage = (role: 'phuong' | 'dn'): ChatMessage => ({
-  id: `welcome-${role}`,
+const getWelcomeMessage = (role: UserRoleProfile): ChatMessage => ({
+  id: `welcome-${role.id}`,
   role: 'assistant',
-  content:
-    role === 'phuong'
-      ? 'Cán bộ có thể chọn nhanh các quy trình hướng dẫn bên dưới hoặc nhập câu hỏi trực tiếp để được hỗ trợ giải đáp:'
-      : 'Bạn có thể chọn nhanh các quy trình hướng dẫn bên dưới hoặc nhập câu hỏi trực tiếp để được hỗ trợ giải đáp:',
-  contact_support: role === 'phuong' ? WELCOME_CONTACT_PHUONG : WELCOME_CONTACT_DN,
-  quick_action_chips: role === 'phuong' ? WELCOME_CHIPS_PHUONG : WELCOME_CHIPS_DN,
+  content: `Xin chào đồng chí! Hệ thống đã kích hoạt phân quyền **Level ${role.role_level} (${role.badge})** cho **${role.label}** (Tenant: ${role.tenant_code}). Bạn có thể chọn câu hỏi gợi ý bên dưới hoặc nhập câu hỏi trực tiếp:`,
+  contact_support: getWelcomeContact(role),
+  quick_action_chips: getRoleChips(role.role_level),
   timestamp: new Date().toISOString(),
 });
 
 export const ChatContainer: React.FC = () => {
-  const [activeRole, setActiveRole] = useState<'phuong' | 'dn'>('phuong');
-  const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage('phuong')]);
+  const [selectedRole, setSelectedRole] = useState<UserRoleProfile>(PRESET_ROLES[0]);
+  const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage(PRESET_ROLES[0])]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [currentStage, setCurrentStage] = useState<{ stage: string; message: string } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
 
@@ -87,7 +130,7 @@ export const ChatContainer: React.FC = () => {
     altText: '',
   });
 
-  // Tải danh sách lịch sử phiên khi khởi động (Local trước để hiện tức thì, sau đó đồng bộ từ Cloud Supabase)
+  // Tải danh sách lịch sử phiên khi khởi động
   useEffect(() => {
     const initSessions = async () => {
       const local = loadSessions();
@@ -97,7 +140,6 @@ export const ChatContainer: React.FC = () => {
       try {
         const cloudSessions = await fetchChatSessions();
         if (cloudSessions && cloudSessions.length > 0) {
-          // Bảo lưu messages đã có trong local nếu cloud chỉ trả về summary rỗng
           const merged = cloudSessions.map((cs) => {
             const found = local.find((ls) => ls.id === cs.id);
             return found && found.messages && found.messages.length > 0 ? found : cs;
@@ -111,20 +153,22 @@ export const ChatContainer: React.FC = () => {
     initSessions();
   }, []);
 
-  // Hàm lưu phiên hội thoại độc lập (pure helper)
-  const persistSession = (sid: string, msgs: ChatMessage[], currentRole: 'phuong' | 'dn') => {
+  // Hàm lưu phiên hội thoại độc lập
+  const persistSession = (sid: string, msgs: ChatMessage[], currentRole: UserRoleProfile) => {
     const userMessages = msgs.filter((m) => m.role === 'user');
     if (userMessages.length === 0) return;
 
     const firstUserText = userMessages[0].content;
-    const title = firstUserText.length > 38 ? `${firstUserText.slice(0, 38)}...` : firstUserText;
+    const title = firstUserText.length > 40 ? `${firstUserText.slice(0, 40)}...` : firstUserText;
 
     const currentSessions = loadSessions();
     const existingSession = currentSessions.find((s) => s.id === sid);
     const sessionObj: ChatSession = {
       id: sid,
       title: existingSession?.title || title,
-      role: currentRole,
+      role: currentRole.id,
+      level: currentRole.role_level,
+      tenant_code: currentRole.tenant_code,
       createdAt: existingSession?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       messages: msgs,
@@ -142,9 +186,9 @@ export const ChatContainer: React.FC = () => {
     });
   };
 
-  const handleRoleChange = (newRole: 'phuong' | 'dn') => {
-    if (newRole === activeRole) return;
-    setActiveRole(newRole);
+  const handleRoleSelect = (newRole: UserRoleProfile) => {
+    if (newRole.id === selectedRole.id) return;
+    setSelectedRole(newRole);
     setMessages([getWelcomeMessage(newRole)]);
     setSessionId(undefined);
   };
@@ -152,14 +196,16 @@ export const ChatContainer: React.FC = () => {
   const handleNewChat = () => {
     const newSid = `session-${Date.now()}`;
     setSessionId(newSid);
-    setMessages([getWelcomeMessage(activeRole)]);
+    setMessages([getWelcomeMessage(selectedRole)]);
   };
 
   const handleSelectSession = async (session: ChatSession) => {
-    setActiveRole(session.role);
+    const matchingRole = PRESET_ROLES.find(
+      (r) => r.id === session.role || r.role_level === session.level
+    ) || PRESET_ROLES[0];
+    setSelectedRole(matchingRole);
     setSessionId(session.id);
 
-    // Nếu phiên chưa có messages (do tải summary từ Cloud), gọi API lấy toàn bộ tin nhắn
     if (!session.messages || session.messages.length === 0) {
       try {
         const msgs = await fetchSessionHistory(session.id);
@@ -174,7 +220,7 @@ export const ChatContainer: React.FC = () => {
       }
     }
 
-    setMessages(session.messages && session.messages.length > 0 ? session.messages : [getWelcomeMessage(session.role)]);
+    setMessages(session.messages && session.messages.length > 0 ? session.messages : [getWelcomeMessage(matchingRole)]);
   };
 
   const handleDeleteSession = (sid: string) => {
@@ -201,10 +247,13 @@ export const ChatContainer: React.FC = () => {
     const userMsgId = `user-${Date.now()}`;
     const botMsgId = `bot-${Date.now()}`;
 
+    // Chuỗi prompt kèm định danh tenant_code và level trực tiếp như yêu cầu
+    const promptWithContext = `[tenant_code=${selectedRole.tenant_code}, level=${selectedRole.role_level}] ${queryText}`;
+
     const userMsg: ChatMessage = {
       id: userMsgId,
       role: 'user',
-      content: queryText,
+      content: promptWithContext,
       timestamp: new Date().toISOString(),
     };
 
@@ -218,14 +267,15 @@ export const ChatContainer: React.FC = () => {
     const nextMessages = [...messages, userMsg, initialBotMsg];
     setMessages(nextMessages);
     setIsLoading(true);
+    setCurrentStage({ stage: 'THINKING', message: '🔍 Đang phân tích câu hỏi & đối chiếu ngữ cảnh...' });
 
     let effectiveSessionId = sessionId || `session-${Date.now()}`;
     if (!sessionId) {
       setSessionId(effectiveSessionId);
     }
 
-    // Lưu phiên với câu hỏi của user
-    persistSession(effectiveSessionId, nextMessages, activeRole);
+    // Lưu phiên
+    persistSession(effectiveSessionId, nextMessages, selectedRole);
 
     try {
       const history = messages
@@ -233,13 +283,20 @@ export const ChatContainer: React.FC = () => {
         .slice(-6)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const collectionName = activeRole === 'phuong' ? 'hdsd_phuong_chunks' : 'hdsd_chunks';
+      const collectionName = selectedRole.role_level <= 1 ? 'hdsd_phuong_chunks' : 'hdsd_chunks';
+      const mockToken = generateMockJWT(selectedRole);
 
       await sendMessageStream(
-        queryText,
+        promptWithContext,
         effectiveSessionId,
         history,
         {
+          onStageUpdate: (stageData) => {
+            setCurrentStage({
+              stage: stageData.stage,
+              message: stageData.message || 'Đang xử lý...',
+            });
+          },
           onMetadata: (metadata) => {
             if (metadata.session_id) {
               effectiveSessionId = metadata.session_id;
@@ -273,6 +330,7 @@ export const ChatContainer: React.FC = () => {
             );
           },
           onDone: (doneData) => {
+            setCurrentStage(null);
             setMessages((prev) => {
               const updated = prev.map((msg) =>
                 msg.id === botMsgId
@@ -280,17 +338,18 @@ export const ChatContainer: React.FC = () => {
                       ...msg,
                       content: doneData.full_answer,
                       contact_support: doneData.contact_support || msg.contact_support,
+                      quick_action_chips: doneData.quick_action_chips || msg.quick_action_chips,
                     }
                   : msg
               );
-              // Lưu phiên đã hoàn tất bất đồng bộ
               setTimeout(() => {
-                persistSession(effectiveSessionId, updated, activeRole);
+                persistSession(effectiveSessionId, updated, selectedRole);
               }, 0);
               return updated;
             });
           },
           onError: (errMsg) => {
+            setCurrentStage(null);
             setMessages((prev) => {
               const updated = prev.map((msg) =>
                 msg.id === botMsgId
@@ -301,16 +360,20 @@ export const ChatContainer: React.FC = () => {
                   : msg
               );
               setTimeout(() => {
-                persistSession(effectiveSessionId, updated, activeRole);
+                persistSession(effectiveSessionId, updated, selectedRole);
               }, 0);
               return updated;
             });
           },
         },
-        activeRole,
-        collectionName
+        selectedRole.id,
+        collectionName,
+        selectedRole.role_level,
+        selectedRole.tenant_code,
+        mockToken
       );
     } catch (err: any) {
+      setCurrentStage(null);
       setMessages((prev) => {
         const updated = prev.map((msg) =>
           msg.id === botMsgId
@@ -321,12 +384,13 @@ export const ChatContainer: React.FC = () => {
             : msg
         );
         setTimeout(() => {
-          persistSession(effectiveSessionId, updated, activeRole);
+          persistSession(effectiveSessionId, updated, selectedRole);
         }, 0);
         return updated;
       });
     } finally {
       setIsLoading(false);
+      setCurrentStage(null);
     }
   };
 
@@ -350,7 +414,6 @@ export const ChatContainer: React.FC = () => {
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-white/95 backdrop-blur-md shrink-0">
           <div className="flex items-center gap-3">
-            {/* Nút Toggle Sidebar khi Sidebar đang đóng */}
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
@@ -368,47 +431,37 @@ export const ChatContainer: React.FC = () => {
 
             <div>
               <h1 className="text-base font-bold text-slate-800 flex items-center gap-2">
-                HDSD Multimodal Chatbot
+                IPGov Chatbot Assistant
                 <span className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-medium border border-blue-200">
-                  Qwen-3.7-Flash
+                  {selectedRole.tenant_name} ({selectedRole.tenant_code})
                 </span>
               </h1>
-              <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                {activeRole === 'phuong'
-                  ? 'Phân hệ Phường / Xã • 10 Phân hệ + Hỗ trợ kỹ thuật'
-                  : 'Phân hệ Doanh nghiệp • Hình ảnh & Video YouTube'}
+                <span className="font-semibold text-slate-700">Level {selectedRole.role_level}:</span>
+                <span className="truncate max-w-[260px] sm:max-w-none">{selectedRole.label}</span>
               </p>
             </div>
           </div>
 
-          {/* Tab Switcher & Reset Button */}
+          {/* Role & Level Selector & Reset Button */}
           <div className="flex items-center gap-2">
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-medium">
-              <button
-                onClick={() => handleRoleChange('phuong')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                  activeRole === 'phuong'
-                    ? 'bg-white text-blue-700 shadow-sm font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Chuyển sang Phân hệ Phường / Xã"
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+              <span className="text-[11px] font-semibold text-slate-600 pl-1.5 hidden md:inline">Phân quyền:</span>
+              <select
+                value={selectedRole.id}
+                onChange={(e) => {
+                  const found = PRESET_ROLES.find((r) => r.id === e.target.value);
+                  if (found) handleRoleSelect(found);
+                }}
+                className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
               >
-                <Landmark className="w-3.5 h-3.5" />
-                <span>Phường / Xã</span>
-              </button>
-              <button
-                onClick={() => handleRoleChange('dn')}
-                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                  activeRole === 'dn'
-                    ? 'bg-white text-blue-700 shadow-sm font-semibold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Chuyển sang Phân hệ Doanh nghiệp"
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Doanh nghiệp</span>
-              </button>
+                {PRESET_ROLES.map((role) => (
+                  <option key={role.id} value={role.id}>
+                    Level {role.role_level} • {role.label} (Tenant {role.tenant_code})
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button
@@ -425,6 +478,7 @@ export const ChatContainer: React.FC = () => {
         <MessageList
           messages={messages}
           isLoading={isLoading}
+          currentStage={currentStage}
           onImageClick={(imageUrl, altText) =>
             setViewerState({ isOpen: true, imageUrl, altText })
           }

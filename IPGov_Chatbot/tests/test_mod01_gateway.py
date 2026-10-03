@@ -73,3 +73,41 @@ def test_sse_dispatcher_connected_event_format():
     assert '"tenant_code": "68"' in sse_output
     assert '"role_level": 0' in sse_output
     assert sse_output.endswith("\n\n")
+
+
+def test_web_frontend_compatibility_and_warmup():
+    """Kiểm tra tương thích với Web Frontend Next.js: Warmup, Sessions, và Stream Fallback."""
+    from fastapi.testclient import TestClient
+    from IPGov_Chatbot.main import app
+
+    client = TestClient(app)
+
+    # 1. Health check
+    res_health = client.get("/api/v1/health")
+    assert res_health.status_code == 200
+    assert res_health.json()["status"] == "healthy"
+
+    # 2. Warm-up API call
+    res_warmup = client.get("/api/v1/warmup")
+    assert res_warmup.status_code == 200
+    data_warmup = res_warmup.json()
+    assert data_warmup["status"] == "warmup_completed"
+    assert "latency_ms" in data_warmup
+
+    # 3. Sessions stubs
+    res_sessions = client.get("/api/v1/chat/sessions")
+    assert res_sessions.status_code == 200
+    assert res_sessions.json()["success"] is True
+
+    # 4. Stream endpoint with query & role (no Auth header)
+    res_stream = client.post("/api/v1/chat/stream", json={
+        "query": "Kính chào đồng chí trợ lý ảo!",
+        "role": "lanhdao"
+    })
+    assert res_stream.status_code == 200
+    assert "text/event-stream" in res_stream.headers["content-type"]
+    text = res_stream.text
+    assert "event: connected" in text
+    assert "event: token" in text
+    assert "event: done" in text
+

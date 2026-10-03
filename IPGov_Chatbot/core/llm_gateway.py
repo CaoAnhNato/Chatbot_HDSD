@@ -415,7 +415,7 @@ class OpenRouterDriver(LLMDriver):
         # Áp dụng Cầu Dao An Toàn: max_tokens=400 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
         max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
         extra_body = {"enable_thinking": False}
-        if "gemini-3.8-flash" in target_model:
+        if "gemini-3.8-flash" in target_model or "deepseek" in target_model:
             extra_body = {"reasoning": {"effort": "low"}}
 
         res = await self._async_client.chat.completions.create(
@@ -448,7 +448,7 @@ class OpenRouterDriver(LLMDriver):
         # Áp dụng Cầu Dao An Toàn: max_tokens=400 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
         max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
         extra_body = {"enable_thinking": False}
-        if "gemini-3.8-flash" in target_model:
+        if "gemini-3.8-flash" in target_model or "deepseek" in target_model:
             extra_body = {"reasoning": {"effort": "low"}}
 
         res = self._sync_client.chat.completions.create(
@@ -526,6 +526,8 @@ class GoogleGenAIDriver(LLMDriver):
         mapping = {
             "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
             "gemini-3.8-flash": "gemini-3.7-flash",
+            "deepseek/deepseek-v4.1-flash": "gemini-3.7-flash",
+            "deepseek-v4.1-flash": "gemini-3.7-flash",
         }
         return mapping.get(target, target)
 
@@ -582,7 +584,7 @@ class GoogleGenAIDriver(LLMDriver):
         target_model = self._get_model(model, "gemini-3.5-flash-lite")
         max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
         thinking_cfg = None
-        if "gemini-3.8-flash" in target_model and hasattr(self._types, "ThinkingConfig"):
+        if ("gemini-3.8-flash" in target_model or "gemini-3.7-flash" in target_model) and hasattr(self._types, "ThinkingConfig"):
             thinking_cfg = self._types.ThinkingConfig(thinking_budget=1024)
 
         config = self._types.GenerateContentConfig(
@@ -613,7 +615,7 @@ class GoogleGenAIDriver(LLMDriver):
         target_model = self._get_model(model, "gemini-3.5-flash-lite")
         max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
         thinking_cfg = None
-        if "gemini-3.8-flash" in target_model and hasattr(self._types, "ThinkingConfig"):
+        if ("gemini-3.8-flash" in target_model or "gemini-3.7-flash" in target_model) and hasattr(self._types, "ThinkingConfig"):
             thinking_cfg = self._types.ThinkingConfig(thinking_budget=1024)
 
         config = self._types.GenerateContentConfig(
@@ -1234,7 +1236,7 @@ def call_structured_with_fallback[T: BaseModel](
     """
     t0 = time.perf_counter()
     p_model = primary_model or getattr(settings, "OPENROUTER_LIGHT_MODEL", "google/gemini-2.5-flash-lite")
-    f_model = fallback_model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "google/gemini-3.8-flash")
+    f_model = fallback_model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "deepseek/deepseek-v4.1-flash")
 
     gw = get_llm_gateway()
     model_used = p_model
@@ -1295,7 +1297,7 @@ async def call_structured_with_fallback_async[T: BaseModel](
     """Template API Call: Gọi sinh dữ liệu có cấu trúc Pydantic Schema kèm cơ chế Confidence & Invariant Gate Fallback (Async)."""
     t0 = time.perf_counter()
     p_model = primary_model or getattr(settings, "OPENROUTER_LIGHT_MODEL", "google/gemini-2.5-flash-lite")
-    f_model = fallback_model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "google/gemini-3.8-flash")
+    f_model = fallback_model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "deepseek/deepseek-v4.1-flash")
 
     gw = get_llm_gateway()
     model_used = p_model

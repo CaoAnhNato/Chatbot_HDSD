@@ -297,7 +297,7 @@ def run_benchmark():
     print("=" * 80)
     print("BẮT ĐẦU CHẠY BENCHMARK GATED ROUTER & CONFIDENCE FALLBACK (35 CA KIỂM THỬ)")
     print(f"Primary Model:  {getattr(settings, 'OPENROUTER_LIGHT_MODEL', 'google/gemini-2.5-flash-lite')}")
-    print(f"Fallback Model: {getattr(settings, 'OPENROUTER_HEAVY_MODEL', 'google/gemini-3.8-flash')}")
+    print(f"Fallback Model: {getattr(settings, 'OPENROUTER_HEAVY_MODEL', 'deepseek/deepseek-v4.1-flash')}")
     print(f"Min Confidence: {getattr(settings, 'ROUTER_CONFIDENCE_THRESHOLD', 0.7)}")
     print("=" * 80)
 

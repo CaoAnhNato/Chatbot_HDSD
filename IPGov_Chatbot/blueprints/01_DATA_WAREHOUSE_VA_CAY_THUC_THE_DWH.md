@@ -17,17 +17,18 @@ related_docs:
 ## PHẦN 02: KIẾN TRÚC DỮ LIỆU KHO DWH, CÂY THỰC THỂ VÀ QUY TẮC XỬ LÝ TRẠNG THÁI BÁO CÁO (REPORT STATUS)
 
 > **Tiêu chuẩn áp dụng:** Arc42 (Phần 8: Cross-cutting Concepts / Data View) & IEEE Std 1016-2009 (Information Viewpoint).  
-> **Căn cứ dữ liệu thực nghiệm:** Cơ sở dữ liệu PostgreSQL (`vna_wom_dev`) trên Docker Engine (`localhost:5432`).  
+> **Căn cứ dữ liệu thực nghiệm:** Cơ sở dữ liệu PostgreSQL (`vna_wom_dev`) trên máy chủ phân tích trung tâm (`104.248.155.6:5432/vna_wom_dev`).  
 > **Quy chuẩn hiển thị:** 100% biểu đồ được định dạng bằng mã Mermaid chuẩn.
 
 ---
 
 ### 1. KIẾN TRÚC PHÂN VÙNG VẬT LÝ KHO DỮ LIỆU (PHYSICAL SCHEMA ARCHITECTURE)
 
-Kho dữ liệu DWH phục vụ hệ thống gồm **4 schema vật lý** với **57 bảng** và tổng cộng hơn **17.197 bản ghi**, được phân tách thành 4 phân vùng chức năng độc lập:
+Kho dữ liệu DWH phục vụ hệ thống gồm **4 schema vật lý** với **57 bảng** và được phân tách thành 4 phân vùng chức năng độc lập:
 
 1. **`dwh_internal` (Core Analytic Data Mart - 18 bảng):**  
    Vùng lưu trữ dữ liệu nghiệp vụ trọng yếu nhất của hệ thống. Chứa các bảng Fact báo cáo kinh tế - xã hội (`fact_report_criteria`), chiều cơ quan hành chính (`deparment`, `office`), chiều chỉ tiêu (`criteria`), và vòng đời báo cáo (`report`). Hơn **$95\%$ các truy vấn phân tích của Chatbot** được định tuyến trực tiếp vào schema này.
+   *Lưu ý kiến trúc đặc biệt:* Sau đợt thiết lập lại dữ liệu kho công ty, bảng `deparment` hiện thời có 0 bản ghi. Chatbot áp dụng nguyên tắc cô lập `deparment`, không thực hiện SQL JOIN trực tiếp tới bảng này mà khai thác chiều suy biến (Degenerate Dimension) `f.department_code` trên `fact_report_criteria` kết hợp DuckDB Semantic Catalog In-Memory để phân giải ngữ nghĩa tên đơn vị.
 2. **`dwh_public` (Open Data Mart - 8 bảng):**  
    Vùng lưu trữ các số liệu đã được tổng hợp vĩ mô, đóng gói sẵn để phục vụ tra cứu mở cho người dân và doanh nghiệp mà không cần phân quyền chi tiết.
 3. **`public` (Shared GIS & Master Data - 27 bảng):**  
@@ -37,7 +38,7 @@ Kho dữ liệu DWH phục vụ hệ thống gồm **4 schema vật lý** với 
 
 ```mermaid
 graph LR
-    subgraph DWH_PHYSICAL["POSTGRESQL DWH (vna_wom_dev)"]
+    subgraph DWH_PHYSICAL["POSTGRESQL DWH (104.248.155.6 / vna_wom_dev)"]
         direction TB
         STAGING["staging (4 bảng)<br/>• ETL Ingestion Buffer<br/>• pipeline_logs"]
         INTERNAL["dwh_internal (18 bảng)<br/>• fact_report_criteria<br/>• deparment & office<br/>• criteria & report"]
@@ -75,7 +76,7 @@ erDiagram
         uuid id PK
         text code UK
         text name
-        int level "0: Tỉnh, 1: Sở/Ban/Ngành"
+        int level "0: Tỉnh, 1: Sở/Ban/Ngành (Lưu ý: 0 bản ghi sau reset data)"
         uuid parent_id FK
         text tenant_code
     }
@@ -98,14 +99,14 @@ erDiagram
 
     dwh_internal_fact_report_criteria {
         text fact_sk PK "Surrogate Key"
-        varchar year "VARCHAR(4)"
+        varchar year_code "VARCHAR(4) - Đã đổi tên từ year"
         timestamptz report_date
         text code "Mã chỉ tiêu"
         text name "Tên chỉ tiêu"
         text value "Ép kiểu: NULLIF(TRIM(value), '')::numeric"
         uuid office_id FK
         varchar tenant_code
-        varchar department_code
+        varchar department_code "Mã sở ngành (Degenerate Dimension)"
         varchar report_status "approved, pending, draft, rejected"
         timestamp etl_updated_at
     }
@@ -113,7 +114,7 @@ erDiagram
     dwh_internal_report {
         uuid id PK
         varchar status "approved, pending, draft, rejected"
-        varchar year
+        varchar year_code "VARCHAR(4) - Đã đổi tên từ year"
         uuid office_id
     }
 ```
@@ -178,14 +179,20 @@ graph TD
 ### 3. ĐẶC TẢ VÀ CHÍNH SÁCH XỬ LÝ TRẠNG THÁI BÁO CÁO (REPORT STATUS POLICY)
 
 #### 3.1. Hiện trạng phân bổ thực tế trong CSDL `vna_wom_dev`
-Trường `report_status` trong bảng `dwh_internal.fact_report_criteria` và trường `status` trong `dwh_internal.report` lưu trữ vòng đời kiểm duyệt của một báo cáo với 4 trạng thái định danh:
+Trường `report_status` trong bảng `dwh_internal.fact_report_criteria` và trường `status` trong `dwh_internal.report` lưu trữ vòng đời kiểm duyệt của một báo cáo với các trạng thái định danh:
 
-| Trạng Thái (`report_status`) | Số Lượng Dòng Fact Thực Tế | Tỷ Lệ Dữ Liệu | Ý Nghĩa Nghiệp Vụ Hành Chính |
-| :--- | :---: | :---: | :--- |
-| **`approved`** | **1.780 bản ghi** | **54.0%** | **ĐÃ PHÊ DUYỆT CHÍNH THỨC:** Báo cáo đã được lãnh đạo có thẩm quyền thẩm định, ký số và đóng dấu nghiệp vụ. Đây là dữ liệu có giá trị pháp lý đầy đủ. |
-| **`pending`** | **618 bản ghi** | **18.7%** | **ĐANG CHỜ DUYỆT:** Đơn vị cơ sở đã nộp báo cáo hoàn chỉnh nhưng cấp quản lý (Sở/UBND) đang trong quá trình rà soát, chưa phê duyệt. |
-| **`draft`** | **527 bản ghi** | **16.0%** | **BẢN NHÁP:** Đơn vị cơ sở đang trong quá trình nhập liệu hoặc lưu tạm thời, số liệu chưa chốt, có thể thay đổi bất cứ lúc nào. |
-| **`rejected`** | **372 bản ghi** | **11.3%** | **BỊ TỪ CHỐI:** Báo cáo bị cơ quan quản lý trả về do sai lệch số liệu, thiếu biên bản kiểm tra hoặc không đúng quy cách. |
+*Lưu ý snapshot kho dữ liệu hiện hành (`104.248.155.6`):* Sau đợt reset dữ liệu, bảng `fact_report_criteria` hiện có **463 bản ghi thực tế**, toàn bộ thuộc **năm 2026 (`year_code = '2026'`)**, mã tỉnh Lâm Đồng (`tenant_code = '68'`), và đơn vị `68-1-01`. Phân bổ trạng thái gồm:
+- **`approved`**: **342 bản ghi (73.9%)** — Số liệu chính thức có giá trị pháp lý.
+- **`draft`**: **121 bản ghi (26.1%)** — Bản nháp tác nghiệp.
+
+Dưới đây là bảng định nghĩa 4 trạng thái chuẩn của hệ thống:
+
+| Trạng Thái (`report_status`) | Tỷ Lệ Chuẩn | Ý Nghĩa Nghiệp Vụ Hành Chính |
+| :--- | :---: | :--- |
+| **`approved`** | **Chính thức** | **ĐÃ PHÊ DUYỆT CHÍNH THỨC:** Báo cáo đã được lãnh đạo có thẩm quyền thẩm định, ký số và đóng dấu nghiệp vụ. Đây là dữ liệu có giá trị pháp lý đầy đủ. |
+| **`pending`** | **Nội bộ** | **ĐANG CHỜ DUYỆT:** Đơn vị cơ sở đã nộp báo cáo hoàn chỉnh nhưng cấp quản lý (Sở/UBND) đang trong quá trình rà soát, chưa phê duyệt. |
+| **`draft`** | **Tác nghiệp** | **BẢN NHÁP:** Đơn vị cơ sở đang trong quá trình nhập liệu hoặc lưu tạm thời, số liệu chưa chốt, có thể thay đổi bất cứ lúc nào. |
+| **`rejected`** | **Hoàn thiện** | **BỊ TỪ CHỐI:** Báo cáo bị cơ quan quản lý trả về do sai lệch số liệu, thiếu biên bản kiểm tra hoặc không đúng quy cách. |
 
 #### 3.2. Chính sách truy vấn của Chatbot đối với từng trạng thái (Query Policy)
 
@@ -252,14 +259,14 @@ leaf_criteria AS (
 )
 -- 2. Thực hiện tổng hợp số liệu duy nhất trên các nút lá
 SELECT 
-    f.year,
+    f.year_code AS year,
     SUM(NULLIF(TRIM(f.value), '')::numeric) AS total_val,
     COUNT(DISTINCT f.office_id) AS total_reporting_offices
 FROM dwh_internal.fact_report_criteria f
 INNER JOIN leaf_criteria lc ON f.criteria_id = lc.id
-WHERE f.year = '2025'
+WHERE f.year_code = '2026'
   AND f.report_status = 'approved' -- Cưỡng chế trạng thái đã duyệt
-GROUP BY f.year;
+GROUP BY f.year_code;
 ```
 
 #### 4.2. Lợi Điểm Hiệu Năng So Với Xử Lý Bằng Mã Python

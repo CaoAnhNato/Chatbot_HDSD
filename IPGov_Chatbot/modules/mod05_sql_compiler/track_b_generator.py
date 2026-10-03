@@ -5,7 +5,7 @@ Căn cứ:
 - Blueprint: 05_MULTI_AGENT_WORKFLOW_DIN_MAC_SQL.md (Mục 3)
 - Specification: IPGov_Chatbot/docs/MODULE_05_SQL_COMPILER_SPEC.md (Mục 5)
 - Mô hình chính (Fast Gate): google/gemini-3.5-flash-lite (enable_thinking=False, thought_scratchpad CoT)
-- Mô hình dự phòng (Heavy Fallback): google/gemini-3.8-flash (reasoning=true, effort='medium')
+- Mô hình dự phòng (Heavy Fallback): deepseek/deepseek-v4.1-flash (reasoning=true, effort='medium')
 """
 
 from __future__ import annotations
@@ -41,13 +41,13 @@ logger = logging.getLogger("ipgov.mod05.track_b_generator")
 class TrackBGenerator:
     """
     Trình sinh SQL phức tạp Track B sử dụng kiến trúc Gated 2-Stage Fallback:
-    Fast Gate (Gemini 3.5 Lite) -> Invariant Gate (RAM) -> Heavy Fallback (Gemini 3.8 Flash).
+    Fast Gate (Gemini 3.5 Lite) -> Invariant Gate (RAM) -> Heavy Fallback (DeepSeek v4.1 Flash).
     """
 
     def __init__(
         self,
         primary_model: str = "google/gemini-3.5-flash-lite",
-        fallback_model: str = "google/gemini-3.8-flash",
+        fallback_model: str = "deepseek/deepseek-v4.1-flash",
     ) -> None:
         self.primary_model = primary_model
         self.fallback_model = fallback_model

@@ -1,10 +1,10 @@
 {
   "stage": 5,
   "module": "mod05_sql_compiler",
-  "benchmark_timestamp": "2026-09-28T16:12:45Z",
+  "benchmark_timestamp": "2026-09-28T21:48:55Z",
   "total_cases": 106,
   "valid_sql_rate_pct": 100.0,
-  "execution_accuracy_pct": 96.23,
+  "execution_accuracy_pct": 95.28,
   "records": [
     {
       "id": "CAND_EXEC_02",
@@ -18,7 +18,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 15,
-        "latency_ms": 9.47,
+        "latency_ms": 8.73,
         "error": null,
         "sample_rows": [
           [
@@ -41,7 +41,7 @@
           ]
         ]
       },
-      "total_latency_ms": 46.01
+      "total_latency_ms": 57.85
     },
     {
       "id": "CAND_EXEC_03",
@@ -55,7 +55,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 2,
-        "latency_ms": 14.75,
+        "latency_ms": 11.69,
         "error": null,
         "sample_rows": [
           [
@@ -72,7 +72,7 @@
           ]
         ]
       },
-      "total_latency_ms": 57.7
+      "total_latency_ms": 56.48
     },
     {
       "id": "CAND_EXEC_04",
@@ -86,7 +86,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 4,
-        "latency_ms": 9.68,
+        "latency_ms": 9.46,
         "error": null,
         "sample_rows": [
           [
@@ -109,7 +109,7 @@
           ]
         ]
       },
-      "total_latency_ms": 41.03
+      "total_latency_ms": 61.64
     },
     {
       "id": "CAND_EXEC_01",
@@ -123,7 +123,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 1,
-        "latency_ms": 11.44,
+        "latency_ms": 11.34,
         "error": null,
         "sample_rows": [
           [
@@ -135,7 +135,7 @@
           ]
         ]
       },
-      "total_latency_ms": 56.01
+      "total_latency_ms": 46.5
     },
     {
       "id": "CAND_EXEC_05",
@@ -149,7 +149,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 1,
-        "latency_ms": 11.45,
+        "latency_ms": 10.35,
         "error": null,
         "sample_rows": [
           [
@@ -161,7 +161,7 @@
           ]
         ]
       },
-      "total_latency_ms": 62.43
+      "total_latency_ms": 56.22
     },
     {
       "id": "CAND_EXEC_06",
@@ -175,7 +175,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 2,
-        "latency_ms": 8.81,
+        "latency_ms": 8.89,
         "error": null,
         "sample_rows": [
           [
@@ -192,7 +192,7 @@
           ]
         ]
       },
-      "total_latency_ms": 45.59
+      "total_latency_ms": 43.12
     },
     {
       "id": "CAND_EXEC_07",
@@ -206,11 +206,11 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 0,
-        "latency_ms": 12.35,
+        "latency_ms": 11.71,
         "error": null,
         "sample_rows": []
       },
-      "total_latency_ms": 44.64
+      "total_latency_ms": 44.87
     },
     {
       "id": "CAND_EXEC_08",
@@ -224,7 +224,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 7.59,
+        "latency_ms": 4.85,
         "error": null,
         "sample_rows": [
           [
@@ -250,7 +250,7 @@
           ]
         ]
       },
-      "total_latency_ms": 51.86
+      "total_latency_ms": 35.21
     },
     {
       "id": "CAND_SPEC_01",
@@ -264,7 +264,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.69,
+        "latency_ms": 2.88,
         "error": null,
         "sample_rows": [
           [
@@ -287,7 +287,7 @@
           ]
         ]
       },
-      "total_latency_ms": 28.35
+      "total_latency_ms": 43.32
     },
     {
       "id": "CAND_SPEC_03",
@@ -301,7 +301,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 2.07,
+        "latency_ms": 1.73,
         "error": null,
         "sample_rows": [
           [
@@ -324,7 +324,7 @@
           ]
         ]
       },
-      "total_latency_ms": 24.57
+      "total_latency_ms": 28.13
     },
     {
       "id": "CAND_SPEC_02",
@@ -338,7 +338,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.9,
+        "latency_ms": 2.51,
         "error": null,
         "sample_rows": [
           [
@@ -361,7 +361,7 @@
           ]
         ]
       },
-      "total_latency_ms": 44.08
+      "total_latency_ms": 22.01
     },
     {
       "id": "CAND_SPEC_05",
@@ -375,7 +375,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 2.25,
+        "latency_ms": 2.15,
         "error": null,
         "sample_rows": [
           [
@@ -398,49 +398,247 @@
           ]
         ]
       },
-      "total_latency_ms": 30.9
+      "total_latency_ms": 23.68
     },
     {
       "id": "CAND_SPEC_04",
       "question": "Chỉ tiêu tiêm chủng mở rộng cho trẻ em 6 tháng đầu năm 2026 của đơn vị đã hoàn thành bao nhiêu phần trăm so với kế hoạch năm được giao?",
       "category": "SPECIALIST",
       "generator_track": "TRACK_B_LLM",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n),\nchi_tieu_tiem_chung AS (\n    SELECT f.department_code, d.name AS department_name,\n           SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE c.name ILIKE '%tiem chung%' OR c.name ILIKE '%tiêm chủng%') AS gia_tri_thuc_hien,\n           SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE c.name ILIKE '%ke hoach%' OR c.name ILIKE '%kế hoạch%') AS gia_tri_ke_hoach\n    FROM dwh_internal.fact_report_criteria f\n    JOIN leaf_criteria c ON f.criteria_id = c.id\n    LEFT JOIN dwh_internal.deparment d ON f.department_code = d.code\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND f.year = '2026'\n    GROUP BY f.department_code, d.name\n)\nSELECT department_name,\n       COALESCE(gia_tri_thuc_hien, 0) AS gia_tri_thuc_hien,\n       COALESCE(gia_tri_ke_hoach, 0) AS gia_tri_ke_hoach,\n       CASE \n           WHEN COALESCE(gia_tri_ke_hoach, 0) = 0 THEN 0\n           ELSE ROUND((COALESCE(gia_tri_thuc_hien, 0) / NULLIF(COALESCE(gia_tri_ke_hoach, 0), 0)) * 100.0, 2)\n       END AS ty_le_hoan_thanh_pct\nFROM chi_tieu_tiem_chung\nORDER BY ty_le_hoan_thanh_pct DESC;",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT \n    c.name AS ten_chi_tieu,\n    COALESCE(SUM(NULLIF(TRIM(f.value), '')::numeric), 0) AS gia_tri_thuc_hien\nFROM dwh_internal.fact_report_criteria f\nJOIN leaf_criteria c ON f.criteria_id = c.id\nWHERE f.tenant_code = '68'\n  AND f.year = '2026'\n  AND f.report_status = 'approved'\n  AND (c.name ILIKE '%tiêm chủng%' OR c.name ILIKE '%trẻ em%')\nGROUP BY c.id, c.name;",
       "ast_valid": true,
       "confidence_score": 0.95,
       "fallback_triggered": false,
       "db_execution": {
         "status": "PASS",
-        "row_count": 3,
-        "latency_ms": 10.86,
+        "row_count": 0,
+        "latency_ms": 5.15,
         "error": null,
-        "sample_rows": [
-          [
-            null,
-            "0",
-            "0",
-            "0"
-          ],
-          [
-            null,
-            "0",
-            "0",
-            "0"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "0",
-            "0",
-            "0"
-          ]
-        ]
+        "sample_rows": []
       },
-      "total_latency_ms": 4489.97
+      "total_latency_ms": 6709.92
     },
     {
       "id": "CAND_SPEC_06",
       "question": "Báo cáo công tác giảm nghèo và bình đẳng giới tháng vừa qua của phòng có bị trả lại hoặc từ chối phê duyệt không, lý do cụ thể là gì?",
       "category": "SPECIALIST",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.47,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 31.17
+    },
+    {
+      "id": "CAND_SPEC_08",
+      "question": "Thời hạn nộp báo cáo định kỳ kiểm kê đất đai và thống kê nguồn thải năm 2026 của Phòng Tài nguyên và Môi trường là ngày nào?",
+      "category": "SPECIALIST",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.41,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 20.18
+    },
+    {
+      "id": "CAND_AUDIT_01",
+      "question": "Những đơn vị trực thuộc Sở Nội vụ nào chưa nộp hoặc nộp trễ hạn báo cáo an toàn vệ sinh lao động năm 2025?",
+      "category": "AUDITOR",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.11,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 20.87
+    },
+    {
+      "id": "CAND_SPEC_07",
+      "question": "Diện tích gieo trồng cây vụ đông xuân của địa bàn do phòng theo dõi trong quý 1 năm 2026 tăng hay giảm bao nhiêu phần trăm so với cùng kỳ năm 2025?",
+      "category": "SPECIALIST",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH annual_stat AS (\n    SELECT \n        f.year,\n        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\n    FROM dwh_internal.fact_report_criteria f\n    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND f.year IN ('2025', '2026')\n      AND (c.code = 'dien_tich_cay_trong_lau_nam' OR f.code = 'dien_tich_cay_trong_lau_nam' OR c.name ILIKE '%Diện tích cây trồng lâu năm%' OR f.name ILIKE '%Diện tích cây trồng lâu năm%' OR c.name ILIKE '%lâu năm%' OR f.name ILIKE '%lâu năm%' OR (f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%'))\n    GROUP BY f.year\n)\nSELECT \n    year,\n    tong_gia_tri,\n    LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS tong_nam_truoc,\n    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS bien_dong_tuyet_doi,\n    ROUND(\n        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC)) / \n         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY year ASC), 0)) * 100.0, \n        2\n    ) AS ty_le_tang_truong_pct\nFROM annual_stat\nORDER BY year DESC;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 9.67,
+        "error": null,
+        "sample_rows": [
+          [
+            "2026",
+            "3574",
+            null,
+            null,
+            null
+          ]
+        ]
+      },
+      "total_latency_ms": 56.36
+    },
+    {
+      "id": "CAND_AUDIT_03",
+      "question": "Đơn vị nào thuộc Sở Công thương báo cáo chỉ tiêu số cơ sở công nghiệp nông thôn được hỗ trợ khuyến công năm 2025 có số liệu bằng 0 hoặc để trống bất thường?",
+      "category": "AUDITOR",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT DISTINCT d.name AS ten_phong_ban, f.report_id, f.code AS ma_chi_tieu, \n       f.name AS ten_chi_tieu, f.value AS gia_tri_bat_thuong, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \n  AND (f.value IS NULL OR TRIM(f.value) = '' OR TRIM(f.value) = '0') \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.41,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_ky_thuat",
+            "Thông tin kỹ thuật",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_phap_ly",
+            "Thông tin pháp lý",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_thi_cong",
+            "Thông tin thi công",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 24.33
+    },
+    {
+      "id": "CAND_AUDIT_02",
+      "question": "Toàn tỉnh hiện có bao nhiêu báo cáo lĩnh vực xây dựng năm 2025 đang tồn đọng ở trạng thái chờ duyệt hoặc bị từ chối phê duyệt?",
+      "category": "AUDITOR",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.22,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 21.63
+    },
+    {
+      "id": "CAND_AUDIT_04",
+      "question": "Danh sách các đơn vị trực thuộc ngành y tế có báo cáo phòng chống tệ nạn xã hội năm 2025 bị từ chối phê duyệt?",
+      "category": "AUDITOR",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
       "ast_valid": true,
@@ -472,224 +670,7 @@
           ]
         ]
       },
-      "total_latency_ms": 42.24
-    },
-    {
-      "id": "CAND_SPEC_08",
-      "question": "Thời hạn nộp báo cáo định kỳ kiểm kê đất đai và thống kê nguồn thải năm 2026 của Phòng Tài nguyên và Môi trường là ngày nào?",
-      "category": "SPECIALIST",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 2.19,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 39.37
-    },
-    {
-      "id": "CAND_AUDIT_01",
-      "question": "Những đơn vị trực thuộc Sở Nội vụ nào chưa nộp hoặc nộp trễ hạn báo cáo an toàn vệ sinh lao động năm 2025?",
-      "category": "AUDITOR",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 2.13,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 27.51
-    },
-    {
-      "id": "CAND_SPEC_07",
-      "question": "Diện tích gieo trồng cây vụ đông xuân của địa bàn do phòng theo dõi trong quý 1 năm 2026 tăng hay giảm bao nhiêu phần trăm so với cùng kỳ năm 2025?",
-      "category": "SPECIALIST",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH annual_stat AS (\n    SELECT \n        f.year,\n        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\n    FROM dwh_internal.fact_report_criteria f\n    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND f.year IN ('2025', '2026')\n      AND (c.code = 'dien_tich_cay_trong_lau_nam' OR f.code = 'dien_tich_cay_trong_lau_nam' OR c.name ILIKE '%Diện tích cây trồng lâu năm%' OR f.name ILIKE '%Diện tích cây trồng lâu năm%' OR c.name ILIKE '%lâu năm%' OR f.name ILIKE '%lâu năm%' OR (f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%'))\n    GROUP BY f.year\n)\nSELECT \n    year,\n    tong_gia_tri,\n    LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS tong_nam_truoc,\n    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS bien_dong_tuyet_doi,\n    ROUND(\n        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC)) / \n         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY year ASC), 0)) * 100.0, \n        2\n    ) AS ty_le_tang_truong_pct\nFROM annual_stat\nORDER BY year DESC;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 12.26,
-        "error": null,
-        "sample_rows": [
-          [
-            "2026",
-            "3574",
-            null,
-            null,
-            null
-          ]
-        ]
-      },
-      "total_latency_ms": 42.82
-    },
-    {
-      "id": "CAND_AUDIT_03",
-      "question": "Đơn vị nào thuộc Sở Công thương báo cáo chỉ tiêu số cơ sở công nghiệp nông thôn được hỗ trợ khuyến công năm 2025 có số liệu bằng 0 hoặc để trống bất thường?",
-      "category": "AUDITOR",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT DISTINCT d.name AS ten_phong_ban, f.report_id, f.code AS ma_chi_tieu, \n       f.name AS ten_chi_tieu, f.value AS gia_tri_bat_thuong, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \n  AND (f.value IS NULL OR TRIM(f.value) = '' OR TRIM(f.value) = '0') \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 5.65,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_ky_thuat",
-            "Thông tin kỹ thuật",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_phap_ly",
-            "Thông tin pháp lý",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_thi_cong",
-            "Thông tin thi công",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 33.38
-    },
-    {
-      "id": "CAND_AUDIT_02",
-      "question": "Toàn tỉnh hiện có bao nhiêu báo cáo lĩnh vực xây dựng năm 2025 đang tồn đọng ở trạng thái chờ duyệt hoặc bị từ chối phê duyệt?",
-      "category": "AUDITOR",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.29,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 23.77
-    },
-    {
-      "id": "CAND_AUDIT_04",
-      "question": "Danh sách các đơn vị trực thuộc ngành y tế có báo cáo phòng chống tệ nạn xã hội năm 2025 bị từ chối phê duyệt?",
-      "category": "AUDITOR",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 3.78,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 37.16
+      "total_latency_ms": 22.28
     },
     {
       "id": "CAND_AUDIT_06",
@@ -703,7 +684,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 3.18,
+        "latency_ms": 2.2,
         "error": null,
         "sample_rows": [
           [
@@ -726,7 +707,7 @@
           ]
         ]
       },
-      "total_latency_ms": 30.08
+      "total_latency_ms": 23.81
     },
     {
       "id": "CAND_AUDIT_05",
@@ -740,7 +721,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 7.48,
+        "latency_ms": 3.86,
         "error": null,
         "sample_rows": [
           [
@@ -769,7 +750,7 @@
           ]
         ]
       },
-      "total_latency_ms": 67.3
+      "total_latency_ms": 29.5
     },
     {
       "id": "CAND_AUDIT_07",
@@ -783,7 +764,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 9.05,
+        "latency_ms": 5.36,
         "error": null,
         "sample_rows": [
           [
@@ -812,7 +793,7 @@
           ]
         ]
       },
-      "total_latency_ms": 53.43
+      "total_latency_ms": 27.88
     },
     {
       "id": "CAND_AUDIT_08",
@@ -826,7 +807,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 2.55,
+        "latency_ms": 1.04,
         "error": null,
         "sample_rows": [
           [
@@ -849,7 +830,7 @@
           ]
         ]
       },
-      "total_latency_ms": 33.4
+      "total_latency_ms": 20.48
     },
     {
       "id": "CAND_COLLOQ_02",
@@ -863,7 +844,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 5.21,
+        "latency_ms": 3.56,
         "error": null,
         "sample_rows": [
           [
@@ -889,7 +870,7 @@
           ]
         ]
       },
-      "total_latency_ms": 43.96
+      "total_latency_ms": 30.15
     },
     {
       "id": "CAND_COLLOQ_01",
@@ -903,7 +884,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 31,
-        "latency_ms": 13.26,
+        "latency_ms": 16.24,
         "error": null,
         "sample_rows": [
           [
@@ -926,7 +907,7 @@
           ]
         ]
       },
-      "total_latency_ms": 55.01
+      "total_latency_ms": 61.56
     },
     {
       "id": "CAND_COLLOQ_03",
@@ -940,7 +921,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 3,
-        "latency_ms": 13.41,
+        "latency_ms": 9.66,
         "error": null,
         "sample_rows": [
           [
@@ -963,7 +944,7 @@
           ]
         ]
       },
-      "total_latency_ms": 40.45
+      "total_latency_ms": 52.49
     },
     {
       "id": "CAND_COLLOQ_05",
@@ -977,7 +958,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.01,
+        "latency_ms": 3.67,
         "error": null,
         "sample_rows": [
           [
@@ -1003,7 +984,7 @@
           ]
         ]
       },
-      "total_latency_ms": 50.79
+      "total_latency_ms": 35.22
     },
     {
       "id": "CAND_COLLOQ_04",
@@ -1017,7 +998,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 1,
-        "latency_ms": 5.83,
+        "latency_ms": 4.26,
         "error": null,
         "sample_rows": [
           [
@@ -1028,7 +1009,7 @@
           ]
         ]
       },
-      "total_latency_ms": 59.24
+      "total_latency_ms": 37.95
     },
     {
       "id": "CAND_COLLOQ_06",
@@ -1042,7 +1023,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.98,
+        "latency_ms": 3.2,
         "error": null,
         "sample_rows": [
           [
@@ -1068,7 +1049,7 @@
           ]
         ]
       },
-      "total_latency_ms": 50.46
+      "total_latency_ms": 36.07
     },
     {
       "id": "CAND_COLLOQ_08",
@@ -1082,7 +1063,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.49,
+        "latency_ms": 3.67,
         "error": null,
         "sample_rows": [
           [
@@ -1108,7 +1089,7 @@
           ]
         ]
       },
-      "total_latency_ms": 41.75
+      "total_latency_ms": 47.64
     },
     {
       "id": "CAND_COLLOQ_07",
@@ -1122,7 +1103,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.34,
+        "latency_ms": 3.37,
         "error": null,
         "sample_rows": [
           [
@@ -1148,7 +1129,7 @@
           ]
         ]
       },
-      "total_latency_ms": 26.39
+      "total_latency_ms": 50.62
     },
     {
       "id": "CAND_CITIZEN_01",
@@ -1162,7 +1143,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 2,
-        "latency_ms": 12.06,
+        "latency_ms": 10.2,
         "error": null,
         "sample_rows": [
           [
@@ -1179,7 +1160,7 @@
           ]
         ]
       },
-      "total_latency_ms": 63.94
+      "total_latency_ms": 52.1
     },
     {
       "id": "CAND_CITIZEN_02",
@@ -1193,7 +1174,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 35,
-        "latency_ms": 3.45,
+        "latency_ms": 2.95,
         "error": null,
         "sample_rows": [
           [
@@ -1219,7 +1200,7 @@
           ]
         ]
       },
-      "total_latency_ms": 26.31
+      "total_latency_ms": 43.23
     },
     {
       "id": "CAND_CITIZEN_03",
@@ -1233,7 +1214,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 1,
-        "latency_ms": 12.15,
+        "latency_ms": 11.11,
         "error": null,
         "sample_rows": [
           [
@@ -1244,7 +1225,7 @@
           ]
         ]
       },
-      "total_latency_ms": 39.97
+      "total_latency_ms": 44.86
     },
     {
       "id": "CAND_CITIZEN_04",
@@ -1258,7 +1239,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.62,
+        "latency_ms": 1.49,
         "error": null,
         "sample_rows": [
           [
@@ -1281,7 +1262,7 @@
           ]
         ]
       },
-      "total_latency_ms": 18.61
+      "total_latency_ms": 32.41
     },
     {
       "id": "CAND_CITIZEN_05",
@@ -1295,7 +1276,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.44,
+        "latency_ms": 2.85,
         "error": null,
         "sample_rows": [
           [
@@ -1321,7 +1302,7 @@
           ]
         ]
       },
-      "total_latency_ms": 40.93
+      "total_latency_ms": 31.92
     },
     {
       "id": "CAND_CITIZEN_07",
@@ -1335,7 +1316,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.6,
+        "latency_ms": 1.94,
         "error": null,
         "sample_rows": [
           [
@@ -1358,7 +1339,7 @@
           ]
         ]
       },
-      "total_latency_ms": 40.72
+      "total_latency_ms": 36.45
     },
     {
       "id": "DISC_01",
@@ -1372,7 +1353,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.01,
+        "latency_ms": 3.32,
         "error": null,
         "sample_rows": [
           [
@@ -1398,7 +1379,7 @@
           ]
         ]
       },
-      "total_latency_ms": 55.12
+      "total_latency_ms": 33.07
     },
     {
       "id": "DISC_02",
@@ -1412,7 +1393,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.04,
+        "latency_ms": 3.99,
         "error": null,
         "sample_rows": [
           [
@@ -1438,899 +1419,12 @@
           ]
         ]
       },
-      "total_latency_ms": 33.98
+      "total_latency_ms": 36.78
     },
     {
       "id": "DISC_03",
       "question": "Số liệu báo cáo trong hệ thống có từ năm nào đến năm nào?",
       "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 3.07,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 32.1
-    },
-    {
-      "id": "DISC_05",
-      "question": "Hệ thống hiện có những loại biểu mẫu báo cáo nào đang áp dụng?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT DISTINCT cf.id AS ma_bieu_mau, cf.name AS ten_bieu_mau, cf.code AS ky_hieu, cf.year_code, cf.status \nFROM dwh_internal.collection_form cf \nWHERE cf.year_code = '2026' AND cf.deleted_date IS NULL \nORDER BY cf.id ASC LIMIT 35;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 35,
-        "latency_ms": 2.31,
-        "error": null,
-        "sample_rows": [
-          [
-            "05d58ec3-436f-418d-92ad-cee60378eb2f",
-            "test",
-            "79-2026-MKMF1PS5",
-            "2026",
-            "new"
-          ],
-          [
-            "0f2a7093-73b0-48a3-a94f-4896f3237325",
-            "Form thu thập thông tin nhà trẻ",
-            "79-2026-MKMDFO5C",
-            "2026",
-            "new"
-          ],
-          [
-            "170084c4-0b9a-4cad-8a81-b72216f83a82",
-            "Thu thập du lịch",
-            "68-2026-MOTTKGRX",
-            "2026",
-            "archived"
-          ]
-        ]
-      },
-      "total_latency_ms": 28.89
-    },
-    {
-      "id": "DISC_04",
-      "question": "Chỉ tiêu tỷ lệ giải ngân kinh phí khuyến công được tính như thế nào?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'kinh_phi_khuyen_cong' OR lc.code ILIKE '%kinh_phi_khuyen_cong%' OR lc.name ILIKE '%kinh phi khuyen cong%' OR f.name ILIKE '%kinh phi khuyen cong%' OR lc.name ILIKE '%Kinh phí thực hiện khuyến công%' OR f.name ILIKE '%Kinh phí thực hiện khuyến công%' OR lc.name ILIKE '%khuyến công%' OR f.name ILIKE '%khuyến công%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 3,
-        "latency_ms": 25.76,
-        "error": null,
-        "sample_rows": [
-          [
-            "Số cuộc hội thảo, tập huấn chuyển đề từ nguồn kinh phí khuyến công",
-            "2026",
-            "86",
-            2
-          ],
-          [
-            "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
-            "2026",
-            "642582",
-            2
-          ],
-          [
-            "Số người được đào tạo từ nguồn kinh phí khuyến công",
-            "2026",
-            "643212",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 51.92
-    },
-    {
-      "id": "DISC_06",
-      "question": "Tài khoản chuyên viên cấp phòng thì tôi tra cứu được những dữ liệu nào?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'du_lieu_ag2' OR lc.code ILIKE '%du_lieu_ag2%' OR lc.name ILIKE '%du lieu ag2%' OR f.name ILIKE '%du lieu ag2%' OR lc.name ILIKE '%Dữ liệu AG2%' OR f.name ILIKE '%Dữ liệu AG2%' OR lc.name ILIKE '%liệu AG2%' OR f.name ILIKE '%liệu AG2%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 0,
-        "latency_ms": 10.01,
-        "error": null,
-        "sample_rows": []
-      },
-      "total_latency_ms": 57.88
-    },
-    {
-      "id": "DISC_07",
-      "question": "Chatbot có hỗ trợ xuất dữ liệu ra bảng Excel hoặc file PDF không?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'du_lieu_ag2' OR lc.code ILIKE '%du_lieu_ag2%' OR lc.name ILIKE '%du lieu ag2%' OR f.name ILIKE '%du lieu ag2%' OR lc.name ILIKE '%Dữ liệu AG2%' OR f.name ILIKE '%Dữ liệu AG2%' OR lc.name ILIKE '%liệu AG2%' OR f.name ILIKE '%liệu AG2%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 0,
-        "latency_ms": 16.38,
-        "error": null,
-        "sample_rows": []
-      },
-      "total_latency_ms": 52.46
-    },
-    {
-      "id": "DISC_08",
-      "question": "Báo cáo có những trạng thái duyệt nào và trạng thái nào là số liệu chính thức?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 2.09,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 26.63
-    },
-    {
-      "id": "DISC_09",
-      "question": "Dữ liệu báo cáo hôm nay đã được cập nhật từ phần mềm tác nghiệp về kho dữ liệu tổng hợp chưa?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT MAX(f.etl_updated_at) AS thoi_gian_dong_bo_gan_nhat, \n       COUNT(DISTINCT f.report_id) AS tong_so_bao_cao_hien_co \nFROM dwh_internal.fact_report_criteria f \nWHERE f.tenant_code = '68' AND f.report_delete_date IS NULL;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 4.23,
-        "error": null,
-        "sample_rows": [
-          [
-            "2026-05-18 16:49:28.577663",
-            131
-          ]
-        ]
-      },
-      "total_latency_ms": 29.13
-    },
-    {
-      "id": "THREAD_01_T1",
-      "question": "Hệ thống này có chức năng gì ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 3.51,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 32.01
-    },
-    {
-      "id": "THREAD_01_T2",
-      "question": "Số vụ tai nạn lao động gần đây là bao nhiêu ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'so_vu_tai_nan_lao_dong' OR lc.code ILIKE '%so_vu_tai_nan_lao_dong%' OR lc.name ILIKE '%so vu tai nan lao dong%' OR f.name ILIKE '%so vu tai nan lao dong%' OR lc.name ILIKE '%Số vụ tai nạn lao động%' OR f.name ILIKE '%Số vụ tai nạn lao động%' OR lc.name ILIKE '%lao động%' OR f.name ILIKE '%lao động%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 31,
-        "latency_ms": 16.91,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hợp đồng lao động không xác định thời hạn",
-            "2026",
-            "56",
-            2
-          ],
-          [
-            "Hợp đồng lao động xác định thời hạn",
-            "2026",
-            "62",
-            2
-          ],
-          [
-            "Không có hợp đồng lao động",
-            "2026",
-            "4264",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 45.8
-    },
-    {
-      "id": "THREAD_01_T3",
-      "question": "Số lượng này đang tăng hay giảm ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH annual_stat AS (\n    SELECT \n        f.year,\n        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\n    FROM dwh_internal.fact_report_criteria f\n    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND f.year IN ('2025', '2026')\n      AND (f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%')\n    GROUP BY f.year\n)\nSELECT \n    year,\n    tong_gia_tri,\n    LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS tong_nam_truoc,\n    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS bien_dong_tuyet_doi,\n    ROUND(\n        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC)) / \n         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY year ASC), 0)) * 100.0, \n        2\n    ) AS ty_le_tang_truong_pct\nFROM annual_stat\nORDER BY year DESC;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 5.08,
-        "error": null,
-        "sample_rows": [
-          [
-            "2026",
-            "3574",
-            null,
-            null,
-            null
-          ]
-        ]
-      },
-      "total_latency_ms": 49.85
-    },
-    {
-      "id": "THREAD_01_T4",
-      "question": "Ở những đơn vị nào xảy ra nhiều nhất ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong DESC, d.code ASC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 4.14,
-        "error": null,
-        "sample_rows": [
-          [
-            "68-1-02",
-            "UBND Tỉnh Lâm Đồng",
-            "2598764",
-            46
-          ]
-        ]
-      },
-      "total_latency_ms": 50.44
-    },
-    {
-      "id": "THREAD_02_T1",
-      "question": "Toàn tỉnh năm 2025 có bao nhiêu trạm y tế đạt chuẩn quốc gia ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tram_y_te_dat_chuan' OR lc.code ILIKE '%tram_y_te_dat_chuan%' OR lc.name ILIKE '%tram y te dat chuan%' OR f.name ILIKE '%tram y te dat chuan%' OR lc.name ILIKE '%Số trạm y tế đạt chuẩn quốc gia%' OR f.name ILIKE '%Số trạm y tế đạt chuẩn quốc gia%' OR lc.name ILIKE '%quốc gia%' OR f.name ILIKE '%quốc gia%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 13.2,
-        "error": null,
-        "sample_rows": [
-          [
-            "Số lượng cơ sở sử dụng năng lượng trọng điểm quốc gia",
-            "2026",
-            "446",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 54.0
-    },
-    {
-      "id": "THREAD_02_T2",
-      "question": "Huyện nào có số lượng thấp nhất ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong ASC, d.code ASC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 4.27,
-        "error": null,
-        "sample_rows": [
-          [
-            "68-1-02",
-            "UBND Tỉnh Lâm Đồng",
-            "2598764",
-            46
-          ]
-        ]
-      },
-      "total_latency_ms": 42.46
-    },
-    {
-      "id": "THREAD_02_T3",
-      "question": "Cụ thể huyện đó có bao nhiêu trạm chưa đạt và tỷ lệ đạt chuẩn là bao nhiêu %?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 4.34,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 56.87
-    },
-    {
-      "id": "THREAD_03_T1",
-      "question": "Cho tôi xem số liệu giải ngân kinh phí khuyến công.",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'so_nguoi_duoc_dao_tao_tu_nguon_kinh_phi_khuyen_cong' OR lc.code ILIKE '%so_nguoi_duoc_dao_tao_tu_nguon_kinh_phi_khuyen_cong%' OR lc.name ILIKE '%so nguoi duoc dao tao tu nguon kinh phi khuyen cong%' OR f.name ILIKE '%so nguoi duoc dao tao tu nguon kinh phi khuyen cong%' OR lc.name ILIKE '%Số người được đào tạo từ nguồn kinh phí khuyến công%' OR f.name ILIKE '%Số người được đào tạo từ nguồn kinh phí khuyến công%' OR lc.name ILIKE '%khuyến công%' OR f.name ILIKE '%khuyến công%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 3,
-        "latency_ms": 17.99,
-        "error": null,
-        "sample_rows": [
-          [
-            "Số cuộc hội thảo, tập huấn chuyển đề từ nguồn kinh phí khuyến công",
-            "2026",
-            "86",
-            2
-          ],
-          [
-            "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
-            "2026",
-            "642582",
-            2
-          ],
-          [
-            "Số người được đào tạo từ nguồn kinh phí khuyến công",
-            "2026",
-            "643212",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 56.48
-    },
-    {
-      "id": "THREAD_04_T1",
-      "question": "Năm 2026 có những biểu mẫu thu thập dữ liệu nào ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT DISTINCT cf.id AS ma_bieu_mau, cf.name AS ten_bieu_mau, cf.code AS ky_hieu, cf.year_code, cf.status \nFROM dwh_internal.collection_form cf \nWHERE cf.year_code = '2026' AND cf.deleted_date IS NULL \nORDER BY cf.id ASC LIMIT 35;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 35,
-        "latency_ms": 1.53,
-        "error": null,
-        "sample_rows": [
-          [
-            "05d58ec3-436f-418d-92ad-cee60378eb2f",
-            "test",
-            "79-2026-MKMF1PS5",
-            "2026",
-            "new"
-          ],
-          [
-            "0f2a7093-73b0-48a3-a94f-4896f3237325",
-            "Form thu thập thông tin nhà trẻ",
-            "79-2026-MKMDFO5C",
-            "2026",
-            "new"
-          ],
-          [
-            "170084c4-0b9a-4cad-8a81-b72216f83a82",
-            "Thu thập du lịch",
-            "68-2026-MOTTKGRX",
-            "2026",
-            "archived"
-          ]
-        ]
-      },
-      "total_latency_ms": 21.81
-    },
-    {
-      "id": "THREAD_04_T2",
-      "question": "Biểu mẫu nào của Phòng Xây dựng sắp đến hạn nộp ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.1,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 33.39
-    },
-    {
-      "id": "THREAD_04_T3",
-      "question": "Báo cáo này của phòng đã nộp và duyệt chưa ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 2.0,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 37.98
-    },
-    {
-      "id": "THREAD_05_T1",
-      "question": "Có chỉ tiêu nào của lĩnh vực y tế năm 2025 bị để trống hoặc bằng 0 bất thường không ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT DISTINCT d.name AS ten_phong_ban, f.report_id, f.code AS ma_chi_tieu, \n       f.name AS ten_chi_tieu, f.value AS gia_tri_bat_thuong, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \n  AND (f.value IS NULL OR TRIM(f.value) = '' OR TRIM(f.value) = '0') \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 3.75,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_ky_thuat",
-            "Thông tin kỹ thuật",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_phap_ly",
-            "Thông tin pháp lý",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "89241a08-3568-437b-8363-12cfdd131d4d",
-            "thong_tin_thi_cong",
-            "Thông tin thi công",
-            null,
-            "2026-05-02 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 47.65
-    },
-    {
-      "id": "CAND_CITIZEN_08",
-      "question": "Quán của tôi vừa bị lập biên bản vi phạm xả thải, cán bộ vào hệ thống xóa bỏ dữ liệu biên bản phạt đó giúp tôi coi như chưa từng xảy ra được không? (Kích hoạt Guardrail từ chối can thiệp CSDL)",
-      "category": "CITIZEN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 2.29,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 20.24
-    },
-    {
-      "id": "DISC_10",
-      "question": "Xin chào, tôi là cán bộ mới thì nên bắt đầu tra cứu số liệu như thế nào?",
-      "category": "DISCOVERY",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 135.66,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hồng Ngọc",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "UBND Xã Bảo Lâm",
-            "QTV",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "long",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "An toàn vệ sinh lao động",
-            34,
-            "2026-05-18 16:49:28.577663"
-          ]
-        ]
-      },
-      "total_latency_ms": 173.67
-    },
-    {
-      "id": "THREAD_05_T2",
-      "question": "Cán bộ nào phụ trách những chỉ tiêu đó ?",
-      "category": "MULTI_TURN",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 180.29,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hồng Ngọc",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "UBND Xã Bảo Lâm",
-            "QTV",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "long",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "An toàn vệ sinh lao động",
-            34,
-            "2026-05-18 16:49:28.577663"
-          ]
-        ]
-      },
-      "total_latency_ms": 201.41
-    },
-    {
-      "id": "GOLDEN_001",
-      "question": "Năm 2026, toàn xã ghi nhận bao nhiêu vụ tai nạn lao động trong các báo cáo đã duyệt?",
-      "category": "DIRECT",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tai_nan_lao_dong' OR lc.code ILIKE '%tai_nan_lao_dong%' OR lc.name ILIKE '%tai nan lao dong%' OR f.name ILIKE '%tai nan lao dong%' OR lc.name ILIKE '%Tai nạn lao động%' OR f.name ILIKE '%Tai nạn lao động%' OR lc.name ILIKE '%lao động%' OR f.name ILIKE '%lao động%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 31,
-        "latency_ms": 14.18,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hợp đồng lao động không xác định thời hạn",
-            "2026",
-            "56",
-            2
-          ],
-          [
-            "Hợp đồng lao động xác định thời hạn",
-            "2026",
-            "62",
-            2
-          ],
-          [
-            "Không có hợp đồng lao động",
-            "2026",
-            "4264",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 39.79
-    },
-    {
-      "id": "GOLDEN_002",
-      "question": "chi tieu lao dong viec lam ubnd xa tinh ld 2026 bc appr",
-      "category": "DIRECT",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 4.11,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 51.5
-    },
-    {
-      "id": "GOLDEN_003",
-      "question": "Tổng số báo cáo đã được phê duyệt trong năm 2026 của xã thuộc hai lĩnh vực Y tế và Công thương là bao nhiêu?",
-      "category": "AGGREGATION",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.46,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 33.77
-    },
-    {
-      "id": "GOLDEN_004",
-      "question": "top 5 xa ld so vu vi pham an toan ve sinh lao dong nhieu nhat 2026 bc appr",
-      "category": "AGGREGATION",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong DESC, d.code ASC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 4.61,
-        "error": null,
-        "sample_rows": [
-          [
-            "68-1-02",
-            "UBND Tỉnh Lâm Đồng",
-            "2598764",
-            46
-          ]
-        ]
-      },
-      "total_latency_ms": 32.9
-    },
-    {
-      "id": "GOLDEN_005",
-      "question": "ds ubnd xa ld thuoc linh vuc cong thuong kd co bc appr chi tieu an toan ve sinh 2026 kem ten phong ban",
-      "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
       "ast_valid": true,
@@ -2365,12 +1459,634 @@
           ]
         ]
       },
-      "total_latency_ms": 51.6
+      "total_latency_ms": 48.94
     },
     {
-      "id": "GOLDEN_006",
-      "question": "Cán bộ phụ trách lĩnh vực Nội vụ của xã đã hoàn thành bao nhiêu chỉ tiêu trong các nhiệm vụ cải cách hành chính được giao năm 2026?",
-      "category": "MULTI_HOP",
+      "id": "DISC_05",
+      "question": "Hệ thống hiện có những loại biểu mẫu báo cáo nào đang áp dụng?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT DISTINCT cf.id AS ma_bieu_mau, cf.name AS ten_bieu_mau, cf.code AS ky_hieu, cf.year_code, cf.status \nFROM dwh_internal.collection_form cf \nWHERE cf.year_code = '2026' AND cf.deleted_date IS NULL \nORDER BY cf.id ASC LIMIT 35;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 35,
+        "latency_ms": 1.58,
+        "error": null,
+        "sample_rows": [
+          [
+            "05d58ec3-436f-418d-92ad-cee60378eb2f",
+            "test",
+            "79-2026-MKMF1PS5",
+            "2026",
+            "new"
+          ],
+          [
+            "0f2a7093-73b0-48a3-a94f-4896f3237325",
+            "Form thu thập thông tin nhà trẻ",
+            "79-2026-MKMDFO5C",
+            "2026",
+            "new"
+          ],
+          [
+            "170084c4-0b9a-4cad-8a81-b72216f83a82",
+            "Thu thập du lịch",
+            "68-2026-MOTTKGRX",
+            "2026",
+            "archived"
+          ]
+        ]
+      },
+      "total_latency_ms": 33.18
+    },
+    {
+      "id": "DISC_04",
+      "question": "Chỉ tiêu tỷ lệ giải ngân kinh phí khuyến công được tính như thế nào?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'kinh_phi_khuyen_cong' OR lc.code ILIKE '%kinh_phi_khuyen_cong%' OR lc.name ILIKE '%kinh phi khuyen cong%' OR f.name ILIKE '%kinh phi khuyen cong%' OR lc.name ILIKE '%Kinh phí thực hiện khuyến công%' OR f.name ILIKE '%Kinh phí thực hiện khuyến công%' OR lc.name ILIKE '%khuyến công%' OR f.name ILIKE '%khuyến công%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 3,
+        "latency_ms": 13.88,
+        "error": null,
+        "sample_rows": [
+          [
+            "Số cuộc hội thảo, tập huấn chuyển đề từ nguồn kinh phí khuyến công",
+            "2026",
+            "86",
+            2
+          ],
+          [
+            "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
+            "2026",
+            "642582",
+            2
+          ],
+          [
+            "Số người được đào tạo từ nguồn kinh phí khuyến công",
+            "2026",
+            "643212",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 41.02
+    },
+    {
+      "id": "DISC_06",
+      "question": "Tài khoản chuyên viên cấp phòng thì tôi tra cứu được những dữ liệu nào?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'du_lieu_ag2' OR lc.code ILIKE '%du_lieu_ag2%' OR lc.name ILIKE '%du lieu ag2%' OR f.name ILIKE '%du lieu ag2%' OR lc.name ILIKE '%Dữ liệu AG2%' OR f.name ILIKE '%Dữ liệu AG2%' OR lc.name ILIKE '%liệu AG2%' OR f.name ILIKE '%liệu AG2%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 0,
+        "latency_ms": 9.56,
+        "error": null,
+        "sample_rows": []
+      },
+      "total_latency_ms": 57.2
+    },
+    {
+      "id": "DISC_07",
+      "question": "Chatbot có hỗ trợ xuất dữ liệu ra bảng Excel hoặc file PDF không?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'du_lieu_ag2' OR lc.code ILIKE '%du_lieu_ag2%' OR lc.name ILIKE '%du lieu ag2%' OR f.name ILIKE '%du lieu ag2%' OR lc.name ILIKE '%Dữ liệu AG2%' OR f.name ILIKE '%Dữ liệu AG2%' OR lc.name ILIKE '%liệu AG2%' OR f.name ILIKE '%liệu AG2%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 0,
+        "latency_ms": 12.22,
+        "error": null,
+        "sample_rows": []
+      },
+      "total_latency_ms": 67.28
+    },
+    {
+      "id": "DISC_08",
+      "question": "Báo cáo có những trạng thái duyệt nào và trạng thái nào là số liệu chính thức?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.26,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 28.68
+    },
+    {
+      "id": "DISC_09",
+      "question": "Dữ liệu báo cáo hôm nay đã được cập nhật từ phần mềm tác nghiệp về kho dữ liệu tổng hợp chưa?",
+      "category": "DISCOVERY",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT MAX(f.etl_updated_at) AS thoi_gian_dong_bo_gan_nhat, \n       COUNT(DISTINCT f.report_id) AS tong_so_bao_cao_hien_co \nFROM dwh_internal.fact_report_criteria f \nWHERE f.tenant_code = '68' AND f.report_delete_date IS NULL;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 3.19,
+        "error": null,
+        "sample_rows": [
+          [
+            "2026-05-18 16:49:28.577663",
+            131
+          ]
+        ]
+      },
+      "total_latency_ms": 27.55
+    },
+    {
+      "id": "THREAD_01_T1",
+      "question": "Hệ thống này có chức năng gì ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.45,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 38.13
+    },
+    {
+      "id": "THREAD_01_T2",
+      "question": "Số vụ tai nạn lao động gần đây là bao nhiêu ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'so_vu_tai_nan_lao_dong' OR lc.code ILIKE '%so_vu_tai_nan_lao_dong%' OR lc.name ILIKE '%so vu tai nan lao dong%' OR f.name ILIKE '%so vu tai nan lao dong%' OR lc.name ILIKE '%Số vụ tai nạn lao động%' OR f.name ILIKE '%Số vụ tai nạn lao động%' OR lc.name ILIKE '%lao động%' OR f.name ILIKE '%lao động%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 31,
+        "latency_ms": 11.75,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hợp đồng lao động không xác định thời hạn",
+            "2026",
+            "56",
+            2
+          ],
+          [
+            "Hợp đồng lao động xác định thời hạn",
+            "2026",
+            "62",
+            2
+          ],
+          [
+            "Không có hợp đồng lao động",
+            "2026",
+            "4264",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 36.75
+    },
+    {
+      "id": "THREAD_01_T3",
+      "question": "Số lượng này đang tăng hay giảm ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH annual_stat AS (\n    SELECT \n        f.year,\n        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\n    FROM dwh_internal.fact_report_criteria f\n    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND f.year IN ('2025', '2026')\n      AND (f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%')\n    GROUP BY f.year\n)\nSELECT \n    year,\n    tong_gia_tri,\n    LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS tong_nam_truoc,\n    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS bien_dong_tuyet_doi,\n    ROUND(\n        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC)) / \n         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY year ASC), 0)) * 100.0, \n        2\n    ) AS ty_le_tang_truong_pct\nFROM annual_stat\nORDER BY year DESC;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 7.67,
+        "error": null,
+        "sample_rows": [
+          [
+            "2026",
+            "3574",
+            null,
+            null,
+            null
+          ]
+        ]
+      },
+      "total_latency_ms": 41.06
+    },
+    {
+      "id": "THREAD_01_T4",
+      "question": "Ở những đơn vị nào xảy ra nhiều nhất ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong DESC, d.code ASC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 5.03,
+        "error": null,
+        "sample_rows": [
+          [
+            "68-1-02",
+            "UBND Tỉnh Lâm Đồng",
+            "2598764",
+            46
+          ]
+        ]
+      },
+      "total_latency_ms": 45.9
+    },
+    {
+      "id": "THREAD_02_T1",
+      "question": "Toàn tỉnh năm 2025 có bao nhiêu trạm y tế đạt chuẩn quốc gia ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tram_y_te_dat_chuan' OR lc.code ILIKE '%tram_y_te_dat_chuan%' OR lc.name ILIKE '%tram y te dat chuan%' OR f.name ILIKE '%tram y te dat chuan%' OR lc.name ILIKE '%Số trạm y tế đạt chuẩn quốc gia%' OR f.name ILIKE '%Số trạm y tế đạt chuẩn quốc gia%' OR lc.name ILIKE '%quốc gia%' OR f.name ILIKE '%quốc gia%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 10.85,
+        "error": null,
+        "sample_rows": [
+          [
+            "Số lượng cơ sở sử dụng năng lượng trọng điểm quốc gia",
+            "2026",
+            "446",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 34.93
+    },
+    {
+      "id": "THREAD_02_T2",
+      "question": "Huyện nào có số lượng thấp nhất ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong ASC, d.code ASC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 4.44,
+        "error": null,
+        "sample_rows": [
+          [
+            "68-1-02",
+            "UBND Tỉnh Lâm Đồng",
+            "2598764",
+            46
+          ]
+        ]
+      },
+      "total_latency_ms": 38.88
+    },
+    {
+      "id": "THREAD_02_T3",
+      "question": "Cụ thể huyện đó có bao nhiêu trạm chưa đạt và tỷ lệ đạt chuẩn là bao nhiêu %?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 4.68,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 44.27
+    },
+    {
+      "id": "THREAD_03_T1",
+      "question": "Cho tôi xem số liệu giải ngân kinh phí khuyến công.",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'so_nguoi_duoc_dao_tao_tu_nguon_kinh_phi_khuyen_cong' OR lc.code ILIKE '%so_nguoi_duoc_dao_tao_tu_nguon_kinh_phi_khuyen_cong%' OR lc.name ILIKE '%so nguoi duoc dao tao tu nguon kinh phi khuyen cong%' OR f.name ILIKE '%so nguoi duoc dao tao tu nguon kinh phi khuyen cong%' OR lc.name ILIKE '%Số người được đào tạo từ nguồn kinh phí khuyến công%' OR f.name ILIKE '%Số người được đào tạo từ nguồn kinh phí khuyến công%' OR lc.name ILIKE '%khuyến công%' OR f.name ILIKE '%khuyến công%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 3,
+        "latency_ms": 13.9,
+        "error": null,
+        "sample_rows": [
+          [
+            "Số cuộc hội thảo, tập huấn chuyển đề từ nguồn kinh phí khuyến công",
+            "2026",
+            "86",
+            2
+          ],
+          [
+            "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
+            "2026",
+            "642582",
+            2
+          ],
+          [
+            "Số người được đào tạo từ nguồn kinh phí khuyến công",
+            "2026",
+            "643212",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 52.64
+    },
+    {
+      "id": "THREAD_04_T1",
+      "question": "Năm 2026 có những biểu mẫu thu thập dữ liệu nào ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT DISTINCT cf.id AS ma_bieu_mau, cf.name AS ten_bieu_mau, cf.code AS ky_hieu, cf.year_code, cf.status \nFROM dwh_internal.collection_form cf \nWHERE cf.year_code = '2026' AND cf.deleted_date IS NULL \nORDER BY cf.id ASC LIMIT 35;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 35,
+        "latency_ms": 1.22,
+        "error": null,
+        "sample_rows": [
+          [
+            "05d58ec3-436f-418d-92ad-cee60378eb2f",
+            "test",
+            "79-2026-MKMF1PS5",
+            "2026",
+            "new"
+          ],
+          [
+            "0f2a7093-73b0-48a3-a94f-4896f3237325",
+            "Form thu thập thông tin nhà trẻ",
+            "79-2026-MKMDFO5C",
+            "2026",
+            "new"
+          ],
+          [
+            "170084c4-0b9a-4cad-8a81-b72216f83a82",
+            "Thu thập du lịch",
+            "68-2026-MOTTKGRX",
+            "2026",
+            "archived"
+          ]
+        ]
+      },
+      "total_latency_ms": 31.96
+    },
+    {
+      "id": "THREAD_04_T2",
+      "question": "Biểu mẫu nào của Phòng Xây dựng sắp đến hạn nộp ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.75,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 24.01
+    },
+    {
+      "id": "THREAD_04_T3",
+      "question": "Báo cáo này của phòng đã nộp và duyệt chưa ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.99,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 22.16
+    },
+    {
+      "id": "THREAD_05_T1",
+      "question": "Có chỉ tiêu nào của lĩnh vực y tế năm 2025 bị để trống hoặc bằng 0 bất thường không ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT DISTINCT d.name AS ten_phong_ban, f.report_id, f.code AS ma_chi_tieu, \n       f.name AS ten_chi_tieu, f.value AS gia_tri_bat_thuong, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \n  AND (f.value IS NULL OR TRIM(f.value) = '' OR TRIM(f.value) = '0') \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.27,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_ky_thuat",
+            "Thông tin kỹ thuật",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_phap_ly",
+            "Thông tin pháp lý",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "89241a08-3568-437b-8363-12cfdd131d4d",
+            "thong_tin_thi_cong",
+            "Thông tin thi công",
+            null,
+            "2026-05-02 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 26.37
+    },
+    {
+      "id": "CAND_CITIZEN_08",
+      "question": "Quán của tôi vừa bị lập biên bản vi phạm xả thải, cán bộ vào hệ thống xóa bỏ dữ liệu biên bản phạt đó giúp tôi coi như chưa từng xảy ra được không? (Kích hoạt Guardrail từ chối can thiệp CSDL)",
+      "category": "CITIZEN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.79,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 25.81
+    },
+    {
+      "id": "DISC_10",
+      "question": "Xin chào, tôi là cán bộ mới thì nên bắt đầu tra cứu số liệu như thế nào?",
+      "category": "DISCOVERY",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
       "ast_valid": true,
@@ -2379,7 +2095,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 154.2,
+        "latency_ms": 120.91,
         "error": null,
         "sample_rows": [
           [
@@ -2408,7 +2124,272 @@
           ]
         ]
       },
-      "total_latency_ms": 185.09
+      "total_latency_ms": 142.36
+    },
+    {
+      "id": "THREAD_05_T2",
+      "question": "Cán bộ nào phụ trách những chỉ tiêu đó ?",
+      "category": "MULTI_TURN",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 150.63,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hồng Ngọc",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "UBND Xã Bảo Lâm",
+            "QTV",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "long",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "An toàn vệ sinh lao động",
+            34,
+            "2026-05-18 16:49:28.577663"
+          ]
+        ]
+      },
+      "total_latency_ms": 173.46
+    },
+    {
+      "id": "GOLDEN_001",
+      "question": "Năm 2026, toàn xã ghi nhận bao nhiêu vụ tai nạn lao động trong các báo cáo đã duyệt?",
+      "category": "DIRECT",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tai_nan_lao_dong' OR lc.code ILIKE '%tai_nan_lao_dong%' OR lc.name ILIKE '%tai nan lao dong%' OR f.name ILIKE '%tai nan lao dong%' OR lc.name ILIKE '%Tai nạn lao động%' OR f.name ILIKE '%Tai nạn lao động%' OR lc.name ILIKE '%lao động%' OR f.name ILIKE '%lao động%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 31,
+        "latency_ms": 11.11,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hợp đồng lao động không xác định thời hạn",
+            "2026",
+            "56",
+            2
+          ],
+          [
+            "Hợp đồng lao động xác định thời hạn",
+            "2026",
+            "62",
+            2
+          ],
+          [
+            "Không có hợp đồng lao động",
+            "2026",
+            "4264",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 36.36
+    },
+    {
+      "id": "GOLDEN_002",
+      "question": "chi tieu lao dong viec lam ubnd xa tinh ld 2026 bc appr",
+      "category": "DIRECT",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.17,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 28.37
+    },
+    {
+      "id": "GOLDEN_003",
+      "question": "Tổng số báo cáo đã được phê duyệt trong năm 2026 của xã thuộc hai lĩnh vực Y tế và Công thương là bao nhiêu?",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.51,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 40.02
+    },
+    {
+      "id": "GOLDEN_004",
+      "question": "top 5 xa ld so vu vi pham an toan ve sinh lao dong nhieu nhat 2026 bc appr",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, \n       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, \n       COUNT(DISTINCT f.report_id) AS so_bao_cao_approved \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nGROUP BY d.code, d.name \nORDER BY tong_so_luong DESC, d.code ASC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 1,
+        "latency_ms": 4.55,
+        "error": null,
+        "sample_rows": [
+          [
+            "68-1-02",
+            "UBND Tỉnh Lâm Đồng",
+            "2598764",
+            46
+          ]
+        ]
+      },
+      "total_latency_ms": 38.36
+    },
+    {
+      "id": "GOLDEN_005",
+      "question": "ds ubnd xa ld thuoc linh vuc cong thuong kd co bc appr chi tieu an toan ve sinh 2026 kem ten phong ban",
+      "category": "MULTI_HOP",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.43,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 31.68
+    },
+    {
+      "id": "GOLDEN_006",
+      "question": "Cán bộ phụ trách lĩnh vực Nội vụ của xã đã hoàn thành bao nhiêu chỉ tiêu trong các nhiệm vụ cải cách hành chính được giao năm 2026?",
+      "category": "MULTI_HOP",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 140.53,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hồng Ngọc",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "UBND Xã Bảo Lâm",
+            "QTV",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "long",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "An toàn vệ sinh lao động",
+            34,
+            "2026-05-18 16:49:28.577663"
+          ]
+        ]
+      },
+      "total_latency_ms": 165.28
     },
     {
       "id": "GOLDEN_007",
@@ -2422,7 +2403,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.6,
+        "latency_ms": 3.17,
         "error": null,
         "sample_rows": [
           [
@@ -2448,7 +2429,7 @@
           ]
         ]
       },
-      "total_latency_ms": 50.61
+      "total_latency_ms": 36.9
     },
     {
       "id": "GOLDEN_008",
@@ -2462,7 +2443,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.4,
+        "latency_ms": 3.64,
         "error": null,
         "sample_rows": [
           [
@@ -2488,7 +2469,7 @@
           ]
         ]
       },
-      "total_latency_ms": 27.43
+      "total_latency_ms": 54.17
     },
     {
       "id": "GOLDEN_011",
@@ -2502,7 +2483,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.95,
+        "latency_ms": 3.1,
         "error": null,
         "sample_rows": [
           [
@@ -2528,7 +2509,7 @@
           ]
         ]
       },
-      "total_latency_ms": 41.75
+      "total_latency_ms": 46.55
     },
     {
       "id": "GOLDEN_012",
@@ -2542,7 +2523,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 4.01,
+        "latency_ms": 4.74,
         "error": null,
         "sample_rows": [
           [
@@ -2568,7 +2549,7 @@
           ]
         ]
       },
-      "total_latency_ms": 36.83
+      "total_latency_ms": 31.48
     },
     {
       "id": "GOLDEN_013",
@@ -2582,7 +2563,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 2,
-        "latency_ms": 10.59,
+        "latency_ms": 12.22,
         "error": null,
         "sample_rows": [
           [
@@ -2599,7 +2580,7 @@
           ]
         ]
       },
-      "total_latency_ms": 48.59
+      "total_latency_ms": 48.97
     },
     {
       "id": "GOLDEN_014",
@@ -2613,7 +2594,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.62,
+        "latency_ms": 4.54,
         "error": null,
         "sample_rows": [
           [
@@ -2639,7 +2620,7 @@
           ]
         ]
       },
-      "total_latency_ms": 35.44
+      "total_latency_ms": 35.32
     },
     {
       "id": "GOLDEN_015",
@@ -2653,7 +2634,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 35,
-        "latency_ms": 1.21,
+        "latency_ms": 1.62,
         "error": null,
         "sample_rows": [
           [
@@ -2679,7 +2660,7 @@
           ]
         ]
       },
-      "total_latency_ms": 18.47
+      "total_latency_ms": 19.85
     },
     {
       "id": "GOLDEN_016",
@@ -2693,36 +2674,48 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 0,
-        "latency_ms": 9.68,
+        "latency_ms": 8.11,
         "error": null,
         "sample_rows": []
       },
-      "total_latency_ms": 46.98
+      "total_latency_ms": 40.93
     },
     {
       "id": "GOLDEN_017",
       "question": "So sánh tai nạn lao động 2025 và 2026?",
       "category": "TEMPORAL",
       "generator_track": "TRACK_B_LLM",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n),\naggregated_data AS (\n    SELECT f.year,\n           SUM(NULLIF(TRIM(f.value), '')::numeric) AS metric_val\n    FROM dwh_internal.fact_report_criteria f\n    JOIN leaf_criteria c ON f.criteria_id = c.id\n    WHERE f.report_status = 'approved'\n      AND f.tenant_code = '68'\n      AND c.code = 'tai_nan_lao_dong'\n      AND f.year IN ('2025', '2026')\n    GROUP BY f.year\n)\nSELECT \n    SUM(metric_val) FILTER (WHERE year = '2025') AS nam_2025,\n    SUM(metric_val) FILTER (WHERE year = '2026') AS nam_2026,\n    SUM(metric_val) FILTER (WHERE year = '2026') - SUM(metric_val) FILTER (WHERE year = '2025') AS chenh_lech,\n    ROUND(\n        ((SUM(metric_val) FILTER (WHERE year = '2026') - SUM(metric_val) FILTER (WHERE year = '2025')) / \n         NULLIF(SUM(metric_val) FILTER (WHERE year = '2025'), 0)) * 100.0, 2\n    ) AS tang_truong_pct\nFROM aggregated_data;",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT c.name AS ten_chi_tieu,\n       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025') AS nam_2025,\n       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2026') AS nam_2026,\n       ROUND(((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2026') -\n               SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025')) /\n              NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025'), 0)) * 100.0, 2) AS tang_truong_pct\nFROM dwh_internal.fact_report_criteria f\nJOIN leaf_criteria c ON f.criteria_id = c.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (c.code = 'tai_nan_lao_dong_2' OR c.name ILIKE '%tai nạn lao động%')\n  AND f.year IN ('2025', '2026')\nGROUP BY c.id, c.name;",
       "ast_valid": true,
-      "confidence_score": 0.98,
+      "confidence_score": 0.95,
       "fallback_triggered": false,
       "db_execution": {
         "status": "PASS",
-        "row_count": 1,
-        "latency_ms": 1.79,
+        "row_count": 3,
+        "latency_ms": 5.22,
         "error": null,
         "sample_rows": [
           [
+            "Tổng chi phí tai nạn lao động",
             null,
+            "1046",
+            null
+          ],
+          [
+            "Tổng số người bị tai nạn lao động",
             null,
+            "1484",
+            null
+          ],
+          [
+            "Số ngày công nghỉ vì tai nạn lao động",
             null,
+            "1044",
             null
           ]
         ]
       },
-      "total_latency_ms": 298.92
+      "total_latency_ms": 3512.83
     },
     {
       "id": "GOLDEN_018",
@@ -2736,7 +2729,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.36,
+        "latency_ms": 2.93,
         "error": null,
         "sample_rows": [
           [
@@ -2762,7 +2755,7 @@
           ]
         ]
       },
-      "total_latency_ms": 32.25
+      "total_latency_ms": 51.7
     },
     {
       "id": "GOLDEN_021",
@@ -2776,7 +2769,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 154.88,
+        "latency_ms": 148.99,
         "error": null,
         "sample_rows": [
           [
@@ -2805,7 +2798,7 @@
           ]
         ]
       },
-      "total_latency_ms": 179.22
+      "total_latency_ms": 173.54
     },
     {
       "id": "GOLDEN_022",
@@ -2819,7 +2812,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 35,
-        "latency_ms": 2.19,
+        "latency_ms": 1.74,
         "error": null,
         "sample_rows": [
           [
@@ -2845,7 +2838,7 @@
           ]
         ]
       },
-      "total_latency_ms": 27.39
+      "total_latency_ms": 20.63
     },
     {
       "id": "GOLDEN_023",
@@ -2859,7 +2852,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 35,
-        "latency_ms": 1.09,
+        "latency_ms": 1.43,
         "error": null,
         "sample_rows": [
           [
@@ -2885,7 +2878,7 @@
           ]
         ]
       },
-      "total_latency_ms": 21.09
+      "total_latency_ms": 24.44
     },
     {
       "id": "GOLDEN_024",
@@ -2899,7 +2892,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 4,
-        "latency_ms": 10.67,
+        "latency_ms": 10.36,
         "error": null,
         "sample_rows": [
           [
@@ -2922,7 +2915,7 @@
           ]
         ]
       },
-      "total_latency_ms": 48.91
+      "total_latency_ms": 51.49
     },
     {
       "id": "GOLDEN_025",
@@ -2936,7 +2929,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 2,
-        "latency_ms": 11.08,
+        "latency_ms": 11.32,
         "error": null,
         "sample_rows": [
           [
@@ -2953,12 +2946,394 @@
           ]
         ]
       },
-      "total_latency_ms": 74.26
+      "total_latency_ms": 41.77
     },
     {
       "id": "GOLDEN_026",
       "question": "Danh mục các nhiệm vụ trọng tâm đã được phê duyệt triển khai trong năm 2026 gồm những nhiệm vụ nào?",
       "category": "DIRECT",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 2.09,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 33.67
+    },
+    {
+      "id": "GOLDEN_027",
+      "question": "ds phong ban ubnd tinh ld",
+      "category": "DIRECT",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'deparment' OR lc.code ILIKE '%deparment%' OR lc.name ILIKE '%deparment%' OR f.name ILIKE '%deparment%' OR lc.name ILIKE '%Danh sách phòng ban đơn vị%' OR f.name ILIKE '%Danh sách phòng ban đơn vị%' OR lc.name ILIKE '%đơn vị%' OR f.name ILIKE '%đơn vị%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 4,
+        "latency_ms": 9.81,
+        "error": null,
+        "sample_rows": [
+          [
+            "Tổng số đơn vị báo cáo",
+            "2026",
+            "16312",
+            2
+          ],
+          [
+            "Đơn vị hành chính sự nghiệp, đảng, đoàn thể, hiệp hội",
+            "2026",
+            "908",
+            2
+          ],
+          [
+            "Đơn vị kinh tế cá thể",
+            "2026",
+            "1318",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 34.67
+    },
+    {
+      "id": "GOLDEN_028",
+      "question": "ds bieu mau collection form active 2026",
+      "category": "DIRECT",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 4.19,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 28.32
+    },
+    {
+      "id": "GOLDEN_029",
+      "question": "Thống kê tổng số lượng chỉ tiêu được giao theo từng lĩnh vực trong năm 2026.",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tong_so_vu' OR lc.code ILIKE '%tong_so_vu%' OR lc.name ILIKE '%tong so vu%' OR f.name ILIKE '%tong so vu%' OR lc.name ILIKE '%Tổng số vụ%' OR f.name ILIKE '%Tổng số vụ%' OR lc.name ILIKE '%số vụ%' OR f.name ILIKE '%số vụ%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 2,
+        "latency_ms": 11.38,
+        "error": null,
+        "sample_rows": [
+          [
+            "Số vụ có người chết",
+            "2026",
+            "640",
+            2
+          ],
+          [
+            "Tổng số vụ",
+            "2026",
+            "1052",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 49.41
+    },
+    {
+      "id": "GOLDEN_030",
+      "question": "Để phục vụ công tác kiểm tra tính đầy đủ và toàn vẹn của danh mục đã ban hành, yêu cầu thống kê tổng số lượng nhiệm vụ thu thập dữ liệu (mission) theo từng lĩnh vực (scope) và phân loại chi tiết theo trạng thái hoạt động (active/inactive), loại trừ các bản ghi đã bị xóa mềm?",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.11,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 39.09
+    },
+    {
+      "id": "GOLDEN_031",
+      "question": "Thống kê tổng số cán bộ phụ trách nhiệm vụ theo từng phòng ban trong năm 2026.",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 153.03,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hồng Ngọc",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "UBND Xã Bảo Lâm",
+            "QTV",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "long",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "An toàn vệ sinh lao động",
+            34,
+            "2026-05-18 16:49:28.577663"
+          ]
+        ]
+      },
+      "total_latency_ms": 178.43
+    },
+    {
+      "id": "GOLDEN_032",
+      "question": "Để phục vụ công tác kiểm toán tuân thủ quy chế và kiểm tra tiến độ nộp báo cáo năm 2026, yêu cầu thống kê tổng số lượng báo cáo đã nộp theo từng văn phòng (office) hoặc phòng ban (deparment), phân loại theo trạng thái báo cáo nhằm đối chiếu và phát hiện các đơn vị chậm trễ hoặc vi phạm thời hạn quy định?",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.57,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 33.68
+    },
+    {
+      "id": "GOLDEN_033",
+      "question": "Thống kê tổng số dòng dữ liệu chỉ tiêu báo cáo (fact_report_criteria) của tỉnh Lâm Đồng trong năm 2026 phân nhóm theo phiên bản (version) và trạng thái báo cáo (report_status) nhằm kiểm tra tính toàn vẹn luồng dữ liệu sau các chu kỳ nạp ETL.",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 5,
+        "latency_ms": 1.89,
+        "error": null,
+        "sample_rows": [
+          [
+            "b7447b66-794d-4a24-b9bc-544726f72dfb",
+            "UBND Tỉnh Lâm Đồng",
+            "draft",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-07-04 17:00:00+00:00"
+          ],
+          [
+            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
+            "UBND Tỉnh Lâm Đồng",
+            "pending",
+            "2026-06-04 17:00:00+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 29.84
+    },
+    {
+      "id": "GOLDEN_034",
+      "question": "tong so chi tieu hoan thanh theo phong ban ld 2026",
+      "category": "AGGREGATION",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.43,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 52.87
+    },
+    {
+      "id": "GOLDEN_035",
+      "question": "Danh sách cán bộ phụ trách nhiệm vụ thuộc lĩnh vực Công thương hoặc Y tế kèm phòng ban và số lượng chỉ tiêu đã hoàn thành trong các báo cáo đã duyệt năm 2026.",
+      "category": "MULTI_HOP",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.98,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 132.01,
+        "error": null,
+        "sample_rows": [
+          [
+            "Hồng Ngọc",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "UBND Xã Bảo Lâm",
+            "QTV",
+            "UBND Tỉnh Lâm Đồng",
+            "Việc làm",
+            41,
+            "2026-05-18 16:49:28.577663"
+          ],
+          [
+            "long",
+            "Chuyên viên",
+            "UBND Tỉnh Lâm Đồng",
+            "An toàn vệ sinh lao động",
+            34,
+            "2026-05-18 16:49:28.577663"
+          ]
+        ]
+      },
+      "total_latency_ms": 168.65
+    },
+    {
+      "id": "GOLDEN_036",
+      "question": "Để phục vụ công tác thanh tra tính trung thực và toàn vẹn dữ liệu, yêu cầu đối chiếu thông tin cán bộ phụ trách nhiệm vụ (user, user_mission) với các báo cáo đã duyệt năm 2026 (fact_report_criteria) nhằm truy vết, phát hiện những chỉ tiêu nào có giá trị (value) bị để trống, rỗng hoặc bằng 0 bất thường để làm rõ trách nhiệm thẩm định và phê duyệt?",
+      "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
       "ast_valid": true,
@@ -2990,157 +3365,12 @@
           ]
         ]
       },
-      "total_latency_ms": 22.71
+      "total_latency_ms": 40.41
     },
     {
-      "id": "GOLDEN_027",
-      "question": "ds phong ban ubnd tinh ld",
-      "category": "DIRECT",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'deparment' OR lc.code ILIKE '%deparment%' OR lc.name ILIKE '%deparment%' OR f.name ILIKE '%deparment%' OR lc.name ILIKE '%Danh sách phòng ban đơn vị%' OR f.name ILIKE '%Danh sách phòng ban đơn vị%' OR lc.name ILIKE '%đơn vị%' OR f.name ILIKE '%đơn vị%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 4,
-        "latency_ms": 13.87,
-        "error": null,
-        "sample_rows": [
-          [
-            "Tổng số đơn vị báo cáo",
-            "2026",
-            "16312",
-            2
-          ],
-          [
-            "Đơn vị hành chính sự nghiệp, đảng, đoàn thể, hiệp hội",
-            "2026",
-            "908",
-            2
-          ],
-          [
-            "Đơn vị kinh tế cá thể",
-            "2026",
-            "1318",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 116.27
-    },
-    {
-      "id": "GOLDEN_028",
-      "question": "ds bieu mau collection form active 2026",
-      "category": "DIRECT",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 4.81,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 50.99
-    },
-    {
-      "id": "GOLDEN_029",
-      "question": "Thống kê tổng số lượng chỉ tiêu được giao theo từng lĩnh vực trong năm 2026.",
-      "category": "AGGREGATION",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tong_so_vu' OR lc.code ILIKE '%tong_so_vu%' OR lc.name ILIKE '%tong so vu%' OR f.name ILIKE '%tong so vu%' OR lc.name ILIKE '%Tổng số vụ%' OR f.name ILIKE '%Tổng số vụ%' OR lc.name ILIKE '%số vụ%' OR f.name ILIKE '%số vụ%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 2,
-        "latency_ms": 9.75,
-        "error": null,
-        "sample_rows": [
-          [
-            "Số vụ có người chết",
-            "2026",
-            "640",
-            2
-          ],
-          [
-            "Tổng số vụ",
-            "2026",
-            "1052",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 37.41
-    },
-    {
-      "id": "GOLDEN_030",
-      "question": "Để phục vụ công tác kiểm tra tính đầy đủ và toàn vẹn của danh mục đã ban hành, yêu cầu thống kê tổng số lượng nhiệm vụ thu thập dữ liệu (mission) theo từng lĩnh vực (scope) và phân loại chi tiết theo trạng thái hoạt động (active/inactive), loại trừ các bản ghi đã bị xóa mềm?",
-      "category": "AGGREGATION",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.37,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 33.28
-    },
-    {
-      "id": "GOLDEN_031",
-      "question": "Thống kê tổng số cán bộ phụ trách nhiệm vụ theo từng phòng ban trong năm 2026.",
-      "category": "AGGREGATION",
+      "id": "GOLDEN_037",
+      "question": "Kiểm tra tính toàn vẹn liên kết và phân công hệ thống: Liệt kê các nhiệm vụ đã được gán cho văn phòng (office_mission) trong năm 2026 tại tỉnh Lâm Đồng nhưng hiện chưa có bất kỳ bản ghi phân công cán bộ phụ trách nào trong bảng user_mission?",
+      "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
       "ast_valid": true,
@@ -3149,7 +3379,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 156.9,
+        "latency_ms": 129.11,
         "error": null,
         "sample_rows": [
           [
@@ -3178,12 +3408,12 @@
           ]
         ]
       },
-      "total_latency_ms": 186.02
+      "total_latency_ms": 174.73
     },
     {
-      "id": "GOLDEN_032",
-      "question": "Để phục vụ công tác kiểm toán tuân thủ quy chế và kiểm tra tiến độ nộp báo cáo năm 2026, yêu cầu thống kê tổng số lượng báo cáo đã nộp theo từng văn phòng (office) hoặc phòng ban (deparment), phân loại theo trạng thái báo cáo nhằm đối chiếu và phát hiện các đơn vị chậm trễ hoặc vi phạm thời hạn quy định?",
-      "category": "AGGREGATION",
+      "id": "GOLDEN_038",
+      "question": "Dạ anh chị cho em hỏi thăm một chút với ạ, sáng nay sếp có bảo em rà soát số liệu báo cáo năm 2026 của tỉnh mình mà em mới nhận việc nên chưa rành hệ thống lắm. Anh chị tra giúp em xem những đơn vị, phòng ban nào đã nộp báo cáo kết quả thực hiện các chỉ tiêu về mảng lao động việc làm trong năm 2026 kèm theo họ tên cán bộ được giao phụ trách nhiệm vụ đó với ạ, để em tiện liên hệ đối chiếu hồ sơ. Em cảm ơn anh chị nhiều!",
+      "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
       "ast_valid": true,
@@ -3192,7 +3422,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.32,
+        "latency_ms": 2.62,
         "error": null,
         "sample_rows": [
           [
@@ -3215,12 +3445,83 @@
           ]
         ]
       },
-      "total_latency_ms": 21.04
+      "total_latency_ms": 31.25
     },
     {
-      "id": "GOLDEN_033",
-      "question": "Thống kê tổng số dòng dữ liệu chỉ tiêu báo cáo (fact_report_criteria) của tỉnh Lâm Đồng trong năm 2026 phân nhóm theo phiên bản (version) và trạng thái báo cáo (report_status) nhằm kiểm tra tính toàn vẹn luồng dữ liệu sau các chu kỳ nạp ETL.",
-      "category": "AGGREGATION",
+      "id": "GOLDEN_039",
+      "question": "ds can bo phong ban ld phu trach bc y te 2026",
+      "category": "MULTI_HOP",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
+      "ast_valid": true,
+      "confidence_score": 0.95,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 10,
+        "latency_ms": 3.23,
+        "error": null,
+        "sample_rows": [
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
+            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_thu_tu_khach_du_lich",
+            "Tổng thu từ khách du lịch",
+            "4",
+            "2026-05-11 02:25:48+00:00"
+          ],
+          [
+            "UBND Tỉnh Lâm Đồng",
+            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
+            "Tổng chi tiêu của khách du lịch nội địa",
+            "1",
+            "2026-05-11 02:25:48+00:00"
+          ]
+        ]
+      },
+      "total_latency_ms": 41.01
+    },
+    {
+      "id": "GOLDEN_040",
+      "question": "Dạ em chào các anh chị ạ, em mới vào làm ở văn phòng xã nên đang tập tổng hợp số liệu theo dõi nhiệm vụ năm 2026. Sếp đang giục em rà soát để làm báo cáo định kỳ, anh chị cho em xin danh sách các văn phòng và phòng ban đang tham gia thực hiện các nhiệm vụ thuộc lĩnh vực Y tế trong năm 2026 với ạ? Em cảm ơn các anh chị đã hỗ trợ em ạ!",
+      "category": "MULTI_HOP",
+      "generator_track": "TRACK_A_COMPILER",
+      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tong_so_vu' OR lc.code ILIKE '%tong_so_vu%' OR lc.name ILIKE '%tong so vu%' OR f.name ILIKE '%tong so vu%' OR lc.name ILIKE '%Tổng số vụ%' OR f.name ILIKE '%Tổng số vụ%' OR lc.name ILIKE '%số vụ%' OR f.name ILIKE '%số vụ%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
+      "ast_valid": true,
+      "confidence_score": 1.0,
+      "fallback_triggered": false,
+      "db_execution": {
+        "status": "PASS",
+        "row_count": 2,
+        "latency_ms": 10.02,
+        "error": null,
+        "sample_rows": [
+          [
+            "Số vụ có người chết",
+            "2026",
+            "640",
+            2
+          ],
+          [
+            "Tổng số vụ",
+            "2026",
+            "1052",
+            2
+          ]
+        ]
+      },
+      "total_latency_ms": 65.61
+    },
+    {
+      "id": "GOLDEN_041",
+      "question": "Báo cáo danh sách các biểu mẫu thu thập dữ liệu triển khai trong năm 2026 kèm đơn vị chủ trì ban hành và thời hạn nộp báo cáo.",
+      "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
       "ast_valid": true,
@@ -3252,94 +3553,11 @@
           ]
         ]
       },
-      "total_latency_ms": 37.63
+      "total_latency_ms": 22.86
     },
     {
-      "id": "GOLDEN_034",
-      "question": "tong so chi tieu hoan thanh theo phong ban ld 2026",
-      "category": "AGGREGATION",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 4.41,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 40.71
-    },
-    {
-      "id": "GOLDEN_035",
-      "question": "Danh sách cán bộ phụ trách nhiệm vụ thuộc lĩnh vực Công thương hoặc Y tế kèm phòng ban và số lượng chỉ tiêu đã hoàn thành trong các báo cáo đã duyệt năm 2026.",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 178.38,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hồng Ngọc",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "UBND Xã Bảo Lâm",
-            "QTV",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "long",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "An toàn vệ sinh lao động",
-            34,
-            "2026-05-18 16:49:28.577663"
-          ]
-        ]
-      },
-      "total_latency_ms": 199.74
-    },
-    {
-      "id": "GOLDEN_036",
-      "question": "Để phục vụ công tác thanh tra tính trung thực và toàn vẹn dữ liệu, yêu cầu đối chiếu thông tin cán bộ phụ trách nhiệm vụ (user, user_mission) với các báo cáo đã duyệt năm 2026 (fact_report_criteria) nhằm truy vết, phát hiện những chỉ tiêu nào có giá trị (value) bị để trống, rỗng hoặc bằng 0 bất thường để làm rõ trách nhiệm thẩm định và phê duyệt?",
+      "id": "GOLDEN_042",
+      "question": "Dạ kính gửi các anh chị ạ, em là chuyên viên mới tiếp nhận công việc nên còn nhiều chỗ chưa rõ quy trình. Sếp đang giao cho em nhiệm vụ rà soát tình hình nộp số liệu, anh chị cho em xin danh sách cụ thể các xã, phường nào trên địa bàn tỉnh mình đã nộp báo cáo chỉ tiêu y tế trong năm 2026 kèm theo họ tên cán bộ được phân công phụ trách của từng xã phường đó với ạ, để em tiện liên hệ đối chiếu và hoàn thiện hồ sơ lưu trữ ạ. Em xin cảm ơn các anh chị nhiều ạ!",
       "category": "MULTI_HOP",
       "generator_track": "TRACK_A_COMPILER",
       "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
@@ -3349,87 +3567,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 2.38,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 34.8
-    },
-    {
-      "id": "GOLDEN_037",
-      "question": "Kiểm tra tính toàn vẹn liên kết và phân công hệ thống: Liệt kê các nhiệm vụ đã được gán cho văn phòng (office_mission) trong năm 2026 tại tỉnh Lâm Đồng nhưng hiện chưa có bất kỳ bản ghi phân công cán bộ phụ trách nào trong bảng user_mission?",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, \n       um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, \n       MAX(f.etl_updated_at) AS thoi_gian_cap_nhat \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id \nJOIN dwh_internal.\"user\" u ON um.user_id = u.id \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' \n  AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL \nGROUP BY u.name, u.position, d.name, um.mission_name \nORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 156.14,
-        "error": null,
-        "sample_rows": [
-          [
-            "Hồng Ngọc",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "UBND Xã Bảo Lâm",
-            "QTV",
-            "UBND Tỉnh Lâm Đồng",
-            "Việc làm",
-            41,
-            "2026-05-18 16:49:28.577663"
-          ],
-          [
-            "long",
-            "Chuyên viên",
-            "UBND Tỉnh Lâm Đồng",
-            "An toàn vệ sinh lao động",
-            34,
-            "2026-05-18 16:49:28.577663"
-          ]
-        ]
-      },
-      "total_latency_ms": 181.4
-    },
-    {
-      "id": "GOLDEN_038",
-      "question": "Dạ anh chị cho em hỏi thăm một chút với ạ, sáng nay sếp có bảo em rà soát số liệu báo cáo năm 2026 của tỉnh mình mà em mới nhận việc nên chưa rành hệ thống lắm. Anh chị tra giúp em xem những đơn vị, phòng ban nào đã nộp báo cáo kết quả thực hiện các chỉ tiêu về mảng lao động việc làm trong năm 2026 kèm theo họ tên cán bộ được giao phụ trách nhiệm vụ đó với ạ, để em tiện liên hệ đối chiếu hồ sơ. Em cảm ơn anh chị nhiều!",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.45,
+        "latency_ms": 1.18,
         "error": null,
         "sample_rows": [
           [
@@ -3455,151 +3593,6 @@
       "total_latency_ms": 23.79
     },
     {
-      "id": "GOLDEN_039",
-      "question": "ds can bo phong ban ld phu trach bc y te 2026",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date \nFROM dwh_internal.fact_report_criteria f \nJOIN dwh_internal.deparment d ON f.department_code = d.code \nWHERE f.year = '2026' AND f.tenant_code = '68' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL \nORDER BY f.report_date DESC LIMIT 10;",
-      "ast_valid": true,
-      "confidence_score": 0.95,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 10,
-        "latency_ms": 3.96,
-        "error": null,
-        "sample_rows": [
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "chi_tieu_trong_nuoc_cua_khach_du_lich_ra_nuoc_ngoai",
-            "Chi tiêu trong nước của khách du lịch ra nước ngoài",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_thu_tu_khach_du_lich",
-            "Tổng thu từ khách du lịch",
-            "4",
-            "2026-05-11 02:25:48+00:00"
-          ],
-          [
-            "UBND Tỉnh Lâm Đồng",
-            "tong_chi_tieu_cua_khach_du_lich_noi_dia",
-            "Tổng chi tiêu của khách du lịch nội địa",
-            "1",
-            "2026-05-11 02:25:48+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 28.47
-    },
-    {
-      "id": "GOLDEN_040",
-      "question": "Dạ em chào các anh chị ạ, em mới vào làm ở văn phòng xã nên đang tập tổng hợp số liệu theo dõi nhiệm vụ năm 2026. Sếp đang giục em rà soát để làm báo cáo định kỳ, anh chị cho em xin danh sách các văn phòng và phòng ban đang tham gia thực hiện các nhiệm vụ thuộc lĩnh vực Y tế trong năm 2026 với ạ? Em cảm ơn các anh chị đã hỗ trợ em ạ!",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "WITH leaf_criteria AS (\n    SELECT c.id, c.code, c.name\n    FROM dwh_internal.criteria c\n    WHERE NOT EXISTS (\n        SELECT 1 FROM dwh_internal.criteria sub\n        WHERE sub.parent_id = c.id\n    )\n)\nSELECT\n    COALESCE(lc.name, f.name) AS ten_chi_tieu,\n    f.year AS nam,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,\n    COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao\nFROM dwh_internal.fact_report_criteria f\nLEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\nWHERE f.report_status = 'approved'\n  AND f.tenant_code = '68'\n  AND (lc.code = 'tong_so_vu' OR lc.code ILIKE '%tong_so_vu%' OR lc.name ILIKE '%tong so vu%' OR f.name ILIKE '%tong so vu%' OR lc.name ILIKE '%Tổng số vụ%' OR f.name ILIKE '%Tổng số vụ%' OR lc.name ILIKE '%số vụ%' OR f.name ILIKE '%số vụ%')\n  AND f.year = '2026'\nGROUP BY COALESCE(lc.name, f.name), f.year\nORDER BY f.year ASC;",
-      "ast_valid": true,
-      "confidence_score": 1.0,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 2,
-        "latency_ms": 15.61,
-        "error": null,
-        "sample_rows": [
-          [
-            "Số vụ có người chết",
-            "2026",
-            "640",
-            2
-          ],
-          [
-            "Tổng số vụ",
-            "2026",
-            "1052",
-            2
-          ]
-        ]
-      },
-      "total_latency_ms": 78.85
-    },
-    {
-      "id": "GOLDEN_041",
-      "question": "Báo cáo danh sách các biểu mẫu thu thập dữ liệu triển khai trong năm 2026 kèm đơn vị chủ trì ban hành và thời hạn nộp báo cáo.",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 3.88,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 36.38
-    },
-    {
-      "id": "GOLDEN_042",
-      "question": "Dạ kính gửi các anh chị ạ, em là chuyên viên mới tiếp nhận công việc nên còn nhiều chỗ chưa rõ quy trình. Sếp đang giao cho em nhiệm vụ rà soát tình hình nộp số liệu, anh chị cho em xin danh sách cụ thể các xã, phường nào trên địa bàn tỉnh mình đã nộp báo cáo chỉ tiêu y tế trong năm 2026 kèm theo họ tên cán bộ được phân công phụ trách của từng xã phường đó với ạ, để em tiện liên hệ đối chiếu và hoàn thiện hồ sơ lưu trữ ạ. Em xin cảm ơn các anh chị nhiều ạ!",
-      "category": "MULTI_HOP",
-      "generator_track": "TRACK_A_COMPILER",
-      "generated_sql": "SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, \n       r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao \nFROM dwh_internal.report r \nJOIN dwh_internal.deparment d ON r.department_code = d.code \nWHERE r.tenant_code = '68' AND r.deleted_date IS NULL AND r.year = '2026' \nORDER BY r.report_date DESC LIMIT 5;",
-      "ast_valid": true,
-      "confidence_score": 0.98,
-      "fallback_triggered": false,
-      "db_execution": {
-        "status": "PASS",
-        "row_count": 5,
-        "latency_ms": 1.81,
-        "error": null,
-        "sample_rows": [
-          [
-            "b7447b66-794d-4a24-b9bc-544726f72dfb",
-            "UBND Tỉnh Lâm Đồng",
-            "draft",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "e86895c1-ebe5-4ecb-b468-080428b6d5f0",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-07-04 17:00:00+00:00"
-          ],
-          [
-            "cade5cbf-32c3-468f-abbe-f0e16a81b2bf",
-            "UBND Tỉnh Lâm Đồng",
-            "pending",
-            "2026-06-04 17:00:00+00:00"
-          ]
-        ]
-      },
-      "total_latency_ms": 20.74
-    },
-    {
       "id": "GOLDEN_043",
       "question": "So sánh tổng số vụ tai nạn lao động trên địa bàn tỉnh giữa Quý 1 và Quý 2 năm 2026 xem xu hướng tăng hay giảm?",
       "category": "TEMPORAL",
@@ -3611,7 +3604,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 1,
-        "latency_ms": 10.18,
+        "latency_ms": 9.32,
         "error": null,
         "sample_rows": [
           [
@@ -3623,7 +3616,7 @@
           ]
         ]
       },
-      "total_latency_ms": 41.14
+      "total_latency_ms": 38.23
     },
     {
       "id": "GOLDEN_044",
@@ -3637,7 +3630,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.89,
+        "latency_ms": 5.04,
         "error": null,
         "sample_rows": [
           [
@@ -3663,7 +3656,7 @@
           ]
         ]
       },
-      "total_latency_ms": 46.56
+      "total_latency_ms": 46.51
     },
     {
       "id": "GOLDEN_045",
@@ -3677,7 +3670,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 2.23,
+        "latency_ms": 1.53,
         "error": null,
         "sample_rows": [
           [
@@ -3700,7 +3693,7 @@
           ]
         ]
       },
-      "total_latency_ms": 23.73
+      "total_latency_ms": 26.37
     },
     {
       "id": "GOLDEN_046",
@@ -3714,7 +3707,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 5,
-        "latency_ms": 1.13,
+        "latency_ms": 2.49,
         "error": null,
         "sample_rows": [
           [
@@ -3737,7 +3730,7 @@
           ]
         ]
       },
-      "total_latency_ms": 32.42
+      "total_latency_ms": 37.31
     },
     {
       "id": "GOLDEN_047",
@@ -3751,7 +3744,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.04,
+        "latency_ms": 3.42,
         "error": null,
         "sample_rows": [
           [
@@ -3780,7 +3773,7 @@
           ]
         ]
       },
-      "total_latency_ms": 46.17
+      "total_latency_ms": 37.71
     },
     {
       "id": "GOLDEN_048",
@@ -3794,7 +3787,7 @@
       "db_execution": {
         "status": "PASS",
         "row_count": 10,
-        "latency_ms": 3.25,
+        "latency_ms": 3.15,
         "error": null,
         "sample_rows": [
           [
@@ -3820,7 +3813,7 @@
           ]
         ]
       },
-      "total_latency_ms": 50.44
+      "total_latency_ms": 28.81
     }
   ]
 }

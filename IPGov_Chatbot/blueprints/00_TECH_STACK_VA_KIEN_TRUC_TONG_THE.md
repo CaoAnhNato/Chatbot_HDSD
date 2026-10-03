@@ -66,7 +66,7 @@ Toàn bộ các thành phần công nghệ được lựa chọn dựa trên ngu
 | **Agent Orchestration** | **LangGraph** | $\ge 0.0.30$ | Khung điều phối Multi-Agent dạng đồ thị trạng thái (StateGraph). Tích hợp **2-Tier Quest State Machine**: Quản lý slot dở dang trong RAM (0 tokens LLM) và Background Worker chắt lọc thông tin phiên vào `temp_memory`. |
 | **LLM Gateway & Abstract Fallback Layer** | **IPGov LLMGateway (`IPGov_Chatbot/core/llm_gateway.py`)** | Core Module | Tầng trừu tượng hóa cuộc gọi LLM theo mẫu Strategy/Facade Pattern, tích hợp Ponytail Helper `call_structured_with_fallback[T: BaseModel]()` (đồng bộ & bất đồng bộ). Hỗ trợ OpenRouter (OpenAI SDK), Google GenAI SDK (`google-genai`), tự động ghi nhận metadata logging chi tiết (`data/logs/llm_usage.jsonl`), tự động kiểm tra `confidence_score < 0.7`, chạy `invariant_validator`, và fallback linh hoạt giữa các model/provider. |
 | **Router LLM & Lightweight Structured Tasks** | **OpenRouter API (`google/gemini-2.5-flash-lite`)** | Cloud API | Primary Model cho suy luận phân loại ý định, trích xuất slot và sinh cấu trúc nhẹ (Module 03 Router, Schema Linking Module 04, Fast Synthesis Module 05). Tối ưu hóa chi phí siêu tiết kiệm (~$0.0001/call), độ trễ thấp, tích hợp `thought_scratchpad` CoT ở đầu schema, cầu dao an toàn `max_tokens=800`. |
-| **Heavy Fallback & Complex Tasks LLM** | **OpenRouter API (`google/gemini-3.8-flash`)** | Cloud API | Heavy Fallback Model chuyên trách tự động kích hoạt khi: (1) Mô hình chính tự đánh giá độ tự tin thấp (`confidence_score < 0.7`), (2) Lỗi Pydantic schema validation, hoặc (3) Vi phạm kiểm tra bất biến logic (`invariant_validator` trả về `False`). Kế thừa và tái sử dụng nhất quán trên Module 03, Module 04 (Text-to-SQL phức tạp), và Module 05 (Response Synthesizer đa chiều). |
+| **Heavy Fallback & Complex Tasks LLM** | **OpenRouter API (`deepseek/deepseek-v4.1-flash`)** | Cloud API | Heavy Fallback Model chuyên trách tự động kích hoạt khi: (1) Mô hình chính tự đánh giá độ tự tin thấp (`confidence_score < 0.7`), (2) Lỗi Pydantic schema validation, hoặc (3) Vi phạm kiểm tra bất biến logic (`invariant_validator` trả về `False`). Kế thừa và tái sử dụng nhất quán trên Module 03, Module 04 (Text-to-SQL phức tạp), và Module 05 (Response Synthesizer đa chiều). |
 | **AST Parser & Rewriter** | **SQLGlot** | $\ge 23.0.0$ | Bộ phân tích cú pháp SQL tĩnh, dịch phương ngữ (transpiler) và duyệt cây AST. Đảm bảo 100% mã SQL sinh ra không chứa mã độc và tự động inject điều kiện phân quyền HBAC mà không phụ thuộc vào LLM. |
 | **In-Memory DB & BM25 Search** | **DuckDB (FTS Extension)** | $\ge 0.10.0$ | CSDL phân tích nhúng chạy trong RAM tích hợp bộ tìm kiếm toàn văn Native FTS (BM25). Thực hiện **Giai đoạn 1 của Lean 2-Stage Retrieval**: lọc thô Top-K bảng/cột ứng viên với độ trễ $< 2\text{ms}$, triệt tiêu tải CSDL chính và loại bỏ nhu cầu dựng Vector DB riêng. |
 | **Entity Hierarchy & Schema Graph** | **NetworkX** | $\ge 3.2.0$ | Cấu trúc dữ liệu đồ thị. Đảm nhận 2 vai trò: (1) Quản lý cây phân cấp `tenant` $\to$ `deparment` $\to$ `office` và `criteria` để tìm Leaf Criteria; (2) **Giai đoạn 2 của Lean 2-Stage Retrieval**: giải thuật Minimal Steiner Tree kết nối Schema subgraph, tự động bù đắp các bảng cầu nối (Bridge Tables). |
@@ -92,7 +92,7 @@ flowchart TD
 
     GATE_DECISION -->|Thỏa mãn toàn bộ (Confident & Valid)| RAM_GATE[Stage 3: Deterministic Invariant Gates<br/>Kiểm soát an toàn nghiệp vụ trong RAM]
     
-    GATE_DECISION -->|Vi phạm 1 trong 3 điều kiện| STAGE2[Stage 2: Heavy Fallback Model<br/>google/gemini-3.8-flash<br/>• Tự động kích hoạt khi task phức tạp<br/>• Khả năng lập luận đa chiều & sinh CTE/SQL khó<br/>• Tự động ánh xạ tương thích provider]
+    GATE_DECISION -->|Vi phạm 1 trong 3 điều kiện| STAGE2[Stage 2: Heavy Fallback Model<br/>deepseek/deepseek-v4.1-flash<br/>• Tự động kích hoạt khi task phức tạp<br/>• Khả năng lập luận đa chiều & sinh CTE/SQL khó<br/>• Tự động ánh xạ tương thích provider]
     
     STAGE2 --> RAM_GATE
     RAM_GATE --> OUTPUT([Kết Quả Đầu Ra Hợp Lệ DTO])
@@ -115,7 +115,7 @@ def call_structured_with_fallback(
     schema: Type[T],
     system_prompt: Optional[str] = None,
     primary_model: Optional[str] = None,        # Mặc định: google/gemini-2.5-flash-lite
-    fallback_model: Optional[str] = None,       # Mặc định: google/gemini-3.8-flash
+    fallback_model: Optional[str] = None,       # Mặc định: deepseek/deepseek-v4.1-flash
     min_confidence: float = 0.7,                # Ngưỡng kích hoạt fallback
     confidence_attr: str = "confidence_score",  # Thuộc tính tự đánh giá độ tự tin
     invariant_validator: Optional[Callable[[T], bool]] = None, # Cổng kiểm tra logic bất biến
@@ -127,8 +127,8 @@ def call_structured_with_fallback(
 
 * **Nguyên tắc kế thừa cho các module phía sau:**
   1. **Module 03 (Router):** Inject `invariant_validator` kiểm tra mốc năm và chống False-DAG.
-  2. **Module 04 (Text-to-SQL):** Inject `invariant_validator` kiểm tra cú pháp AST qua `sqlglot.parse_one` và xác nhận bảng thuộc DWH Catalog; nếu fail hoặc confidence < 0.7 thì fallback sang `gemini-3.8-flash` để sinh SQL CTEs phức tạp.
-  3. **Module 05 (Synthesizer):** Inject `invariant_validator` kiểm tra tính chính xác của số liệu trích dẫn đối chiếu với kết quả trả về từ DB (Data Reconciliation); nếu phát hiện số liệu hallucinate thì fallback sang `gemini-3.8-flash` để lập luận lại.
+  2. **Module 04 (Text-to-SQL):** Inject `invariant_validator` kiểm tra cú pháp AST qua `sqlglot.parse_one` và xác nhận bảng thuộc DWH Catalog; nếu fail hoặc confidence < 0.7 thì fallback sang `deepseek/deepseek-v4.1-flash` để sinh SQL CTEs phức tạp.
+  3. **Module 05 (Synthesizer):** Inject `invariant_validator` kiểm tra tính chính xác của số liệu trích dẫn đối chiếu với kết quả trả về từ DB (Data Reconciliation); nếu phát hiện số liệu hallucinate thì fallback sang `deepseek/deepseek-v4.1-flash` để lập luận lại.
 
 ---
 

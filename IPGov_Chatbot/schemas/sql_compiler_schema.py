@@ -134,7 +134,7 @@ class GeneratedSQLDTO(BaseModel):
     )
     llm_provider: Optional[str] = Field(
         default=None,
-        description="Mô hình LLM đã sinh SQL (e.g. google/gemini-3.5-flash-lite, google/gemini-3.8-flash)"
+        description="Mô hình LLM đã sinh SQL (e.g. google/gemini-3.5-flash-lite, deepseek/deepseek-v4.1-flash)"
     )
     confidence_score: float = Field(
         default=1.0,

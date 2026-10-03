@@ -36,8 +36,11 @@ export interface ChatApiResponse {
 export interface ChatSession {
   id: string;
   title: string;
-  role: 'phuong' | 'dn';
+  role: string;
+  level?: number;
+  tenant_code?: string;
   createdAt: string;
   updatedAt: string;
   messages: ChatMessage[];
 }
+

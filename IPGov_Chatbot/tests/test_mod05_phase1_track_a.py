@@ -142,8 +142,8 @@ class TestTrackACompiler:
             metric_code="kinh_phi_khuyen_cong",
             aggregation_func="SUM",
             grain="leaf_criteria",
-            filters=[MetricFilter(field="year", operator="eq", value="2026")],
-            group_by=["year"],
+            filters=[MetricFilter(field="year_code", operator="eq", value="2026")],
+            group_by=["year_code"],
         )
 
         t0 = time.perf_counter()
@@ -213,27 +213,22 @@ class TestTrackACompiler:
         assert "kinh_phi_khuyen_cong" in dto.raw_sql
 
     def test_live_db_explain_track_a_sql(self, user_ctx):
-        """Kiểm chứng trực tiếp trên PostgreSQL Docker vna_wom_dev bằng EXPLAIN."""
+        """Kiểm chứng trực tiếp trên PostgreSQL DWH vna_wom_dev bằng EXPLAIN."""
+        from IPGov_Chatbot.config import settings
+
         compiler = TrackACompiler()
         spec = MetricSpecDTO(
             metric_code="tai_nan_lao_dong_2",
             aggregation_func="SUM",
             grain="leaf_criteria",
-            filters=[MetricFilter(field="year", operator="eq", value="2026")],
-            group_by=["year"],
+            filters=[MetricFilter(field="year_code", operator="eq", value="2026")],
+            group_by=["year_code"],
         )
         dto = compiler.compile_from_spec(spec, user_ctx)
 
-        # Chạy EXPLAIN trên Docker PostgreSQL
+        # Chạy EXPLAIN trên CSDL Remote DWH
         try:
-            conn = psycopg2.connect(
-                host="localhost",
-                port=5432,
-                dbname="vna_wom_dev",
-                user="postgres",
-                password="postgres",
-                connect_timeout=2
-            )
+            conn = psycopg2.connect(settings.sync_dwh_url, connect_timeout=5)
             cur = conn.cursor()
             cur.execute(f"EXPLAIN (FORMAT JSON) {dto.raw_sql}")
             res = cur.fetchall()
@@ -241,4 +236,4 @@ class TestTrackACompiler:
             assert len(res) > 0
             conn.close()
         except Exception as e:
-            pytest.skip(f"Docker PostgreSQL không khả dụng: {e}")
+            pytest.skip(f"PostgreSQL DWH không khả dụng: {e}")

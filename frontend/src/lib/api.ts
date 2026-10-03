@@ -44,15 +44,30 @@ export const sendMessageToBot = async (
   sessionId?: string,
   history: Array<{ role: string; content: string }> = [],
   role: string = "phuong",
-  collection?: string
+  collection?: string,
+  level?: number,
+  tenant_code?: string,
+  token?: string
 ): Promise<ChatApiResponse> => {
-  const response = await apiClient.post("/chat", {
-    query,
-    session_id: sessionId,
-    history,
-    role,
-    collection,
-  });
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
+  const response = await apiClient.post(
+    "/chat",
+    {
+      prompt: query,
+      query,
+      session_id: sessionId,
+      history,
+      role,
+      level,
+      tenant_code,
+      collection,
+    },
+    { headers }
+  );
 
   if (response.data && response.data.success) {
     return response.data.data;
@@ -63,10 +78,12 @@ export const sendMessageToBot = async (
 export interface StreamDonePayload {
   full_answer: string;
   contact_support?: any;
+  quick_action_chips?: any[];
   metrics?: any;
 }
 
 export interface StreamHandlers {
+  onStageUpdate?: (stageData: { stage: string; message: string; [key: string]: any }) => void;
   onMetadata?: (metadata: Partial<ChatApiResponse>) => void;
   onToken?: (token: string) => void;
   onDone?: (doneData: StreamDonePayload) => void;
@@ -79,18 +96,29 @@ export const sendMessageStream = async (
   history: Array<{ role: string; content: string }> = [],
   handlers: StreamHandlers,
   role: string = "phuong",
-  collection?: string
+  collection?: string,
+  level?: number,
+  tenant_code?: string,
+  token?: string
 ) => {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_BASE_URL}/chat/stream`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
+      prompt: query,
       query,
       session_id: sessionId,
       history,
       role,
+      level,
+      tenant_code,
       collection,
     }),
   });
@@ -132,24 +160,29 @@ export const sendMessageStream = async (
       if (dataStr) {
         try {
           const data = JSON.parse(dataStr);
-          if (eventType === "metadata") {
+          if (eventType === "stage_update") {
+            handlers.onStageUpdate?.(data);
+          } else if (eventType === "metadata") {
             handlers.onMetadata?.(data);
-          } else if (eventType === "token") {
-            handlers.onToken?.(data.content ?? "");
+          } else if (eventType === "token" || eventType === "content_chunk") {
+            handlers.onToken?.(data.content ?? data.chunk ?? "");
           } else if (eventType === "done") {
             handlers.onDone?.({
               full_answer: data.full_answer ?? "",
               contact_support: data.contact_support,
+              quick_action_chips: data.quick_action_chips,
               metrics: data.metrics,
             });
           } else if (eventType === "error") {
-            handlers.onError?.(data.message ?? "Lỗi xử lý");
+            handlers.onError?.(data.message ?? data.error ?? "Lỗi xử lý");
           } else {
             // Fallback inference if eventType is default
-            if (data.images !== undefined || data.youtube_links !== undefined) {
+            if (data.stage !== undefined) {
+              handlers.onStageUpdate?.(data);
+            } else if (data.images !== undefined || data.youtube_links !== undefined) {
               handlers.onMetadata?.(data);
-            } else if (data.content !== undefined) {
-              handlers.onToken?.(data.content);
+            } else if (data.content !== undefined || data.chunk !== undefined) {
+              handlers.onToken?.(data.content ?? data.chunk ?? "");
             } else if (data.full_answer !== undefined) {
               handlers.onDone?.({
                 full_answer: data.full_answer,

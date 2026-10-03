@@ -1,0 +1,421 @@
+[
+  {
+    "bug_id": "BUG-CLARIF-agr-T01",
+    "detected_at": "2026-10-03T01:49:34.118479+00:00",
+    "session_id": "session_audit_agri_01",
+    "turn_index": 1,
+    "user_prompt": "Kính gửi chatbot, cho tôi hỏi tổng sản lượng muối",
+    "prompt_characteristics": {
+      "is_underspecified": true,
+      "omitted_fields": [
+        "year",
+        "department"
+      ],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": null,
+      "edge_category": "UNDERSPECIFIED_CLARIFICATION_CHECK"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo số liệu báo cáo đã phê duyệt năm **2026** của tỉnh Lâm Đồng, chỉ tiêu **Tổng sản lượng muối** hiện **chưa có số liệu ghi nhận (NULL)** trong kho dữ liệu.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('Tổng sản lượng muối') LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\nFROM\n  dwh_internal.fact_report_criteria AS f\nWHERE\n  f.tenant_code = '68'\n  AND f.report_status = 'approved'\n  AND f.year_code = '2026'\n  AND f.department_code = '68-1-01'\n  AND TRIM(f.name) ILIKE TRIM('Tổng sản lượng muối')\nLIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "tong_gia_tri": null
+        }
+      ],
+      "discrepancy_type": "CLARIFICATION_FAILURE_AND_ARBITRARY_SLOT_ASSUMPTION",
+      "severity": "MEDIUM",
+      "root_cause_analysis": "Câu hỏi mở đầu phiên hoàn toàn thiếu mốc thời gian ('năm nào?') và phạm vi đơn vị/phòng ban, thuộc nhóm Underspecified / Ambiguous theo chuẩn MMSQL 2024. Thay vì kích hoạt cơ chế Hội thoại Làm rõ Chủ động (Active Clarification Chips) để hỏi lại người dùng, Chatbot tự ý suy đoán và tiêm cứng slot (arbitrary slot injection) year_code='2026' và department_code='68-1-01' vào câu SQL truy vấn trực tiếp kho DWH, vi phạm nguyên tắc chống ảo giác thời gian."
+    }
+  },
+  {
+    "bug_id": "BUG-CTX-agri-T03",
+    "detected_at": "2026-10-03T01:49:30.000000+00:00",
+    "session_id": "session_audit_agri_01",
+    "turn_index": 3,
+    "user_prompt": "vậy có bao nhiêu hộ",
+    "prompt_characteristics": {
+      "is_underspecified": true,
+      "omitted_fields": [
+        "subject",
+        "year"
+      ],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "tổng sản lượng muối năm 2026",
+      "edge_category": "CHAINED_ELLIPSIS_PRONOUN_OMISSION"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo số liệu báo cáo đã phê duyệt năm **2026** của tỉnh Lâm Đồng, chỉ tiêu **chỉ tiêu** hiện **chưa có số liệu ghi nhận (NULL)** trong kho dữ liệu.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_so_ho FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE 'hộ%' LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_so_ho FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE 'hộ%' LIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "Tổng hộ sản xuất muối",
+          "value": "660",
+          "year_code": "2026"
+        }
+      ],
+      "turn_1_row_count": 1,
+      "discrepancy_type": "CONTEXT_INHERITANCE_LOSS_AND_FALSE_NULL",
+      "severity": "HIGH",
+      "root_cause_analysis": "Khi người dùng hỏi tỉnh lược 'vậy có bao nhiêu hộ' tiếp nối câu hỏi về muối ở lượt 2, Bot không kế thừa ngữ cảnh chủ đề 'muối' mà sinh SQL tìm kiếm thô TRIM(f.name) ILIKE 'hộ%'. Trên DWH chỉ tiêu có tên là 'Tổng hộ sản xuất muối' (bắt đầu bằng 'Tổng'), dẫn tới SQL trả về NULL và Bot báo sai là chưa có số liệu, đồng thời bị lỗi lặp từ 'chỉ tiêu chỉ tiêu'."
+    }
+  },
+  {
+    "bug_id": "BUG-NONADD-i_01-T09",
+    "detected_at": "2026-10-03T01:49:48.674886+00:00",
+    "session_id": "session_audit_agri_01",
+    "turn_index": 9,
+    "user_prompt": "doanh thu bình quân trang trại toàn tỉnh năm 2026 là bao nhiêu?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "doanh thu bình quân trong năm của một Trang trại nông nghiệp",
+      "edge_category": "NON_ADDITIVE_TRAP_SUM_VS_LATEST"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo số liệu báo cáo đã phê duyệt năm **2026** của tỉnh Lâm Đồng, chỉ tiêu **Trang trại** hiện **chưa có số liệu ghi nhận (NULL)** trong kho dữ liệu.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nWITH latest_report AS (SELECT f.name, f.value, ROW_NUMBER() OVER (PARTITION BY f.department_code, f.name ORDER BY f.report_date DESC, f.version DESC) AS rn FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('Trang trại')) SELECT SUM(CAST(NULLIF(TRIM(lr.value), '') AS DECIMAL)) / COUNT(DISTINCT lr.name) AS doanh_thu_binh_quan FROM latest_report AS lr WHERE lr.rn = 1 LIMIT 500;\n```\n</details>",
+      "generated_sql": "WITH latest_report AS (\n    SELECT\n        f.name,\n        f.value,\n        ROW_NUMBER() OVER (PARTITION BY f.department_code, f.name ORDER BY f.report_date DESC, f.version DESC) as rn\n    FROM\n        dwh_internal.fact_report_criteria AS f\n    WHERE\n        f.tenant_code = '68'\n        AND f.report_status = 'approved'\n        AND f.year_code = '2026'\n        AND f.department_code = '68-1-01'\n        AND TRIM(f.name) ILIKE TRIM('Trang trại')\n)\nSELECT\n    SUM(NULLIF(TRIM(lr.value), '')::numeric) / COUNT(DISTINCT lr.name) AS doanh_thu_binh_quan\nFROM\n    latest_report AS lr\nWHERE\n    lr.rn = 1\nLIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "doanh_thu_binh_quan": null
+        }
+      ],
+      "discrepancy_type": "NON_ADDITIVE_AGGREGATION_VIOLATION",
+      "severity": "HIGH",
+      "root_cause_analysis": "Chỉ tiêu Doanh thu bình quân là Non-additive, nhưng câu lệnh SQL của bot sử dụng SUM(value) làm cộng dồn các kỳ Q1, Q2, Q3 thay vì lấy kỳ báo cáo mới nhất (rn=1) hoặc AVG."
+    }
+  },
+  {
+    "bug_id": "BUG-DIRTY-l_02-T02",
+    "detected_at": "2026-10-03T01:50:05.174269+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 2,
+    "user_prompt": "Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "cán bộ nào đang phụ trách diêm nghiệp ?",
+      "edge_category": "SEMANTIC_VARIANCE_AND_DIRTY_DATA"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Dưới đây là danh sách cán bộ, chuyên viên được phân công phụ trách:\n\n| STT | Họ và tên | Chức vụ | Phòng ban / Đơn vị | Nhiệm vụ phụ trách |\n| :---: | :--- | :---: | :---: | :--- |\n| 1 | **Nguyễn Thị Thúy Lành** | BA | Chi cục | Diêm nghiệp |\n| 2 | **Phường Bắc Gia Nghĩa** | QTV | Phòng nông nghiệp | Diêm nghiệp |\n\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nWITH user_mission_data AS (SELECT um.user_id, um.mission_name, u.name AS user_name, u.position AS user_position, um.office_name FROM dwh_internal.user_mission AS um JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id WHERE um.tenant_code = '68' AND um.mission_name ILIKE TRIM('Diêm nghiệp')) SELECT umd.user_name, umd.user_position, umd.office_name, umd.mission_name FROM user_mission_data AS umd WHERE umd.mission_name ILIKE TRIM('Diêm nghiệp') LIMIT 500;\n```\n</details>",
+      "generated_sql": "WITH user_mission_data AS (\n    SELECT\n        um.user_id,\n        um.mission_name,\n        u.name AS user_name,\n        u.position AS user_position,\n        um.office_name\n    FROM\n        dwh_internal.user_mission AS um\n    JOIN\n        dwh_internal.\"user\" AS u\n    ON\n        um.user_id = u.id\n    WHERE\n        um.tenant_code = '68' AND um.mission_name ILIKE TRIM('Diêm nghiệp')\n)\nSELECT\n    umd.user_name,\n    umd.user_position,\n    umd.office_name,\n    umd.mission_name\nFROM\n    user_mission_data AS umd\nWHERE\n    umd.mission_name ILIKE TRIM('Diêm nghiệp')\nLIMIT 500;",
+      "returned_row_count": 2
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "Nguyễn Thị Thúy Lành",
+          "position": "BA",
+          "office_name": "Chi cục"
+        },
+        {
+          "name": "Phường Bắc Gia Nghĩa",
+          "position": "QTV",
+          "office_name": "Phòng nông nghiệp"
+        }
+      ],
+      "discrepancy_type": "DIRTY_DATA_EXPOSURE",
+      "severity": "HIGH",
+      "root_cause_analysis": "Tài khoản test 'Phường Bắc Gia Nghĩa' (chức vụ QTV) trong bảng user bị gắn vào user_mission và bot hiển thị trực tiếp vào cột 'Họ và tên' cán bộ mà không có cảnh báo hay lọc tài khoản test/đơn vị."
+    }
+  },
+  {
+    "bug_id": "BUG-FALLBACK-pers-T03",
+    "detected_at": "2026-10-03T01:50:08.000000+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 3,
+    "user_prompt": "Ủa sao trong danh sách cán bộ lại có tên Phường Bắc Gia Nghĩa?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?",
+      "edge_category": "DIRTY_DATA_EXPOSURE_AND_METADATA_INQUIRY"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo phân công công tác năm **2026** của tỉnh Lâm Đồng, cán bộ phụ trách nhiệm vụ **Diêm nghiệp** là đồng chí **Phường Bắc Gia Nghĩa** (Chức vụ: **QTV**, Đơn vị: **Phường Bắc Gia Nghĩa**).\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT u.name, u.position, u.department_code FROM dwh_internal.\"user\" AS u WHERE u.name ILIKE '%Phường Bắc Gia Nghĩa%' AND u.tenant_code = '68' LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT u.name, u.position, u.department_code FROM dwh_internal.\"user\" AS u WHERE u.name ILIKE '%Phường Bắc Gia Nghĩa%' AND u.tenant_code = '68' LIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "Phường Bắc Gia Nghĩa",
+          "position": "QTV",
+          "department_code": "68-2-01"
+        }
+      ],
+      "discrepancy_type": "HARDCODED_FALLBACK_AND_DIRTY_DATA_AFFIRMATION",
+      "severity": "CRITICAL",
+      "root_cause_analysis": "Tại file warehouse_langgraph_agent.py (dòng 1028), hệ thống bị hardcode chuỗi 'Diêm nghiệp': u_mis = sample_r.get('mission_name') or 'Diêm nghiệp'. Khi người dùng chất vấn về tài khoản test Phường Bắc Gia Nghĩa, câu SQL chỉ query bảng 'user' (không có cột mission_name). Bot lập tức gán cứng tài khoản này phụ trách nhiệm vụ Diêm nghiệp thay vì giải thích nguồn gốc dữ liệu."
+    }
+  },
+  {
+    "bug_id": "BUG-PROMPT-pers-T04",
+    "detected_at": "2026-10-03T01:50:08.899632+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 4,
+    "user_prompt": "Liệt kê các cán bộ có chức vụ QTV của phòng nông nghiệp",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "Ủa sao trong danh sách cán bộ lại có tên Phường Bắc Gia Nghĩa?",
+      "edge_category": "FILTERED_ATTRIBUTE_QUERY_USER_TABLE"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo phân công công tác năm **2026** của tỉnh Lâm Đồng, cán bộ phụ trách nhiệm vụ **Diêm nghiệp** là đồng chí **Admin Tỉnh Lâm Đồng** (Chức vụ: **QTV**, Đơn vị: **Sở NN&PTNT**).\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT u.name, u.position, u.username FROM dwh_internal.\"user\" AS u WHERE u.department_code = '68-1-01' AND (u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%') LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  u.name,\n  u.position,\n  u.username\nFROM dwh_internal.\"user\" AS u\nWHERE\n  u.department_code = '68-1-01' AND (u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%')\nLIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "Admin Tỉnh Lâm Đồng",
+          "position": "QTV",
+          "username": "admin-lamdong"
+        }
+      ],
+      "discrepancy_type": "ATTRIBUTE_FILTER_MISMATCH_AND_FALLBACK_HALLUCINATION",
+      "severity": "HIGH",
+      "root_cause_analysis": "Người dùng yêu cầu lọc cán bộ có chức vụ 'QTV' (cột position trong bảng user), nhưng Router/SQL Generator sinh bộ lọc sai lệch vào tên cán bộ: (u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%'). Nghiêm trọng hơn, khi render kết quả 1 dòng không có cột mission_name, template tại warehouse_langgraph_agent.py (dòng 1028) tự động kích hoạt fallback gán cứng nhiệm vụ 'Diêm nghiệp' (u_mis = sample_r.get('mission_name') or 'Diêm nghiệp'), khiến cán bộ quản trị hệ thống bị gán ghép sai thành phụ trách nhiệm vụ Diêm nghiệp."
+    }
+  },
+  {
+    "bug_id": "BUG-FILTER-pers-T09",
+    "detected_at": "2026-10-03T01:50:18.558879+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 9,
+    "user_prompt": "chỉ lấy cán bộ thuộc chi cục phụ trách phát triển nông thôn, không lấy cấp phòng",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "thế còn nhiệm vụ phát triển nông thôn?",
+      "edge_category": "DIRECTIONAL_NEGATIVE_FILTER_OFFICE"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Dưới đây là danh sách cán bộ, chuyên viên được phân công phụ trách:\n\n| STT | Họ và tên | Chức vụ | Phòng ban / Đơn vị | Nhiệm vụ phụ trách |\n| :---: | :--- | :---: | :---: | :--- |\n| 1 | **Nguyễn Thị Thúy Lành** | BA | Chi cục | Diêm nghiệp |\n| 2 | **Admin Tỉnh Lâm Đồng** | QTV | Phòng kinh tế | nhiệm vụ 1 |\n| 3 | **vy** | Nhân viên văn phòng | Chi cục | Phát triển nông thôn |\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT u.name, u.position, um.office_name, um.mission_name FROM dwh_internal.user_mission AS um JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id WHERE um.department_code = '68-1-01' AND u.position NOT ILIKE '%phòng%' AND um.tenant_code = '68' LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  u.name,\n  u.position,\n  um.office_name,\n  um.mission_name\nFROM dwh_internal.user_mission AS um\nJOIN dwh_internal.\"user\" AS u\n  ON um.user_id = u.id\nWHERE\n  um.department_code = '68-1-01' AND u.position NOT ILIKE '%phòng%' AND um.tenant_code = '68'\nLIMIT 500;",
+      "returned_row_count": 3
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "vy",
+          "position": "Nhân viên văn phòng",
+          "office_name": "Chi cục",
+          "mission_name": "Phát triển nông thôn"
+        }
+      ],
+      "discrepancy_type": "FALSE_PASS_AND_FILTER_OMISSION_VIOLATION",
+      "severity": "HIGH",
+      "root_cause_analysis": "Hiện tượng False Pass tinh vi bị che giấu trong báo cáo ban đầu: Do câu lệnh SQL chạy thành công trên PostgreSQL và trả về 3 dòng, bài test tự động đánh giá PASS. Tuy nhiên, thẩm tra ngữ nghĩa bóc trần: Bot hoàn toàn bỏ quên điều kiện lọc nhiệm vụ 'phát triển nông thôn' (thiếu um.mission_name ILIKE '%phát triển nông thôn%') và lọc nhầm cấp phòng vào cột chức vụ của user (u.position NOT ILIKE '%phòng%' thay vì um.office_name NOT ILIKE '%phòng%'). Hậu quả là Bot trả về cả cán bộ làm Diêm nghiệp và Nhiệm vụ 1, vi phạm nghiêm trọng yêu cầu lọc định hướng (Directional Negative Test)."
+    }
+  },
+  {
+    "bug_id": "BUG-DIRTY-l_02-T10",
+    "detected_at": "2026-10-03T01:50:20.846850+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 10,
+    "user_prompt": "nhiệm vụ diêm nghiệp do ai nắm?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": "chỉ lấy cán bộ thuộc chi cục phụ trách phát triển nông thôn, không lấy cấp phòng",
+      "edge_category": "SYNTACTIC_INVERSION_COLLOQUIAL"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Dưới đây là danh sách cán bộ, chuyên viên được phân công phụ trách:\n\n| STT | Họ và tên | Chức vụ | Phòng ban / Đơn vị | Nhiệm vụ phụ trách |\n| :---: | :--- | :---: | :---: | :--- |\n| 1 | **Nguyễn Thị Thúy Lành** | BA | Chi cục | Diêm nghiệp |\n| 2 | **Phường Bắc Gia Nghĩa** | QTV | Phòng nông nghiệp | Diêm nghiệp |\n\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nWITH user_mission_data AS (SELECT u.name AS user_name, u.position, um.office_name, um.mission_name FROM dwh_internal.user_mission AS um JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id WHERE um.tenant_code = '68' AND um.mission_name ILIKE '%Diêm nghiệp%') SELECT user_name, position, office_name, mission_name FROM user_mission_data WHERE mission_name ILIKE '%Diêm nghiệp%' LIMIT 500;\n```\n</details>",
+      "generated_sql": "WITH user_mission_data AS (\n    SELECT\n        u.name AS user_name,\n        u.position,\n        um.office_name,\n        um.mission_name\n    FROM\n        dwh_internal.user_mission AS um\n    JOIN\n        dwh_internal.\"user\" AS u\n        ON um.user_id = u.id\n    WHERE\n        um.tenant_code = '68' AND um.mission_name ILIKE '%Diêm nghiệp%'\n)\nSELECT\n    user_name,\n    position,\n    office_name,\n    mission_name\nFROM\n    user_mission_data\nWHERE\n    mission_name ILIKE '%Diêm nghiệp%'\nLIMIT 500;",
+      "returned_row_count": 2
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "name": "Nguyễn Thị Thúy Lành",
+          "position": "BA",
+          "office_name": "Chi cục"
+        },
+        {
+          "name": "Phường Bắc Gia Nghĩa",
+          "position": "QTV",
+          "office_name": "Phòng nông nghiệp"
+        }
+      ],
+      "discrepancy_type": "DIRTY_DATA_EXPOSURE",
+      "severity": "HIGH",
+      "root_cause_analysis": "Tài khoản test 'Phường Bắc Gia Nghĩa' (chức vụ QTV) trong bảng user bị gắn vào user_mission và bot hiển thị trực tiếp vào cột 'Họ và tên' cán bộ mà không có cảnh báo hay lọc tài khoản test/đơn vị."
+    }
+  },
+  {
+    "bug_id": "BUG-FALLBACK-pers-T13",
+    "detected_at": "2026-10-03T01:50:26.606133+00:00",
+    "session_id": "session_audit_personnel_02",
+    "turn_index": 13,
+    "user_prompt": "chức vụ và đơn vị công tác của cán bộ Lành là gì?",
+    "prompt_characteristics": {
+      "is_underspecified": true,
+      "omitted_fields": [
+        "full_name"
+      ],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "có cán bộ nào tên Lành trong sở không?",
+      "edge_category": "CHAINED_ATTRIBUTE_FOLLOWUP"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Theo phân công công tác năm **2026** của tỉnh Lâm Đồng, cán bộ phụ trách nhiệm vụ **Diêm nghiệp** là đồng chí **None** (Chức vụ: **BA**, Đơn vị: **Chi cục**).\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT u.position, um.office_name FROM dwh_internal.\"user\" AS u JOIN dwh_internal.user_mission AS um ON u.id = um.user_id WHERE u.name ILIKE '%Lành%' AND um.tenant_code = '68' LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  u.position,\n  um.office_name\nFROM dwh_internal.\"user\" AS u\nJOIN dwh_internal.user_mission AS um\n  ON u.id = um.user_id\nWHERE\n  u.name ILIKE '%Lành%' AND um.tenant_code = '68'\nLIMIT 500;",
+      "returned_row_count": 1
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [
+        {
+          "position": "BA",
+          "office_name": "Chi cục"
+        }
+      ],
+      "discrepancy_type": "HARDCODED_FALLBACK_AND_NULL_NAME_HALLUCINATION",
+      "severity": "CRITICAL",
+      "root_cause_analysis": "Câu SQL sinh ra chỉ SELECT u.position và um.office_name mà không hề SELECT u.name hay um.mission_name. Khi render câu trả lời tại warehouse_langgraph_agent.py (dòng 1025-1028), hàm tổng hợp không tìm thấy u_name nên hiển thị nguyên chuỗi 'đồng chí None', đồng thời kích hoạt fallback gán cứng u_mis='Diêm nghiệp'. Bot vừa bộc lộ lỗi biến None thô thiển trước người dùng, vừa tự ý gán ghép nhiệm vụ ngoài câu hỏi chuyên biệt về thông tin cá nhân."
+    }
+  },
+  {
+    "bug_id": "BUG-OOS-t_03-T08",
+    "detected_at": "2026-10-03T01:50:45.078130+00:00",
+    "session_id": "session_audit_report_03",
+    "turn_index": 8,
+    "user_prompt": "thủ tục cấp đổi căn cước công dân gắn chip cần giấy tờ gì?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": "cho tôi tải biểu mẫu BM_01",
+      "edge_category": "OUT_OF_SCOPE_ADMINISTRATIVE_PROCEDURE"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Yêu cầu tra cứu hiện **chưa có bản ghi số liệu phù hợp** trong kho DWH năm **2026**.\n\n💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**, tình hình nộp báo cáo và danh mục nhiệm vụ trọng tâm. Đồng chí có thể chọn một trong các câu hỏi gợi ý bên dưới.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT f.name, f.value FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('thủ tục cấp đổi căn cước công dân gắn chip cần giấy tờ gì?') LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  f.name,\n  f.value\nFROM\n  dwh_internal.fact_report_criteria AS f\nWHERE\n  f.tenant_code = '68'\n  AND f.report_status = 'approved'\n  AND f.year_code = '2026'\n  AND f.department_code = '68-1-01'\n  AND TRIM(f.name) ILIKE TRIM('thủ tục cấp đổi căn cước công dân gắn chip cần giấy tờ gì?')\nLIMIT 500;",
+      "returned_row_count": 0
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [],
+      "discrepancy_type": "OUT_OF_SCOPE_ROUTING_FAILURE",
+      "severity": "MEDIUM",
+      "root_cause_analysis": "Câu hỏi thuộc nhóm Out-of-Scope (thủ tục hành chính, thời tiết, chính trị hoặc sáng tạo văn bản) nhưng Agent không từ chối an toàn mà bị ép vào pipeline DWH, cố tình sinh SQL tìm kiếm trên fact_report_criteria và trả về 'chưa có bản ghi số liệu' kèm SQL block."
+    }
+  },
+  {
+    "bug_id": "BUG-OOS-t_03-T09",
+    "detected_at": "2026-10-03T01:50:47.028395+00:00",
+    "session_id": "session_audit_report_03",
+    "turn_index": 9,
+    "user_prompt": "hôm nay thời tiết Đà Lạt thế nào bạn ơi?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": "thủ tục cấp đổi căn cước công dân gắn chip cần giấy tờ gì?",
+      "edge_category": "OUT_OF_SCOPE_WEATHER_CHITCHAT"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Yêu cầu tra cứu hiện **chưa có bản ghi số liệu phù hợp** trong kho DWH năm **2026**.\n\n💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**, tình hình nộp báo cáo và danh mục nhiệm vụ trọng tâm. Đồng chí có thể chọn một trong các câu hỏi gợi ý bên dưới.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT f.name, f.value FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('thời tiết Đà Lạt') LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  f.name,\n  f.value\nFROM dwh_internal.fact_report_criteria AS f\nWHERE\n  f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('thời tiết Đà Lạt')\nLIMIT 500;",
+      "returned_row_count": 0
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [],
+      "discrepancy_type": "OUT_OF_SCOPE_ROUTING_FAILURE",
+      "severity": "MEDIUM",
+      "root_cause_analysis": "Câu hỏi thuộc nhóm Out-of-Scope (thủ tục hành chính, thời tiết, chính trị hoặc sáng tạo văn bản) nhưng Agent không từ chối an toàn mà bị ép vào pipeline DWH, cố tình sinh SQL tìm kiếm trên fact_report_criteria và trả về 'chưa có bản ghi số liệu' kèm SQL block."
+    }
+  },
+  {
+    "bug_id": "BUG-OOS-t_03-T10",
+    "detected_at": "2026-10-03T01:50:48.870095+00:00",
+    "session_id": "session_audit_report_03",
+    "turn_index": 10,
+    "user_prompt": "bí thư tỉnh ủy hiện tại là ai?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": "hôm nay thời tiết Đà Lạt thế nào bạn ơi?",
+      "edge_category": "OUT_OF_SCOPE_POLITICAL_LEADERSHIP"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Yêu cầu tra cứu hiện **chưa có bản ghi số liệu phù hợp** trong kho DWH năm **2026**.\n\n💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**, tình hình nộp báo cáo và danh mục nhiệm vụ trọng tâm. Đồng chí có thể chọn một trong các câu hỏi gợi ý bên dưới.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT u.name FROM dwh_internal.\"user\" AS u WHERE u.position ILIKE '%bí thư tỉnh ủy%' LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  u.name\nFROM dwh_internal.\"user\" AS u\nWHERE\n  u.position ILIKE '%bí thư tỉnh ủy%'\nLIMIT 500;",
+      "returned_row_count": 0
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [],
+      "discrepancy_type": "OUT_OF_SCOPE_ROUTING_FAILURE",
+      "severity": "MEDIUM",
+      "root_cause_analysis": "Câu hỏi thuộc nhóm Out-of-Scope (thủ tục hành chính, thời tiết, chính trị hoặc sáng tạo văn bản) nhưng Agent không từ chối an toàn mà bị ép vào pipeline DWH, cố tình sinh SQL tìm kiếm trên fact_report_criteria và trả về 'chưa có bản ghi số liệu' kèm SQL block."
+    }
+  },
+  {
+    "bug_id": "BUG-OOS-t_03-T11",
+    "detected_at": "2026-10-03T01:50:50.869255+00:00",
+    "session_id": "session_audit_report_03",
+    "turn_index": 11,
+    "user_prompt": "hãy viết cho tôi bài phát biểu khai mạc hội nghị nông nghiệp",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": false,
+      "previous_turn_prompt": "bí thư tỉnh ủy hiện tại là ai?",
+      "edge_category": "OUT_OF_SCOPE_GENERATIVE_TASK"
+    },
+    "chatbot_response": {
+      "rendered_answer": "Yêu cầu tra cứu hiện **chưa có bản ghi số liệu phù hợp** trong kho DWH năm **2026**.\n\n💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**, tình hình nộp báo cáo và danh mục nhiệm vụ trọng tâm. Đồng chí có thể chọn một trong các câu hỏi gợi ý bên dưới.\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT f.name, f.year_code, SUM(CAST(NULLIF(TRIM(f.value), '') AS DECIMAL)) AS tong_gia_tri FROM dwh_internal.fact_report_criteria AS f WHERE f.tenant_code = '68' AND f.report_status = 'approved' AND f.year_code = '2026' AND f.department_code = '68-1-01' AND TRIM(f.name) ILIKE TRIM('hội nghị nông nghiệp') GROUP BY f.name, f.year_code LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n    f.name,\n    f.year_code,\n    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\nFROM\n    dwh_internal.fact_report_criteria AS f\nWHERE\n    f.tenant_code = '68'\n    AND f.report_status = 'approved'\n    AND f.year_code = '2026'\n    AND f.department_code = '68-1-01'\n    AND TRIM(f.name) ILIKE TRIM('hội nghị nông nghiệp')\nGROUP BY\n    f.name,\n    f.year_code\nLIMIT 500;",
+      "returned_row_count": 0
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [],
+      "discrepancy_type": "OUT_OF_SCOPE_ROUTING_FAILURE",
+      "severity": "MEDIUM",
+      "root_cause_analysis": "Câu hỏi thuộc nhóm Out-of-Scope (thủ tục hành chính, thời tiết, chính trị hoặc sáng tạo văn bản) nhưng Agent không từ chối an toàn mà bị ép vào pipeline DWH, cố tình sinh SQL tìm kiếm trên fact_report_criteria và trả về 'chưa có bản ghi số liệu' kèm SQL block."
+    }
+  },
+  {
+    "bug_id": "BUG-OOS-t_03-T15",
+    "detected_at": "2026-10-03T01:50:57.113466+00:00",
+    "session_id": "session_audit_report_03",
+    "turn_index": 15,
+    "user_prompt": "tổng kết lại, toàn bộ số liệu báo cáo đã nộp của sở có đáng tin cậy không?",
+    "prompt_characteristics": {
+      "is_underspecified": false,
+      "omitted_fields": [],
+      "relies_on_previous_turn": true,
+      "previous_turn_prompt": "có báo cáo nào bị từ chối phê duyệt không?",
+      "edge_category": "QUALITATIVE_APPRAISAL_OUT_OF_SCOPE"
+    },
+    "chatbot_response": {
+      "rendered_answer": "⚠️ Yêu cầu tra cứu không thể hoàn tất do lỗi cơ sở dữ liệu: Lỗi thực thi PostgreSQL: column f.id does not exist\nLINE 1: SELECT r.status, COUNT(f.id) AS so_luong_chi_tieu FROM dwh_i...\n                               ^\nHINT:  Perhaps you meant to reference the column \"r.id\".\n\n\n<details>\n<summary>🔍 Xem câu lệnh truy vấn (SQL Query)</summary>\n\n```sql\nSELECT r.status, COUNT(f.id) AS so_luong_chi_tieu FROM dwh_internal.fact_report_criteria AS f JOIN dwh_internal.report AS r ON f.report_id = r.id WHERE f.tenant_code = '68' AND f.year_code = '2026' AND f.report_status = 'approved' AND r.tenant_code = '68' AND r.year_code = '2026' GROUP BY r.status LIMIT 500;\n```\n</details>",
+      "generated_sql": "SELECT\n  r.status,\n  COUNT(f.id) AS so_luong_chi_tieu\nFROM dwh_internal.fact_report_criteria AS f\nJOIN dwh_internal.report AS r\n  ON f.report_id = r.id\nWHERE\n  f.tenant_code = '68' AND f.year_code = '2026' AND f.report_status = 'approved' AND r.tenant_code = '68' AND r.year_code = '2026'\nGROUP BY\n  r.status\nLIMIT 500;",
+      "returned_row_count": 0
+    },
+    "audit_verification": {
+      "ground_truth_db_rows": [],
+      "discrepancy_type": "SCHEMA_HALLUCINATION_CRASH",
+      "severity": "CRITICAL",
+      "root_cause_analysis": "Câu hỏi mang tính chất đánh giá định tính ('toàn bộ số liệu có đáng tin cậy không?'), thuộc nhóm Out-of-Scope không thể giải quyết bằng Text-to-SQL. Tuy nhiên, Agent định tuyến sai và sinh câu lệnh SQL JOIN report với fact_report_criteria, trong đó LLM bị ảo giác cấu trúc (Schema Hallucination) khi gọi hàm COUNT(f.id). Bảng fact_report_criteria trên CSDL DWH thực tế không hề có cột id, dẫn đến lỗi cú pháp PostgreSQL 16 ('column f.id does not exist') làm sập câu truy vấn và trả về lỗi hệ thống trực tiếp cho người dùng cuối."
+    }
+  }
+]

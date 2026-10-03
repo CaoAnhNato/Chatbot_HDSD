@@ -1,5 +1,5 @@
 /**
- * Module: IPGov_Chatbot/frontend/components/RoleSelector.tsx
+ * Module: frontend/src/components/RoleSelector.tsx
  * Chức năng: Component chọn nhanh vai trò (Role Selector) phục vụ kiểm thử và phân quyền HBAC
  * Tương thích: React 18+, Next.js 14+ (App Router hoặc Pages Router)
  * Tuân thủ tiêu chuẩn: TypeScript strict mode, Tailwind CSS
@@ -64,7 +64,7 @@ export const PRESET_ROLES: UserRoleProfile[] = [
     tenant_code: "68",
     tenant_name: "Tỉnh Lâm Đồng",
     department_code: "68-1-02",
-    office_id: "Phòng Kinh tế",
+    office_id: null,
     role_level: 2,
     user_id: "u_pkt_001",
     username: "truongphong_kinhte_lamdong"
@@ -76,7 +76,7 @@ export const PRESET_ROLES: UserRoleProfile[] = [
     tenant_code: "68",
     tenant_name: "Tỉnh Lâm Đồng",
     department_code: "68-1-03",
-    office_id: "Phòng Xây dựng",
+    office_id: null,
     role_level: 2,
     user_id: "u_pxd_001",
     username: "truongphong_xaydung_lamdong"
@@ -109,6 +109,7 @@ export function generateMockJWT(profile: UserRoleProfile): string {
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     sub: profile.user_id,
+    user_id: profile.user_id,
     username: profile.username,
     tenant_code: profile.tenant_code,
     department_code: profile.department_code,
@@ -125,7 +126,7 @@ export function generateMockJWT(profile: UserRoleProfile): string {
           .replace(/\//g, "_")
       : Buffer.from(JSON.stringify(obj)).toString("base64url");
 
-  return `${b64(header)}.${b64(payload)}.mock_client_signature`;
+  return `${b64(header)}.${b64(payload)}.mock_sig_pass`;
 }
 
 export const RoleSelector: React.FC<RoleSelectorProps> = ({
@@ -166,14 +167,14 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
           <h3 className="text-sm font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
             Phân Quyền Thử Nghiệm (HBAC Roles)
           </h3>
-          <p className="text-xs text-slate-400 mt-0.5">Chọn nhanh vai trò người dùng để kiểm thử Module 1 &amp; Module 2</p>
+          <p className="text-xs text-slate-400 mt-0.5">Chọn nhanh vai trò người dùng để kiểm thử phân quyền DWH</p>
         </div>
         <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">
           HBAC Level: {current.role_level}
         </span>
       </div>
 
-      <!-- Danh sách vai trò -->
+      {/* Danh sách vai trò */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
         {PRESET_ROLES.map((role) => {
           const isSelected = role.id === current.id;
@@ -209,7 +210,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
         })}
       </div>
 
-      <!-- Chi tiết ngữ cảnh bảo mật đang chọn -->
+      {/* Chi tiết ngữ cảnh bảo mật đang chọn */}
       <div className="mt-4 p-3.5 rounded-xl bg-slate-950/80 border border-slate-800/80 text-xs">
         <div className="flex items-center justify-between text-slate-400 mb-2">
           <span>Ngữ cảnh bảo mật hiện thời:</span>

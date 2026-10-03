@@ -2,7 +2,7 @@
 
 > **Mã Module:** `MOD-03-ROUTER-HDFT`  
 > **Phiên bản:** `3.5.0 (Production-Ready - Gated Confidence Fallback Pipeline, Autoregressive Scratchpad & Zero-Shot Optimization to 100.0%)`  
-> **Kiến trúc áp dụng:** In-Process Modular Monolith, SSOT LLM Gateway Strategy Pattern (`IPGov_Chatbot/core/llm_gateway.py`), Ponytail Fallback Helper (`call_structured_with_fallback`), Pydantic v2 Structured Outputs (`extra="forbid"`), Autoregressive Scratchpad CoT (`thought_scratchpad`), Dual-Engine OpenRouter (`google/gemini-2.5-flash-lite` Primary + `google/gemini-3.8-flash` Heavy Fallback), Real-time Cost & Token Auditing (`llm_usage.jsonl`), Redis Distributed Session Memory (`ipgov-redis`), 2-Tier Invariant Gates (Temporal & Anti-False-DAG)  
+> **Kiến trúc áp dụng:** In-Process Modular Monolith, SSOT LLM Gateway Strategy Pattern (`IPGov_Chatbot/core/llm_gateway.py`), Ponytail Fallback Helper (`call_structured_with_fallback`), Pydantic v2 Structured Outputs (`extra="forbid"`), Autoregressive Scratchpad CoT (`thought_scratchpad`), Dual-Engine OpenRouter (`google/gemini-2.5-flash-lite` Primary + `deepseek/deepseek-v4.1-flash` Heavy Fallback), Real-time Cost & Token Auditing (`llm_usage.jsonl`), Redis Distributed Session Memory (`ipgov-redis`), 2-Tier Invariant Gates (Temporal & Anti-False-DAG)  
 > **Tài liệu căn cứ & Chuẩn mực:**  
 > - [00_OVERVIEW_VA_BAI_HOC_THAT_BAI_GOVGRAPH.md](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/blueprints/00_OVERVIEW_VA_BAI_HOC_THAT_BAI_GOVGRAPH.md) (RC-06 Stateful Context & Clean UX)  
 > - [00_TECH_STACK_VA_KIEN_TRUC_TONG_THE.md](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/blueprints/00_TECH_STACK_VA_KIEN_TRUC_TONG_THE.md) (Pipeline Flow & Stage 3 Router)  
@@ -260,7 +260,7 @@ Thực hiện trên mô hình `google/gemini-2.5-flash-lite` qua OpenRouter API 
 ### 5.4. Đối Chuẩn Gated Router & Confidence Fallback Pipeline (Vượt Trần 88.6% -> 100.0%)
 Triển khai kiến trúc **Gated 2-Stage Pipeline** kết hợp **Autoregressive Scratchpad CoT** và **Deterministic Invariant Gates** trong RAM:
 - **Tầng 1 (Primary Model):** `google/gemini-2.5-flash-lite` kèm tự báo cáo `confidence_score` & suy luận `thought_scratchpad` đầu chuỗi JSON.
-- **Tầng 2 (Heavy Fallback):** `google/gemini-3.8-flash` tự động kích hoạt khi `confidence_score < 0.7` hoặc Pydantic schema validation / invariant check không đạt.
+- **Tầng 2 (Heavy Fallback):** `deepseek/deepseek-v4.1-flash` tự động kích hoạt khi `confidence_score < 0.7` hoặc Pydantic schema validation / invariant check không đạt.
 - **Tầng 3 (Invariant Gates trong RAM):** 
   * Cổng kiểm tra mốc thời gian & chỉ tiêu cụ thể trong lượt đầu (khắc phục `CLA_01`, `CLA_02`, `CLA_05`).
   * Cổng Anti-False-DAG (chuẩn hóa slot replacement đa lượt không có từ khóa so sánh về `TEMPLATE_FAST_TRACK`, khắc phục `MUL_01`, `MUL_04`).

@@ -1,4 +1,15 @@
 import os
+import sys
+from pathlib import Path
+
+# Đảm bảo thư mục backend và workspace root luôn có trong sys.path
+_BACKEND_DIR = Path(__file__).resolve().parent.parent
+_WORKSPACE_DIR = _BACKEND_DIR.parent
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+if str(_WORKSPACE_DIR) not in sys.path:
+    sys.path.insert(0, str(_WORKSPACE_DIR))
+
 import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -82,5 +93,20 @@ async def root():
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)
+    reload_kwargs = {}
+    if settings.DEBUG:
+        reload_kwargs = {
+            "reload": True,
+            "reload_dirs": [str(_BACKEND_DIR)],
+            "reload_excludes": [
+                "*.db", "*.db-wal", "*.db-shm", "*.sqlite", "*.sqlite3",
+                "*.parquet", "*.log", "*.jsonl",
+                "*.tmp", "*.pyc", "__pycache__/*",
+                ".next/*", "*/.next/*",
+                "node_modules/*", "*/node_modules/*",
+                "data/*", "*/data/*",
+                "tests/logs/*", "*/tests/logs/*",
+                ".git/*", "*/.git/*"
+            ]
+        }
+    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, **reload_kwargs)

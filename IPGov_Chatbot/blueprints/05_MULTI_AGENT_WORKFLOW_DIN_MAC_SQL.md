@@ -256,13 +256,13 @@ stateDiagram-v2
 Toàn bộ các Node suy luận ngôn ngữ (Node 1, Node 4b, Node 5) đều được chuẩn hóa qua Lớp Trừu Tượng Ponytail `call_structured_with_fallback[T]()` (SSOT tại `IPGov_Chatbot/core/llm_gateway.py`), vận hành theo mô hình **Gated 2-Stage Confidence Fallback**:
 - **Cổng Tinh Gọn (Fast Gate - Stage 1):** `google/gemini-2.5-flash-lite` với Chain-of-Thought qua `thought_scratchpad`, tối ưu hóa chi phí ($0.10/M tokens) và độ trễ phản hồi thấp (~500ms).
 - **Hàng Rào Kiểm Định Bất Biến (Invariant Gate):** Đánh giá đồng thời độ tin cậy `confidence_score >= 0.70` và điều kiện kiểm thử bất biến riêng của từng Node (AST syntax, schema grounding, hoặc data reconciliation).
-- **Cổng Dự Phòng Chuyên Sâu (Heavy Fallback - Stage 2):** Tự động kích hoạt `google/gemini-3.8-flash` khi độ tin cậy thấp, kiểm định bất biến thất bại, hoặc gặp lỗi kết nối upstream API.
+- **Cổng Dự Phòng Chuyên Sâu (Heavy Fallback - Stage 2):** Tự động kích hoạt `deepseek/deepseek-v4.1-flash` khi độ tin cậy thấp, kiểm định bất biến thất bại, hoặc gặp lỗi kết nối upstream API.
 
 #### 3.1. Node 1: Intent & Complexity Router (OpenRouter Gated 2-Stage Confidence Fallback & Redis Session Memory)
 * **Kiến trúc vận hành:** Kế thừa `call_structured_with_fallback[LLMRouterStructuredOutput]`.
   - Stage 1: `google/gemini-2.5-flash-lite` phân loại ý định dựa trên Chain-of-Thought (`thought_scratchpad`), nhiệt độ $0.0$, JSON mode.
   - Invariant Validator: Xác thực schema Pydantic, kiểm tra tính hợp lệ của `intent`, không rỗng trường bắt buộc, tính toàn vẹn của phạm vi không gian/thời gian, và ngưỡng tin cậy `confidence_score >= 0.70`.
-  - Stage 2: Tự động fallback sang `google/gemini-3.8-flash` khi `confidence_score < 0.70` hoặc schema validation fail.
+  - Stage 2: Tự động fallback sang `deepseek/deepseek-v4.1-flash` khi `confidence_score < 0.70` hoặc schema validation fail.
   - Stage 3: Dự phòng khẩn cấp qua DuckDB Local In-Memory Fuzzy Catalog (0 token LLM, phản hồi $< 2\text{ms}$).
 * **Bộ nhớ phiên phân tán (Redis Session Manager - `ipgov-redis`):**
   - Tích hợp Dual-Context Injection: Khi người dùng truy vấn Lượt 2+, System Prompt được tiêm đồng thời cả `ActiveQuestFrame` (để nắm slot hiện tại) và `Sliding Window Messages` (3 lượt gần nhất qua lệnh `LTRIM`).
@@ -294,7 +294,7 @@ Toàn bộ các Node suy luận ngôn ngữ (Node 1, Node 4b, Node 5) đều đ�
     1. *Kiểm định Cú pháp CSDL:* `sqlglot.parse_one(res.sql_query, read="postgres")` bắt buộc phải parse thành công sang AST PostgreSQL 16 mà không văng ngoại lệ cú pháp.
     2. *Kiểm định Schema Grounding:* Toàn bộ danh sách `tables_used` và các bảng xuất hiện trong cây AST bắt buộc phải thuộc Schema Slice của DuckDB Catalog, triệt tiêu ảo giác sinh bảng/cột giả.
     3. *Kiểm định Ngưỡng Tin Cậy:* `confidence_score >= 0.70`.
-  - Stage 2 (Heavy Fallback): Tự động chuyển giao sang `google/gemini-3.8-flash` khi cú pháp SQL không hợp lệ, phát hiện cấu trúc AST bị cấm (như DDL/DML), hoặc `confidence_score < 0.70`.
+  - Stage 2 (Heavy Fallback): Tự động chuyển giao sang `deepseek/deepseek-v4.1-flash` khi cú pháp SQL không hợp lệ, phát hiện cấu trúc AST bị cấm (như DDL/DML), hoặc `confidence_score < 0.70`.
   - Stage 3 (AST Enforcer): Câu lệnh SQL sau khi vượt qua Validator được đưa vào `SQLGlotEnforcer` để tự động tiêm điều kiện phân quyền HBAC vào mệnh đề `WHERE` trước khi chuyển sang `asyncpg` Connection Pool.
 * **Output Contract (Pydantic v2 `extra="forbid"`):**
   ```python
@@ -316,7 +316,7 @@ Toàn bộ các Node suy luận ngôn ngữ (Node 1, Node 4b, Node 5) đều đ�
     1. *Kiểm định Đối Chiếu Số Liệu:* Mọi con số định lượng (số vụ, tỷ lệ %, độ lệch tuyệt đối) xuất hiện trong nội dung markdown bắt buộc phải đối chiếu khớp với số liệu thực tế từ DWH hoặc kết quả của Math Engine trong dung sai sai số $\pm 0.01\%$, triệt tiêu hoàn toàn hallucination về số liệu công vụ.
     2. *Kiểm định Ánh Xạ Căn Cứ:* Danh sách `data_reconciliation_items` phải ánh xạ chính xác từng nhận định với cột/chỉ tiêu nguồn tương ứng.
     3. *Kiểm định Ngưỡng Tin Cậy:* `confidence_score >= 0.70`.
-  - Stage 2 (Heavy Fallback): Tự động chuyển giao sang `google/gemini-3.8-flash` khi phát hiện sai lệch số liệu, mâu thuẫn logic nhận định so với xu hướng tính toán, hoặc `confidence_score < 0.70`.
+  - Stage 2 (Heavy Fallback): Tự động chuyển giao sang `deepseek/deepseek-v4.1-flash` khi phát hiện sai lệch số liệu, mâu thuẫn logic nhận định so với xu hướng tính toán, hoặc `confidence_score < 0.70`.
 * **Output Contract (Pydantic v2 `extra="forbid"`):**
   ```python
   class SynthesisReportStructuredOutput(BaseModel):

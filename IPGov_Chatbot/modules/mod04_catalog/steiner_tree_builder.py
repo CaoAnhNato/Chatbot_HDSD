@@ -50,17 +50,17 @@ class SteinerTreeBuilder:
                 "dwh_internal.report",
                 {"weight": 1.0, "on": "f.report_id = report.id", "role": "primary"}
             ),
-            # Fact -> Department trực tiếp (Weight 1.1) để bảo toàn 34 dòng Fact cấp tỉnh có office_id IS NULL
+            # Fact -> Department trực tiếp (Weight 10.0) - Tăng trọng số để tránh tự động chọn deparment làm bridge khi bảng này có 0 bản ghi
             (
                 "dwh_internal.fact_report_criteria",
                 "dwh_internal.deparment",
-                {"weight": 1.1, "on": "f.department_code = deparment.code", "role": "direct_dept"}
+                {"weight": 10.0, "on": "f.department_code = deparment.code", "role": "direct_dept"}
             ),
-            # Dimensions Phân cấp Hành chính (Level 2 Office -> Level 1 Department) (Weight 1.0)
+            # Dimensions Phân cấp Hành chính (Level 2 Office -> Level 1 Department) (Weight 10.0)
             (
                 "dwh_internal.office",
                 "dwh_internal.deparment",
-                {"weight": 1.0, "on": "office.department_code = deparment.code", "role": "hierarchy"}
+                {"weight": 10.0, "on": "office.department_code = deparment.code", "role": "hierarchy"}
             ),
             # Report -> Collection Form (Weight 1.0)
             (
@@ -68,23 +68,23 @@ class SteinerTreeBuilder:
                 "dwh_internal.collection_form",
                 {"weight": 1.0, "on": "report.form_id = collection_form.id", "role": "form"}
             ),
-            # Report -> Department (Cạnh phụ trợ, weight 1.5 để ưu tiên đi qua office)
+            # Report -> Department (Weight 10.0)
             (
                 "dwh_internal.report",
                 "dwh_internal.deparment",
-                {"weight": 1.5, "on": "report.department_code = deparment.code", "role": "secondary"}
+                {"weight": 10.0, "on": "report.department_code = deparment.code", "role": "secondary"}
             ),
-            # Mission -> Department (Weight 1.2)
+            # Mission -> Department (Weight 10.0)
             (
                 "dwh_internal.mission",
                 "dwh_internal.deparment",
-                {"weight": 1.2, "on": "mission.department_code = deparment.code", "role": "mission"}
+                {"weight": 10.0, "on": "mission.department_code = deparment.code", "role": "mission"}
             ),
-            # Collection Form -> Department (Weight 1.2)
+            # Collection Form -> Department (Weight 10.0)
             (
                 "dwh_internal.collection_form",
                 "dwh_internal.deparment",
-                {"weight": 1.2, "on": "collection_form.department_code = deparment.code", "role": "form_dept"}
+                {"weight": 10.0, "on": "collection_form.department_code = deparment.code", "role": "form_dept"}
             ),
             # Office Mission -> Office & Department & Mission
             (

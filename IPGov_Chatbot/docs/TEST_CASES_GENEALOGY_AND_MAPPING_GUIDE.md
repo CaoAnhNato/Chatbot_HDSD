@@ -269,3 +269,36 @@ Tất cả các ca kiểm thử trên đều được tự động hóa và có 
    ```
 
 Tài liệu này đóng vai trò là **Kim Chỉ Nam Tra Cứu Toàn Diện** về nguồn gốc, mục đích và tình trạng sử dụng của từng test case trong dự án `IPGov_Chatbot`.
+
+---
+
+## 6. MA TRẬN KIỂM THỬ THỰC CHIẾN 4 CẤP BẬC HÀNH CHÍNH (4-TIER 2D TEST MATRIX - 100 TEST CASES)
+
+Tuân thủ quyết định thiết kế kiến trúc ngày 2026-09-29 và quy chuẩn [`.agents/rules/test_case_rule.md`](../../.agents/rules/test_case_rule.md), hệ thống bổ sung bộ **100 Ca Kiểm Thử Thực Nghiệm** được cấu trúc theo ma trận 2 chiều: **4 Cấp Bậc Người Dùng (Role Level 0, 1, 2, 3)** $\times$ **5 Nhánh Routing của Module 03** = **20 Ô Kiểm Thử** (Mỗi ô 5 ca chat thực tế).
+
+### 6.1. Bảng Ma Trận Tổng Quan: 4 Role Levels $\times$ 5 Routing Branches
+
+| Trục 2: Routing Branches (Module 03) | Level 0: Lãnh đạo Tỉnh (`role_level=0`) | Level 1: Lãnh đạo Sở (`role_level=1`) | Level 2: Chuyên viên Phòng (`role_level=2`) | Level 3: Công Dân (`role_level=3`) |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. `DWH_FACT`** | **Ô 01 (`TC-01` $\to$ `TC-05`):** Fact toàn tỉnh, SQL không tiêm `department_code`. | **Ô 02 (`TC-06` $\to$ `TC-10`):** Fact phạm vi Sở, tiêm `department_code = '68-1-02' / '68-2-02'`. | **Ô 03 (`TC-11` $\to$ `TC-15`):** Fact phạm vi Phòng, tiêm `office_id = 'ab5ec7c7...'`. | **Ô 04 (`TC-16` $\to$ `TC-20`):** Fact công khai (`dwh_public`), chặn truy cập số liệu nội bộ. |
+| **2. `CATALOG_DISCOVERY`** | **Ô 05 (`TC-21` $\to$ `TC-25`):** Danh mục toàn tỉnh (tất cả các Sở, huyện, biểu mẫu). | **Ô 06 (`TC-26` $\to$ `TC-30`):** Danh mục nội bộ Sở (phòng trực thuộc, nhiệm vụ sở). | **Ô 07 (`TC-31` $\to$ `TC-35`):** Danh mục cấp phòng (chỉ tiêu nộp, mẫu báo cáo phòng). | **Ô 08 (`TC-36` $\to$ `TC-40`):** Danh mục công khai (cơ quan hành chính, cổng DVC). |
+| **3. `CLARIFICATION`** | **Ô 09 (`TC-41` $\to$ `TC-45`):** Câu hỏi toàn tỉnh mơ hồ $\to$ Clarification Chips tỉnh. | **Ô 10 (`TC-46` $\to$ `TC-50`):** Câu hỏi cấp sở mơ hồ $\to$ Clarification Chips sở. | **Ô 11 (`TC-51` $\to$ `TC-55`):** Câu hỏi cấp phòng mơ hồ $\to$ Clarification Chips phòng. | **Ô 12 (`TC-56` $\to$ `TC-60`):** Câu hỏi công dân mơ hồ $\to$ Hướng dẫn tra cứu DVC. |
+| **4. `MULTI_TURN`** | **Ô 13 (`TC-61` $\to$ `TC-65`):** Đa lượt cấp tỉnh, kế thừa slot năm/toàn tỉnh qua H-DFT. | **Ô 14 (`TC-66` $\to$ `TC-70`):** Đa lượt cấp sở, kế thừa và chuyển đổi độ mịn phòng/sở. | **Ô 15 (`TC-71` $\to$ `TC-75`):** Đa lượt cấp phòng, kế thừa tham số và thời gian nộp. | **Ô 16 (`TC-76` $\to$ `TC-80`):** Đa lượt công khai, hỏi nối tiếp số liệu công bố. |
+| **5. `OUT_OF_SCOPE / SEC`** | **Ô 17 (`TC-81` $\to$ `TC-85`):** Chitchat, hỏi ngoài DWH, chặn rò rỉ chéo tỉnh TP.HCM. | **Ô 18 (`TC-86` $\to$ `TC-90`):** Chặn xem ngang hàng sở khác, chặn SQL injection. | **Ô 19 (`TC-91` $\to$ `TC-95`):** Chặn xem phòng khác, chặn mạo danh lãnh đạo sở. | **Ô 20 (`TC-96` $\to$ `TC-100`):** Chặn xem dữ liệu mật, PII filter, prompt jailbreak. |
+
+### 6.2. Cưỡng Chế Ghi Nhật Ký Kiểm Thử Thực Nghiệm (Structured Logging Invariant)
+Mọi lần chạy kiểm thử 100 ca này bắt buộc phải ghi log có cấu trúc chuẩn vào `IPGov_Chatbot/tests/logs/latest_test_run.jsonl`, bao gồm 10 trường dữ liệu cốt tử: `timestamp`, `test_id`, `module`, `input_payload`, `execution_stages`, `actual_output`, `expected_output`, `metrics` (latency, tokens, row_count), `status` (PASS/FAIL/BLOCKED), và `error_details` (kèm mã Trap nếu fail). Chi tiết từng câu hỏi kiểm thử được đồng bộ trực tiếp từ kế hoạch kỹ thuật tại `semantic_layer_refactor_plan.md`.
+
+---
+
+## 7. BỘ KIỂM THỬ THỰC CHIẾN KHO DWH CÔNG TY (30 WAREHOUSE BENCHMARK CASES)
+
+Căn cứ theo [ADR-002](../docs/ADR_002_SEMANTIC_DISAMBIGUATION_AND_DWH_GOVERNANCE.md) và kế hoạch triển khai tại `implementation_plan.md`, hệ thống duy trì bộ **30 Ca Kiểm Thử Kho DWH Thực Tế** (`IPGov_Chatbot/tests/test_warehouse_30_cases.py`) chạy trực tiếp trên CSDL PostgreSQL `vna_wom_dev`:
+
+1. **Nhóm 1: Muối & Diêm nghiệp (6 câu):** Tra cứu số hộ sản xuất muối, diện tích diêm nghiệp thủ công / công nghiệp, sản lượng muối (kiểm thử định dạng số dấu phẩy `1,320`).
+2. **Nhóm 2: OCOP, HTX & Nông nghiệp (6 câu):** Số lượng sản phẩm OCOP đạt chuẩn, hợp tác xã nông nghiệp, khử nhập nhằng chỉ tiêu 'Trang trại' (NULL) và doanh thu bình quân (chọn kỳ báo cáo mới nhất Quý 3: 2,200).
+3. **Nhóm 3: Báo cáo & Đợt nộp (6 câu):** Tiến độ nộp báo cáo, đợt nộp đã phê duyệt, tỷ lệ báo cáo đúng hạn, mốc thời gian năm 2026.
+4. **Nhóm 4: Biểu mẫu thu thập (4 câu):** Danh mục mẫu tờ khai thu thập số liệu đang kích hoạt (`active`).
+5. **Nhóm 5: Nhiệm vụ & Cán bộ chuyên môn (4 câu):** Danh mục chương trình, đề án trọng tâm, phân công cán bộ, tài khoản quản trị hệ thống.
+6. **Nhóm 6: Khả năng Chatbot & Ngữ cảnh đa lượt (4 câu):** Lời chào công vụ 4 trụ cột (không lộ tên bảng kỹ thuật thô), câu hỏi mốc thời gian tự nhiên, kế thừa ngữ cảnh hội thoại đa lượt và thu gọn câu lệnh SQL mặc định.
+

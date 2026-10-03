@@ -90,15 +90,26 @@ class TrackACompiler:
         )
         return is_fast_route
 
-    def _resolve_metric_info(self, router_output: RouterOutputDTO) -> Tuple[Optional[str], Optional[str]]:
-        """Trích xuất mã chỉ tiêu và tên chỉ tiêu từ RouterOutputDTO hoặc DuckDB Catalog."""
+    def _resolve_metric_info(
+        self,
+        router_output: RouterOutputDTO,
+        user_ctx: Optional[UserSecurityContextDTO] = None,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Trích xuất mã chỉ tiêu và tên chỉ tiêu từ RouterOutputDTO hoặc DuckDB Catalog có tenant scoping."""
         code = getattr(router_output, "metric_code", None)
         if not code and getattr(router_output, "active_quest", None):
             code = router_output.active_quest.metric_code
         name = getattr(router_output, "metric_name", None)
         if self.catalog:
             try:
-                matched = self.catalog.find_criteria_by_name(router_output.query_sanitized, limit=1)
+                tc = getattr(user_ctx, "tenant_code", None) or "68"
+                rl = getattr(user_ctx, "role_level", None)
+                matched = self.catalog.find_criteria_by_name(
+                    router_output.query_sanitized,
+                    limit=1,
+                    tenant_code=tc,
+                    role_level=rl
+                )
                 if matched and len(matched) > 0:
                     if not code:
                         code = matched[0].get("code")
@@ -108,8 +119,12 @@ class TrackACompiler:
                 logger.debug(f"Không thể tra cứu chỉ tiêu từ catalog: {e}")
         return code, name
 
-    def _resolve_metric_code(self, router_output: RouterOutputDTO) -> Optional[str]:
-        code, _ = self._resolve_metric_info(router_output)
+    def _resolve_metric_code(
+        self,
+        router_output: RouterOutputDTO,
+        user_ctx: Optional[UserSecurityContextDTO] = None,
+    ) -> Optional[str]:
+        code, _ = self._resolve_metric_info(router_output, user_ctx)
         return code
 
     def _compile_archetype(
@@ -124,12 +139,16 @@ class TrackACompiler:
         )
 
         query = router_output.query_sanitized or ""
-        metric_code, metric_name = self._resolve_metric_info(router_output)
+        metric_code, metric_name = self._resolve_metric_info(router_output, user_ctx)
 
         years = re.findall(r"\b(202[0-9])\b", query)
-        year = "2026"
+        year = None
         if getattr(router_output, "active_quest", None) and router_output.active_quest.temporal_val:
-            year = router_output.active_quest.temporal_val
+            year = str(router_output.active_quest.temporal_val)
+        elif getattr(router_output, "temporal_scope", None):
+            t_scope = router_output.temporal_scope
+            if isinstance(t_scope, dict) and t_scope.get("start_year"):
+                year = str(t_scope["start_year"])
         elif years:
             year = years[0]
         tenant_code = user_ctx.tenant_code or "68"
@@ -138,7 +157,7 @@ class TrackACompiler:
             dept_code = None
 
         if archetype == ArchetypePatternCatalog.TEMPORAL_COMPARISON:
-            comp_years = sorted(list(set(years + ["2026"]))) if years else ["2025", "2026"]
+            comp_years = sorted(list(set(years))) if years else []
             return ArchetypePatternCatalog.build_temporal_comparison_sql(
                 metric_code=metric_code or "",
                 metric_name=metric_name or "",
@@ -179,12 +198,14 @@ class TrackACompiler:
                 department_code=dept_code,
             )
         elif archetype == ArchetypePatternCatalog.MULTI_DIMENSIONAL_PIVOT:
-            comp_years = sorted(list(set(years + ["2026"]))) if years else ["2025", "2026"]
+            comp_years = sorted(list(set(years))) if years else []
+            year_start = comp_years[0] if comp_years else None
+            year_end = comp_years[1] if len(comp_years) > 1 else (comp_years[0] if comp_years else None)
             return ArchetypePatternCatalog.build_multi_dimensional_pivot_sql(
                 metric_code=metric_code or "",
                 metric_name=metric_name or "",
-                year_start=comp_years[0],
-                year_end=comp_years[1] if len(comp_years) > 1 else "2026",
+                year_start=year_start,
+                year_end=year_end,
                 tenant_code=tenant_code,
                 department_code=dept_code,
             )
@@ -220,11 +241,6 @@ class TrackACompiler:
             clean_name = spec.metric_name.strip().replace("'", "''")
             crit_conds.append(f"lc.name ILIKE '%{clean_name}%'")
             crit_conds.append(f"f.name ILIKE '%{clean_name}%'")
-            name_parts = clean_name.split()
-            if len(name_parts) >= 2:
-                core_phrase = " ".join(name_parts[-2:])
-                crit_conds.append(f"lc.name ILIKE '%{core_phrase}%'")
-                crit_conds.append(f"f.name ILIKE '%{core_phrase}%'")
 
         where_clauses = [
             "f.report_status = 'approved'",
@@ -235,13 +251,13 @@ class TrackACompiler:
         # Tiêm các bộ lọc trong spec
         year_filter_present = False
         for flt in spec.filters:
-            if flt.field == "year":
+            if flt.field in ("year", "year_code"):
                 year_filter_present = True
                 if flt.operator == "eq":
-                    where_clauses.append(f"f.year = '{flt.value}'")
+                    where_clauses.append(f"f.year_code = '{flt.value}'")
                 elif flt.operator == "in" and isinstance(flt.value, list):
                     years_str = ", ".join(f"'{y}'" for y in flt.value)
-                    where_clauses.append(f"f.year IN ({years_str})")
+                    where_clauses.append(f"f.year_code IN ({years_str})")
             elif flt.field == "department_code":
                 where_clauses.append(f"f.department_code = '{flt.value}'")
             elif flt.field == "office_id":
@@ -253,15 +269,11 @@ class TrackACompiler:
         if user_ctx.office_id and user_ctx.role_level >= 2 and not any(f.field == "office_id" for f in spec.filters):
             where_clauses.append(f"f.office_id = '{user_ctx.office_id}'")
 
-        # Mặc định năm nếu chưa có
-        if not year_filter_present:
-            where_clauses.append("f.year = '2026'")
-
         where_str = "\n  AND ".join(where_clauses)
 
         select_cols = [
             "COALESCE(lc.name, f.name) AS ten_chi_tieu",
-            "f.year AS nam",
+            "f.year_code AS nam",
             "SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri",
             "COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao",
         ]
@@ -272,8 +284,8 @@ class TrackACompiler:
             f"FROM dwh_internal.fact_report_criteria f\n"
             f"LEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\n"
             f"WHERE {where_str}\n"
-            f"GROUP BY COALESCE(lc.name, f.name), f.year\n"
-            f"ORDER BY f.year ASC;"
+            f"GROUP BY COALESCE(lc.name, f.name), f.year_code\n"
+            f"ORDER BY f.year_code ASC;"
         )
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -312,7 +324,7 @@ class TrackACompiler:
         if not self.can_compile_fast_track(router_output):
             return False, None
 
-        year = "2026"
+        year = None
         temporal_scope = getattr(router_output, "temporal_scope", {}) or {}
         if isinstance(temporal_scope, dict) and temporal_scope.get("start_year"):
             year = str(temporal_scope.get("start_year"))
@@ -357,17 +369,17 @@ class TrackACompiler:
 
         # Tra cứu trạng thái phê duyệt / tiến độ nộp báo cáo
         if any(k in query for k in ["phê duyệt", "chờ duyệt", "trạng thái", "tiến độ", "nộp trễ hạn", "từ chối", "đã nộp", "chưa nộp", "nộp báo cáo", "hạn nộp", "chưa hoàn thành nộp"]):
-            raw_sql = f"""SELECT r.id AS ma_bao_cao, d.name AS ten_phong_ban, 
+            year_clause = f"AND r.year_code = '{year}'" if year else ""
+            raw_sql = f"""SELECT r.id AS ma_bao_cao, r.department_code AS ma_phong_ban, 
        r.status AS trang_thai_phe_duyet, r.report_date AS ngay_nop_bao_cao 
 FROM dwh_internal.report r 
-JOIN dwh_internal.deparment d ON r.department_code = d.code 
-WHERE r.tenant_code = '{tenant_code}' AND r.deleted_date IS NULL AND r.year = '{year}' 
+WHERE r.tenant_code = '{tenant_code}' AND r.deleted_date IS NULL {year_clause} 
 ORDER BY r.report_date DESC LIMIT 5;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="REPORT_STATUS",
-                tables_referenced=["dwh_internal.report", "dwh_internal.deparment"],
+                tables_referenced=["dwh_internal.report"],
                 parameters={"tenant_code": tenant_code},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch tra cứu trạng thái báo cáo qua Track A Deterministic Compiler.",
@@ -379,9 +391,10 @@ ORDER BY r.report_date DESC LIMIT 5;"""
 
         # Tra cứu biểu mẫu thu thập số liệu
         if any(k in query for k in ["biểu mẫu", "mẫu phiếu", "tờ khai"]):
+            form_where = f"WHERE cf.year_code = '{year}' AND cf.deleted_date IS NULL" if year else "WHERE cf.deleted_date IS NULL"
             raw_sql = f"""SELECT DISTINCT cf.id AS ma_bieu_mau, cf.name AS ten_bieu_mau, cf.code AS ky_hieu, cf.year_code, cf.status 
 FROM dwh_internal.collection_form cf 
-WHERE cf.year_code = '{year}' AND cf.deleted_date IS NULL 
+{form_where} 
 ORDER BY cf.id ASC LIMIT 35;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
@@ -399,18 +412,18 @@ ORDER BY cf.id ASC LIMIT 35;"""
 
         # Tra cứu kiểm tra dữ liệu bất thường (để trống, bằng 0)
         if any(k in query for k in ["bất thường", "để trống", "bằng 0", "rỗng"]):
-            raw_sql = f"""SELECT DISTINCT d.name AS ten_phong_ban, f.report_id, f.code AS ma_chi_tieu, 
+            fact_yr = f"f.year_code = '{year}' AND " if year else ""
+            raw_sql = f"""SELECT DISTINCT f.department_code AS ma_phong_ban, f.report_id, f.code AS ma_chi_tieu, 
        f.name AS ten_chi_tieu, f.value AS gia_tri_bat_thuong, f.report_date 
 FROM dwh_internal.fact_report_criteria f 
-JOIN dwh_internal.deparment d ON f.department_code = d.code 
-WHERE f.year = '{year}' AND f.tenant_code = '{tenant_code}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
+WHERE {fact_yr}f.tenant_code = '{tenant_code}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
   AND (f.value IS NULL OR TRIM(f.value) = '' OR TRIM(f.value) = '0') 
 ORDER BY f.report_date DESC LIMIT 10;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="DATA_ANOMALY",
-                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.deparment"],
+                tables_referenced=["dwh_internal.fact_report_criteria"],
                 parameters={"tenant_code": tenant_code},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch phát hiện chỉ tiêu bất thường qua Track A Deterministic Compiler.",
@@ -422,22 +435,22 @@ ORDER BY f.report_date DESC LIMIT 10;"""
 
         # Tra cứu cán bộ phụ trách nhiệm vụ
         if any(k in query for k in ["cán bộ", "phụ trách nhiệm vụ", "nhiệm vụ trọng tâm"]):
-            raw_sql = f"""SELECT u.name AS ten_can_bo, u.position AS chuc_vu, d.name AS ten_phong_ban, 
+            fact_yr = f"f.year_code = '{year}' AND " if year else ""
+            raw_sql = f"""SELECT u.name AS ten_can_bo, u.position AS chuc_vu, f.department_code AS ma_phong_ban, 
        um.mission_name AS ten_nhiem_vu, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_hoan_thanh, 
        MAX(f.etl_updated_at) AS thoi_gian_cap_nhat 
 FROM dwh_internal.fact_report_criteria f 
 JOIN dwh_internal.user_mission um ON f.mission_id = um.mission_id 
 JOIN dwh_internal."user" u ON um.user_id = u.id 
-JOIN dwh_internal.deparment d ON f.department_code = d.code 
-WHERE f.year = '{year}' AND f.tenant_code = '{tenant_code}' AND LOWER(f.report_status) = 'approved' 
+WHERE {fact_yr}f.tenant_code = '{tenant_code}' AND LOWER(f.report_status) = 'approved' 
   AND f.report_delete_date IS NULL AND um.deleted_date IS NULL AND u.deleted_at IS NULL 
-GROUP BY u.name, u.position, d.name, um.mission_name 
+GROUP BY u.name, u.position, f.department_code, um.mission_name 
 ORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="USER_MISSION",
-                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.user_mission", "dwh_internal.user", "dwh_internal.deparment"],
+                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.user_mission", "dwh_internal.user"],
                 parameters={"tenant_code": tenant_code},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch tra cứu cán bộ phụ trách nhiệm vụ qua Track A Deterministic Compiler.",
@@ -449,12 +462,11 @@ ORDER BY so_chi_tieu_hoan_thanh DESC, u.name ASC LIMIT 10;"""
 
         # Tra cứu phân công nhiệm vụ văn phòng (office_mission)
         if any(k in query for k in ["office_mission", "gán cho văn phòng", "phân công cán bộ phụ trách nào"]):
-            raw_sql = f"""SELECT om.mission_id AS ma_nhiem_vu, om.mission_name AS ten_nhiem_vu, o.office_name AS ten_van_phong, om.scope_name AS ten_linh_vuc, d.name AS ten_phong_ban 
+            raw_sql = f"""SELECT om.mission_id AS ma_nhiem_vu, om.mission_name AS ten_nhiem_vu, o.office_name AS ten_van_phong, om.scope_name AS ten_linh_vuc, om.department_code 
 FROM dwh_internal.office_mission om 
 JOIN dwh_internal.office o ON om.office_id = o.id 
-LEFT JOIN dwh_internal.deparment d ON om.department_code = d.code 
 LEFT JOIN dwh_internal.mission m ON om.mission_id = m.id AND m.deleted_date IS NULL 
-WHERE om.tenant_code = '{tenant_code}' AND (o.office_year = '{year}' OR m.year = '{year}') 
+WHERE om.tenant_code = '{tenant_code}' AND (o.office_year = '{year}' OR m.year_code = '{year}') 
   AND om.deleted_date IS NULL AND o.deleted_at IS NULL 
   AND NOT EXISTS (SELECT 1 FROM dwh_internal.user_mission um WHERE um.mission_id = om.mission_id AND um.deleted_date IS NULL) 
 ORDER BY om.mission_name ASC LIMIT 10;"""
@@ -462,7 +474,7 @@ ORDER BY om.mission_name ASC LIMIT 10;"""
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="OFFICE_MISSION",
-                tables_referenced=["dwh_internal.office_mission", "dwh_internal.office", "dwh_internal.deparment", "dwh_internal.mission"],
+                tables_referenced=["dwh_internal.office_mission", "dwh_internal.office", "dwh_internal.mission"],
                 parameters={"tenant_code": tenant_code},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch rà soát nhiệm vụ văn phòng qua Track A Deterministic Compiler.",
@@ -474,21 +486,20 @@ ORDER BY om.mission_name ASC LIMIT 10;"""
 
         # Tra cứu phát hiện trùng lặp bản ghi báo cáo
         if any(k in query for k in ["trùng lặp", "trùng lặp nhiều dòng"]):
-            raw_sql = f"""SELECT f.report_id, d.name AS ten_phong_ban, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, 
+            raw_sql = f"""SELECT f.report_id, f.department_code, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, 
        COUNT(f.fact_sk) AS so_lan_xuat_hien, COUNT(DISTINCT f.value) AS so_gia_tri_khac_nhau, 
        STRING_AGG(COALESCE(f.value, 'NULL'), '; ' ORDER BY f.fact_sk) AS danh_sach_gia_tri, 
        MAX(f.etl_updated_at) AS thoi_gian_cap_nhat 
 FROM dwh_internal.fact_report_criteria f 
-LEFT JOIN dwh_internal.deparment d ON f.department_code = d.code 
-WHERE f.year = '{year}' AND f.tenant_code = '{tenant_code}' AND f.report_delete_date IS NULL 
-GROUP BY f.report_id, d.name, f.code, f.name 
+WHERE f.year_code = '{year}' AND f.tenant_code = '{tenant_code}' AND f.report_delete_date IS NULL 
+GROUP BY f.report_id, f.department_code, f.code, f.name 
 HAVING COUNT(f.fact_sk) > 1 
 ORDER BY so_lan_xuat_hien DESC, f.report_id ASC, f.code ASC LIMIT 10;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="DUPLICATE_FACT",
-                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.deparment"],
+                tables_referenced=["dwh_internal.fact_report_criteria"],
                 parameters={"tenant_code": tenant_code},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch phát hiện dữ liệu trùng lặp qua Track A Deterministic Compiler.",
@@ -519,20 +530,19 @@ WHERE f.tenant_code = '{tenant_code}' AND f.report_delete_date IS NULL;"""
             )
 
         # 3. Biên dịch chỉ số đơn lẻ chuẩn tắc (Single Metric Fast Track)
-        metric_code, metric_name = self._resolve_metric_info(router_output)
+        metric_code, metric_name = self._resolve_metric_info(router_output, user_ctx)
 
         # Nếu không có mã chỉ tiêu cụ thể -> Fallback sang danh mục chỉ tiêu báo cáo tổng quan của đơn vị
         if not metric_code and not metric_name:
-            raw_sql = f"""SELECT d.name AS ten_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date 
+            raw_sql = f"""SELECT f.department_code AS ma_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date 
 FROM dwh_internal.fact_report_criteria f 
-JOIN dwh_internal.deparment d ON f.department_code = d.code 
-WHERE f.year = '{year}' AND f.tenant_code = '{user_ctx.tenant_code or "68"}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
+WHERE f.year_code = '{year}' AND f.tenant_code = '{user_ctx.tenant_code or "68"}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
 ORDER BY f.report_date DESC LIMIT 10;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="DIRECT_LOOKUP",
-                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.deparment"],
+                tables_referenced=["dwh_internal.fact_report_criteria"],
                 parameters={"tenant_code": user_ctx.tenant_code or "68"},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch tổng quan chỉ tiêu DWH qua Track A Deterministic Compiler.",
@@ -545,17 +555,28 @@ ORDER BY f.report_date DESC LIMIT 10;"""
         # Trích xuất phạm vi phòng ban/sở ngành
         department_code = None
         spatial_scope = getattr(router_output, "spatial_scope", {}) or {}
-        if isinstance(spatial_scope, dict) and spatial_scope.get("department_code"):
-            department_code = spatial_scope.get("department_code")
-        elif getattr(router_output, "active_quest", None) and router_output.active_quest.admin_entity:
-            if self.catalog:
-                dept_res = self.catalog.find_department_or_office(router_output.active_quest.admin_entity)
-                if dept_res:
-                    department_code = dept_res.get("department_code") or dept_res.get("code")
+        active_quest = getattr(router_output, "active_quest", None)
 
-        filters = [MetricFilter(field="year", operator="eq", value=year)]
+        # Cưỡng chế quy tắc Cấp 0 (Tỉnh): nếu admin_level == 0 hoặc role_level == 0 (không có Sở cụ thể), department_code bắt buộc = None
+        is_provincial_scope = False
+        if active_quest and getattr(active_quest, "admin_level", None) == 0:
+            is_provincial_scope = True
+        elif user_ctx.role_level == 0 and not (isinstance(spatial_scope, dict) and spatial_scope.get("department_code")):
+            is_provincial_scope = True
+
+        if not is_provincial_scope:
+            if isinstance(spatial_scope, dict) and spatial_scope.get("department_code"):
+                department_code = spatial_scope.get("department_code")
+            elif active_quest and getattr(active_quest, "admin_entity", None):
+                if self.catalog:
+                    dept_res = self.catalog.find_department_or_office(active_quest.admin_entity)
+                    if dept_res and dept_res.get("type") in ("department", "office"):
+                        department_code = dept_res.get("department_code") or dept_res.get("code")
+
+        filters = [MetricFilter(field="year_code", operator="eq", value=year)]
         if department_code:
             filters.append(MetricFilter(field="department_code", operator="eq", value=department_code))
+
 
         spec = MetricSpecDTO(
             metric_code=metric_code or "chi_tieu",
@@ -563,7 +584,7 @@ ORDER BY f.report_date DESC LIMIT 10;"""
             aggregation_func="SUM",
             grain="leaf_criteria",
             filters=filters,
-            group_by=["year"],
+            group_by=["year_code"],
         )
 
         dto = self.compile_from_spec(spec, user_ctx, trace_id=trace_id)

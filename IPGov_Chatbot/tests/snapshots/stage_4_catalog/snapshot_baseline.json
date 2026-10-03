@@ -62,7 +62,7 @@
   ],
   "discovery_response": null,
   "suggested_action_chips": [],
-  "latency_ms": 11.9,
+  "latency_ms": 6.65,
   "trace_id": "trace_snapshot_stage4_001",
   "confidence_score": 0.95
 }

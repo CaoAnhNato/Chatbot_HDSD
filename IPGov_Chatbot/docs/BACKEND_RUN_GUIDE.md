@@ -51,6 +51,18 @@ Lệnh này tự động nhận diện cấu hình, hiển thị bảng thông s
 .\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server
 ```
 
+Khi chạy thành công, terminal sẽ hiển thị rõ ràng banner định danh:
+```text
+======================================================================
+🚀 Đang kích hoạt IPGov_Chatbot (Backend Server), port 8000...
+📌 Định danh hệ thống: IPGov_Chatbot (Kho Dữ Liệu Tỉnh - Độc lập với Chatbot_HDSD)
+📡 Địa chỉ phục vụ:   http://0.0.0.0:8000
+📖 Swagger OpenAPI:    http://0.0.0.0:8000/docs
+🩺 Sức khỏe hệ thống:  http://0.0.0.0:8000/api/v1/health
+🧪 Test Bench UI:      http://0.0.0.0:8000/bench
+======================================================================
+```
+
 > [!WARNING]
 > **Lưu ý tối quan trọng về địa chỉ truy cập trên Windows (0.0.0.0 vs 127.0.0.1 / localhost):**
 > - Mặc định máy chủ Uvicorn sẽ lắng nghe trên địa chỉ `0.0.0.0` (chuẩn `INADDR_ANY` theo RFC 1122), cho phép tiếp nhận kết nối từ mọi card mạng.
@@ -59,8 +71,11 @@ Lệnh này tự động nhận diện cấu hình, hiển thị bảng thông s
 
 **Tùy biến cổng và địa chỉ lắng nghe:**
 ```powershell
-# Chạy trên cổng 8080 và chỉ định lắng nghe localhost
-.\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server --host 127.0.0.1 --port 8080
+# Khởi chạy trên cổng 8000 mặc định (khớp 100% với cấu hình NEXT_PUBLIC_API_URL của IPGov_Chatbot/frontend/.env)
+.\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server --host 127.0.0.1 --port 8000
+
+# Lưu ý quan trọng: Nếu tùy biến đổi cổng backend sang 8080 (--port 8080), bắt buộc phải cập nhật đồng bộ file IPGov_Chatbot/frontend/.env:
+# NEXT_PUBLIC_API_URL="http://localhost:8080/api/v1"
 
 # Chạy chế độ Production (Tắt auto-reload, tăng worker)
 .\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server --no-reload --workers 4
@@ -82,6 +97,32 @@ Lệnh này tự động nhận diện cấu hình, hiển thị bảng thông s
 
 ---
 
+### Cách 4: Khởi Động Web Frontend (Next.js Application)
+Ứng dụng Web Frontend nằm độc lập trong thư mục `IPGov_Chatbot/frontend/`, hỗ trợ giao diện chat thời gian thực, bộ chọn **HBAC Level (0-3)** và **Vai trò (Role Profiles)**, tự động nhúng tiền tố `[tenant_code=..., level=...]` vào prompt và gọi API luồng SSE:
+
+```powershell
+# Di chuyển vào thư mục frontend của IPGov_Chatbot
+cd IPGov_Chatbot/frontend
+
+# Khởi chạy Next.js development server
+npm run dev
+```
+
+Khi chạy, terminal frontend sẽ hiển thị banner định danh để tránh nhầm lẫn:
+```text
+======================================================================
+🚀 Đang kích hoạt IPGov_Chatbot (Frontend Web UI), port 3000...
+📌 Định danh hệ thống: IPGov_Chatbot (Kho Dữ Liệu Tỉnh - Độc lập với Chatbot_HDSD)
+🌐 Địa chỉ giao diện:  http://localhost:3000
+📡 Kết nối Backend:    http://localhost:8000/api/v1
+======================================================================
+```
+
+> [!TIP]
+> Frontend tự động kết nối API backend tại `http://localhost:8000/api/v1` thông qua file cấu hình `.env` (`NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"`).
+
+---
+
 ## 3. Các Đường Dẫn Dịch Vụ Sau Khi Khởi Động
 
 > [!NOTE]
@@ -89,10 +130,12 @@ Lệnh này tự động nhận diện cấu hình, hiển thị bảng thông s
 
 | Dịch Vụ | Đường Dẫn URL | Mô Tả |
 |---|---|---|
+| 💻 **Web Frontend (Next.js GUI)** | [`http://localhost:3000`](http://localhost:3000) | Giao diện chat hoàn chỉnh: chọn Level (0-3) và Role, gọi pipeline IPGov Chatbot kèm `tenant_code` & `level` trong prompt |
 | 🧪 **Test Bench GUI (Trực quan & Báo lỗi)** | [`http://127.0.0.1:8000/bench`](http://127.0.0.1:8000/bench) | Giao diện kiểm thử trực quan chuẩn: chọn nhanh 6 vai trò HBAC, sinh token, test câu hỏi/an ninh, theo dõi SSE stream và gắn note báo lỗi |
 | 📖 **Tài liệu Swagger OpenAPI** | [`http://127.0.0.1:8000/docs`](http://127.0.0.1:8000/docs) | Giao diện tương tác và kiểm thử API trực tuyến chuẩn OpenAPI 3.0 |
 | 🩺 **Health Check** | [`http://127.0.0.1:8000/api/v1/health`](http://127.0.0.1:8000/api/v1/health) | Kiểm tra trạng thái hoạt động của Module 1, Module 2 & Module 3 |
 | 📡 **SSE Stream Endpoint** | `POST http://127.0.0.1:8000/api/v1/chat/stream` | Cổng tiếp nhận câu hỏi và truyền phát luồng sự kiện SSE |
+| ⚡ **Sync Chat Endpoint** | `POST http://127.0.0.1:8000/api/v1/chat` | Cổng tiếp nhận câu hỏi và trả về kết quả JSON đồng bộ |
 | 📝 **Feedback & Annotation Endpoint** | `POST /api/v1/chat/feedback` | Cổng tiếp nhận các ghi chú lỗi từ người dùng / kiểm thử viên |
 | 🏠 **Trang chủ API (Metadata)** | [`http://127.0.0.1:8000/`](http://127.0.0.1:8000/) | Trả về thông tin phiên bản, trạng thái dịch vụ và liên kết điều hướng nhanh dạng JSON |
 
@@ -188,6 +231,33 @@ Dưới đây là 8 kịch bản câu hỏi đơn lẻ kiểm chứng trực ti�
 
 ---
 
+### 4.2. Bảng Tra Cứu Câu Hỏi Kiểm Thử Nhanh Module 08 & SmartTable Rendering (Tabular Data & Enterprise Presentation Showcase)
+
+Module 08 (Response Synthesizer) phối hợp cùng Frontend Next.js cung cấp kiến trúc **Dual-Track Rendering** cho dữ liệu dạng bảng (Tabular Data):
+1. **Tầng Backend DTO (`TabularDataDTO`)**: Bóc tách có cấu trúc danh sách cột (`columns`), căn lề (`align`), kiểu dữ liệu (`type: text | number | badge | date`) và danh sách hàng (`rows`), truyền kèm qua SSE event `done` (`tabular_data`) hoặc đồng bộ qua REST JSON.
+2. **Tầng Frontend SmartTable & Normalizer**: Tự động nhận diện và thay thế thẻ `<table>` tiêu chuẩn của GFM bằng component `<SmartTable>` tương tác cao cấp (Sticky header, live search, phân trang 5 dòng/trang, sort đa cột, sao chép TSV cho Excel, xuất CSV UTF-8 BOM, badge trạng thái bo tròn).
+3. **Bộ Tự Hàn GFM (Self-healing Normalizer)**: Tự động phát hiện và phục hồi các bảng markdown bị bẹt thành một dòng (`| ... | |:---:| ... |`) do LLM sinh thiếu ký tự xuống dòng `\n`.
+
+#### A. Bảng Kịch Bản Câu Hỏi Kiểm Thử Bảng Số Liệu
+Dưới đây là các câu hỏi mẫu kích hoạt định dạng bảng đẹp mắt trên giao diện chat và Test Bench:
+
+| STT | Câu Hỏi Kiểm Thử (Prompt Test) | Loại Bảng Nghiệp Vụ | DTO / Metadata Kỳ Vọng | Hành Vi Hiển Thị UI (`SmartTable`) |
+|---|---|---|---|---|
+| **1** | `"Danh sách nhiệm vụ được giao của Sở Xây dựng năm 2026"` | `is_user_mission` / Nhiệm vụ đơn vị | Cột: `STT`, `Tên nhiệm vụ`, `Đơn vị chủ trì`, `Thời hạn`, `Trạng thái` | SmartTable hiển thị các badge trạng thái: `Đang thực hiện` (Xanh dương), `Hoàn thành` (Xanh ngọc), `Chưa bắt đầu` (Xám). Hỗ trợ tìm kiếm theo tên nhiệm vụ và lọc phân trang. |
+| **2** | `"Tổng hợp các chỉ tiêu kinh tế - xã hội của Sở Công Thương năm 2025"` | `is_metric_table` / Thống kê chỉ tiêu | Cột: `STT`, `Tên chỉ tiêu`, `Đơn vị tính`, `Kế hoạch`, `Thực hiện`, `Tỷ lệ đạt (%)` | Các cột số liệu (`Kế hoạch`, `Thực hiện`, `Tỷ lệ`) tự động căn phải (`align: right`), định dạng phân tách hàng nghìn (`1,000,000`). Bấm vào tiêu đề cột để sắp xếp tăng/giảm dần. |
+| **3** | `"Danh sách các báo cáo định kỳ cần nộp trong quý 1 năm 2026"` | `is_report_list` / Danh mục báo cáo | Cột: `STT`, `Tên biểu mẫu / Báo cáo`, `Cơ quan nộp`, `Hạn nộp`, `Trạng thái duyệt` | Header hiển thị bộ đếm tổng số bản ghi (*"Tổng số: X dòng"*). Hỗ trợ nút **Sao chép** (Copy TSV) dán trực tiếp vào Excel giữ nguyên ô cột, và nút **Tải CSV** tải tệp `danh_sach_...csv` có BOM chuẩn tiếng Việt. |
+| **4** | *(Fallback Test - Markdown thô bị bẹt dòng)*: Prompt sinh bảng Markdown không có `tabular_data` DTO | Markdown Fallback / Self-healing | AST Parser trích xuất `TableColumn[]` và `TableRow[]` từ `<table>` children | `normalizeMarkdownTables` tự động bẻ dòng, nạp vào `SmartTable` hiển thị chuẩn mực 100% thay vì bung vỡ text thô. |
+
+#### B. Hướng Dẫn Thao Tác Trực Quan Các Tính Năng SmartTable:
+1. **Tìm kiếm tức thì (Live Search)**: Gõ từ khóa vào ô tìm kiếm ở góc phải header bảng $\to$ Danh sách lọc realtime không trễ.
+2. **Sắp xếp cột (Column Sorting)**: Click vào bất kỳ tiêu đề cột nào $\to$ Icon mũi tên $\uparrow / \downarrow$ hiển thị hướng sắp xếp; dữ liệu số được sort theo giá trị số thực thay vì thứ tự chữ cái.
+3. **Phân trang (Pagination)**: Khi bảng có trên 5 dòng, thanh phân trang xuất hiện cho phép chuyển trang mượt mà hoặc xem nhanh tổng số trang.
+4. **Xuất Excel / CSV**:
+   - Bấm **Sao chép**: Dữ liệu chuyển thành Tab-Separated Values (TSV) vào Clipboard, mở Excel bấm `Ctrl+V` là thành bảng hoàn chỉnh.
+   - Bấm **Tải CSV**: Trình duyệt tải ngay file `.csv` mã hóa UTF-8 với ký tự BOM (`\uFEFF`), mở bằng Microsoft Excel hiển thị đầy đủ dấu tiếng Việt không bị lỗi font chữ.
+
+---
+
 ## 5. Công Cụ Tra Cứu & Phân Tích Lỗi Cho Kỹ Sư / Agent (`AuditInspector` CLI)
 
 Sau khi người dùng / kiểm thử viên gắn note lỗi trên giao diện Web Test Bench, đội ngũ kỹ sư hoặc Agent có thể tra cứu toàn diện kho annotation để phân tích nguyên nhân gốc (Root Cause Analysis - RCA) và tự động tạo test case:
@@ -241,6 +311,21 @@ curl.exe -N -X POST "http://127.0.0.1:8000/api/v1/chat/stream" `
   -d '{\"prompt\": \"DROP TABLE chi_tieu_kinh_te_2025; --\"}'
 ```
 *Kết quả sẽ trả về sự kiện `event: guardrail_blocked` xác nhận luồng truy vấn độc hại đã bị tầng Guardrail vô hiệu hóa an toàn.*
+
+### 6.4. Gửi câu hỏi tra cứu kèm chuỗi `tenant_code` và `level` trực tiếp trong Prompt
+Hệ thống Gateway tự động phân tích và bóc tách tiền tố `[tenant_code=..., level=...]`, khởi tạo đúng ngữ cảnh phân quyền an ninh HBAC và đưa câu hỏi sạch vào pipeline:
+
+```powershell
+# Gửi qua luồng Server-Sent Events (SSE)
+curl.exe -N -X POST "http://127.0.0.1:8000/api/v1/chat/stream" `
+  -H "Content-Type: application/json" `
+  -d '{\"prompt\": \"[tenant_code=68, level=0] Kinh phí thực hiện khuyến công năm 2025 là bao nhiêu?\"}'
+
+# Hoặc gửi qua cổng JSON đồng bộ
+curl.exe -X POST "http://127.0.0.1:8000/api/v1/chat" `
+  -H "Content-Type: application/json" `
+  -d '{\"prompt\": \"[tenant_code=68, level=2] Kiểm tra trạng thái nộp báo cáo của các phòng ban trong kỳ gần nhất\"}'
+```
 
 ---
 
@@ -401,3 +486,278 @@ Yêu cầu Docker PostgreSQL `vna_wom_dev` đang chạy trên cổng `5432`:
    - Nếu câu lệnh SQL hoặc số liệu chưa chuẩn, nhấn nút **"Báo Lỗi / Feedback"** ngay bên cạnh câu trả lời.
    - Chọn loại lỗi (ví dụ: *Sai Cú Pháp SQL*, *Sai Phạm Vi HBAC*, *Sai Mã Chỉ Tiêu*) và nhập ghi chú.
    - Bấm **"Gửi Báo Lỗi"** để lưu trực tiếp vào hàng đợi annotation `quest_annotations.jsonl`.
+
+---
+
+## 11. Hướng Dẫn Kiểm Thử Module 06 (AST Enforcer) & Module 07 (DWH Execution Engine)
+
+Module 06 (`mod06_ast_enforcer`) và Module 07 (`mod07_dwh_exec`) tạo thành lớp bảo vệ và thực thi cốt lõi của hệ thống trước khi dữ liệu được tổng hợp:
+- **Module 06 (Security Guardrails & AST Enforcer):** Thẩm định cú pháp PostgreSQL 16 qua `sqlglot`, cưỡng chế Whitelist 14 bảng vật lý, tiêm đệ quy mệnh đề phân quyền HBAC `WHERE ((original)) AND (hbac)` và giới hạn `LIMIT 500`. Cam kết tỷ lệ vi phạm an ninh = `0.0%`.
+- **Module 07 (DWH Execution Engine):** Thực thi truy vấn kiên cố hóa 2 tầng trên Docker PostgreSQL `vna_wom_dev:5432` qua `asyncpg.Pool` (chế độ chỉ đọc `default_transaction_read_only = on` và giới hạn thời gian chờ `statement_timeout = 5000ms`), xử lý phân tán song song Scatter-Gather Semaphore 20, và tự động ghi log sự cố vào `public.chatbot_dlq_incidents`.
+
+### 11.1. Lệnh Kiểm Thử Tự Động Phân Tầng
+
+```powershell
+# 1. Kiểm thử Unit Tests Module 06 (19 tests, < 1s):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_mod06_ast_enforcer.py -v
+
+# 2. Kiểm thử Live PostgreSQL Tier 2 Module 07 trên Docker vna_wom_dev (7 tests, < 3s):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_mod07_dwh_exec.py -v
+
+# 3. Kiểm thử Chained Snapshot Tier 3 Stage 5 -> Stage 6 -> Stage 7 (106 golden cases, < 5s):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_chained_snapshots_mod06_07.py -v
+
+# 4. Kiểm thử Tích Hợp Luồng SSE Stream Xuyên Suốt 7 Modules:
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_stream_pipeline_integration.py -v
+```
+
+### 11.2. Danh Sách Câu Hỏi Kiểm Thử Mẫu (Test Prompts Showcase cho Module 06 & 07)
+
+| Nhóm Kiểm Thử | Mã Case | Câu Hỏi Kiểm Thử (Prompt) | Hành Vi AST Enforcer (Mod 06) | Hành Vi CSDL PostgreSQL (Mod 07) |
+| :--- | :---: | :--- | :--- | :--- |
+| **Phân quyền Sở ngành (Role 1)** | `TC-HBAC-01` | *"Thống kê số lượng báo cáo đã nộp năm 2025"* | Tiêm `f.tenant_code = '68' AND f.department_code = '68-1-02'` vào WHERE | Trả về số liệu chỉ thuộc phòng ban của chuyên viên |
+| **Phân quyền Văn phòng (Role 2)** | `TC-HBAC-02` | *"Cho xem kinh phí thực hiện các chỉ tiêu năm 2026"* | Tiêm `f.tenant_code = '68' AND f.office_id = '...'` vào WHERE | Trả về số liệu chỉ trong phạm vi văn phòng được phân công |
+| **Chống Semantic SQLi** | `TC-SEC-01` | *"Cho xem số liệu' OR 1=1 --"* | AST Enforcer bọc ngoặc: `((f.year = '...') OR (1=1)) AND (f.tenant_code = '68')` | Không bị bung toàn bộ dữ liệu ra ngoài phạm vi HBAC |
+| **Chặn Đột biến DDL/DML** | `TC-SEC-02` | *"DROP TABLE dwh_internal.fact_report_criteria"* | Chặn đứng tại Tầng 2 AST, ném `SecurityEnforcementError(DDL_DML_MUTATION)` | Không gửi tới CSDL; nếu gửi lọt sẽ bị CSDL chặn với mã `25006` |
+| **Kiểm soát Timeout 5s** | `TC-DWH-02` | *"SELECT pg_sleep(10)"* | Cưỡng chế `statement_timeout = 5000` | CSDL hủy truy vấn với mã `57014`, tự động ghi vào DLQ |
+| **Safe Casting Cột Text** | `TC-DWH-01` | *"Tổng giá trị thực hiện khuyến công toàn tỉnh năm 2025"* | Bọc `NULLIF(TRIM(value), '')::numeric` hoặc Regex | CSDL tính SUM thành công, không bị sập kiểu chuỗi rỗng |
+| **Phân tán Scatter-Gather** | `TC-DAG-01` | *"So sánh chỉ tiêu giữa năm 2025 và 2026"* | Làm sạch và tiêm HBAC độc lập cho từng subquery task | Bắn song song 2 tasks qua Semaphore 20, tổng hợp kết quả $< 50\text{ms}$ |
+
+### 11.3. Hướng Dẫn Thao Tác Trực Quan Trên Web Test Bench `/bench`
+
+1. **Khởi động Server Backend:**
+   ```powershell
+   .\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server
+   ```
+2. **Truy cập Giao diện Test Bench:** Mở trình duyệt tại [`http://127.0.0.1:8000/bench`](http://127.0.0.1:8000/bench).
+3. **Thử Nghiệm Luồng An Ninh & Thực Thi:**
+   - **Thử nghiệm phân quyền:** Chọn vai trò *Chuyên viên Sở (Role 2)*, bấm **"Tạo JWT & Kết nối"**, sau đó gửi câu hỏi tra cứu chỉ tiêu.
+   - **Quan sát chuỗi sự kiện SSE:**
+     * `sql_generated`: Hiển thị câu SQL thô do Mod 05 biên dịch.
+     * `ast_sanitized`: Hiển thị câu SQL sau khi Mod 06 tiêm mệnh đề `WHERE` phân quyền và bọc ngoặc an toàn.
+     * `db_executed`: Hiển thị trạng thái thực thi (`SUCCESS`), số dòng (`row_count`), độ trễ thực thi CSDL (`latency_ms`) và 5 dòng dữ liệu xem trước trực tiếp từ Docker PostgreSQL `vna_wom_dev`.
+   - **Thử nghiệm đối kháng an ninh:** Nhập câu lệnh có ý đồ can thiệp (`DROP TABLE...` hoặc `' OR 1=1 --`), quan sát hệ thống kích hoạt sự kiện `error` hoặc bọc ngoặc an toàn, ghi nhận sự cố DLQ mà không làm crash máy chủ.
+
+
+---
+
+## 12. Hướng Dẫn Kiểm Thử Module 08 (Response Synthesizer & Lineage Badge) & Giao Diện 8-Stage Execution Stepper
+
+Module 08 (`mod08_response`) hoàn tất chặng cuối của luồng xử lý:
+- **Tầng Mẫu Tiền Biên Dịch (JinjaSlotEngine):** Khớp các mẫu câu hỏi thường gặp trong RAM, phản hồi $< 0.05\text{ms}$ với **0 token LLM** và độ chính xác tuyệt đối.
+- **Tầng Sinh Ngôn Ngữ Tự Nhiên (LLMSynthesizer):** Sử dụng `google/gemini-2.5-flash-lite` với Safety Buffer Ceiling (`max_tokens = 2048`) và `BLUF_SYSTEM_PROMPT` siết chặt tính súc tích, chuyên nghiệp.
+- **Thẻ Nguồn Gốc Dữ Liệu (Lineage Badge):** Đính kèm cấp thẩm quyền phê duyệt, số dòng Fact và mã băm SHA-256 bất biến xác thực tính toàn vẹn.
+- **Giao Diện 8-Stage Execution Stepper:** Trực quan hóa toàn bộ 8 bước trên Web Test Bench `/bench` kèm ngăn kéo Payload Inspector chi tiết.
+
+### 12.1. Lệnh Kiểm Thử Tự Động Phân Tầng
+
+```powershell
+# 1. Kiểm thử Unit Tests Tier 1 Module 08 (16 tests, < 1s):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_mod08_response.py -v
+
+# 2. Kiểm thử Tích Hợp Luồng SSE Stream Toàn Diện 8 Modules (Tier 2):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_stream_pipeline_integration.py -v
+
+# 3. Kiểm thử Chained Snapshot Tier 3 Toàn Bộ 8 Stages (106 golden cases, ~3s):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_chained_snapshots_all_8_stages.py -v
+```
+
+### 12.2. Danh Sách Câu Hỏi Kiểm Thử Mẫu (Test Prompts Showcase cho Module 08)
+
+| Khuôn Mẫu (Template) | Mã Case | Câu Hỏi Kiểm Thử (Prompt) | Chế Độ Render (RenderMode) | Kết Quả & Trực Quan Hóa Kỳ Vọng |
+| :--- | :---: | :--- | :---: | :--- |
+| **Chỉ tiêu Đơn lẻ** | `TC-SYNTH-01` | *"Năm 2026, tổng số người được đào tạo từ nguồn kinh phí khuyến công tại Phòng Kinh tế là bao nhiêu?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `DIRECT_METRIC`) | Câu trả lời BLUF trực tiếp, số in đậm định dạng Việt Nam (`643.212`), không gọi LLM (0 token). |
+| **Xếp hạng Top-K** | `CAND_EXEC_03` | *"Xếp hạng 5 huyện, thành phố có kinh phí giải ngân khuyến công cao nhất toàn tỉnh năm 2026?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `RANKING_TOP_K`) | Bảng Markdown Top 5 đơn vị kèm số thứ tự, giá trị và độ lệch biên độ chênh lệch. |
+| **So sánh YoY/MoM** | `CAND_EXEC_01` | *"Tổng số vụ tai nạn lao động trên toàn tỉnh năm 2026 tăng hay giảm bao nhiêu phần trăm so với năm 2025?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `TEMPORAL_COMPARISON`) | Câu kết luận tăng/giảm kèm bảng so sánh 2 kỳ báo cáo; phòng vệ Small Base Effect khi mẫu số nhỏ. |
+| **Tỷ trọng Cơ cấu** | `CAND_EXEC_02` | *"Trong tổng diện tích sàn xây dựng nhà ở hoàn thành năm 2026 toàn tỉnh, nhà ở xã hội chiếm tỷ trọng bao nhiêu phần trăm?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `PART_TO_WHOLE`) | Nêu rõ tỷ trọng phần trăm (`%`), tổng thể toàn tỉnh và phần đóng góp của đối tượng tra cứu. |
+| **Danh sách Báo cáo**| `CAND_SPEC_01` | *"Kiểm tra trạng thái nộp báo cáo của các phòng ban trong kỳ gần nhất"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `REPORT_STATUS_LIST`)| Bảng danh sách mã báo cáo, phòng ban, trạng thái đã duyệt/chờ duyệt và ngày nộp. |
+| **Dữ liệu Bất thường**| `CAND_AUDIT_03`| *"Có những đơn vị nào báo cáo số liệu bằng 0 hoặc để trống bất thường trong năm 2025?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `DATA_ANOMALY`)| Bảng kiểm toán số liệu nghi ngờ kèm khuyến nghị rà soát nghiệp vụ. |
+| **Biểu mẫu Thu thập**| `CAND_CITIZEN_02`| *"Năm 2026 đang áp dụng các biểu mẫu thu thập số liệu nào?"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `COLLECTION_FORM`)| Bảng danh mục mã biểu mẫu, tên biểu và cơ quan đầu mối chủ quản. |
+| **Phân công Cán bộ** | `DISC_10` | *"Xem danh sách nhiệm vụ và cán bộ phụ trách trong kỳ"* | `DETERMINISTIC_TEMPLATE`<br>(Jinja `USER_MISSION`)| Bảng cán bộ phụ trách, tên nhiệm vụ/chỉ tiêu và trạng thái thực hiện. |
+| **Tập Kết quả Rỗng** | `CAND_EXEC_07` | *"Kinh phí thực hiện khuyến công năm 2025 là bao nhiêu?"* | `EMPTY_NOTIFICATION`<br>(Jinja `EMPTY_RESULT`) | Thông báo hòa nhã năm 2025 chưa có số liệu và chủ động gợi ý tra cứu năm 2026 (năm có số liệu đầy đủ). |
+
+### 12.3. Hướng Dẫn Thao Tác Trực Quan Trên Web Test Bench `/bench`
+
+1. **Khởi động Server Backend:**
+   ```powershell
+   .\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server
+   ```
+2. **Truy cập Giao diện Test Bench:** Mở trình duyệt tại [`http://127.0.0.1:8000/bench`](http://127.0.0.1:8000/bench).
+3. **Thao Tác Kiểm Thử Full Pipeline 8 Stages:**
+   - **Bước 1 (Chọn Persona):** Chọn một vai trò (ví dụ: *Lãnh đạo UBND Tỉnh - Role 0*) và bấm **"Tạo JWT & Kết nối"**.
+   - **Bước 2 (Gửi Câu Hỏi):** Nhập một trong các câu hỏi mẫu ở Bảng 12.2 vào ô input và nhấn **"Gửi yêu cầu"**.
+   - **Bước 3 (Quan Sát 8-Stage Stepper):**
+     * Quan sát thanh tiến trình 8 giai đoạn nhảy trạng thái theo thời gian thực:  
+       `1. Gateway` $\to$ `2. Pre-Router` $\to$ `3. Router H-DFT` $\to$ `4. Catalog` $\to$ `5. SQL Compiler` $\to$ `6. AST Enforcer` $\to$ `7. DWH Exec` $\to$ `8. Synthesizer`.
+     * Khi mỗi stage đang chạy, icon hiển thị hiệu ứng nhấp nháy xanh dương (`Running`). Khi hoàn tất, chuyển sang xanh lá (`Completed`).
+   - **Bước 4 (Thanh Tra Payload Trung Gian):**
+     * Click vào bất kỳ thẻ stage nào trên thanh Stepper để mở ngăn kéo **"Payload Inspector Drawer"**.
+     * Xem chi tiết dữ liệu JSON/SQL trung gian (ví dụ: xem câu SQL đã được tiêm phân quyền HBAC ở Stage 6, hoặc số dòng CSDL trả về ở Stage 7).
+   - **Bước 5 (Kiểm Tra Câu Trả Lời & Thẻ Lineage Badge):**
+     * Xem câu trả lời được render chuẩn Markdown với bảng biểu kẻ ô sắc nét từ `marked.js`.
+     * Xem thẻ **Lineage Badge** màu xanh hiển thị: *Cấp thẩm quyền cao nhất*, *Số dòng Fact đối chiếu*, và *Mã băm SHA-256*.
+     * Nhấn nút **"Sao chép Hash"** để copy chuỗi hash xác thực vào clipboard phục vụ công tác kiểm toán độc lập.
+
+
+---
+
+## 13. Hướng Dẫn Kiểm Thử Cơ Chế Phân Vùng Đa Khách Thuê (Multi-Tenant Scoping) & Tầng Ngữ Nghĩa (Module 04)
+
+### 13.1. Lệnh Terminal Chạy Test Suites
+```powershell
+# 1. Kiểm thử độc lập cơ chế phân vùng Tenant & Role Scoping:
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_tenant_scoped_catalog.py -v
+
+# 2. Kiểm thử Hybrid Search RRF & Micro-LLM Disambiguation:
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_semantic_hybrid_catalog.py -v
+
+# 3. Kiểm thử hồi quy toàn diện Module 04 & Module 05 (29 tests):
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_mod04_catalog.py IPGov_Chatbot/tests/test_semantic_hybrid_catalog.py IPGov_Chatbot/tests/test_mod05_phase1_track_a.py IPGov_Chatbot/tests/test_tenant_scoped_catalog.py -v
+```
+
+### 13.2. Danh Sách Câu Hỏi Kiểm Thử Mẫu (Test Prompts Showcase cho Module 04)
+
+| Mã Case | Địa Phương / Tenant | Câu Hỏi Thử Nghiệm (Prompt) | Mã Kỳ Vọng | Hành Vi Hệ Thống Kỳ Vọng |
+|:---:|:---:|:---|:---:|:---|
+| `BM-12` | Lâm Đồng (`68`) | *"Năm 2026 toàn tỉnh có bao nhiêu người bị thương tích khi làm việc?"* | `tong_so_nguoi_bi_tai_nan_lao_dong_2` | Phân giải chính xác mã địa phương Lâm Đồng có 34 dòng Fact, loại bỏ distractor tenant 79. |
+| `BM-17` | Lâm Đồng (`68`) | *"Thời gian công nhân phải nghỉ vì tai nạn lao động năm 2026"* | `so_ngay_cong_nghi_vi_tai_nan_lao_dong_2` | Khớp đúng chỉ tiêu ngày nghỉ tai nạn của tenant 68. |
+| `BM-28` | Lâm Đồng (`68`) | *"Chi phí bồi thường và trợ cấp tai nạn lao động năm 2026 của toàn tỉnh"* | `tong_chi_phi_tai_nan_lao_dong_2` | Khớp đúng chỉ tiêu chi phí tai nạn của tenant 68. |
+| `BM-29` | Lâm Đồng (`68`) | *"Số người bị nạn nặng do tai nạn lao động năm 2026"* | `tong_so_nguoi_bi_tai_nan_lao_dong_2` | Khớp đúng chỉ tiêu người bị nạn nặng của tenant 68. |
+| `ISO-79` | TP.HCM (`79`) | *"Tổng số người bị tai nạn lao động"* | `tong_so_nguoi_bi_tai_nan_lao_dong` | Cô lập địa phương: TP.HCM trả về mã gốc, tuyệt đối không bị dính mã `_2` của Lâm Đồng. |
+
+### 13.3. Hướng Dẫn Thao Tác Trên Giao Diện App / Web Test Bench `/bench`
+1. Khi khởi động ứng dụng UI, `role` và `tenant_code` được nạp mặc định từ cấu hình người dùng (mặc định tỉnh Lâm Đồng `tenant_code = "68"`). Người dùng có thể chuyển đổi địa phương (`68` hoặc `79`) trực tiếp trên thanh điều hướng/chọn vai trò.
+2. Khi nhập các câu hỏi kiểm tra ở bảng trên, Tầng Ngữ Nghĩa tự động kích hoạt **Pre-filtering Partition Scoping**:
+   - Lọc phân vùng DuckDB: `WHERE tenant_code = :tenant_code OR tenant_code IS NULL`.
+   - Tính toán Dense Semantic và BM25 Sparse thuần túy trên `name` và `aliases`.
+   - Khử trùng lặp mã trước khi tổng hợp điểm RRF (triệt tiêu `[TRAP-026]`).
+   - Micro-LLM `gemini-2.5-flash-lite` chọn chuẩn xác chỉ tiêu mục tiêu gửi sang Module 05 biên dịch câu lệnh SQL.
+
+---
+
+## 14. Hướng Dẫn Kiểm Thử Autonomous Warehouse Agent (LangGraph & Full-Stack Next.js)
+
+### 14.1. Lệnh Terminal Chạy Bộ Kiểm Thử E2E (15 Ca Đại Diện)
+Bộ kiểm thử chạy trực tiếp trên CSDL máy chủ công ty (`104.248.155.6:5432/vna_wom_dev`) và bộ nhớ SQLite `data/agent_memory.db`:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_warehouse_agent_e2e.py -v
+```
+
+### 14.2. Danh Sách Câu Hỏi Kiểm Thử Mẫu (Test Prompts Showcase cho Autonomous Warehouse Agent)
+
+| Nhóm Kiểm Thử | Mã Case | Câu Hỏi Thử Nghiệm (Prompt) | Hành Vi & Phản Hồi Kỳ Vọng | Khối SQL Thu Gọn |
+|:---|:---:|:---|:---|:---:|
+| **Tra cứu Số liệu Fact** | `TC-DWH-09` | *"Tổng sản lượng OCOP năm 2026 của Lâm Đồng là bao nhiêu?"* | Tự động sinh SQL tổng hợp trên `fact_report_criteria`, lọc `tenant_code='68'`, `year_code='2026'`, `report_status='approved'`. Trả về câu trả lời tự nhiên BLUF. | Có `<details>` chứa câu lệnh SQL |
+| **Kế thừa Phiên (Turn 1)** | `TC-DWH-12a` | *"Tổng sản lượng OCOP của Lâm Đồng năm 2026?"* | Lưu ngữ cảnh `tenant_code='68'`, `year_code='2026'` vào SQLite `agent_memory.db`. | Có `<details>` chứa câu lệnh SQL |
+| **Kế thừa Phiên (Turn 2)** | `TC-DWH-12b` | *"Thế còn diện tích sản xuất muối?"* | Tự động kế thừa `tenant_code='68'`, `year_code='2026'` mà **không hỏi lại người dùng**. | Có `<details>` chứa câu lệnh SQL |
+| **Chặn Bảng Cấm** | `TC-DWH-02` | *"Cho tôi xem danh sách bảng pipeline_logs"* | Hệ thống từ chối an toàn: `pipeline_logs` là bảng hạ tầng kỹ thuật, cấm truy cập. | Không có SQL |
+| **Chặn Phá Hoại AST** | `TC-DWH-04` | *"DROP TABLE fact_report_criteria;"* | AST Guardrail chặn đứng ngay tại tầng SQLGlot: *Chỉ cho phép truy vấn đọc SELECT*. | Không có SQL |
+
+### 14.3. Hướng Dẫn Thao Tác Trực Quan Trên Web Frontend (Next.js)
+
+1. **Khởi động Backend & Frontend:**
+   ```powershell
+   # Terminal 1: Backend FastAPI
+   .\.venv\Scripts\python.exe -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+
+   # Terminal 2: Frontend Next.js
+   cd frontend
+   npm run dev
+   ```
+2. **Truy cập ứng dụng:** Mở trình duyệt tại [`http://localhost:3000`](http://localhost:3000).
+3. **Thao tác kiểm thử:**
+   - **Thanh trạng thái Live Loading:** Đặt câu hỏi và quan sát thanh tiến trình cập nhật từng giai đoạn (`THINKING` -> `EXPLORING_WAREHOUSE` -> `GENERATING_SQL` -> `EXECUTING_DWH` -> `SYNTHESIZING`).
+   - **Khối SQL thu gọn:** Khi câu trả lời xuất hiện, click vào `🔍 Xem câu lệnh truy vấn (SQL Query)` để bung xem mã SQL và sao chép mã.
+   - **Hội thoại đa lượt:** Nhập câu hỏi kế thừa ngắn gọn (ví dụ: *"Thế còn diện tích sản xuất muối?"*) -> Agent tự động kế thừa tỉnh/năm mà không hỏi lại.
+
+---
+
+## 15. Demo Showcase: Tra Cứu 4 Lĩnh Vực Nghiệp Vụ Kho Dữ Liệu Tỉnh Lâm Đồng (Năm 2026)
+
+Để phục vụ công tác kiểm thử, nghiệm thu và demo thực tế theo đúng lời giới thiệu của Trợ lý AI IPGov Chatbot, bảng dưới đây tổng hợp đầy đủ các câu hỏi thử nghiệm mẫu, câu lệnh SQL kỳ vọng, kết quả thực tế trên CSDL `104.248.155.6:5432/vna_wom_dev`, cấu trúc phản hồi và Quick Action Chips điều hướng tương ứng:
+
+### 15.1. Bảng Tổng Hợp Kịch Bản Kiểm Thử Demo 4 Lĩnh Vực
+
+| Lĩnh Vực Nghiệp Vụ | Mã Case | Câu Hỏi Thử Nghiệm (Prompt) | Bảng DWH Cốt Lõi | Dữ Liệu Thực Tế (Ground Truth) | Phản Hồi Kỳ Vọng & Giao Diện |
+|:---|:---:|:---|:---|:---|:---|
+| **1. Chỉ tiêu Kinh tế - Xã hội & Nông nghiệp** | `DEMO-KT-01` | *"Tổng các hộ sản xuất muối năm 2026 của tỉnh là bao nhiêu?"* | `fact_report_criteria` | Giá trị: `1,320` hộ (lọc `report_status='approved'`, `year_code='2026'`) | Trả lời trực diện, định dạng số chuẩn Việt Nam (`1,320`), khối `<details>` SQL thu gọn, chips: *Diện tích sản xuất muối*, *Sản phẩm OCOP*. |
+| **1. Chỉ tiêu Kinh tế - Xã hội & Nông nghiệp** | `DEMO-KT-02` | *"Số lượng trang trại hiện tại của tỉnh là bao nhiêu?"* | `fact_report_criteria` | Cột `value` của *Trang trại* là `NULL`; có 3 dòng *Doanh thu bình quân trang trại* | Phát hiện giá trị chưa nạp hoặc gợi ý các chỉ tiêu trang trại liên quan có số liệu, không gộp nhầm chỉ tiêu doanh thu. |
+| **2. Tình hình Báo cáo & Tổng hợp** | `DEMO-BC-01` | *"Trạng thái các đợt nộp báo cáo của Sở Nông nghiệp hiện nay thế nào?"* | `report` | 9 đợt nộp: 6 đợt `approved`, 3 đợt `draft` | Bảng Markdown 4 cột (STT, Đợt nộp, Đơn vị nộp, Trạng thái Việt hóa: **Đã phê duyệt** / **Bản nháp**), kèm chips tra cứu số liệu. |
+| **2. Tình hình Báo cáo & Tổng hợp** | `DEMO-BC-02` | *"Hiện có bao nhiêu báo cáo đã được phê duyệt trong năm 2026?"* | `report` | Tổng số: `6` báo cáo đã duyệt | Câu trả lời trực diện: *"Theo số liệu tổng hợp năm **2026** của tỉnh Lâm Đồng, hiện có **6** báo cáo đã được phê duyệt."* |
+| **3. Biểu mẫu Thu thập Số liệu** | `DEMO-BM-01` | *"Hiện tại có những biểu mẫu thu thập thông tin nào đang kích hoạt?"* | `collection_form` | `0` dòng (bảng tồn tại nhưng CSDL chưa nạp dữ liệu kỳ 2026) | Thông báo trung thực (Zero Hallucination) biểu mẫu chưa kích hoạt trong kỳ 2026; gợi ý tra cứu chỉ tiêu hoặc tình hình báo cáo. |
+| **4. Nhiệm vụ, Đề án & Cán bộ Phụ trách** | `DEMO-NV-01` | *"Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"* | `mission` | 5 nhiệm vụ: Diêm nghiệp, PTNT, Cải cách HC, nhiệm vụ 2, nhiệm vụ 3 | Bảng Markdown 3 cột (STT, Tên nhiệm vụ, Trạng thái: **Đang triển khai**). Không rò rỉ mã cột DWH kỹ thuật. |
+| **4. Nhiệm vụ, Đề án & Cán bộ Phụ trách** | `DEMO-NV-02` | *"Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?"* | `user_mission`, `"user"` | 2 nhân sự: Nguyễn Thị Thúy Lành (BA - Chi cục) & Phường Bắc Gia Nghĩa (QTV - Phòng NN) | Bảng Markdown 5 cột (STT, Họ và tên, Chức vụ, Phòng ban/Đơn vị, Nhiệm vụ phụ trách), chips tra cứu nhiệm vụ khác. |
+
+---
+
+### 15.2. Chi Tiết Câu Lệnh SQL Chuẩn Sinh Ra Từ Tầng AST
+
+Dưới đây là các câu lệnh SQL mẫu đã được kiểm chứng thực thi thành công không lỗi cú pháp trên PostgreSQL:
+
+1. **Truy vấn Tổng hộ sản xuất muối:**
+   ```sql
+   SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri
+   FROM dwh_internal.fact_report_criteria AS f
+   WHERE f.tenant_code = '68' 
+     AND f.report_status = 'approved' 
+     AND f.year_code = '2026' 
+     AND TRIM(f.name) ILIKE TRIM('Tổng hộ sản xuất muối')
+   LIMIT 500;
+   ```
+2. **Truy vấn Đợt nộp báo cáo Sở Nông nghiệp:**
+   ```sql
+   SELECT r.id, r.report_date, r.status, r.department_code, r.year_code
+   FROM dwh_internal.report AS r
+   WHERE r.tenant_code = '68' 
+     AND r.year_code = '2026' 
+     AND r.department_code = '68-1-01'
+   LIMIT 500;
+   ```
+3. **Truy vấn Số lượng báo cáo đã phê duyệt:**
+   ```sql
+   SELECT COUNT(r.id) AS so_luong_bao_cao_da_duyet
+   FROM dwh_internal.report AS r
+   WHERE r.tenant_code = '68' 
+     AND r.year_code = '2026' 
+     AND r.status = 'approved'
+   LIMIT 500;
+   ```
+4. **Truy vấn Danh mục nhiệm vụ đang triển khai:**
+   ```sql
+   SELECT m.mission_name
+   FROM dwh_internal.mission AS m
+   WHERE m.year_code = '2026' 
+     AND m.tenant_code = '68' 
+     AND m.mission_status = TRUE
+   LIMIT 500;
+   ```
+5. **Truy vấn Cán bộ phụ trách nhiệm vụ diêm nghiệp:**
+   ```sql
+   WITH target_mission AS (
+     SELECT um.user_id, um.mission_name, um.office_name
+     FROM dwh_internal.user_mission AS um
+     WHERE um.mission_name ILIKE '%Diêm nghiệp%'
+   )
+   SELECT u.name, u.position, tm.office_name, tm.mission_name
+   FROM target_mission AS tm
+   JOIN dwh_internal."user" AS u ON tm.user_id = u.id
+   LIMIT 500;
+   ```
+
+---
+
+### 15.3. Hướng Dẫn Thao Tác & Kiểm Tra Tính Đồng Bộ Trên Giao Diện Web UI
+
+1. **Khởi động hệ thống:**
+   - **Backend Server:** `.\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server` (Port 8000)
+   - **Frontend App:** `cd IPGov_Chatbot/frontend && npm run dev` (Port 3000)
+2. **Kiểm tra trên Next.js Chat Web (`http://localhost:3000`):**
+   - Đặt lần lượt các câu hỏi từ `DEMO-KT-01` đến `DEMO-NV-02`.
+   - **Tiêu chí đạt (Pass Criteria):**
+     * Không nhắc lại nguyên văn câu hỏi người dùng ở dòng đầu.
+     * Số liệu hàng nghìn có dấu phẩy phân cách rõ ràng (ví dụ: `1,320`).
+     * Khối SQL `<details>` mặc định **thu gọn**, click vào mới mở ra câu truy vấn tương ứng.
+     * Cuối mỗi câu trả lời xuất hiện hàng **Quick Action Chips** liên quan đến lĩnh vực vừa tra cứu.
+     * Bảng biểu hiển thị đủ viền, căn dòng ngay ngắn, nhãn trạng thái kỹ thuật (`approved`, `draft`, `true`) được chuyển hóa thành tiếng Việt hành chính (**Đã phê duyệt**, **Bản nháp**, **Đang triển khai**).
+

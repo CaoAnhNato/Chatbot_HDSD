@@ -47,7 +47,7 @@ class SQLCompilerFacade:
         self,
         catalog: Optional[Any] = None,
         primary_model: str = "google/gemini-3.5-flash-lite",
-        fallback_model: str = "google/gemini-3.8-flash",
+        fallback_model: str = "deepseek/deepseek-v4.1-flash",
         enable_live_db_dry_run: bool = True,
     ) -> None:
         if catalog is None:

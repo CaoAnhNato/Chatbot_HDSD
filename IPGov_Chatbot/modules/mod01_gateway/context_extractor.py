@@ -43,7 +43,7 @@ SAMPLE_ROLE_PROFILES: Dict[str, Dict[str, Any]] = {
         "username": "truongphong_kinhte_lamdong",
         "tenant_code": "68",
         "department_code": "68-1-02",
-        "office_id": "Phòng Kinh tế",
+        "office_id": None,
         "role_level": 2,
         "description": "Cấp Phòng ban chuyên môn - Phòng Kinh tế UBND Tỉnh Lâm Đồng"
     },
@@ -52,7 +52,7 @@ SAMPLE_ROLE_PROFILES: Dict[str, Dict[str, Any]] = {
         "username": "chuyenvien_xaydung_lamdong",
         "tenant_code": "68",
         "department_code": "68-1-02",
-        "office_id": "Phòng ban xây dựng",
+        "office_id": None,
         "role_level": 2,
         "description": "Cấp Phòng ban chuyên môn - Phòng ban xây dựng Lâm Đồng"
     },

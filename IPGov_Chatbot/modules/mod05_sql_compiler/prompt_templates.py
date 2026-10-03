@@ -56,27 +56,28 @@ Trong trường `thought_scratchpad`, bạn BẮT BUỘC thực hiện suy luậ
    - CSDL có chính xác 34 dòng fact cấp Tỉnh có `office_id IS NULL`.
    - Khi câu hỏi yêu cầu thống kê cấp Tỉnh hoặc cấp Sở, DÙNG `LEFT JOIN dwh_internal.office o ON f.office_id = o.id` hoặc liên kết trực tiếp `f.department_code = d.code`. Không được ép `INNER JOIN` qua `office` làm mất 34 dòng này.
 
-5. CHÍNH TẢ BẢNG DANH MỤC CƠ QUAN ([TRAP-005]):
+5. LƯU Ý VỀ BẢNG DANH MỤC CƠ QUAN ([TRAP-005]):
    - Tên bảng danh mục cơ quan trong CSDL hiện hữu là `dwh_internal.deparment` (không có chữ 't' thứ hai).
+   - ĐẶC BIỆT LƯU Ý: Bảng `deparment` hiện đang có 0 bản ghi (trống sau đợt reset data). TUYỆT ĐỐI KHÔNG JOIN với `dwh_internal.deparment` vì sẽ làm kết quả trả về 0 dòng! Dùng trực tiếp mã sở ngành suy biến `f.department_code` trên `fact_report_criteria`.
 
 6. ƯU TIÊN TUYỆT ĐỐI SINGLE UNIFIED SQL (WINDOW FUNCTIONS):
    - Đẩy toàn bộ các phép tính phức tạp (YoY, MoM, Top-K, Tỷ trọng, Pivot) xuống hàm cửa sổ PostgreSQL 16:
-     * Tăng trưởng liên kỳ: `LAG(metric_val) OVER (ORDER BY year ASC)`
+     * Tăng trưởng liên kỳ: `LAG(metric_val) OVER (ORDER BY year_code ASC)`
      * Xếp hạng: `DENSE_RANK() OVER (ORDER BY metric_val DESC)`
      * Tỷ trọng: `ROUND((metric_val / NULLIF(SUM(metric_val) OVER (), 0)) * 100.0, 2)`
      * Chênh lệch bình quân: `metric_val - AVG(metric_val) OVER ()`
 
 7. TRA CỨU TIẾN ĐỘ / TRẠNG THÁI BÁO CÁO:
-   - Khi câu hỏi hỏi về trạng thái phê duyệt báo cáo ('đã duyệt chưa', 'chờ duyệt', 'ngày nộp báo cáo', 'tiến độ nộp báo cáo'), TRUY VẤN BẢNG `dwh_internal.report r` (JOIN `dwh_internal.deparment d ON r.department_code = d.code`). Các cột: `r.id`, `r.status`, `r.report_date`, `r.year`, `d.name`. KHÔNG dùng `fact_report_criteria` khi hỏi tiến độ duyệt văn bản báo cáo.
+   - Khi câu hỏi hỏi về trạng thái phê duyệt báo cáo ('đã duyệt chưa', 'chờ duyệt', 'ngày nộp báo cáo', 'tiến độ nộp báo cáo'), TRUY VẤN BẢNG `dwh_internal.report r`. Các cột: `r.id`, `r.status`, `r.report_date`, `r.year_code`, `r.department_code`. KHÔNG dùng `fact_report_criteria` khi hỏi tiến độ duyệt văn bản báo cáo.
 
 8. TRA CỨU BIỂU MẪU BÁO CÁO (COLLECTION FORMS):
-   - Khi câu hỏi hỏi về danh mục biểu mẫu thu thập số liệu, mẫu phiếu, tờ khai, TRUY VẤN BẢNG `dwh_internal.collection_form cf` (có thể JOIN `dwh_internal.deparment d ON cf.department_code = d.code`). Các cột: `cf.id`, `cf.code`, `cf.name`, `cf.year_code`, `cf.status`, `cf.start_date`, `cf.end_date`. Tuyệt đối KHÔNG dùng các bảng ảo giác như `report_template` hay `report_type`.
+   - Khi câu hỏi hỏi về danh mục biểu mẫu thu thập số liệu, mẫu phiếu, tờ khai, TRUY VẤN BẢNG `dwh_internal.collection_form cf`. Các cột: `cf.id`, `cf.code`, `cf.name`, `cf.year_code`, `cf.status`, `cf.start_date`, `cf.end_date`. Tuyệt đối KHÔNG dùng các bảng ảo giác như `report_template` hay `report_type`.
 
 9. TRA CỨU NHIỆM VỤ VÀ LĨNH VỰC (MISSIONS & SCOPES):
-   - Khi câu hỏi hỏi về nhiệm vụ, đề án, chương trình công tác, TRUY VẤN BẢNG `dwh_internal.mission m` (có thể JOIN `dwh_internal.deparment d ON m.department_code = d.code`, `dwh_internal.scope s ON m.scope_id = s.id`, `dwh_internal.user_mission um`, hoặc `dwh_internal.office_mission om`). Các cột: `m.mission_code`, `m.mission_name`, `m.scope_name`, `m.mission_status`, `m.year`. Tuyệt đối KHÔNG dùng bảng ảo giác `field`.
+   - Khi câu hỏi hỏi về nhiệm vụ, đề án, chương trình công tác, TRUY VẤN BẢNG `dwh_internal.mission m` (có thể JOIN `dwh_internal.scope s ON m.scope_id = s.id`, `dwh_internal.user_mission um`, hoặc `dwh_internal.office_mission om`). Các cột: `m.mission_code`, `m.mission_name`, `m.scope_name`, `m.mission_status`, `m.year_code`. Tuyệt đối KHÔNG dùng bảng ảo giác `field`.
 
 10. NĂM DỮ LIỆU THỰC TẾ TRONG KHO ([TRAP-025]):
-   - CSDL thử nghiệm hiện hành lưu trữ số liệu thực tế cho năm 2026 (`f.year = '2026'`, `cf.year_code = '2026'`, `m.year = '2026'`). Khi truy vấn số liệu báo cáo, ưu tiên `year = '2026'` hoặc chuỗi liên kỳ `f.year IN ('2024', '2025', '2026')`.
+   - CSDL thử nghiệm hiện hành lưu trữ số liệu thực tế cho năm 2026 (`f.year_code = '2026'`, `cf.year_code = '2026'`, `m.year_code = '2026'`). Cột năm trong CSDL là `year_code` (KHÔNG dùng `year`). Khi truy vấn số liệu báo cáo, ưu tiên `year_code = '2026'` hoặc chuỗi liên kỳ `f.year_code IN ('2024', '2025', '2026')`.
 
 ---
 
@@ -85,12 +86,12 @@ Trong trường `thought_scratchpad`, bạn BẮT BUỘC thực hiện suy luậ
 Mẫu 1: So sánh chuỗi thời gian liên hoàn (TEMPORAL_COMPARISON - YoY / MoM):
 ```sql
 WITH annual_metric AS (
-    SELECT f.year, SUM(NULLIF(TRIM(f.value), '')::numeric) AS metric_val
+    SELECT f.year_code AS year, SUM(NULLIF(TRIM(f.value), '')::numeric) AS metric_val
     FROM dwh_internal.fact_report_criteria f
     JOIN dwh_internal.criteria c ON f.criteria_id = c.id
     WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND c.code = :metric_code
-      AND f.year IN ('2024', '2025', '2026')
-    GROUP BY f.year
+      AND f.year_code IN ('2024', '2025', '2026')
+    GROUP BY f.year_code
 )
 SELECT year, metric_val,
        LAG(metric_val) OVER (ORDER BY year ASC) AS prev_val,
@@ -102,31 +103,30 @@ ORDER BY year DESC;
 
 Mẫu 2: Đối chuẩn ngang hàng đa thực thể (CROSS_ENTITY_COMPARISON):
 ```sql
-SELECT COALESCE(o.office_name, 'Trực thuộc cơ quan chủ quản') AS ten_don_vi,
+SELECT COALESCE(o.office_name, f.department_code, 'Trực thuộc cơ quan chủ quản') AS ten_don_vi,
        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,
        AVG(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS trung_binh_nhom,
        SUM(NULLIF(TRIM(f.value), '')::numeric) - AVG(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS chenh_lech_so_voi_tb
 FROM dwh_internal.fact_report_criteria f
 JOIN dwh_internal.criteria c ON f.criteria_id = c.id
 LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year = :year AND c.code = :metric_code
-GROUP BY o.office_name
+WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year_code = :year AND c.code = :metric_code
+GROUP BY o.office_name, f.department_code
 ORDER BY tong_gia_tri DESC;
 ```
 
 Mẫu 3: Xếp hạng phân vị Top-K (RANKING_TOP_K):
 ```sql
 WITH ranked_entities AS (
-    SELECT COALESCE(o.office_name, d.name) AS ten_don_vi,
+    SELECT COALESCE(o.office_name, f.department_code) AS ten_don_vi,
            SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,
            DENSE_RANK() OVER (ORDER BY SUM(NULLIF(TRIM(f.value), '')::numeric) DESC) AS rank_pos,
            MAX(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () - MIN(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS khoang_bien_do
     FROM dwh_internal.fact_report_criteria f
     JOIN dwh_internal.criteria c ON f.criteria_id = c.id
     LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-    LEFT JOIN dwh_internal.deparment d ON f.department_code = d.code
-    WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year = :year AND c.code = :metric_code
-    GROUP BY o.office_name, d.name
+    WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year_code = :year AND c.code = :metric_code
+    GROUP BY o.office_name, f.department_code
 )
 SELECT ten_don_vi, tong_gia_tri, rank_pos, khoang_bien_do
 FROM ranked_entities
@@ -141,7 +141,7 @@ SELECT f.name AS ten_thanh_phan,
        SUM(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS tong_so_toan_tinh,
        ROUND((SUM(NULLIF(TRIM(f.value), '')::numeric) / NULLIF(SUM(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER (), 0)) * 100.0, 2) AS ty_trong_pct
 FROM dwh_internal.fact_report_criteria f
-WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year = :year
+WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND f.year_code = :year
 GROUP BY f.name
 ORDER BY gia_tri_thanh_phan DESC;
 ```
@@ -149,16 +149,16 @@ ORDER BY gia_tri_thanh_phan DESC;
 Mẫu 5: Ma trận phân tích chéo đa chiều (MULTI_DIMENSIONAL_PIVOT):
 ```sql
 SELECT o.office_name AS ten_phong_ban,
-       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025') AS nam_2025,
-       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2026') AS nam_2026,
-       ROUND(((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2026') -
-               SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025')) /
-              NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '2025'), 0)) * 100.0, 2) AS tang_truong_pct
+       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '2025') AS nam_2025,
+       SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '2026') AS nam_2026,
+       ROUND(((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '2026') -
+               SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '2025')) /
+              NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '2025'), 0)) * 100.0, 2) AS tang_truong_pct
 FROM dwh_internal.fact_report_criteria f
 JOIN dwh_internal.criteria c ON f.criteria_id = c.id
 JOIN dwh_internal.office o ON f.office_id = o.id
 WHERE f.report_status = 'approved' AND f.tenant_code = :tenant_code AND c.code = :metric_code
-  AND f.year IN ('2025', '2026')
+  AND f.year_code IN ('2025', '2026')
 GROUP BY o.office_name
 ORDER BY nam_2026 DESC;
 ```
@@ -199,7 +199,7 @@ def build_3tier_text_to_sql_prompt(
         schema_parts.append("""-- Bảng Fact chính lưu trữ số liệu báo cáo
 CREATE TABLE dwh_internal.fact_report_criteria (
     fact_sk TEXT PRIMARY KEY,
-    year VARCHAR(4) NOT NULL,
+    year_code VARCHAR(4) NOT NULL,
     value TEXT, -- Chứa cả text và chuỗi rỗng! Bắt buộc dùng NULLIF(TRIM(value), '')::numeric
     code VARCHAR(128),
     name VARCHAR(255),
@@ -219,7 +219,7 @@ CREATE TABLE dwh_internal.criteria (
     parent_id UUID
 );
 
--- Bảng danh mục cơ quan (deparment - lưu ý không có chữ t thứ hai)
+-- Bảng danh mục cơ quan (deparment - lưu ý không có chữ t thứ hai; hiện có 0 bản ghi, ưu tiên dùng f.department_code)
 CREATE TABLE dwh_internal.deparment (
     code VARCHAR PRIMARY KEY,
     name VARCHAR NOT NULL,
@@ -240,7 +240,7 @@ CREATE TABLE dwh_internal.office (
 CREATE TABLE dwh_internal.report (
     id UUID PRIMARY KEY,
     status VARCHAR(32) NOT NULL, -- 'approved', 'draft', 'pending', 'rejected'
-    year VARCHAR(4) NOT NULL,
+    year_code VARCHAR(4) NOT NULL,
     department_code VARCHAR(64) NOT NULL,
     tenant_code VARCHAR(64) NOT NULL,
     report_date TIMESTAMP,
@@ -314,7 +314,7 @@ CREATE TABLE dwh_internal."user" (
         if quest.metric_code:
             suffix_parts.append(f"- CHỈ TIÊU TRÍCH XUẤT: {quest.metric_code}")
         if quest.temporal_val:
-            suffix_parts.append(f"- MỐC THỜI GIAN CHUẨN HÓA TRONG KHO: BẮT BUỘC DÙNG `year = '{quest.temporal_val}'` TRONG MỆNH ĐỀ WHERE (KHO DỮ LIỆU HIỆN HÀNH LƯU TRỮ SỐ LIỆU NĂM {quest.temporal_val})")
+            suffix_parts.append(f"- MỐC THỜI GIAN CHUẨN HÓA TRONG KHO: BẮT BUỘC DÙNG `year_code = '{quest.temporal_val}'` TRONG MỆNH ĐỀ WHERE (KHO DỮ LIỆU HIỆN HÀNH LƯU TRỮ SỐ LIỆU NĂM {quest.temporal_val})")
         if quest.admin_entity:
             suffix_parts.append(f"- ĐƠN VỊ TRÍCH XUẤT: {quest.admin_entity}")
 

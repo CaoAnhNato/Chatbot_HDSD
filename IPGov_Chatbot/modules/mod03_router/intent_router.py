@@ -78,8 +78,8 @@ class IntentRouter:
             (
                 IntentEnum.META_CAPABILITY,
                 re.compile(r"\b(từ năm nào đến năm nào|mốc thời gian|chu kỳ dữ liệu)\b", re.IGNORECASE),
-                "Kho dữ liệu lưu trữ số liệu báo cáo chính thức đã phê duyệt của năm 2024, năm 2025 và kế hoạch/tiến độ năm 2026, với các chu kỳ thu thập: Tháng, Quý, 6 tháng và Năm.",
-                ["📊 Tra cứu số liệu năm 2025", "📈 Kế hoạch chỉ tiêu năm 2026", "📋 Báo cáo tổng kết 2024"],
+                "Kho dữ liệu công vụ hiện tại sau đợt cập nhật lưu trữ số liệu báo cáo của năm 2026 (tỉnh Lâm Đồng), các năm trước đang được đồng bộ bổ sung từ phần mềm tác nghiệp.",
+                ["📊 Tra cứu số liệu năm 2026", "🔄 Kiểm tra tiến độ đồng bộ ETL", "📋 Xem danh mục chỉ tiêu"],
             ),
             (
                 IntentEnum.META_CAPABILITY,
@@ -150,7 +150,7 @@ class IntentRouter:
 
         # 3. Trích xuất năm
         year_match = re.search(r"\b(202[4-6])\b", text)
-        start_year = int(year_match.group(1)) if year_match else (int(curr_quest.temporal_val) if curr_quest and curr_quest.temporal_val and curr_quest.temporal_val.isdigit() else 2025)
+        start_year = int(year_match.group(1)) if year_match else (int(curr_quest.temporal_val) if curr_quest and curr_quest.temporal_val and curr_quest.temporal_val.isdigit() else 2026)
 
         # 4. Xác định intent
         comparison_year = None
@@ -565,8 +565,8 @@ class IntentRouter:
                     "Kinh phí sự nghiệp y tế",
                     "Chi đầu tư phát triển",
                 ] if is_generic_metric else [
-                    "Năm 2025 (Chính thức)",
-                    "Năm 2026 (Kế hoạch)",
+                    "Năm 2026 (Hiện hành)",
+                    "Năm 2025",
                     "Năm 2024",
                 ]
             )

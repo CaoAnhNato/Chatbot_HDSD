@@ -43,31 +43,25 @@ class ArchetypePatternCatalog:
         office_id: Optional[str] = None,
     ) -> str:
         """Mẫu 1: So sánh chuỗi thời gian liên hoàn (YoY, MoM) qua hàm LAG()."""
-        comp_years = years or ["2025", "2026"]
-        all_years = sorted(list(set(comp_years + ["2026"])))
-        years_in = ", ".join(f"'{y}'" for y in all_years)
+        comp_years = sorted(list(set(years))) if years else []
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
-            f"f.year IN ({years_in})",
         ]
+        if comp_years:
+            years_in = ", ".join(f"'{y}'" for y in comp_years)
+            where_conds.append(f"f.year_code IN ({years_in})")
         crit_conds = []
         if metric_code:
             crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
             crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
-            name_parts = clean_name.split()
-            if len(name_parts) >= 2:
-                core_phrase = " ".join(name_parts[-2:])
-                crit_conds.append(f"c.name ILIKE '%{core_phrase}%' OR f.name ILIKE '%{core_phrase}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
             crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
         if crit_conds:
-            where_conds.append(f"({' OR '.join(crit_conds)} OR (f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%'))")
-        else:
-            where_conds.append("(f.name ILIKE '%tai nạn lao động%' OR f.code ILIKE '%tai_nan_lao_dong%')")
+            where_conds.append(f"({' OR '.join(crit_conds)})")
         if department_code:
             where_conds.append(f"f.department_code = '{department_code}'")
         if office_id:
@@ -76,62 +70,59 @@ class ArchetypePatternCatalog:
 
         return f"""WITH annual_stat AS (
     SELECT 
-        f.year,
+        f.year_code AS nam,
         SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri
     FROM dwh_internal.fact_report_criteria f
     LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
-    GROUP BY f.year
+    GROUP BY f.year_code
 )
 SELECT 
-    year,
+    nam,
     tong_gia_tri,
-    LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS tong_nam_truoc,
-    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC) AS bien_dong_tuyet_doi,
+    LAG(tong_gia_tri) OVER (ORDER BY nam ASC) AS tong_nam_truoc,
+    tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY nam ASC) AS bien_dong_tuyet_doi,
     ROUND(
-        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY year ASC)) / 
-         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY year ASC), 0)) * 100.0, 
+        ((tong_gia_tri - LAG(tong_gia_tri) OVER (ORDER BY nam ASC)) / 
+         NULLIF(LAG(tong_gia_tri) OVER (ORDER BY nam ASC), 0)) * 100.0, 
         2
     ) AS ty_le_tang_truong_pct
 FROM annual_stat
-ORDER BY year DESC;"""
+ORDER BY nam DESC;"""
 
     @classmethod
     def build_ranking_top_k_sql(
         cls,
         metric_code: str = "",
         metric_name: str = "",
-        year: str = "2026",
+        year: Optional[str] = None,
         top_k: int = 5,
         tenant_code: str = "68",
         order_dir: str = "DESC",
     ) -> str:
         """Mẫu 3: Xếp hạng phân vị Top-K qua DENSE_RANK() kèm khoảng biến độ spread_val."""
+        year_filter_clause = f"AND f.year_code = '{year}'" if year else ""
         if not metric_code and not metric_name:
-            return f"""SELECT d.code AS ma_phong_ban, d.name AS ten_phong_ban, 
+            return f"""SELECT f.department_code AS ma_phong_ban, 
        COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, 
        COUNT(DISTINCT f.report_id) AS so_bao_cao_approved 
 FROM dwh_internal.fact_report_criteria f 
-JOIN dwh_internal.deparment d ON f.department_code = d.code 
-WHERE f.year = '{year}' AND f.tenant_code = '{tenant_code}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
-GROUP BY d.code, d.name 
-ORDER BY tong_so_luong {order_dir}, d.code ASC LIMIT {top_k};"""
+WHERE f.tenant_code = '{tenant_code}' {year_filter_clause} AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
+GROUP BY f.department_code 
+ORDER BY tong_so_luong {order_dir}, f.department_code ASC LIMIT {top_k};"""
 
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
-            f"f.year = '{year}'",
         ]
+        if year:
+            where_conds.append(f"f.year_code = '{year}'")
         crit_conds = []
         if metric_code:
             crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
             crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
-            name_parts = clean_name.split()
-            if len(name_parts) >= 2:
-                core_phrase = " ".join(name_parts[-2:])
-                crit_conds.append(f"c.name ILIKE '%{core_phrase}%' OR f.name ILIKE '%{core_phrase}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
             crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
@@ -141,7 +132,7 @@ ORDER BY tong_so_luong {order_dir}, d.code ASC LIMIT {top_k};"""
 
         return f"""WITH ranked_entities AS (
     SELECT 
-        COALESCE(o.office_name, d.name) AS ten_don_vi,
+        COALESCE(o.office_name, f.department_code) AS ten_don_vi,
         SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,
         DENSE_RANK() OVER (ORDER BY SUM(NULLIF(TRIM(f.value), '')::numeric) {order_dir}) AS rank_pos,
         MAX(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () - 
@@ -149,9 +140,8 @@ ORDER BY tong_so_luong {order_dir}, d.code ASC LIMIT {top_k};"""
     FROM dwh_internal.fact_report_criteria f
     LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
     LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-    LEFT JOIN dwh_internal.deparment d ON f.department_code = d.code
     WHERE {where_str}
-    GROUP BY o.office_name, d.name
+    GROUP BY o.office_name, f.department_code
 )
 SELECT ten_don_vi, tong_gia_tri, rank_pos, khoang_bien_do
 FROM ranked_entities
@@ -163,7 +153,7 @@ ORDER BY rank_pos ASC;"""
         cls,
         metric_code: str = "",
         metric_name: str = "",
-        year: str = "2026",
+        year: Optional[str] = None,
         tenant_code: str = "68",
         department_code: Optional[str] = None,
     ) -> str:
@@ -171,18 +161,15 @@ ORDER BY rank_pos ASC;"""
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
-            f"f.year = '{year}'",
         ]
+        if year:
+            where_conds.append(f"f.year_code = '{year}'")
         crit_conds = []
         if metric_code:
             crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
             crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
-            name_parts = clean_name.split()
-            if len(name_parts) >= 2:
-                core_phrase = " ".join(name_parts[-2:])
-                crit_conds.append(f"c.name ILIKE '%{core_phrase}%' OR f.name ILIKE '%{core_phrase}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
             crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
@@ -207,7 +194,7 @@ ORDER BY tong_gia_tri DESC;"""
     @classmethod
     def build_part_to_whole_sql(
         cls,
-        year: str = "2026",
+        year: Optional[str] = None,
         tenant_code: str = "68",
         department_code: Optional[str] = None,
         scope_name: Optional[str] = None,
@@ -216,8 +203,9 @@ ORDER BY tong_gia_tri DESC;"""
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
-            f"f.year = '{year}'",
         ]
+        if year:
+            where_conds.append(f"f.year_code = '{year}'")
         if department_code:
             where_conds.append(f"f.department_code = '{department_code}'")
         if scope_name:
@@ -244,27 +232,26 @@ ORDER BY gia_tri_thanh_phan DESC;"""
         cls,
         metric_code: str = "",
         metric_name: str = "",
-        year_start: str = "2025",
-        year_end: str = "2026",
+        year_start: Optional[str] = None,
+        year_end: Optional[str] = None,
         tenant_code: str = "68",
         department_code: Optional[str] = None,
     ) -> str:
-        """Mẫu 5: Ma trận phân tích chéo đa chiều qua FILTER (WHERE year = ...)."""
+        """Mẫu 5: Ma trận phân tích chéo đa chiều qua FILTER (WHERE year_code = ...)."""
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
-            f"f.year IN ('{year_start}', '{year_end}')",
         ]
+        pivot_years = [y for y in [year_start, year_end] if y]
+        if pivot_years:
+            years_in = ", ".join(f"'{y}'" for y in pivot_years)
+            where_conds.append(f"f.year_code IN ({years_in})")
         crit_conds = []
         if metric_code:
             crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
             crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
-            name_parts = clean_name.split()
-            if len(name_parts) >= 2:
-                core_phrase = " ".join(name_parts[-2:])
-                crit_conds.append(f"c.name ILIKE '%{core_phrase}%' OR f.name ILIKE '%{core_phrase}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
             crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
@@ -274,14 +261,17 @@ ORDER BY gia_tri_thanh_phan DESC;"""
             where_conds.append(f"f.department_code = '{department_code}'")
         where_str = "\n  AND ".join(where_conds)
 
+        y_start_label = year_start or "truoc"
+        y_end_label = year_end or "sau"
+
         return f"""SELECT 
     o.office_name AS ten_phong_ban,
-    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '{year_start}') AS nam_{year_start},
-    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '{year_end}') AS nam_{year_end},
+    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}') AS nam_{y_start_label},
+    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_end}') AS nam_{y_end_label},
     ROUND(
-        ((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '{year_end}') -
-          SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '{year_start}')) /
-         NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year = '{year_start}'), 0)) * 100.0, 
+        ((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_end}') -
+          SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}')) /
+         NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}'), 0)) * 100.0, 
         2
     ) AS tang_truong_pct
 FROM dwh_internal.fact_report_criteria f
@@ -289,4 +279,4 @@ LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
 LEFT JOIN dwh_internal.office o ON f.office_id = o.id
 WHERE {where_str}
 GROUP BY o.office_name
-ORDER BY nam_{year_end} DESC;"""
+ORDER BY nam_{y_end_label} DESC;"""

@@ -128,3 +128,34 @@ def test_chat_stream_invalid_token_returns_error_event(client):
 
     assert "event: error" in stream_content
     assert "Xác thực thất bại" in stream_content
+
+
+def test_chat_stream_with_prompt_level_and_tenant_code_prefix(client):
+    """Kiểm tra POST /api/v1/chat/stream xử lý prompt kèm prefix [tenant_code=68, level=0]."""
+    payload = {
+        "prompt": "[tenant_code=68, level=0] Kinh phí thực hiện khuyến công năm 2025 là bao nhiêu?",
+        "session_id": "test_sess_prefix_001"
+    }
+    response = client.post("/api/v1/chat/stream", json=payload)
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers.get("content-type", "")
+    stream_content = response.text
+
+    assert "event: connected" in stream_content
+    assert "event: thought_progress" in stream_content
+    assert "guardrails_passed" in stream_content
+
+
+def test_chat_sync_endpoint_returns_json(client):
+    """Kiểm tra POST /api/v1/chat trả về JSON response."""
+    payload = {
+        "prompt": "[tenant_code=68, level=0] Chào trợ lý ảo",
+        "session_id": "test_sync_sess_001"
+    }
+    response = client.post("/api/v1/chat", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "data" in data
+    assert "answer" in data["data"]
+

@@ -69,14 +69,14 @@ flowchart TD
 ### 3.1. DuckDBSemanticCatalog (`duckdb_semantic_catalog.py`)
 - **Cơ chế Nạp Hybrid Dual-Mode (Hybrid Hydration - [TRAP-008]):**
   - Luôn nạp toàn bộ cấu trúc DDL, bảng danh mục, bí danh (`aliases`) và từ viết tắt công vụ từ `IPGov_Chatbot/data/catalog_seed_metadata.json` làm baseline trong RAM DuckDB.
-  - Tự động kết nối Docker PostgreSQL `vna_wom_dev` (`localhost:5432`) khi khả dụng để đồng bộ mốc ETL mới nhất từ `dwh_internal.pipeline_logs`.
+  - Tự động kết nối PostgreSQL DWH `vna_wom_dev` (`104.248.155.6:5432`) khi khả dụng để đồng bộ mốc ETL mới nhất từ `dwh_internal.pipeline_logs`.
 - **Cấu trúc Bảng trong RAM DuckDB:**
   - `catalog_schema_metadata`: Tên bảng, cột, kiểu dữ liệu, mô tả cột, cờ PK/FK.
   - `catalog_criteria`: Cây chỉ tiêu kinh tế - xã hội (`code`, `name`, `unit`, `level`, `is_leaf`).
-  - `catalog_departments`: Danh mục cơ quan hành chính (`deparment` - TRAP-005).
+  - `catalog_departments`: Danh mục cơ quan hành chính (`deparment` - TRAP-005; lưu trữ metadata hạt nhân trong RAM ngay cả khi bảng vật lý trên remote DB trống 0 dòng).
   - `catalog_offices`: Danh mục phòng ban trực thuộc (`office`).
-  - `catalog_missions`: Danh mục nhiệm vụ trọng tâm (`mission`).
-  - `catalog_collection_forms`: Danh mục biểu mẫu thu thập (`collection_form`).
+  - `catalog_missions`: Danh mục nhiệm vụ trọng tâm (`mission`, `year_code`).
+  - `catalog_collection_forms`: Danh mục biểu mẫu thu thập (`collection_form`, `year_code`).
   - `catalog_sync_meta`: Mốc thời gian đồng bộ và trạng thái ETL.
 - **Chỉ Mục ART (Adaptive Radix Tree):** Tạo ART Index trên các cột tìm kiếm thường xuyên (`code`, `name`) cho tốc độ tra cứu $< 1\text{ms}$.
 - **RapidFuzz Semantic Matching:** Ngưỡng tương đồng `threshold = 75.0` xử lý triệt để các biến thể tiếng Việt: *"tnlđ"*, *"tai nạn lđ"*, *"dvc"*, *"khuyen cong"*, *"ds phong ban ubnd tinh ld"*.
@@ -85,10 +85,8 @@ flowchart TD
 - **Đồ thị Quan hệ Khóa ngoại có Trọng số (Domain-Aware Weighted Graph):**
   - Mô hình hóa đồ thị vô hướng $G=(V, E)$ bằng `networkx.Graph`.
   - Cạnh trực tiếp Fact $\leftrightarrow$ Dimension (`office`, `criteria`, `report`): $weight = 1.0$.
-  - Cạnh phân cấp hành chính (`office` $\leftrightarrow$ `deparment`): $weight = 1.0$.
-  - Cạnh trực tiếp cấp Sở/Tỉnh (`fact_report_criteria` $\leftrightarrow$ `deparment`): $weight = 1.1$, liên kết `{fact}.department_code = {deparment}.code`. Bảo toàn nguyên vẹn **34 dòng Fact có `office_id IS NULL`** trong báo cáo tổng hợp cấp Sở/Tỉnh (khắc phục dứt điểm `FAIL-007`).
+  - Cạnh liên quan `deparment`: Đặt $weight = 10.0$ để tránh tự động chọn `deparment` làm bảng cầu nối (bridge table) khi bảng này hiện có 0 bản ghi sau đợt reset data. Thay vào đó ưu tiên dùng trực tiếp `f.department_code` trên Fact.
   - Cạnh biểu mẫu thu thập (`report` $\leftrightarrow$ `collection_form`): $weight = 1.0$.
-  - Cạnh phụ trợ (`report` $\leftrightarrow$ `deparment`, `mission` $\leftrightarrow$ `deparment`): $weight = 1.2 - 1.5$.
 - **Thuật toán Bù đắp Bảng Cầu nối (Bridge Tables Resolution):**
   - Sử dụng hàm `steiner_tree(G, terminals, weight="weight")`.
   - Tự động nhận diện các đỉnh trung gian không nằm trong tập ứng viên ban đầu để ghi nhận vào `bridge_tables`.

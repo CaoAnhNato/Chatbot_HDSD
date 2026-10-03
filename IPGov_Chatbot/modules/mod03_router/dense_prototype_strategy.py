@@ -7,9 +7,9 @@ So khớp Cosine Similarity với tập Canonical Prototypes Trừu Tượng (Ru
 from __future__ import annotations
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from backend.config import settings
+from IPGov_Chatbot.core.model_registry import ModelRegistry
 from IPGov_Chatbot.schemas.router_dto import (
     IntentEnum,
     RouteTypeEnum,
@@ -23,7 +23,7 @@ from IPGov_Chatbot.modules.mod03_router.semantic_strategy_interface import (
 class DensePrototypeStrategy(SemanticRouterStrategy):
     """Chiến lược đối sánh ngữ nghĩa vector Dense với các Canonical Prototypes."""
 
-    _model: Optional[SentenceTransformer] = None
+    _model: Optional[Any] = None
     _prototype_embeddings: Optional[np.ndarray] = None
     _prototype_meta: Optional[List[Dict[str, Any]]] = None
 
@@ -37,7 +37,7 @@ class DensePrototypeStrategy(SemanticRouterStrategy):
             return
 
         model_name = getattr(settings, "EMBEDDING_MODEL_NAME", "AITeamVN/Vietnamese_Embedding_v2")
-        cls._model = SentenceTransformer(model_name)
+        cls._model = ModelRegistry.get_embedding_model(model_name)
 
         # Định nghĩa tập Canonical Prototypes Trừu tượng độc lập (Rule 9.2)
         cls._prototype_meta = [

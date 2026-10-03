@@ -14,6 +14,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 BACKEND_DIR = Path(__file__).resolve().parent
 WORKSPACE_DIR = BACKEND_DIR.parent
 
+# Tự động nạp biến môi trường từ .env trước khi khởi tạo Settings
+from dotenv import load_dotenv
+load_dotenv(WORKSPACE_DIR / ".env")
+load_dotenv(BACKEND_DIR / ".env")
+
 
 class Settings(BaseSettings):
     # ==============================================================================
@@ -38,20 +43,12 @@ class Settings(BaseSettings):
     # ==============================================================================
     # 2. CÁC API KEYS MÔ HÌNH NGÔN NGỮ ĐƯỢC PHÉP SỬ DỤNG CHO IPGOV_CHATBOT (LLM APIS)
     # ==============================================================================
-    # 2.1. Alibaba DashScope API (Router Chính & Text-to-SQL - 1M Free Token Stack)
+    # 2.1. Alibaba DashScope / Qwen API Gateway
     DASHSCOPE_API_KEY: str = os.getenv("DASHSCOPE_API_KEY", "")
-    DASHSCOPE_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
-    
-    # Thứ tự ưu tiên Router Models theo chỉ thị:
-    DASHSCOPE_ROUTER_PRIMARY_MODEL: str = "deepseek-v4.1-flash"
-    DASHSCOPE_ROUTER_FALLBACK_1: str = "deepseek-v4-flash-0731"
-    DASHSCOPE_ROUTER_FALLBACK_2: str = "qwen3.8-flash"
-    DASHSCOPE_ROUTER_MODELS: List[str] = [
-        "deepseek-v4.1-flash",
-        "deepseek-v4-flash-0731",
-        "qwen3.8-flash",
-    ]
-    DASHSCOPE_MODEL_NAME: str = "deepseek-v4.1-flash"
+    DASHSCOPE_BASE_URL: str = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    QWEN_API_KEY: str = os.getenv("QWEN_API_KEY", "")
+    QWEN_BASE_URL: str = os.getenv("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    QWEN_MODEL_NAME: str = os.getenv("QWEN_MODEL_NAME", "qwen3.7-flash")
 
     # 2.2. Vô hiệu hóa Groq API (Không phù hợp hạn mức TPM/RPM)
     GROQ_API_KEY: str = ""
@@ -62,7 +59,7 @@ class Settings(BaseSettings):
     # 2.3. OpenRouter API Gateway (Hỗ trợ truy cập đa mô hình Gemini, DeepSeek, Qwen...)
     OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY", "")
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
-    OPENROUTER_HEAVY_MODEL: str = os.getenv("OPENROUTER_HEAVY_MODEL", "google/gemini-3.8-flash")
+    OPENROUTER_HEAVY_MODEL: str = os.getenv("OPENROUTER_HEAVY_MODEL", "deepseek/deepseek-v4.1-flash")
     OPENROUTER_LIGHT_MODEL: str = os.getenv("OPENROUTER_LIGHT_MODEL", "google/gemini-2.5-flash-lite")
     OPENROUTER_PRIMARY_MODEL: str = os.getenv("OPENROUTER_PRIMARY_MODEL", "google/gemini-2.5-flash-lite")
     OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME", "google/gemini-2.5-flash-lite")
@@ -87,14 +84,25 @@ class Settings(BaseSettings):
     LLM_TOP_P: float = 0.95
     LLM_MAX_TOKENS: int = 2048
 
+    # 2.7. Task-based API Keys cho Autonomous Warehouse Agent (ADR-001)
+    AGENT_DECISION_LLM_API_KEY: Optional[str] = os.getenv("AGENT_DECISION_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    SQL_GENERATION_LLM_API_KEY: Optional[str] = os.getenv("SQL_GENERATION_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    RESPONSE_SYNTHESIS_LLM_API_KEY: Optional[str] = os.getenv("RESPONSE_SYNTHESIS_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+    AGENT_PRIMARY_MODEL: str = os.getenv("AGENT_PRIMARY_MODEL", "google/gemini-2.5-flash-lite")
+    AGENT_FALLBACK_MODEL_1: str = os.getenv("AGENT_FALLBACK_MODEL_1", "google/gemini-3.5-flash-lite")
+    AGENT_FALLBACK_MODEL_2: str = os.getenv("AGENT_FALLBACK_MODEL_2", "deepseek/deepseek-v4.1-flash")
+    AGENT_MEMORY_DB_PATH: str = os.getenv("AGENT_MEMORY_DB_PATH", "data/agent_memory.db")
+
+
     @property
     def effective_llm_api_key(self) -> str:
-        """Trả về API key ưu tiên (OpenRouter, Google GenAI hoặc DashScope)."""
+        """Trả về API key ưu tiên (OpenRouter hoặc Google GenAI)."""
         if self.ACTIVE_LLM_PROVIDER == "openrouter" and self.OPENROUTER_API_KEY:
             return self.OPENROUTER_API_KEY
         if self.ACTIVE_LLM_PROVIDER == "google" and self.GOOGLE_API_KEY:
             return self.GOOGLE_API_KEY
-        return self.OPENROUTER_API_KEY or self.GOOGLE_API_KEY or self.DASHSCOPE_API_KEY
+        return self.OPENROUTER_API_KEY or self.GOOGLE_API_KEY
 
     @property
     def effective_api_key(self) -> str:
@@ -109,18 +117,16 @@ class Settings(BaseSettings):
             providers.append("openrouter")
         if self.GOOGLE_API_KEY:
             providers.append("google")
-        if self.DASHSCOPE_API_KEY:
-            providers.append("dashscope")
         return providers
 
     # ==============================================================================
     # 3. KHO DỮ LIỆU DWH POSTGRESQL (GROUND TRUTH: vna_wom_dev)
     # ==============================================================================
-    DWH_HOST: str = "localhost"
-    DWH_PORT: int = 5432
-    DWH_USER: str = "postgres"  # Có thể dùng "ipgov_readonly" cho production
-    DWH_PASSWORD: str = os.getenv("DWH_PASSWORD", "postgres")
-    DWH_DB: str = "vna_wom_dev"
+    DWH_HOST: str = os.getenv("DWH_HOST", "104.248.155.6")
+    DWH_PORT: int = int(os.getenv("DWH_PORT", 5432))
+    DWH_USER: str = os.getenv("DWH_USER", "vna_wom_dev")
+    DWH_PASSWORD: str = os.getenv("DWH_PASSWORD", "1d4ed4dd-d5df-4081-809f-884b7ca16cbd")
+    DWH_DB: str = os.getenv("DWH_DB", "vna_wom_dev")
     DWH_DATABASE_URL: Optional[str] = None
     DWH_POOL_MIN_SIZE: int = 5
     DWH_POOL_MAX_SIZE: int = 25
@@ -136,6 +142,11 @@ class Settings(BaseSettings):
     @property
     def sync_dwh_url(self) -> str:
         """Trả về URL kết nối đồng bộ (psycopg2) cho benchmark / script testing."""
+        return f"postgresql://{self.DWH_USER}:{self.DWH_PASSWORD}@{self.DWH_HOST}:{self.DWH_PORT}/{self.DWH_DB}"
+
+    @property
+    def sqlalchemy_sync_dwh_url(self) -> str:
+        """Trả về URL kết nối đồng bộ chuẩn SQLAlchemy (psycopg2)."""
         return f"postgresql+psycopg2://{self.DWH_USER}:{self.DWH_PASSWORD}@{self.DWH_HOST}:{self.DWH_PORT}/{self.DWH_DB}"
 
     # ==============================================================================
@@ -178,7 +189,8 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_NAME: str = "AITeamVN/Vietnamese_Embedding_v2"
     EMBEDDING_DIMENSION: int = 1024
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
-    USE_REMOTE_EMBEDDING: bool = False
+    USE_REMOTE_EMBEDDING: bool = os.getenv("USE_REMOTE_EMBEDDING", "true").lower() in ("true", "1", "yes")
+    HF_EMBEDDING_SPACE_URL: str = os.getenv("HF_EMBEDDING_SPACE_URL", "https://nato1306-vietnamese-embedding-api.hf.space")
 
     DATABASE_URL: Optional[str] = None
     SUPABASE_URL: Optional[str] = "https://tykwgiubhnxedlpxszdn.supabase.co"

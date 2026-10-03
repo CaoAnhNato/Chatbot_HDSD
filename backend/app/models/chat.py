@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Dict, Any
 from app.models.chunk import DocumentChunk
 
@@ -9,13 +9,33 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    query: str = Field(..., description="Câu hỏi hoặc yêu cầu của người dùng")
+    query: Optional[str] = Field(None, description="Câu hỏi hoặc yêu cầu của người dùng")
+    prompt: Optional[str] = Field(None, description="Prompt người dùng (tương thích frontend Next.js)")
     session_id: Optional[str] = Field(None, description="Session ID cho multi-turn conversation")
     history: List[ChatMessage] = Field(default_factory=list, description="Lịch sử hội thoại")
     top_k: int = Field(3, description="Số lượng chunks truy xuất từ Vector Store")
     stream: bool = Field(False, description="Bật chế độ streaming response")
-    collection: Optional[str] = Field(None, description="ChromaDB collection name")
-    role: Optional[str] = Field("phuong", description="Phân hệ: 'phuong' hoặc 'dn'")
+    collection: Optional[str] = Field(None, description="ChromaDB collection name hoặc 'dwh'")
+    role: Optional[str] = Field("phuong", description="Phân hệ: 'phuong', 'dn', hoặc vai trò DWH")
+    level: Optional[int] = Field(None, description="Cấp độ phân quyền HBAC (0: Tỉnh, 1: Sở, 2: Phòng, 3: Công dân)")
+    tenant_code: Optional[str] = Field(None, description="Mã tỉnh/thành phố (ví dụ: '68')")
+    department_code: Optional[str] = Field(None, description="Mã cơ quan/phòng ban")
+
+    @model_validator(mode="before")
+    @classmethod
+    def set_effective_query(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            q = data.get("query")
+            p = data.get("prompt")
+            if not q and p:
+                data["query"] = p
+            elif not p and q:
+                data["prompt"] = q
+        return data
+
+    @property
+    def effective_query(self) -> str:
+        return (self.query or self.prompt or "").strip()
 
 
 class QuickActionChip(BaseModel):

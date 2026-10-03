@@ -101,7 +101,7 @@ class TestArchetypePatterns:
             years=["2025", "2026"],
             tenant_code="68",
         )
-        assert "LAG(tong_gia_tri) OVER (ORDER BY year ASC)" in sql
+        assert "LAG(tong_gia_tri) OVER (ORDER BY nam ASC)" in sql
         assert "ROUND" in sql
         valid, err, _ = validate_ast_syntax(sql)
         assert valid is True, f"Syntax error: {err}"
@@ -226,12 +226,12 @@ class TestTrackBGenerator:
 
         with unittest.mock.patch(
             "IPGov_Chatbot.modules.mod05_sql_compiler.track_b_generator.call_structured_with_fallback",
-            return_value=(mock_fallback_output, "google/gemini-3.8-flash", {"cached_tokens": 0}, 2400.0),
+            return_value=(mock_fallback_output, "deepseek/deepseek-v4.1-flash", {"cached_tokens": 0}, 2400.0),
         ):
             dto = generator.generate_sql_sync(cat, router_out, user_ctx)
 
             assert dto is not None
             assert dto.generator_track == "TRACK_B_LLM"
-            assert dto.llm_provider == "google/gemini-3.8-flash"
+            assert dto.llm_provider == "deepseek/deepseek-v4.1-flash"
             assert dto.fallback_triggered is True
             assert dto.ast_valid is True

@@ -308,7 +308,7 @@ def compile_track_a_metric_sql(spec: MetricSpecDTO, user_ctx: UserSecurityContex
         "    )",
         ")",
         "SELECT",
-        "    f.year,",
+        "    f.year_code AS year,",
         "    SUM(NULLIF(TRIM(f.value), '')::numeric) AS total_val,",
         "    COUNT(DISTINCT f.office_id) AS total_reporting_offices",
         "FROM dwh_internal.fact_report_criteria f",
@@ -319,12 +319,12 @@ def compile_track_a_metric_sql(spec: MetricSpecDTO, user_ctx: UserSecurityContex
 
     # 2. Tiêm bộ lọc thời gian
     for flt in spec.filters:
-        if flt.field == "year":
+        if flt.field in ("year", "year_code"):
             if flt.operator == "eq":
-                sql_parts.append(f"  AND f.year = '{flt.value}'")
+                sql_parts.append(f"  AND f.year_code = '{flt.value}'")
             elif flt.operator == "in" and isinstance(flt.value, list):
                 years_str = ", ".join(f"'{y}'" for y in flt.value)
-                sql_parts.append(f"  AND f.year IN ({years_str})")
+                sql_parts.append(f"  AND f.year_code IN ({years_str})")
 
     # 3. Tiêm bộ lọc bảo mật HBAC tất định
     sql_parts.append(f"  AND f.tenant_code = '{user_ctx.tenant_code}'")
@@ -333,7 +333,7 @@ def compile_track_a_metric_sql(spec: MetricSpecDTO, user_ctx: UserSecurityContex
     if user_ctx.office_id and user_ctx.role_level >= 2:
         sql_parts.append(f"  AND f.office_id = '{user_ctx.office_id}'")
 
-    sql_parts.append("GROUP BY f.year ORDER BY f.year ASC;")
+    sql_parts.append("GROUP BY f.year_code ORDER BY f.year_code ASC;")
     return "\n".join(sql_parts)
 ```
 

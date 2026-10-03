@@ -8,6 +8,7 @@ Ví dụ sử dụng:
 
 import argparse
 import sys
+from pathlib import Path
 import uvicorn
 
 # Đảm bảo mã hóa UTF-8 an toàn trên console Windows
@@ -62,20 +63,39 @@ def parse_arguments() -> argparse.Namespace:
 def main():
     """Hàm thực thi chính."""
     args = parse_arguments()
-    print("\n" + "=" * 65)
-    print(f"🚀 IPGov Chatbot Backend Server (FastAPI + Uvicorn)")
-    print(f"📡 Địa chỉ phục vụ:  http://{args.host}:{args.port}")
-    print(f"📖 Swagger OpenAPI:   http://{args.host}:{args.port}/docs")
-    print(f"🩺 Sức khỏe hệ thống: http://{args.host}:{args.port}/api/v1/health")
-    print(f"🧪 Test Bench UI:     http://{args.host}:{args.port}/bench")
-    print("=" * 65 + "\n")
+    print("\n" + "=" * 70)
+    print(f"🚀 Đang kích hoạt IPGov_Chatbot (Backend Server), port {args.port}...")
+    print(f"📌 Định danh hệ thống: IPGov_Chatbot (Kho Dữ Liệu Tỉnh - Độc lập với Chatbot_HDSD)")
+    print(f"📡 Địa chỉ phục vụ:   http://{args.host}:{args.port}")
+    print(f"📖 Swagger OpenAPI:    http://{args.host}:{args.port}/docs")
+    print(f"🩺 Sức khỏe hệ thống:  http://{args.host}:{args.port}/api/v1/health")
+    print(f"🧪 Test Bench UI:      http://{args.host}:{args.port}/bench")
+    print("=" * 70 + "\n")
+
+    backend_dir = Path(__file__).resolve().parent
+    reload_kwargs = {}
+    if args.reload:
+        reload_kwargs = {
+            "reload": True,
+            "reload_dirs": [str(backend_dir)],
+            "reload_excludes": [
+                "*.db", "*.db-wal", "*.db-shm", "*.sqlite", "*.sqlite3",
+                "*.parquet", "*.log", "*.jsonl",
+                "*.tmp", "*.pyc", "__pycache__/*",
+                ".next/*", "*/.next/*",
+                "node_modules/*", "*/node_modules/*",
+                "data/*", "*/data/*",
+                "tests/logs/*", "*/tests/logs/*",
+                ".git/*", "*/.git/*"
+            ]
+        }
 
     uvicorn.run(
         "IPGov_Chatbot.main:app",
         host=args.host,
         port=args.port,
-        reload=args.reload,
-        workers=args.workers if not args.reload else 1
+        workers=args.workers if not args.reload else 1,
+        **reload_kwargs
     )
 
 

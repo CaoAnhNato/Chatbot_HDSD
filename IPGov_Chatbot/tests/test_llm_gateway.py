@@ -154,7 +154,7 @@ def test_call_structured_with_fallback_sync():
 
 
 def test_call_structured_with_fallback_triggered_by_validator():
-    """Kiểm thử fallback sang model dự phòng (google/gemini-3.8-flash) khi invariant validator không đạt."""
+    """Kiểm thử fallback sang model dự phòng (deepseek/deepseek-v4.1-flash) khi invariant validator không đạt."""
     prompt = "Phân tích: Người dùng hỏi 'Tình hình kinh tế năm 2025'. Xuất JSON với intent='ANALYTICS', confidence_score=0.99."
     
     class TestFallbackSchema(BaseModel):
@@ -178,5 +178,5 @@ def test_call_structured_with_fallback_triggered_by_validator():
     assert parsed.intent == "ANALYTICS"
     assert call_count >= 1
     # Fallback model được kích hoạt
-    assert model_used == getattr(settings, "OPENROUTER_HEAVY_MODEL", "google/gemini-3.8-flash")
+    assert model_used == getattr(settings, "OPENROUTER_HEAVY_MODEL", "deepseek/deepseek-v4.1-flash")
 

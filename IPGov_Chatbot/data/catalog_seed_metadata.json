@@ -17,7 +17,7 @@
       "primary_key": "fact_sk",
       "columns": [
         {"name": "fact_sk", "type": "VARCHAR(64)", "description": "Khóa thay thế dòng fact", "is_pk": true},
-        {"name": "year", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu (2024, 2025, 2026)"},
+        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu (2024, 2025, 2026)"},
         {"name": "value", "type": "TEXT", "description": "Giá trị số liệu báo cáo dạng văn bản (cần ép kiểu an toàn NULLIF TRIM)"},
         {"name": "report_status", "type": "VARCHAR(32)", "description": "Trạng thái báo cáo: approved, pending, draft, rejected"},
         {"name": "report_date", "type": "TIMESTAMPTZ", "description": "Mốc thời gian nộp hoặc phê duyệt báo cáo"},
@@ -25,7 +25,13 @@
         {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã sở ban ngành hoặc UBND huyện", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
         {"name": "office_id", "type": "UUID", "description": "Định danh phòng ban chuyên môn trực thuộc nộp số liệu", "is_fk": true, "fk_target": "dwh_internal.office.id"},
         {"name": "criteria_id", "type": "UUID", "description": "Định danh chỉ tiêu kinh tế xã hội", "is_fk": true, "fk_target": "dwh_internal.criteria.id"},
-        {"name": "report_id", "type": "UUID", "description": "Định danh báo cáo tổng hợp", "is_fk": true, "fk_target": "dwh_internal.report.id"}
+        {"name": "report_id", "type": "UUID", "description": "Định danh báo cáo tổng hợp", "is_fk": true, "fk_target": "dwh_internal.report.id"},
+        {"name": "code", "type": "TEXT", "description": "Mã chỉ tiêu (denormalized)"},
+        {"name": "name", "type": "TEXT", "description": "Tên chỉ tiêu (denormalized)"},
+        {"name": "mission_id", "type": "UUID", "description": "Định danh nhiệm vụ (denormalized)"},
+        {"name": "mission_name", "type": "VARCHAR(255)", "description": "Tên nhiệm vụ (denormalized)"},
+        {"name": "scope_id", "type": "UUID", "description": "Định danh lĩnh vực (denormalized)"},
+        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực (denormalized)"}
       ]
     },
     {
@@ -76,7 +82,7 @@
       "columns": [
         {"name": "id", "type": "UUID", "description": "Định danh duy nhất đợt báo cáo", "is_pk": true},
         {"name": "report_date", "type": "TIMESTAMPTZ", "description": "Ngày nộp hoặc lập báo cáo"},
-        {"name": "year", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu"},
+        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu"},
         {"name": "status", "type": "VARCHAR(32)", "description": "Trạng thái phê duyệt báo cáo (approved, pending, draft, rejected)"},
         {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã đơn vị sở ngành hoặc UBND huyện", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
         {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh (vd: 68)"}
@@ -111,7 +117,7 @@
         {"name": "id", "type": "UUID", "description": "Định danh nhiệm vụ trọng tâm", "is_pk": true},
         {"name": "mission_code", "type": "VARCHAR(64)", "description": "Mã nhiệm vụ chuyên môn"},
         {"name": "mission_name", "type": "TEXT", "description": "Tên nhiệm vụ hoặc chương trình hành động"},
-        {"name": "year", "type": "VARCHAR(4)", "description": "Năm thực hiện nhiệm vụ"},
+        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm thực hiện nhiệm vụ"},
         {"name": "department_code", "type": "VARCHAR(64)", "description": "Cơ quan chủ trì thực hiện nhiệm vụ", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
         {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"},
         {"name": "scope_id", "type": "UUID", "description": "Định danh lĩnh vực nhiệm vụ"},
@@ -191,7 +197,7 @@
         {"name": "scope_code", "type": "VARCHAR(64)", "description": "Mã định danh lĩnh vực (vd: SC_01)"},
         {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực chuyên môn"},
         {"name": "scope_status", "type": "BOOLEAN", "description": "Trạng thái hoạt động của lĩnh vực"},
-        {"name": "year", "type": "VARCHAR(4)", "description": "Năm áp dụng"},
+        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm áp dụng"},
         {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã cơ quan chủ quản", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
         {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"},
         {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
@@ -237,27 +243,27 @@
     {"id": "a0000000-0000-0000-0000-000000000007", "name": "Phòng ban y tế", "code": "PYT_LD", "department_code": "68-1-06", "tenant_code": "68", "level": 2}
   ],
   "criteria": [
-    {"id": 1, "code": "tai_nan_lao_dong_2", "name": "Số vụ tai nạn lao động", "unit": "vụ", "level": 2, "is_leaf": true, "aliases": ["tai nan lao dong", "tnld", "tnlđ", "tai nạn lđ", "an toàn lao động", "tai nan ld"]},
-    {"id": 2, "code": "so_nguoi_bi_tnld", "name": "Số người bị tai nạn lao động", "unit": "người", "level": 2, "is_leaf": true, "aliases": ["người bị tai nạn", "nguoi bi tnld"]},
-    {"id": 3, "code": "kinh_phi_khuyen_cong", "name": "Kinh phí thực hiện khuyến công", "unit": "triệu đồng", "level": 2, "is_leaf": true, "aliases": ["kinh phi khuyen cong", "khuyen cong", "khuyến công", "giải ngân khuyến công"]},
-    {"id": 4, "code": "so_nguoi_dao_tao_khuyen_cong", "name": "Số người được đào tạo từ nguồn kinh phí khuyến công", "unit": "người", "level": 2, "is_leaf": true, "aliases": ["đào tạo khuyến công", "người được đào tạo khuyến công"]},
-    {"id": 5, "code": "tram_y_te_dat_chuan", "name": "Số trạm y tế đạt chuẩn quốc gia", "unit": "trạm", "level": 2, "is_leaf": true, "aliases": ["tram y te", "trạm y tế", "trạm y tế đạt chuẩn"]},
-    {"id": 6, "code": "giai_quyet_viec_lam", "name": "Số lao động được giải quyết việc làm", "unit": "người", "level": 2, "is_leaf": true, "aliases": ["việc làm", "giai quyet viec lam", "hỗ trợ việc làm"]},
-    {"id": 7, "code": "dao_tao_nghe_nong_thon", "name": "Đào tạo nghề cho lao động nông thôn", "unit": "người", "level": 2, "is_leaf": true, "aliases": ["dao tao nghe", "đào tạo nghề", "học nghề"]},
-    {"id": 8, "code": "cai_cach_hanh_chinh", "name": "Chỉ số cải cách hành chính", "unit": "điểm", "level": 2, "is_leaf": true, "aliases": ["cai cach hanh chinh", "cchc", "cải cách hành chính"]},
-    {"id": 9, "code": "ho_so_dvc", "name": "Hồ sơ dịch vụ công tiếp nhận", "unit": "hồ sơ", "level": 2, "is_leaf": true, "aliases": ["ho so dvc", "dvc", "dịch vụ công", "hồ sơ trực tuyến"]},
-    {"id": 10, "code": "dien_tich_cay_trong", "name": "Diện tích cây trồng hàng năm", "unit": "ha", "level": 2, "is_leaf": true, "aliases": ["cay trong", "cây trồng", "diện tích cây trồng"]}
+    {"id": 1, "code": "tai_nan_lao_dong_2", "name": "Số vụ tai nạn lao động", "unit": "vụ", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["tai nan lao dong", "tnld", "tnlđ", "tai nạn lđ", "an toàn lao động", "tai nan ld"]},
+    {"id": 2, "code": "so_nguoi_bi_tnld", "name": "Số người bị tai nạn lao động", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["người bị tai nạn", "nguoi bi tnld"]},
+    {"id": 3, "code": "kinh_phi_khuyen_cong", "name": "Kinh phí thực hiện khuyến công", "unit": "triệu đồng", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["kinh phi khuyen cong", "khuyen cong", "khuyến công", "giải ngân khuyến công"]},
+    {"id": 4, "code": "so_nguoi_dao_tao_khuyen_cong", "name": "Số người được đào tạo từ nguồn kinh phí khuyến công", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["đào tạo khuyến công", "người được đào tạo khuyến công"]},
+    {"id": 5, "code": "tram_y_te_dat_chuan", "name": "Số trạm y tế đạt chuẩn quốc gia", "unit": "trạm", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["tram y te", "trạm y tế", "trạm y tế đạt chuẩn"]},
+    {"id": 6, "code": "giai_quyet_viec_lam", "name": "Số lao động được giải quyết việc làm", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["việc làm", "giai quyet viec lam", "hỗ trợ việc làm"]},
+    {"id": 7, "code": "dao_tao_nghe_nong_thon", "name": "Đào tạo nghề cho lao động nông thôn", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["dao tao nghe", "đào tạo nghề", "học nghề"]},
+    {"id": 8, "code": "cai_cach_hanh_chinh", "name": "Chỉ số cải cách hành chính", "unit": "điểm", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["cai cach hanh chinh", "cchc", "cải cách hành chính"]},
+    {"id": 9, "code": "ho_so_dvc", "name": "Hồ sơ dịch vụ công tiếp nhận", "unit": "hồ sơ", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["ho so dvc", "dvc", "dịch vụ công", "hồ sơ trực tuyến"]},
+    {"id": 10, "code": "dien_tich_cay_trong", "name": "Diện tích cây trồng hàng năm", "unit": "ha", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["cay trong", "cây trồng", "diện tích cây trồng"]}
   ],
   "missions": [
-    {"id": 1, "code": "MS_VIEC_LAM_2026", "name": "Kế hoạch hỗ trợ giải quyết việc làm và đào tạo nghề cho người lao động", "year": "2026", "department_code": "68-1-03", "status": "approved"},
-    {"id": 2, "code": "MS_KHUYEN_CONG_2026", "name": "Chương trình phát triển khuyến công địa phương giai đoạn 2025-2030", "year": "2026", "department_code": "68-1-05", "status": "approved"},
-    {"id": 3, "code": "MS_CCHC_2026", "name": "Đề án nâng cao chỉ số cải cách hành chính và chuyển đổi số công vụ", "year": "2026", "department_code": "68-1-01", "status": "approved"},
-    {"id": 4, "code": "MS_ATVSLD_2026", "name": "Kế hoạch thanh tra an toàn vệ sinh lao động trên địa bàn toàn tỉnh", "year": "2026", "department_code": "68-1-03", "status": "approved"}
+    {"id": 1, "code": "MS_VIEC_LAM_2026", "name": "Kế hoạch hỗ trợ giải quyết việc làm và đào tạo nghề cho người lao động", "year_code": "2026", "department_code": "68-1-03", "status": "approved"},
+    {"id": 2, "code": "MS_KHUYEN_CONG_2026", "name": "Chương trình phát triển khuyến công địa phương giai đoạn 2025-2030", "year_code": "2026", "department_code": "68-1-05", "status": "approved"},
+    {"id": 3, "code": "MS_CCHC_2026", "name": "Đề án nâng cao chỉ số cải cách hành chính và chuyển đổi số công vụ", "year_code": "2026", "department_code": "68-1-01", "status": "approved"},
+    {"id": 4, "code": "MS_ATVSLD_2026", "name": "Kế hoạch thanh tra an toàn vệ sinh lao động trên địa bàn toàn tỉnh", "year_code": "2026", "department_code": "68-1-03", "status": "approved"}
   ],
   "collection_forms": [
-    {"id": 1, "code": "BM_HO_KINH_DOANH_01", "name": "Biểu mẫu thu thập tờ khai hoạt động kinh doanh của hộ kinh doanh cá thể", "year": "2026", "department_code": "68-1-05", "is_active": true, "status": "active"},
-    {"id": 2, "code": "BM_COLLECTION_ACTIVE_2026", "name": "Biểu mẫu tổng hợp số liệu chỉ tiêu định kỳ xã phường áp dụng năm 2026", "year": "2026", "department_code": "68-1-02", "is_active": true, "status": "active"},
-    {"id": 3, "code": "BM_ATVSLD_02", "name": "Biểu mẫu báo cáo tình hình tai nạn lao động và an toàn vệ sinh lao động", "year": "2025", "department_code": "68-1-03", "is_active": true, "status": "active"},
-    {"id": 4, "code": "BM_Y_TE_XA_03", "name": "Biểu mẫu đánh giá trạm y tế xã đạt chuẩn quốc gia về y tế", "year": "2026", "department_code": "68-1-06", "is_active": true, "status": "active"}
+    {"id": 1, "code": "BM_HO_KINH_DOANH_01", "name": "Biểu mẫu thu thập tờ khai hoạt động kinh doanh của hộ kinh doanh cá thể", "year_code": "2026", "department_code": "68-1-05", "is_active": true, "status": "active"},
+    {"id": 2, "code": "BM_COLLECTION_ACTIVE_2026", "name": "Biểu mẫu tổng hợp số liệu chỉ tiêu định kỳ xã phường áp dụng năm 2026", "year_code": "2026", "department_code": "68-1-02", "is_active": true, "status": "active"},
+    {"id": 3, "code": "BM_ATVSLD_02", "name": "Biểu mẫu báo cáo tình hình tai nạn lao động và an toàn vệ sinh lao động", "year_code": "2025", "department_code": "68-1-03", "is_active": true, "status": "active"},
+    {"id": 4, "code": "BM_Y_TE_XA_03", "name": "Biểu mẫu đánh giá trạm y tế xã đạt chuẩn quốc gia về y tế", "year_code": "2026", "department_code": "68-1-06", "is_active": true, "status": "active"}
   ]
 }
