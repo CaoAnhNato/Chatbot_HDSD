@@ -1,7 +1,94 @@
-# Render Blueprint
+# ==============================================================================
+# Render Blueprint Specification (render.yaml)
+# Project: IPGov_Chatbot
+# Kiến trúc triển khai 3 tầng: Database (Postgres) + Backend (FastAPI) + Frontend (Next.js)
+# ==============================================================================
+
 databases:
+  # ----------------------------------------------------------------------------
+  # 1. POSTGRESQL DATABASE CHO CHAT_HISTORY & CACHING
+  # ----------------------------------------------------------------------------
   - name: ipgov-postgres
     databaseName: vna_wom_dev
     user: vna_wom_dev
     region: singapore
     plan: free
+    ipAllowList: []
+
+services:
+  # ----------------------------------------------------------------------------
+  # 2. MÁY CHỦ BACKEND FASTAPI (IPGov_Chatbot)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: ipgov-chatbot-backend
+    runtime: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r backend/requirements_render.txt
+    startCommand: uvicorn IPGov_Chatbot.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: ACTIVE_LLM_PROVIDER
+        value: openrouter
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GOOGLE_API_KEY
+        sync: false
+      - key: USE_REMOTE_EMBEDDING
+        value: "true"
+      - key: HF_EMBEDDING_SPACE_URL
+        value: https://nato1306-vietnamese-embedding-api.hf.space
+      - key: HF_TOKEN
+        sync: false
+      - key: HUGGING_FACE_HUB_TOKEN
+        sync: false
+      - key: EMBEDDING_MODEL_NAME
+        value: AITeamVN/Vietnamese_Embedding_v2
+      - key: SUPABASE_URL
+        value: https://tykwgiubhnxedlpxszdn.supabase.co
+      - key: SUPABASE_PASS
+        sync: false
+      - key: DWH_HOST
+        value: 104.248.155.6
+      - key: DWH_PORT
+        value: "5432"
+      - key: DWH_USER
+        value: vna_wom_dev
+      - key: DWH_PASSWORD
+        sync: false
+      - key: DWH_DB
+        value: vna_wom_dev
+      - key: DWH_DATABASE_URL
+        fromDatabase:
+          name: ipgov-postgres
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: INTERNAL_SYNC_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # ----------------------------------------------------------------------------
+  # 3. GIAO DIỆN FRONTEND NEXT.JS (SmartTable + UI)
+  # ----------------------------------------------------------------------------
+  - type: web
+    name: ipgov-chatbot-frontend
+    runtime: node
+    region: singapore
+    plan: free
+    rootDir: IPGov_Chatbot/frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.12.2
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: ipgov-chatbot-backend
+          property: host
