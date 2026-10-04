@@ -84,3 +84,13 @@
   Quá trình nạp ứng dụng phải hoàn tất thành công trong môi trường `.venv`, không phát sinh `ImportError`, `ModuleNotFoundError`, lỗi cú pháp hoặc lỗi blocking network call lúc boot.
 - **Nghiêm cấm tuyệt đối:** Không được phép push mã nguồn khi chưa chạy bước kiểm tra import runtime này.
 
+## Mandatory Communication Style Rule (ASD-STE100 Simplified Technical Standard)
+
+- **Chuẩn mực phản hồi kỹ thuật (Tuân thủ >= 80% tiêu chuẩn ASD-STE100):**
+  1. **Ngắn gọn & Trực diện:** Câu mô tả <= 25 từ; câu hướng dẫn <= 20 từ. Mỗi câu chỉ mang 1 thông điệp kỹ thuật cốt lõi.
+  2. **Thể chủ động & Mệnh lệnh:** Dùng động từ hành động trực tiếp cho các bước kỹ thuật (Ví dụ: "Chạy lệnh X", "Kiểm tra file Y", "Cập nhật hàm Z").
+  3. **Định dạng cấu trúc:** Ưu tiên bảng dữ liệu, danh sách gạch đầu dòng (bullet points) hoặc quy trình đánh số. Tuyệt đối không viết đoạn văn xuôi dài dòng.
+  4. **Loại bỏ hư từ (Zero Fluff):** Cắt bỏ hoàn toàn các từ đệm chào hỏi vòng vo, ngôn từ cảm tính hoặc khẳng định phóng đại. Trình bày thẳng vào: Hiện trạng -> Bằng chứng -> Hành động.
+  5. **Thuật ngữ nhất quán:** Sử dụng một thuật ngữ duy nhất cho một khái niệm kỹ thuật xuyên suốt phiên làm việc.
+
+
