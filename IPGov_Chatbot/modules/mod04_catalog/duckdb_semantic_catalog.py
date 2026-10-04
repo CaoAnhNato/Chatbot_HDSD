@@ -487,18 +487,18 @@ class DuckDBSemanticCatalog:
                 logger.warning("Không thể nạp cache embedding từ đĩa: %s. Tính toán lại...", e)
 
         # 2. Tính toán embeddings nếu chưa có cache (Chỉ embed trên name và aliases, loại bỏ 100% code)
-        embed_model = ModelRegistry.get_embedding_model()
-
-        texts = []
-        for n, a in zip(self._criteria_cache_names, self._criteria_cache_aliases):
-            a_clean = a.strip()
-            if a_clean:
-                texts.append(f"{n} ({a_clean})")
-            else:
-                texts.append(n)
-
-        self._criteria_embeddings = embed_model.encode(texts, normalize_embeddings=True)
         try:
+            embed_model = ModelRegistry.get_embedding_model()
+
+            texts = []
+            for n, a in zip(self._criteria_cache_names, self._criteria_cache_aliases):
+                a_clean = a.strip()
+                if a_clean:
+                    texts.append(f"{n} ({a_clean})")
+                else:
+                    texts.append(n)
+
+            self._criteria_embeddings = embed_model.encode(texts, normalize_embeddings=True)
             np.save(emb_cache_path, self._criteria_embeddings)
             with open(meta_cache_path, "w", encoding="utf-8") as f:
                 json.dump({
@@ -507,7 +507,8 @@ class DuckDBSemanticCatalog:
                 }, f)
             logger.info("Đã tính toán và lưu cache v2 %d vector embeddings thành công.", len(texts))
         except Exception as e:
-            logger.warning("Không thể lưu cache embeddings: %s", e)
+            logger.warning("⚠️ [DuckDBSemanticCatalog] Không thể tính toán remote embedding (%s). Hệ thống tự động chuyển sang fallback text-matching.", e)
+            self._criteria_embeddings = None
 
     def _llm_disambiguate(self, query: str, candidates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Gọi micro-prompt LLM (< 150 tokens) để giải quyết nhập nhằng hoặc chọn chỉ tiêu chính xác."""
@@ -585,7 +586,7 @@ class DuckDBSemanticCatalog:
             }]
 
         self._ensure_embeddings_indexed()
-        if self._criteria_embeddings is None or len(self._criteria_cache_codes) == 0:
+        if len(self._criteria_cache_codes) == 0:
             return []
 
         # 2. Pre-filtering: Xác định tập chỉ số hợp lệ theo tenant_code và role_level
@@ -603,21 +604,25 @@ class DuckDBSemanticCatalog:
             # Fallback nếu không có tiêu chí nào khớp tenant
             valid_indices = list(range(len(self._criteria_cache_codes)))
 
-        # 3. Dense Semantic Search (chỉ duyệt/xếp hạng trên valid_indices)
-        embed_model = ModelRegistry.get_embedding_model()
-        q_emb = embed_model.encode([query], normalize_embeddings=True)[0]
-        dense_sims = np.dot(self._criteria_embeddings, q_emb)
-        valid_dense_scores = [(i, float(dense_sims[i])) for i in valid_indices]
-        valid_dense_scores.sort(key=lambda x: x[1], reverse=True)
-        seen_dense_codes = set()
+        # 3. Dense Semantic Search (chỉ duyệt/xếp hạng trên valid_indices nếu có embeddings)
         dense_ranked = []
-        for i, score in valid_dense_scores:
-            c = self._criteria_cache_codes[i]
-            if c not in seen_dense_codes:
-                seen_dense_codes.add(c)
-                dense_ranked.append((c, self._criteria_cache_names[i], score))
-                if len(dense_ranked) >= 20:
-                    break
+        if self._criteria_embeddings is not None:
+            try:
+                embed_model = ModelRegistry.get_embedding_model()
+                q_emb = embed_model.encode([query], normalize_embeddings=True)[0]
+                dense_sims = np.dot(self._criteria_embeddings, q_emb)
+                valid_dense_scores = [(i, float(dense_sims[i])) for i in valid_indices]
+                valid_dense_scores.sort(key=lambda x: x[1], reverse=True)
+                seen_dense_codes = set()
+                for i, score in valid_dense_scores:
+                    c = self._criteria_cache_codes[i]
+                    if c not in seen_dense_codes:
+                        seen_dense_codes.add(c)
+                        dense_ranked.append((c, self._criteria_cache_names[i], score))
+                        if len(dense_ranked) >= 20:
+                            break
+            except Exception as e:
+                logger.warning("⚠️ [DuckDBSemanticCatalog] Lỗi trích xuất dense vector query (%s), tiếp tục với sparse.", e)
 
         # 4. Sparse Search via RapidFuzz token_set_ratio trên name và aliases (chỉ trên valid_indices)
         sparse_scores = []

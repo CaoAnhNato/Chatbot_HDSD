@@ -91,6 +91,8 @@ backend/data/*.db
 /GovGraph/
 /chat/
 /data/
-IPGov_Chatbot/data/cache/
+IPGov_Chatbot/data/cache/*
+!IPGov_Chatbot/data/cache/criteria_embeddings_v2_name_only.npy
+!IPGov_Chatbot/data/cache/criteria_meta_v2_name_only.json
 IPGov_Chatbot/tests/logs/
 IPGov_Chatbot/frontend/*.png

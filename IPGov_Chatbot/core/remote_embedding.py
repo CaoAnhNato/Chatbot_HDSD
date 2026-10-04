@@ -66,8 +66,12 @@ class RemoteHFEmbeddingModel:
                     with urllib.request.urlopen(req_poll, timeout=15) as resp_poll:
                         raw = resp_poll.read().decode("utf-8")
                         for line in raw.splitlines():
+                            if line.startswith("event: error"):
+                                raise RuntimeError(f"Gradio Space trả về error event: {raw[:200]}")
                             if line.startswith("data:"):
-                                return json.loads(line[5:].strip())
+                                val = json.loads(line[5:].strip())
+                                if val is not None:
+                                    return val
                     time.sleep(0.5)
 
                 raise TimeoutError(f"Quá thời gian chờ ({self.timeout_seconds}s) nhận vector từ HF Space.")
@@ -113,8 +117,13 @@ class RemoteHFEmbeddingModel:
             batch_text = "\n".join([t.replace("\n", " ").strip() for t in chunk])
             
             res = self._call_gradio("batch_embed", [batch_text])
-            if res and isinstance(res, list) and len(res) > 0:
-                chunk_embs = res[0].get("embeddings", [])
+            chunk_embs = []
+            if res and isinstance(res, list) and len(res) > 0 and isinstance(res[0], dict):
+                chunk_embs = res[0].get("embeddings", []) or res[0].get("embedding", [])
+            elif res and isinstance(res, dict):
+                chunk_embs = res.get("embeddings", []) or res.get("embedding", [])
+
+            if chunk_embs:
                 all_embeddings.extend(chunk_embs)
             else:
                 logger.error("❌ [RemoteHFEmbedding] Payload phản hồi không hợp lệ: %s", res)
