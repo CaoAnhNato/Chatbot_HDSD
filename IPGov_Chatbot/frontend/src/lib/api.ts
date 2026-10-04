@@ -1,8 +1,21 @@
 import axios from "axios";
 import { ChatApiResponse, ChatSession, ChatMessage } from "@/types/chat";
 
-const getApiBaseUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+export const getApiBaseUrl = (): string => {
+  let envUrl = process.env.NEXT_PUBLIC_API_URL;
+
+  // Runtime Cloud Detection: Tự động trỏ sang backend Render khi truy cập từ domain onrender.com
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host.includes("onrender.com")) {
+      envUrl = "https://ipgov-chatbot-backend.onrender.com/api/v1";
+    }
+  }
+
+  if (!envUrl) {
+    envUrl = "http://localhost:8000/api/v1";
+  }
+
   let trimmed = envUrl.trim().replace(/\/+$/, "");
   if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
     trimmed = `https://${trimmed}`;
@@ -17,6 +30,11 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+apiClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
+  return config;
 });
 
 export const fetchChatSessions = async (limit: number = 50): Promise<ChatSession[]> => {
@@ -118,7 +136,8 @@ export const sendMessageStream = async (
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}/chat/stream`, {
+  const baseUrl = getApiBaseUrl();
+  const response = await fetch(`${baseUrl}/chat/stream`, {
     method: "POST",
     headers,
     body: JSON.stringify({
