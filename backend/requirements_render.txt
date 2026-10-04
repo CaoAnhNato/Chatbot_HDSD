@@ -5,6 +5,22 @@ python-multipart>=0.0.9
 pydantic>=2.8.0
 pydantic-settings>=2.4.0
 
+# Authentication & Security
+PyJWT>=2.8.0
+
+# Template Engine & Response Generation
+Jinja2>=3.1.4
+
+# Graph & Catalog Algorithms
+networkx>=3.0
+
+# Config & Serialization
+PyYAML>=6.0.1
+
+# Session & Database Support
+redis>=5.0.0
+SQLAlchemy>=2.0.0
+
 # AI & LLM Integration (OpenRouter / OpenAI Compatible / Groq / Google GenAI)
 openai>=1.40.0
 groq>=0.11.0
