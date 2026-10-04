@@ -266,3 +266,16 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ❌ **NEVER:** Không bao giờ push mã nguồn lên remote git mà chưa kiểm tra cây import; không bao giờ đặt các tác vụ gọi I/O mạng đồng bộ tại module-level global scope; không để `.gitignore` chặn các file cache tĩnh phục vụ fast-boot.
   * ✅ **ALWAYS:** Trước mỗi lần `git push`, bắt buộc chạy thử nạp module trong môi trường `.venv` local: `.\.venv\Scripts\python.exe -c "import IPGov_Chatbot.main; print('Import Verified!')"` hoặc `.\.venv\Scripts\python.exe -m uvicorn IPGov_Chatbot.main:app --host 127.0.0.1 --port 8000`. Đồng thời, luôn thiết kế fallback an toàn sang BM25 / Fuzzy Matching trong catalog để container không bao giờ bị crash nếu dịch vụ AI bên ngoài gặp sự cố.
 
+
+
+---
+
+### [TRAP-027] Thiếu Cấu Hình Biến Môi Trường Trên Cloud Dẫn Tới Rơi Vào Nhánh Fallback SQL Rỗng
+- **Môi trường & Công nghệ:** Render Cloud / FastAPI / LangGraph Autonomous Agent / Text-to-SQL
+- **Triệu chứng:** Cùng một câu hỏi truy vấn dữ liệu (ví dụ: *'Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?'*), môi trường local trả về bảng 5 bản ghi nhưng trên Cloud Render trả về thông báo *'Yêu cầu tra cứu hiện chưa có bản ghi số liệu phù hợp trong kho DWH năm 2026'*.
+- **Nguyên nhân gốc rễ:**
+  1. Service Render Backend được tạo mới nhưng chưa được thiết lập danh sách biến môi trường (`env-vars` trả về rỗng `[]`). Do thiếu `OPENROUTER_API_KEY` và `GOOGLE_API_KEY`, các hàm gọi mô hình LLM (`_call_llm_cascade`) bị thất bại im lặng (silent fail) và trả về chuỗi rỗng `""`.
+  2. Tầng Fallback SQL tự động kích hoạt nhưng logic mặc định chỉ xét bảng Fact `fact_report_criteria` thay vì các bảng nghiệp vụ liên quan (`mission`, `collection_form`, `user_mission`, `report`), dẫn đến câu lệnh SQL cố tình tìm kiếm theo chuỗi thô người dùng trên bảng Fact và trả về 0 dòng.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ deploy backend lên Cloud mà không đồng bộ đầy đủ các API keys và thông số cấu hình từ `.env` local.
+  * ✅ **ALWAYS:** Luôn cấu hình đầy đủ biến môi trường thông qua Render API / Dashboard. Đồng thời, thiết kế tầng Fallback Deterministic SQL nhận diện linh hoạt 5 bảng nghiệp vụ DWH (`mission`, `collection_form`, `user_mission`, `report`, `fact_report_criteria`) để hệ thống luôn trả về dữ liệu chính xác ngay cả khi LLM gặp sự cố gián đoạn mạng.
