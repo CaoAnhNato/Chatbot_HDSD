@@ -913,7 +913,38 @@ class WarehouseLangGraphAgent:
         # Fallback Deterministic SQL nếu LLM không khả dụng hoặc rỗng
         if not generated_sql or "select" not in generated_sql.lower():
             dept_clause = f"AND f.department_code = '{target_dept}' " if target_dept else ""
-            if "fact_report_criteria" in target_tables:
+            p_lower = clean_prompt.lower()
+            if "mission" in target_tables and any(k in p_lower for k in ["nhiệm vụ", "đề án"]):
+                generated_sql = (
+                    f"SELECT m.mission_name FROM dwh_internal.mission AS m "
+                    f"WHERE m.year_code = '{inherited_year}' AND m.mission_status = true LIMIT 500;"
+                )
+            elif "collection_form" in target_tables and any(k in p_lower for k in ["biểu mẫu", "tờ khai"]):
+                generated_sql = (
+                    f"SELECT cf.code, cf.name, cf.department_code, cf.status FROM dwh_internal.collection_form AS cf "
+                    f"WHERE cf.year_code = '{inherited_year}' LIMIT 500;"
+                )
+            elif "user_mission" in target_tables and any(k in p_lower for k in ["cán bộ", "chuyên viên", "phụ trách", "ai nắm", "do ai", "ai làm", "ai quản lý"]):
+                crit_person = clean_prompt
+                for kw in ["cán bộ", "chuyên viên", "năm", inherited_year, "phụ trách", "nào", "ai", "là", "?", "nhiệm vụ"]:
+                    crit_person = crit_person.replace(kw, "")
+                crit_person = crit_person.strip()
+                mis_cond = f"AND um.mission_name ILIKE '%{crit_person}%'" if crit_person else ""
+                generated_sql = (
+                    f"SELECT u.name, u.position, um.office_name, um.mission_name "
+                    f"FROM dwh_internal.user_mission AS um "
+                    f"JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id "
+                    f"WHERE um.tenant_code = '{inherited_tenant}' {mis_cond} "
+                    f"LIMIT 500;"
+                )
+            elif "report" in target_tables and any(k in p_lower for k in ["báo cáo", "nộp", "kỳ", "trạng thái"]):
+                generated_sql = (
+                    f"SELECT r.report_date, r.status, r.department_code "
+                    f"FROM dwh_internal.report AS r "
+                    f"WHERE r.tenant_code = '{inherited_tenant}' AND r.year_code = '{inherited_year}' "
+                    f"LIMIT 500;"
+                )
+            elif "fact_report_criteria" in target_tables:
                 if is_non_add:
                     # Non-additive metrics: take latest report (rn = 1) per dept
                     if candidates:
