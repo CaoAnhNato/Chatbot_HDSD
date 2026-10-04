@@ -55,6 +55,8 @@ Trong CSDL có 4 trạng thái: `approved` (1.780 dòng), `pending` (618 dòng),
    - Thu thập metadata log: `generation_id` (`response.id`), `latency_ms`, `prompt_tokens`, `completion_tokens`, `cached_tokens`, và `cost_usd` thực tế từ OpenRouter `usage.cost` (fallback định mức nếu null). Ghi vào `data/logs/llm_usage.jsonl`.
    - Cơ chế kép: Vô Lăng Định Hướng (System Prompt tối ưu + Schema Pruning) + Cầu Dao An Toàn (`max_tokens=400` cho Router, `max_tokens=1500` cho SQL, `stop=["}\n", "\n\n"]`).
    - Pilot Probe Testing: Thực nghiệm 35 câu (5 câu trọng yếu x 7 nhánh) thuần túy với `google/gemini-2.5-flash-lite`, đo lường phân phối token [Min, Mean, P95, Max], chạy 4-7 biến thể prompt để tìm System Prompt tối ưu nhất trước khi chạy toàn bộ test suite.
+8. **[2026-10-04] Nguyên Tắc An Toàn Pre-Push Import & Runtime Check:**
+   - Trước khi thực hiện `git push`, luôn kiểm tra cú pháp import bằng cách chạy thử trong môi trường ảo local (`.\.venv\Scripts\python.exe -c "import IPGov_Chatbot.main"` hoặc `.\.venv\Scripts\python.exe -m uvicorn IPGov_Chatbot.main:app`) để bảo đảm không phát sinh lỗi phụ thuộc runtime hoặc thiếu package trên môi trường triển khai Cloud (Render).
 
 ---
 

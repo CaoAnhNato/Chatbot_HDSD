@@ -68,3 +68,19 @@
   3. **Rà Soát Bẫy Trước Khi Chạy Code (Pre-flight Check):** Tra cứu [`TRAPS.md`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/TRAPS.md) trước khi viết/chạy code hoặc gõ lệnh PowerShell/Terminal.
   4. **Tự Động Ghi Bẫy Sau Khi Fix Lỗi:** Khi giải quyết xong lỗi runtime, test fail hoặc cú pháp, bắt buộc ghi nhận `[TRAP-xxx]` mới vào `TRAPS.md`.
   5. **Truyền Tải Cho Sub-Agents:** Tự động tiêm Core Invariants và các Traps liên quan vào Prompt của Sub-Agent khi điều phối.
+
+## Mandatory Pre-Push Import & Runtime Verification Rule
+
+- **Nguyên tắc an toàn trước khi git push:**  
+  Trước khi thực hiện bất kỳ lệnh `git push` nào lên remote repository, Agent **BẮT BUỘC PHẢI LUÔN KIỂM TRA** toàn bộ cây import graph và quá trình nạp ứng dụng bằng cách chạy thử trong môi trường ảo local:
+  ```powershell
+  .\.venv\Scripts\python.exe -c "import IPGov_Chatbot.main; print('Import Verified!')"
+  ```
+  hoặc chạy kiểm tra khởi động nhanh với uvicorn:
+  ```powershell
+  .\.venv\Scripts\python.exe -m uvicorn IPGov_Chatbot.main:app --host 127.0.0.1 --port 8000
+  ```
+- **Tiêu chuẩn vượt qua (Pass Gate):**  
+  Quá trình nạp ứng dụng phải hoàn tất thành công trong môi trường `.venv`, không phát sinh `ImportError`, `ModuleNotFoundError`, lỗi cú pháp hoặc lỗi blocking network call lúc boot.
+- **Nghiêm cấm tuyệt đối:** Không được phép push mã nguồn khi chưa chạy bước kiểm tra import runtime này.
+

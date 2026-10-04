@@ -252,3 +252,17 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
 - **Quy tắc dứt điểm:**
   * ❌ **NEVER:** Không sử dụng `token_set_ratio` trực tiếp trên danh mục chỉ tiêu mà không có danh sách blacklist các mã rác/mã test (`ignore_codes`).
   * ✅ **ALWAYS:** Bắt buộc bổ sung các mã chỉ tiêu rác, không có dữ liệu vào `ignore_codes` của Catalog. Đồng thời, thiết kế các nhánh Template biên dịch chuyên biệt cho các ý định nghiệp vụ DWH phổ biến (`REPORT_STATUS`, `COLLECTION_FORM`, `DATA_ANOMALY`, `USER_MISSION`, `ETL_FRESHNESS`) để định tuyến chính xác trước khi tra cứu chỉ tiêu đơn lẻ.
+
+---
+
+### [TRAP-026] Thiếu Thư Viện Chuyển Tiếp Runtime & Lỗi Import-Time Boot Khi Deploy Cloud (Render)
+- **Môi trường & Công nghệ:** Render Cloud / FastAPI / Uvicorn / Python venv / Gitignore / HuggingFace ZeroGPU
+- **Triệu chứng:** Web Service trên Render build thành công (`buildStatus: succeeded`) nhưng container lập tức thoát với mã lỗi `nonZeroExit: 1` ngay khi chạy lệnh khởi động `python -m uvicorn IPGov_Chatbot.main:app --host 0.0.0.0 --port $PORT`.
+- **Nguyên nhân gốc rễ:**
+  1. **Thiếu thư viện chuyển tiếp runtime:** Khi tách `requirements_render.txt` riêng nhằm triệt tiêu PyTorch (tiết kiệm ~2GB RAM để không vỡ giới hạn 512MB RAM free tier của Render), việc cắt gọt quá tay đã vô tình bỏ sót 6 package bổ trợ chuyển tiếp giữa các module (`PyJWT`, `jinja2`, `networkx`, `PyYAML`, `redis`, `SQLAlchemy`).
+  2. **Bẫy `.gitignore` vô tình chặn file cache tĩnh:** File vector embedding danh mục chỉ tiêu (`criteria_embeddings_v2_name_only.npy` 512KB) có sẵn ở local nhưng nằm trong thư mục `IPGov_Chatbot/data/cache/` bị `.gitignore` chặn, không được đẩy lên GitHub. Khi Render khởi động container mới không tìm thấy file cache, catalog buộc phải gọi mạng tính toán lại 125 vector.
+  3. **Anti-pattern "Import-Time Blocking Network Call":** Khởi tạo `warehouse_agent = WarehouseLangGraphAgent()` ngay ở phạm vi module-level global trong `warehouse_langgraph_agent.py`. Khi `uvicorn` nạp file lúc boot, nó kích hoạt gọi mạng đồng bộ tới HuggingFace Space ZeroGPU. Khi HF Space gặp sự cố/cold-start (`event: error; data: null`), exception văng ra làm sập container trước cả khi FastAPI kịp mở cổng `$PORT` để trả lời health check.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ push mã nguồn lên remote git mà chưa kiểm tra cây import; không bao giờ đặt các tác vụ gọi I/O mạng đồng bộ tại module-level global scope; không để `.gitignore` chặn các file cache tĩnh phục vụ fast-boot.
+  * ✅ **ALWAYS:** Trước mỗi lần `git push`, bắt buộc chạy thử nạp module trong môi trường `.venv` local: `.\.venv\Scripts\python.exe -c "import IPGov_Chatbot.main; print('Import Verified!')"` hoặc `.\.venv\Scripts\python.exe -m uvicorn IPGov_Chatbot.main:app --host 127.0.0.1 --port 8000`. Đồng thời, luôn thiết kế fallback an toàn sang BM25 / Fuzzy Matching trong catalog để container không bao giờ bị crash nếu dịch vụ AI bên ngoài gặp sự cố.
+
