@@ -13,7 +13,6 @@ Mở **2 cửa sổ Terminal** riêng biệt tại thư mục gốc của dự �
 
 ```powershell
 # Kích hoạt môi trường ảo (nếu chưa kích hoạt)
-python -m venv .venv  
 .\.venv\Scripts\Activate.ps1
 
 # Khởi chạy Backend FastAPI với cờ --app-dir backend
@@ -31,7 +30,6 @@ python -m venv .venv
 ```powershell
 # Di chuyển vào thư mục frontend và chạy Next.js dev server
 cd frontend
-npm install
 npm run dev
 ```
 

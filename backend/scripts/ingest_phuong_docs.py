@@ -29,7 +29,7 @@ async def run_ingestion_phuong():
 
     # 1. Locate Phường docx file
     project_root = backend_dir.parent
-    phuong_doc_path = project_root / "Bussiness_Rules" / "docs" / "HDSD ATLĐ (Phường).docx"
+    phuong_doc_path = project_root / "Bussiness_Rules" / "docs" / "HDSD WOM v1.0.docx"
 
     if not phuong_doc_path.exists():
         print(f"❌ Không tìm thấy file tài liệu: {phuong_doc_path}")

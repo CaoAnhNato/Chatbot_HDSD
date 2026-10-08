@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic-settings
+python-dotenv
+psycopg[binary]
+langchain
+langchain-google-genai
+rank-bm25
+chromadb
+openai
+python-docx
+python-multipart
+sentence-transformers
