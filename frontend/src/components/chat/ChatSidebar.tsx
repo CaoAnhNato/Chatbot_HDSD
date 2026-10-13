@@ -194,7 +194,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                       {groupItems.map((session) => {
                         const isActive = session.id === activeSessionId;
                         const isEditing = editingId === session.id;
-                        const isLeader = session.role === 'phuong' || (session.level !== undefined && session.level <= 1) || session.role.includes('leader') || session.role.includes('dept');
+                        const isPhuong = session.role === 'phuong';
 
                         return (
                           <div
@@ -209,7 +209,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                             {/* Role Icon */}
                             <div
                               className={`shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-xs ${
-                                isLeader
+                                isPhuong
                                   ? isActive
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-blue-100 text-blue-700'
@@ -217,9 +217,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                                   ? 'bg-indigo-600 text-white'
                                   : 'bg-indigo-100 text-indigo-700'
                               }`}
-                              title={session.level !== undefined ? `HBAC Level ${session.level}` : (isLeader ? 'Phân hệ Lãnh đạo' : 'Phân hệ Chuyên viên / Công dân')}
+                              title={isPhuong ? 'Phân hệ Phường / Xã' : 'Phân hệ Doanh nghiệp'}
                             >
-                              {isLeader ? <Landmark className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
+                              {isPhuong ? <Landmark className="w-3.5 h-3.5" /> : <Building2 className="w-3.5 h-3.5" />}
                             </div>
 
                             {/* Title & Metadata */}

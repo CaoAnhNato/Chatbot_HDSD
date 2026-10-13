@@ -15,9 +15,9 @@ class QwenService:
         self._http_client: Optional[httpx.AsyncClient] = None
 
     def _get_client(self) -> AsyncOpenAI:
-        api_key = settings.effective_api_key or os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
+        api_key = settings.effective_api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("DASHSCOPE_API_KEY") or os.getenv("QWEN_API_KEY")
         if not api_key:
-            raise ValueError("⚠️ Chưa cấu hình DASHSCOPE_API_KEY hoặc QWEN_API_KEY trong file `.env`.")
+            raise ValueError("⚠️ Chưa cấu hình OPENROUTER_API_KEY hoặc DASHSCOPE_API_KEY trong file `.env`.")
         
         if self.client is None:
             # Persistent HTTP/2 Session Pooling & Keep-Alive
@@ -123,7 +123,37 @@ class QwenService:
                     yield chunk.choices[0].delta.content
         except Exception as e:
             logger.error(f"Stream error from Qwen API: {e}", exc_info=True)
-            yield f"\n❌ Lỗi truyền luồng: {str(e)}"
+    async def generate_text(
+        self,
+        system_prompt: str,
+        user_query: str,
+        history: Optional[List[ChatMessage]] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
+    ) -> str:
+        """Calls LLM API to generate complete response with custom parameters."""
+        try:
+            client = self._get_client()
+        except ValueError as e:
+            return str(e)
+
+        messages = [{"role": "system", "content": system_prompt}]
+        if history:
+            for msg in history:
+                messages.append({"role": msg.role, "content": msg.content})
+        messages.append({"role": "user", "content": user_query})
+
+        try:
+            response = await client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                temperature=temperature if temperature is not None else settings.LLM_TEMPERATURE,
+                max_tokens=max_tokens if max_tokens is not None else settings.LLM_MAX_TOKENS
+            )
+            return response.choices[0].message.content or ""
+        except Exception as e:
+            logger.error(f"Error calling LLM API in generate_text: {e}", exc_info=True)
+            return ""
 
 
 qwen_service = QwenService()

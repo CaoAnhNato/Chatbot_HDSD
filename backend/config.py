@@ -43,12 +43,12 @@ class Settings(BaseSettings):
     # ==============================================================================
     # 2. CÁC API KEYS MÔ HÌNH NGÔN NGỮ ĐƯỢC PHÉP SỬ DỤNG CHO IPGOV_CHATBOT (LLM APIS)
     # ==============================================================================
-    # 2.1. Alibaba DashScope / Qwen API Gateway
+    # 2.1. LLM API Gateway (Mặc định OpenRouter với model google/gemini-2.5-flash-lite)
     DASHSCOPE_API_KEY: str = os.getenv("DASHSCOPE_API_KEY", "")
     DASHSCOPE_BASE_URL: str = os.getenv("DASHSCOPE_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
     QWEN_API_KEY: str = os.getenv("QWEN_API_KEY", "")
-    QWEN_BASE_URL: str = os.getenv("QWEN_BASE_URL", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
-    QWEN_MODEL_NAME: str = os.getenv("QWEN_MODEL_NAME", "qwen3.7-flash")
+    QWEN_BASE_URL: str = os.getenv("QWEN_BASE_URL", "https://openrouter.ai/api/v1" if os.getenv("ACTIVE_LLM_PROVIDER", "openrouter") == "openrouter" else "https://dashscope-intl.aliyuncs.com/compatible-mode/v1")
+    QWEN_MODEL_NAME: str = os.getenv("QWEN_MODEL_NAME", "google/gemini-2.5-flash-lite" if os.getenv("ACTIVE_LLM_PROVIDER", "openrouter") == "openrouter" else "qwen3.7-flash")
 
     # 2.2. Vô hiệu hóa Groq API (Không phù hợp hạn mức TPM/RPM)
     GROQ_API_KEY: str = ""
@@ -61,10 +61,25 @@ class Settings(BaseSettings):
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
     OPENROUTER_HEAVY_MODEL: str = os.getenv("OPENROUTER_HEAVY_MODEL", "deepseek/deepseek-v4.1-flash")
     OPENROUTER_LIGHT_MODEL: str = os.getenv("OPENROUTER_LIGHT_MODEL", "google/gemini-2.5-flash-lite")
-    OPENROUTER_PRIMARY_MODEL: str = os.getenv("OPENROUTER_PRIMARY_MODEL", "google/gemini-2.5-flash-lite")
-    OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME", "google/gemini-2.5-flash-lite")
+    OPENROUTER_PRIMARY_MODEL: str = os.getenv("OPENROUTER_PRIMARY_MODEL", "deepseek/deepseek-v4.1-flash")
+    OPENROUTER_MODEL_NAME: str = os.getenv("OPENROUTER_MODEL_NAME", "deepseek/deepseek-v4.1-flash")
     ROUTER_CONFIDENCE_THRESHOLD: float = float(os.getenv("ROUTER_CONFIDENCE_THRESHOLD", "0.7"))
     ENABLE_OPENROUTER_RESPONSE_CACHE: bool = os.getenv("ENABLE_OPENROUTER_RESPONSE_CACHE", "true").lower() in ("true", "1", "yes")
+
+    # ==============================================================================
+    # OPENROUTER END-PROVIDER ROUTING (DÀNH RIÊNG CHO DEEPSEEK PLANNER)
+    # ==============================================================================
+    OPENROUTER_PLANNER_MODEL: str = os.getenv("OPENROUTER_PLANNER_MODEL", "deepseek/deepseek-v4.1-flash")
+    OPENROUTER_PLANNER_PROVIDER_ORDER: List[str] = [
+        p.strip() for p in os.getenv(
+            "OPENROUTER_PLANNER_PROVIDER_ORDER",
+            "coreweave/fp8,makora/fp8,relace,inference-net/fp8"
+        ).split(",") if p.strip()
+    ]
+    OPENROUTER_PLANNER_ALLOW_FALLBACKS: bool = os.getenv(
+        "OPENROUTER_PLANNER_ALLOW_FALLBACKS", "true"
+    ).lower() in ("true", "1", "yes")
+    OPENROUTER_PLANNER_REASONING_ENABLED: bool = False  # Bắt buộc tắt reasoning cho DeepSeek để giảm thiểu tối đa latency
 
     # 2.4. Google GenAI API Gateway (via shopaikey proxy)
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
@@ -76,7 +91,7 @@ class Settings(BaseSettings):
 
     # 2.5. Tham số điều khiển suy luận Router (Tất định, Ponytail Lean, Low Budget Tokens)
     ROUTER_TEMPERATURE: float = 0.0
-    ROUTER_MAX_TOKENS: int = 800
+    ROUTER_MAX_TOKENS: int = 3000
     ROUTER_ENABLE_THINKING: bool = False  # Tắt reasoning tokens để tối ưu chi phí & tốc độ
 
     # 2.6. Tham số điều khiển suy luận LLM chung (SQL Generation & Synthesis)
@@ -89,8 +104,8 @@ class Settings(BaseSettings):
     SQL_GENERATION_LLM_API_KEY: Optional[str] = os.getenv("SQL_GENERATION_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GOOGLE_API_KEY")
     RESPONSE_SYNTHESIS_LLM_API_KEY: Optional[str] = os.getenv("RESPONSE_SYNTHESIS_LLM_API_KEY") or os.getenv("OPENROUTER_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
-    AGENT_PRIMARY_MODEL: str = os.getenv("AGENT_PRIMARY_MODEL", "google/gemini-2.5-flash-lite")
-    AGENT_FALLBACK_MODEL_1: str = os.getenv("AGENT_FALLBACK_MODEL_1", "google/gemini-3.5-flash-lite")
+    AGENT_PRIMARY_MODEL: str = os.getenv("AGENT_PRIMARY_MODEL", "deepseek/deepseek-v4.1-flash")
+    AGENT_FALLBACK_MODEL_1: str = os.getenv("AGENT_FALLBACK_MODEL_1", "google/gemini-2.5-flash-lite")
     AGENT_FALLBACK_MODEL_2: str = os.getenv("AGENT_FALLBACK_MODEL_2", "deepseek/deepseek-v4.1-flash")
     AGENT_MEMORY_DB_PATH: str = os.getenv("AGENT_MEMORY_DB_PATH", "data/agent_memory.db")
 
@@ -189,7 +204,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL_NAME: str = "AITeamVN/Vietnamese_Embedding_v2"
     EMBEDDING_DIMENSION: int = 1024
     HF_TOKEN: str = os.getenv("HF_TOKEN", "")
-    USE_REMOTE_EMBEDDING: bool = os.getenv("USE_REMOTE_EMBEDDING", "true").lower() in ("true", "1", "yes")
+    USE_REMOTE_EMBEDDING: bool = os.getenv("USE_REMOTE_EMBEDDING", "false").lower() in ("true", "1", "yes")
     HF_EMBEDDING_SPACE_URL: str = os.getenv("HF_EMBEDDING_SPACE_URL", "https://nato1306-vietnamese-embedding-api.hf.space")
 
     DATABASE_URL: Optional[str] = None
@@ -213,9 +228,9 @@ class Settings(BaseSettings):
 
     VECTOR_DB_TYPE: str = "chroma"
     CHROMA_PERSIST_DIRECTORY: str = str(BACKEND_DIR / "chroma_data")
-    CHROMA_COLLECTION_PHUONG: str = "hdsd_phuong"
-    CHROMA_COLLECTION_DN: str = "hdsd_dn"
-    DEFAULT_COLLECTION: str = "hdsd_phuong"
+    CHROMA_COLLECTION_PHUONG: str = "hdsd_phuong_chunks"
+    CHROMA_COLLECTION_DN: str = "hdsd_chunks"
+    DEFAULT_COLLECTION: str = "hdsd_phuong_chunks"
     IMAGE_STORAGE_PATH: str = str(BACKEND_DIR / "data" / "extracted_images")
 
     # 2.3. Redis Session & Semantic Decision Cache Settings
