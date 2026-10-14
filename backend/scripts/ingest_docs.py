@@ -89,13 +89,19 @@ async def main():
     project_root = backend_dir.parent
     
     # Ưu tiên file Docx gốc để trích xuất đầy đủ media hình ảnh vào static CDN
-    dn_docx = project_root / "Bussiness_Rules" / "docs" / "_AI_HDSD_ATLĐ (DN).v1_HCM_2026 (1).docx"
-    dn_md = project_root / "Bussiness_Rules" / "docs" / "markdown" / "HDSD_DN_v1_2026.md"
-    dn_target = dn_docx if dn_docx.exists() else dn_md
+    dn_candidates = [
+        project_root / "Bussiness_Rules" / "docs" / "_AI_HDSD_ATLĐ (DN).v1_HCM_2026 (1).docx",
+        project_root / "Bussiness_Rules" / "docs" / "HDSD_DN.docx",
+        project_root / "Bussiness_Rules" / "docs" / "markdown" / "HDSD_DN_v1_2026.md"
+    ]
+    dn_target = next((p for p in dn_candidates if p.exists()), dn_candidates[0])
 
-    phuong_docx = project_root / "Bussiness_Rules" / "docs" / "HDSD ATLĐ (Phường).docx"
-    phuong_md = project_root / "Bussiness_Rules" / "docs" / "markdown" / "HDSD_Phuong_v2_2026.md"
-    phuong_target = phuong_docx if phuong_docx.exists() else phuong_md
+    phuong_candidates = [
+        project_root / "Bussiness_Rules" / "docs" / "HDSD WOM v1.0.docx",
+        project_root / "Bussiness_Rules" / "docs" / "HDSD ATLĐ (Phường).docx",
+        project_root / "Bussiness_Rules" / "docs" / "markdown" / "HDSD_Phuong_v2_2026.md"
+    ]
+    phuong_target = next((p for p in phuong_candidates if p.exists()), phuong_candidates[0])
 
     if args.mode in ["all", "dn"]:
         await ingest_collection([dn_target], settings.CHROMA_COLLECTION_DN, "Doanh nghiệp (v1)", role="dn")

@@ -1,223 +1,401 @@
 # Multimodal HDSD Chatbot Assistant 🤖📚
 
-> **Trợ lý AI Đa phương tiện Hướng dẫn Sử dụng Hệ thống Quản lý Điều hành & Báo cáo An toàn Lao động**  
-> Kiến trúc **Multi-Role RAG**, kết hợp **Dense Vietnamese Embedding** và **Hybrid Extractive-Generative Retrieval**, tích hợp **Qwen-3.7-Flash API**.
+> **Tài Liệu Hướng Dẫn Cài Đặt & Vận Hành Toàn Diện Từ Con Số 0 (Client Handover Manual)**  
+> *Dành cho khách hàng thiết lập trên máy mới hoàn toàn (Clean Machine) — Hướng dẫn chi tiết từng câu lệnh từ chuẩn bị môi trường, nạp dữ liệu Word (.docx), đến khởi chạy Backend & Frontend.*
 
 [![Python](https://img.shields.io/badge/Python-3.11%20%7C%203.12-blue?logo=python)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-green?logo=fastapi)](https://fastapi.tiangolo.com/)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2%20App%20Router-black?logo=next.js)](https://nextjs.org/)
-[![Qwen](https://img.shields.io/badge/AI%20Engine-Qwen--3.7--Flash-orange)](https://help.aliyun.com/document_detail/271257.html)
-[![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB%20%2F%20Qdrant-red)](https://www.trychroma.com/)
-[![Deployment](https://img.shields.io/badge/Live%20Deploy-Vercel%20%26%20Railway-brightgreen)](https://chatbot-hdsd.vercel.app)
+[![Vector Store](https://img.shields.io/badge/Vector%20Store-ChromaDB-red)](https://www.trychroma.com/)
+[![License](https://img.shields.io/badge/License-MIT-purple.svg)](LICENSE)
 
 ---
 
-## 🌐 Hệ Thống Trực Tuyến (Live Demo & Endpoints)
-
-Dự án được triển khai trên môi trường Production Cloud:
-
-| Phân hệ / Dịch vụ | Nền tảng | Đường dẫn truy cập | Chức năng |
-| :--- | :---: | :--- | :--- |
-| **Giao diện Chat Web (Frontend)** | **Vercel** | [https://chatbot-hdsd.vercel.app](https://chatbot-hdsd.vercel.app) | Ứng dụng Next.js 14, hiển thị luồng SSE streaming, xem ảnh UI qua Lightbox và nhúng video YouTube. |
-| **Máy chủ API AI (Backend)** | **Railway** | [https://chatbothdsd-production.up.railway.app](https://chatbothdsd-production.up.railway.app) | FastAPI Async Server, xử lý Hybrid RAG, Ingestion pipeline và kết nối Qwen LLM. |
-| **Tài liệu API (Swagger UI)** | **Railway** | [https://chatbothdsd-production.up.railway.app/docs](https://chatbothdsd-production.up.railway.app/docs) | Giao diện Swagger / OpenAPI để kiểm thử trực tiếp các endpoints `/chat`, `/health`, `/ingest`. |
-| **Embedding Microservice** | **Hugging Face** | [https://nato1306-vietnamese-embedding-api.hf.space](https://nato1306-vietnamese-embedding-api.hf.space) | Dịch vụ vector embedding tiếng Việt (`AITeamVN/Vietnamese_Embedding_v2`). |
-
----
-
-## ⚙️ Các Phân Hệ & Cơ Chế Xử Lý Cốt Lõi
-
-### 1. Phản Hồi Đa Phương Tiện (Multimodal Response)
-- Hướng dẫn các bước thao tác định dạng Markdown (`**Bước 1:**`, `**Bước 2:**`).
-- Đính kèm ảnh giao diện UI tương ứng theo vị trí thẻ `[IMAGE_N]` (hỗ trợ xem chi tiết qua Lightbox).
-- Nhúng video hướng dẫn YouTube phát đúng mốc thời gian (timestamp) của thao tác.
-
-### 2. Phân Tách Không Gian Tri Thức Theo Vai Trò (Multi-Role RAG)
-- Phân hệ **Doanh nghiệp (`DN`)**: Tra cứu quy trình đăng ký, nộp báo cáo định kỳ TNLĐ, báo cáo ATVSLĐ (Collection: `hdsd_chunks`).
-- Phân hệ **Cán bộ Phường (`Phường`)**: Tra cứu nghiệp vụ quản lý doanh nghiệp, tiếp nhận và thẩm định báo cáo (Collection: `hdsd_phuong_chunks`).
-- Bộ định tuyến `Dynamic Catalog Router` tự động phân loại đối tượng để truy xuất đúng collection.
-
-### 3. Cơ Chế Truy Xuất Kết Hợp (Hybrid Retrieval)
-- Kết hợp tìm kiếm ngữ nghĩa Dense Vector (`AITeamVN/Vietnamese_Embedding_v2` 1024 chiều) và tìm kiếm từ khóa Sparse BM25.
-- Áp dụng công thức Reciprocal Rank Fusion (RRF) kết hợp Intent Action Boost để xếp hạng chunk thuộc phân hệ nghiệp vụ mục tiêu lên vị trí ưu tiên.
-
-### 4. Điều Phối Phản Hồi Theo Nhóm Câu Hỏi (Tri-Modal Dispatcher)
-- **Mode A (Procedural Extractive):** Đối với câu hỏi quy trình thao tác, hệ thống trích xuất trực tiếp nội dung Rich Markdown từ chunk tài liệu nguồn nhằm giữ nguyên văn bản gốc và giảm thời gian chờ.
-- **Mode B (Targeted Generative QA):** Đối với câu hỏi ngách (hỏi về điều kiện, thời hạn, trách nhiệm), gửi ngữ cảnh liên quan tới mô hình `qwen3.7-flash` để tổng hợp câu trả lời ngắn gọn trong 1–3 câu.
-- **Mode C (Contact Support Card):** Tự động xuất trình thẻ thông tin Hotline, Zalo khi phát hiện người dùng phản ánh sự cố kỹ thuật.
-
-### 5. Khởi Tạo Tài Nguyên Trước (FastAPI Lifespan)
-- Nạp sẵn Vector Embedding model và chỉ mục BM25 vào bộ nhớ khi server khởi động, giúp câu hỏi đầu tiên không bị trễ thời gian tải thư viện.
-
-### 6. Kiểm Soát Đầu Vào (Security Guardrails)
-- Bộ lọc regex kiểm tra và từ chối các câu lệnh vi phạm (Prompt Injection, SQL Injection) trước khi xử lý nghiệp vụ.
+## 📑 Mục Lục
+1. [Giới Thiệu Tổng Quan](#1-giới-thiệu-tổng-quan)
+2. [Cài Đặt Các Công Cụ Nền Tảng (Prerequisites)](#2-cài-đặt-các-công-cụ-nền-tảng-prerequisites)
+3. [Bước 1: Tải Mã Nguồn Dự Án (Git Clone)](#bước-1-tải-mã-nguồn-dự-án-git-clone)
+4. [Bước 2: Cài Đặt Môi Trường Backend & Thư Viện Python](#bước-2-cài-đặt-môi-trường-backend--thư-viện-python)
+5. [Bước 3: Cấu Hình Biến Môi Trường Backend (.env)](#bước-3-cấu-hình-biến-môi-trường-backend-env)
+6. [Bước 4: Đặt File Word & Chạy Nạp Dữ Liệu (Data Ingestion - BẮT BUỘC)](#bước-4-đặt-file-word--chạy-nạp-dữ-liệu-data-ingestion---bắt-buộc)
+7. [Bước 5: Cài Đặt Giao Diện Người Dùng Frontend (Next.js 14)](#bước-5-cài-đặt-giao-diện-người-dùng-frontend-nextjs-14)
+8. [Bước 6: Khởi Chạy Toàn Bộ Hệ Thống](#bước-6-khởi-chạy-toàn-bộ-hệ-thống)
+9. [Kiểm Thử & Đánh Giá Chất Lượng Phản Hồi](#kiểm-thử--đánh-giá-chất-lượng-phản-hồi)
+10. [Xử Lý Lỗi Thường Gặp Khi Cài Đặt (Troubleshooting)](#xử-lý-lỗi-thường-gặp-khi-cài-đặt-troubleshooting)
 
 ---
 
-## 🏗️ Cấu Trúc Thư Mục Dự Án
+## 1. Giới Thiệu Tổng Quan
 
-```
-Chatbot_Project/
-├── Bussiness_Rules/                       # Tài liệu nghiệp vụ & Đặc tả kiến trúc
-│   └── docs/                              # Toàn bộ hệ thống tài liệu kỹ thuật
-│       ├── PROJECT_CANVAS_ARCHITECTURE.md # 📑 Tài liệu đặc tả kiến trúc kỹ thuật
-│       ├── SYSTEM_RUN_GUIDE.md            # 🚀 Hướng dẫn cài đặt & vận hành hệ thống
-│       ├── RAG_EVALUATION_REPORT.md       # 📊 Báo cáo đánh giá RAGAS
-│       ├── modules/                       # 📂 Bộ 7 đặc tả kỹ thuật chi tiết
-│       │   ├── MODULE_01_INGESTION_PARSER.md
-│       │   ├── MODULE_02_VECTORSTORE_RETRIEVAL.md
-│       │   ├── MODULE_03_SECURITY_GUARDRAILS.md
-│       │   ├── MODULE_04_INTENT_CLASSIFICATION.md
-│       │   ├── MODULE_05_STRATEGY_ROUTER.md
-│       │   ├── MODULE_06_RAG_SYNTHESIS_LLM.md
-│       │   └── MODULE_07_FRONTEND_PRESENTATION.md
-│       └── markdown/                      # Nội dung HDSD đã chuyển đổi dạng Markdown
-├── backend/                               # Máy chủ Python FastAPI & AI Engine
-│   ├── app/
-│   │   ├── api/v1/                        # REST API Endpoints (/chat, /ingest, /health)
-│   │   ├── core/                          # Config, Guardrails, Logger, Audit Logger
-│   │   ├── models/                        # Pydantic Data Models (ChatRequest, Response)
-│   │   ├── services/                      # RAG Service, Qwen Service, Intent Service
-│   │   ├── ingestion/                     # Docx OpenXML Parser, Media Extractor, Chunker
-│   │   ├── vectorstore/                   # ChromaDB, Qdrant & Hybrid Retriever
-│   │   └── utils/                         # Prompts, Fallback Contact Card
-│   ├── scripts/                           # Script nạp dữ liệu (Ingestion scripts)
-│   │   ├── ingest_docs.py                 # Nạp dữ liệu Doanh nghiệp vào ChromaDB
-│   │   ├── ingest_phuong_docs.py          # Nạp dữ liệu Cán bộ Phường vào ChromaDB
-│   │   └── ingest_all_to_supabase_and_chroma.py
-│   ├── tests/                             # Bộ kịch bản kiểm thử tự động & Benchmark
-│   │   ├── run_benchmark.py               # Benchmark bộ 18 test cases
-│   │   ├── run_ragas_evaluation.py        # Đo lường các chỉ số RAGAS
-│   │   ├── test_phuong_rag.py             # Kiểm thử phân hệ Cán bộ Phường
-│   │   └── test_conversational_cqr.py     # Kiểm thử Contextual Query Rewriting
-│   ├── data/                              # Dữ liệu ảnh bóc tách (extracted_images) & logs
-│   ├── chroma_data/                       # Cơ sở dữ liệu Vector ChromaDB cục bộ
-│   ├── Dockerfile                         # Đóng gói Docker Backend
-│   └── requirements.txt                   # Danh sách thư viện Python
-├── frontend/                              # Giao diện người dùng Next.js 14 Web App
-│   ├── src/
-│   │   ├── app/                           # App Router (page.tsx, layout.tsx)
-│   │   ├── components/chat/               # Chat UI, Lightbox, YouTubeEmbed, ActionChips
-│   │   ├── hooks/                         # useChat hook xử lý SSE streaming
-│   │   ├── lib/                           # API Client & SSE Stream Parser
-│   │   └── types/                         # TypeScript interfaces
-│   ├── Dockerfile                         # Đóng gói Docker Frontend
-│   └── package.json                       # Thư viện Frontend
-├── docker-compose.yml                     # Khởi chạy toàn bộ hệ thống bằng Docker
-└── README.md                              # Tài liệu tổng quan dự án (Tệp này)
-```
+**Multimodal HDSD Chatbot Assistant** là hệ thống trợ lý AI hỗ trợ tra cứu quy trình, hướng dẫn thao tác phần mềm dựa trên tài liệu Word (DOCX):
+* **Hỗ trợ 2 phân hệ độc lập:**
+  * 🏛️ **Cán bộ Phường / Xã:** Tra cứu quy trình tiếp nhận, quản lý thông tin an toàn lao động cơ sở.
+  * 🏢 **Doanh nghiệp:** Tra cứu thủ tục khai báo, nộp báo cáo tai nạn lao động.
+* **Đa phương tiện (Multimodal):** Tự động bóc tách ảnh chụp màn hình UI từ file Word gốc và hiển thị chính xác tại từng bước hướng dẫn thao tác, phóng to bằng Lightbox.
+* **Truy xuất lai siêu tốc (Hybrid RAG):** Kết hợp tìm kiếm vector ngữ nghĩa (Dense Vector) và tìm kiếm từ khóa BM25 cho tốc độ phản hồi tức thì.
 
 ---
 
-## 💻 Bảng Tổng Hợp Tech Stack
+## 2. Cài Đặt Các Công Cụ Nền Tảng (Prerequisites)
 
-| Phân tầng | Công nghệ | Vai trò trong hệ thống |
-| :--- | :--- | :--- |
-| **Frontend UI** | Next.js 14, React 18, TailwindCSS, Lucide Icons | Giao diện Chatbot hiển thị luồng SSE token thời gian thực, Image Lightbox, nhúng YouTube player. |
-| **Backend Core** | Python 3.11+, FastAPI, Uvicorn, AsyncIO | Máy chủ API RESTful bất đồng bộ, điều phối luồng RAG và SSE Streaming. |
-| **AI LLM Engine** | **Qwen-3.7-Flash API** (Alibaba Cloud DashScope) | Xử lý ngôn ngữ tiếng Việt và tổng hợp câu trả lời cho các câu hỏi ngách. |
-| **Embedding Engine** | `AITeamVN/Vietnamese_Embedding_v2` (1024 dim) | Vector Embedding tiếng Việt; hỗ trợ cả on-premise ONNX và HF Spaces Microservice. |
-| **Vector Database** | **ChromaDB** & **Qdrant** | Lưu trữ và tìm kiếm vector Cosine Similarity phân tách theo role collection. |
-| **Sparse Index** | **Rank-BM25** (`rank_bm25`) | Tìm kiếm từ khóa theo tần suất từ và nghịch đảo văn bản. |
-| **Data Ingestion** | `python-docx` (XML Run-level Parser) | Bóc tách cấu trúc tài liệu Word, bảo toàn định dạng in đậm, in nghiêng và vị trí ảnh UI. |
-| **Cloud Persistence** | **Supabase** (PostgreSQL / pgvector) | Lưu trữ phiên hội thoại, lịch sử tin nhắn và persistence trên đám mây. |
-| **Hosting & CI/CD** | **Vercel** (Frontend) & **Railway** (Backend) | Hạ tầng đám mây phân tán, tự động build và deploy theo Git commit. |
+> 💡 **Khách hàng bắt đầu từ máy tính mới cần cài đặt đủ 3 phần mềm dưới đây trước khi thực hiện các bước tiếp theo:**
 
----
+### 2.1. Cài đặt Git (Quản lý mã nguồn)
+* **Tải về:** Truy cập [https://git-scm.com/download/win](https://git-scm.com/download/win) tải bản cài đặt Windows 64-bit và nhấn **Next** đến khi hoàn tất.
+* **Kiểm tra sau khi cài:** Mở Terminal (PowerShell hoặc Command Prompt) gõ:
+  ```powershell
+  git --version
+  # Kết quả hợp lệ ví dụ: git version 2.45.x
+  ```
 
-## 📊 Kết Quả Đo Lường Thực Nghiệm & Đánh Giá RAGAS
+### 2.2. Cài đặt Python 3.11 hoặc Python 3.12 (RẤT QUAN TRỌNG)
+* **Tải về:** Khuyến nghị tải phiên bản **Python 3.12.x** tại: [https://www.python.org/downloads/release/python-3128/](https://www.python.org/downloads/release/python-3128/) (kéo xuống mục Files, chọn *Windows installer (64-bit)*).
+* ⚠️ **LƯU Ý BẮT BUỘC TRONG LÚC CÀI ĐẶT:**
+  * Ngay tại màn hình đầu tiên của trình cài đặt Python, **TÍCH CHỌN VÀO Ô: `Add python.exe to PATH`** ở dưới cùng trước khi bấm *Install Now*.
+* ⚠️ **Tại sao không dùng Python 3.13 hoặc 3.14?**
+  * Các gói AI chuyên biệt (`chromadb`, `sentence-transformers`, `torch`) chưa phát hành bản nhị phân dựng sẵn cho Python 3.13/3.14 trên Windows. Nếu dùng 3.13+, quá trình cài đặt sẽ bị lỗi yêu cầu cài bộ công cụ Visual Studio C++ nặng hơn 5GB.
+* **Kiểm tra sau khi cài:**
+  ```powershell
+  python --version
+  # Kết quả hợp lệ: Python 3.11.x hoặc Python 3.12.x
+  ```
 
-Hệ thống được kiểm thử tự động trên bộ **18 kịch bản truy vấn thực tế**:
-
-### 1. Bảng So Sánh Hiệu Năng Thực Nghiệm
-
-| Chỉ số kỹ thuật | RAG Truyền thống (LLM Generation) | Cơ chế Hybrid (Extractive + Generative) | Ghi chú kỹ thuật |
-| :--- | :---: | :---: | :--- |
-| **Thời gian nhận token đầu (TTFT)** | ~10.000 ms - 15.000 ms | **~210 ms** | Rút ngắn nhờ luồng trích xuất trực tiếp |
-| **Tổng thời gian phản hồi** | ~12.000 ms - 18.000 ms | **~725 ms** | Giảm thiểu việc sinh lại văn bản dài của LLM |
-| **Độ chính xác Top-1 (Precision@1)** | 66.7% | **100.0%** | Kết hợp Dense + Sparse BM25 và Action Boost |
-| **Định vị ảnh UI theo bước** | Dễ bị lệch do xử lý ngẫu nhiên | **Khớp đúng bước** | Cơ chế gán vị trí cố định `[IMAGE_N]` |
-| **Bảo toàn định dạng văn bản gốc** | Thường bị mất khi LLM tóm tắt | **Giữ nguyên 100%** | Trích xuất trực tiếp từ cấu trúc OpenXML |
-
-### 2. Điểm Số Theo Chuẩn RAGAS
-- **Answer Relevancy:** **$100.0\%$** (Câu trả lời bám sát câu hỏi của người dùng).
-- **Context Recall:** **$67.6\%$** (Bao phủ các bước thực hiện và lưu ý nghiệp vụ).
-- **Faithfulness:** **$63.1\%$** (Đạt 100% trên nhóm câu hỏi quy trình nhờ cơ chế trích xuất nguyên bản).
+### 2.3. Cài đặt Node.js & npm (Chạy Giao diện Frontend)
+* **Tải về:** Truy cập [https://nodejs.org/](https://nodejs.org/) và tải bản **LTS (Long Term Support)** (ví dụ: Node.js v20.x hoặc v22.x LTS).
+* **Kiểm tra sau khi cài:**
+  ```powershell
+  node -v
+  npm -v
+  # Kết quả hợp lệ: node v20.x.x / npm 10.x.x
+  ```
 
 ---
 
-## 🚀 Hướng Dẫn Cài Đặt & Khởi Chạy Máy Cục Bộ (Local Setup Guide)
+## Bước 1: Tải Mã Nguồn Dự Án (Git Clone)
 
-### Bước 1: Clone Kho Mã Nguồn & Cấu Hình Môi Trường
+Mở **PowerShell** (hoặc CMD), di chuyển đến thư mục bạn muốn lưu dự án (ví dụ `D:\Projects` hoặc `C:\Users\<Tên_bạn>`), sau đó chạy:
 
-```bash
-# 1. Clone repository từ GitHub
+```powershell
+# 1. Tải toàn bộ repository về máy
 git clone https://github.com/CaoAnhNato/Chatbot_HDSD.git
+
+# 2. Di chuyển vào thư mục gốc của dự án
 cd Chatbot_HDSD
-
-# 2. Cấu hình biến môi trường cho Backend
-cp backend/.env.example backend/.env
-# Mở backend/.env và điền DASHSCOPE_API_KEY hoặc QWEN_API_KEY
-
-# 3. Cấu hình biến môi trường cho Frontend
-cp frontend/.env.example frontend/.env.local
 ```
 
-### Bước 2: Khởi Chạy Backend (FastAPI Server)
+---
 
-```bash
-# Kích hoạt môi trường ảo Python (Windows PowerShell)
-.\.venv\Scripts\Activate.ps1
-# Hoặc trên Linux/macOS: source .venv/bin/activate
+## Bước 2: Cài Đặt Môi Trường Backend & Thư Viện Python
 
-# Cài đặt thư viện (khuyến nghị dùng uv để cài đặt nhanh)
-uv pip install -r backend/requirements.txt
-# Hoặc dùng pip:
-# pip install -r backend/requirements.txt
-
-# (Tùy chọn) Chạy nạp dữ liệu vào Vector DB nếu cần tạo mới
-python backend/scripts/ingest_docs.py
-
-# Khởi chạy Backend server tại port 8000
-python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000 --reload
+### 2.1. Cấp quyền thực thi script cho PowerShell (chỉ cần chạy 1 lần nếu gặp lỗi)
+Mở PowerShell tại thư mục dự án và chạy:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 ```
 
-*Backend sẵn sàng tại: `http://localhost:8000` (Swagger Docs tại `http://localhost:8000/docs`).*
+### 2.2. Tạo môi trường ảo Python độc lập (.venv)
+Tại thư mục `Chatbot_HDSD`, chạy lệnh sau để tạo môi trường cách ly:
+```powershell
+python -m venv .venv
+```
 
-### Bước 3: Khởi Chạy Frontend (Next.js Web App)
+### 2.3. Kích hoạt môi trường ảo
+* **Trên Windows PowerShell:**
+  ```powershell
+  .\.venv\Scripts\Activate.ps1
+  ```
+* **Trên Windows Command Prompt (CMD):**
+  ```cmd
+  .\.venv\Scripts\activate.bat
+  ```
+* **Trên Linux / macOS:**
+  ```bash
+  source .venv/bin/activate
+  ```
+> *Khi kích hoạt thành công, dòng lệnh sẽ xuất hiện tiền tố `(.venv)` ở đầu.*
 
-Mở một cửa sổ Terminal mới:
+### 2.4. Nâng cấp pip và cài đặt toàn bộ thư viện Backend
+Chạy lệnh cài đặt các gói cần thiết từ file `requirements.txt`:
+```powershell
+python -m pip install --upgrade pip
+pip install -r backend/requirements.txt
+```
+*(Quá trình tải và cài đặt các thư viện `fastapi`, `uvicorn`, `chromadb`, `sentence-transformers`... sẽ mất khoảng 1 - 3 phút).*
 
-```bash
-cd frontend
+---
 
-# Cài đặt các gói phụ thuộc Node.js
+## Bước 3: Cấu Hình Biến Môi Trường Backend (.env)
+
+Hệ thống cần file cấu hình để nhận diện API Key của mô hình AI và các thiết lập cục bộ.
+
+### 3.1. Tạo file `.env` từ file mẫu:
+* **Trên Windows PowerShell:**
+  ```powershell
+  Copy-Item backend\.env.example backend\.env
+  ```
+* **Trên Windows CMD:**
+  ```cmd
+  copy backend\.env.example backend\.env
+  ```
+
+### 3.2. Chỉnh sửa nội dung file `backend/.env`:
+Mở file `backend/.env` bằng Notepad hoặc VS Code. Bạn chỉ cần lưu ý các mục sau:
+
+```dotenv
+# ==============================================================================
+# 1. CẤU HÌNH API KEY (CHỌN 1 TRONG CÁC NHÀ CUNG CẤP DƯỚI ĐÂY)
+# ==============================================================================
+
+# Cách 1 (Mặc định): Sử dụng Qwen API từ Alibaba Cloud DashScope
+QWEN_API_KEY="sk-your-qwen-dashscope-api-key"
+QWEN_BASE_URL="https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+QWEN_MODEL_NAME="qwen3.7-flash"
+
+# Cách 2: Sử dụng OpenRouter API (Khuyên dùng - Hỗ trợ Gemini, DeepSeek, Qwen...)
+ACTIVE_LLM_PROVIDER="openrouter"
+OPENROUTER_API_KEY="sk-or-v1-your-openrouter-api-key"
+QWEN_BASE_URL="https://openrouter.ai/api/v1"
+QWEN_MODEL_NAME="google/gemini-2.5-flash-lite"
+
+# Cách 3: Sử dụng Google Gemini API
+GOOGLE_API_KEY="AIzaSy-your-google-api-key"
+
+# ==============================================================================
+# 2. CẤU HÌNH CHẠY LOCAL (GIỮ NGUYÊN)
+# ==============================================================================
+PROJECT_NAME="Multimodal HDSD Chatbot Assistant"
+PORT=8000
+HOST="127.0.0.1"
+
+# BẮT BUỘC ĐỂ false NẾU MÁY BẠN CHƯA CÀI REDIS SERVER
+REDIS_ENABLED=false
+
+# Cấu hình lưu trữ Vector DB và Ảnh bóc tách nội bộ
+VECTOR_DB_TYPE="chroma"
+CHROMA_PERSIST_DIRECTORY="./chroma_data"
+IMAGE_STORAGE_PATH="./data/extracted_images"
+BASE_IMAGE_CDN_URL="http://localhost:8000/static/images"
+
+# Danh sách domain Frontend được phép kết nối API (CORS)
+CORS_ORIGINS='["http://localhost:3000", "http://127.0.0.1:3000", "https://chatbot-hdsd.vercel.app"]'
+```
+
+---
+
+## Bước 4: Đặt File Word & Chạy Nạp Dữ Liệu (Data Ingestion - BẮT BUỘC)
+
+> ❗ **Máy mới của khách hàng chưa có cơ sở dữ liệu Vector và chưa có ảnh trích xuất.**  
+> Bạn cần đặt file Word tài liệu hướng dẫn sử dụng vào thư mục chỉ định và chạy lệnh nạp dữ liệu để hệ thống tự động xử lý.
+
+### 4.1. Thư mục đích đặt tài liệu Word
+Khách hàng đặt các file tài liệu hướng dẫn sử dụng (`.docx`) vào đúng thư mục sau:
+📁 **`Bussiness_Rules/docs/`**
+
+| Phân hệ nghiệp vụ | Tên file Word được hệ thống tự động nhận diện |
+| :--- | :--- |
+| **Phân hệ Phường / Xã** | `HDSD WOM v1.0.docx` *(hoặc `HDSD ATLĐ (Phường).docx`)* |
+| **Phân hệ Doanh nghiệp** | `_AI_HDSD_ATLĐ (DN).v1_HCM_2026 (1).docx` *(hoặc `HDSD_DN.docx`)* |
+
+> *(Trong mã nguồn tải về từ repository đã có sẵn file mẫu `HDSD WOM v1.0.docx` trong thư mục `Bussiness_Rules/docs/` để bạn có thể chạy thử nghiệm ngay).*
+
+### 4.2. Chạy lệnh nạp dữ liệu vào ChromaDB Vector Store
+Đảm bảo môi trường ảo `(.venv)` đang được kích hoạt tại thư mục gốc `Chatbot_HDSD`, chọn chạy lệnh tương ứng:
+
+* **Tùy chọn A: Nạp phân hệ Phường / Xã:**
+  ```powershell
+  python backend/scripts/ingest_docs.py --mode phuong
+  ```
+  *(hoặc chạy script chuyên biệt: `python backend/scripts/ingest_phuong_docs.py`)*
+
+* **Tùy chọn B: Nạp phân hệ Doanh nghiệp:**
+  ```powershell
+  python backend/scripts/ingest_docs.py --mode dn
+  ```
+
+* **Tùy chọn C: Nạp đồng thời cả 2 phân hệ cùng lúc:**
+  ```powershell
+  python backend/scripts/ingest_docs.py --mode all
+  ```
+
+### 4.3. Quá trình Ingestion tự động thực hiện những việc gì?
+1. 📖 Đọc và bóc tách cây cấu trúc tài liệu Word (Heading 1, 2, 3, bảng biểu, danh sách thao tác).
+2. 🖼️ **Tự động trích xuất toàn bộ ảnh UI chụp màn hình** có trong file Word và lưu ra thư mục `backend/data/extracted_images/` để phục vụ hiển thị lên giao diện chat.
+3. 🏷️ Gắn nhãn phân hệ, trích xuất từ khóa tìm kiếm và các bước nghiệp vụ.
+4. 🧠 Tính toán vector embedding và lưu trữ chỉ mục vào ChromaDB tại thư mục `backend/chroma_data/`.
+5. 🎉 Khi màn hình thông báo: `NẠP THÀNH CÔNG COLLECTION ... (xxx chunks)!` là dữ liệu đã sẵn sàng phục vụ.
+
+---
+
+## Bước 5: Cài Đặt Giao Diện Người Dùng Frontend (Next.js 14)
+
+Mở một **cửa sổ Terminal mới**, di chuyển vào thư mục `frontend`:
+
+```powershell
+cd "D:\Projects\Chatbot_HDSD\frontend"   # (Thay đường dẫn tới thư mục dự án của bạn)
+```
+
+### 5.1. Tạo file cấu hình kết nối API (`.env.local`)
+Tạo file `.env.local` bên trong thư mục `frontend/` để chỉ định Frontend kết nối với máy chủ Backend cục bộ của bạn:
+
+* **Trên Windows PowerShell:**
+  ```powershell
+  Set-Content -Path .env.local -Value 'NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"'
+  ```
+* **Hoặc tạo file `.env.local` bằng tay trong thư mục `frontend/` với nội dung duy nhất:**
+  ```dotenv
+  NEXT_PUBLIC_API_URL="http://localhost:8000/api/v1"
+  ```
+
+### 5.2. Cài đặt các gói phụ thuộc Node.js
+Chạy lệnh cài đặt:
+```powershell
 npm install
+```
+*(Chờ quá trình tải và cài đặt các thư viện React, Next.js, TailwindCSS hoàn tất).*
 
-# Khởi chạy máy chủ phát triển
+---
+
+## Bước 6: Khởi Chạy Toàn Bộ Hệ Thống
+
+Để hệ thống hoạt động đầy đủ, bạn cần **chạy song song 2 cửa sổ Terminal**:
+
+### 🟢 Cửa Sổ Terminal 1: Khởi Chạy Backend (FastAPI Engine)
+Đứng tại thư mục gốc của dự án (`Chatbot_HDSD`):
+
+```powershell
+# 1. Kích hoạt môi trường ảo
+.\.venv\Scripts\Activate.ps1
+
+# 2. Khởi chạy máy chủ FastAPI tại cổng 8000
+python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
+```
+
+* **Trang tài liệu Swagger API:** Mở trình duyệt truy cập: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+* **Kiểm tra trạng thái máy chủ:** [http://127.0.0.1:8000/api/v1/health](http://127.0.0.1:8000/api/v1/health) (trả về `{"status":"healthy"}`).
+
+---
+
+### 🟢 Cửa Sổ Terminal 2: Khởi Chạy Frontend (Next.js 14)
+Di chuyển vào thư mục `frontend`:
+
+```powershell
+cd frontend
 npm run dev
 ```
 
-*Giao diện Chatbot sẵn sàng tại: `http://localhost:3000`.*
+* **Truy cập ứng dụng Chatbot:** Mở trình duyệt web và truy cập địa chỉ:
+  👉 **[http://localhost:3000](http://localhost:3000)**
 
-### Bước 4: Chạy Kịch Bản Kiểm Thử Tự Động (Benchmark Suite)
+---
 
-Để kiểm chứng 18 kịch bản nghiệp vụ và đo lường độ trễ:
+## Kiểm Thử & Đánh Giá Chất Lượng Phản Hồi
 
-```bash
+Sau khi đã nạp dữ liệu và khởi động hệ thống, bạn có thể thực hiện kiểm thử:
+
+### 1. Thử nghiệm trên giao diện Web (`http://localhost:3000`)
+* Chuyển tab sang **[🏛️ Phường / Xã]** và đặt các câu hỏi:
+  * *"Làm sao để đổi mật khẩu tài khoản đang đăng nhập?"* $\rightarrow$ Hệ thống sẽ hướng dẫn từng bước và đính kèm ảnh chụp màn hình UI.
+  * *"Quy trình khai báo tai nạn lao động khi vừa xảy ra trên địa bàn"*
+  * *"Số điện thoại hỗ trợ kỹ thuật của hệ thống là gì?"* $\rightarrow$ Hệ thống xuất hiện Thẻ liên hệ hotline màu vàng (`028 3535 2524`).
+
+### 2. Chạy kịch bản kiểm thử tự động Backend (Automated Tests)
+Mở cửa sổ Terminal tại thư mục `Chatbot_HDSD` (đã kích hoạt `.venv`):
+```powershell
+# Kiểm thử toàn diện 10 phân hệ nghiệp vụ Phường/Xã
+python backend/tests/test_phuong_rag.py
+
+# Chạy đo lường Benchmark 18 test cases và thời gian phản hồi (TTFT)
 python backend/tests/run_benchmark.py
 ```
 
 ---
 
-## 📑 Tài Liệu Kỹ Thuật Tham Chiếu
+## Xử Lý Lỗi Thường Gặp Khi Cài Đặt (Troubleshooting)
 
-1. 📑 **Đặc tả Kiến trúc Kỹ thuật Hệ thống:** [`Bussiness_Rules/docs/PROJECT_CANVAS_ARCHITECTURE.md`](./Bussiness_Rules/docs/PROJECT_CANVAS_ARCHITECTURE.md)
-2. 🚀 **Hướng dẫn Vận hành & Cài đặt:** [`Bussiness_Rules/docs/SYSTEM_RUN_GUIDE.md`](./Bussiness_Rules/docs/SYSTEM_RUN_GUIDE.md)
-3. 📊 **Báo cáo Đánh giá RAGAS:** [`Bussiness_Rules/docs/RAG_EVALUATION_REPORT.md`](./Bussiness_Rules/docs/RAG_EVALUATION_REPORT.md)
-4. 📂 **Bộ 7 Tài liệu Đặc tả Từng Module:** [`Bussiness_Rules/docs/modules/`](./Bussiness_Rules/docs/modules/)
+### 1. Lỗi PowerShell: `File ... Activate.ps1 cannot be loaded because running scripts is disabled`
+* **Nguyên nhân:** Windows mặc định chặn chạy script ngoài PowerShell.
+* **Cách sửa:** Mở PowerShell và chạy lệnh sau để cấp quyền cho phiên làm việc hiện tại:
+  ```powershell
+  Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+  ```
+  Sau đó kích hoạt lại: `.\.venv\Scripts\Activate.ps1`.
+
+### 2. Lỗi `Microsoft Visual C++ 14.0 or greater is required` khi chạy `pip install`
+* **Nguyên nhân:** Bạn đang sử dụng Python 3.13 hoặc 3.14 nên pip phải tự biên dịch mã nguồn C++.
+* **Cách sửa:**
+  1. Gỡ cài đặt Python 3.13/3.14.
+  2. Tải và cài đặt **Python 3.11** hoặc **Python 3.12** từ [python.org](https://www.python.org/downloads/). (Nhớ tích chọn *Add python.exe to PATH*).
+  3. Xóa thư mục `.venv` cũ (`Remove-Item -Recurse -Force .venv`) và tạo lại từ Bước 2.2.
+
+### 3. Lỗi `ModuleNotFoundError: No module named 'app'` khi khởi động Backend
+* **Nguyên nhân:** Thiếu tham số `--app-dir backend` khiến Python tìm thư mục `app` ở sai vị trí.
+* **Cách sửa:** Chạy đúng cú pháp lệnh:
+  ```powershell
+  python -m uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
+  ```
+
+### 4. Lỗi kết nối Redis: `ConnectionRefusedError: [Errno 111] Connection refused`
+* **Nguyên nhân:** Máy tính cá nhân chưa cài đặt dịch vụ Redis Server.
+* **Cách sửa:** Mở file `backend/.env`, tìm dòng `REDIS_ENABLED` và đổi thành:
+  ```dotenv
+  REDIS_ENABLED=false
+  ```
+
+### 5. Chatbot trả lời báo lỗi chưa có API Key
+* **Nguyên nhân:** Chưa cấu hình khóa AI hoặc khóa không hợp lệ trong file `backend/.env`.
+* **Cách sửa:** Mở `backend/.env` và điền key vào biến `QWEN_API_KEY` hoặc `OPENROUTER_API_KEY`.
+
+### 6. Khi chạy Ingestion báo `Không tìm thấy file: ...`
+* **Nguyên nhân:** File tài liệu Word chưa được đặt đúng thư mục `Bussiness_Rules/docs/` hoặc bị sai tên.
+* **Cách sửa:** Kiểm tra thư mục `Bussiness_Rules/docs/` xem đã có file `HDSD WOM v1.0.docx` (cho Phường) hoặc `HDSD_DN.docx` (cho Doanh nghiệp) chưa.
+
+### 7. Lỗi xung đột cổng: `[Errno 10048] Address already in use (port 8000 hoặc 3000)`
+* **Nguyên nhân:** Có một tiến trình Python hoặc Node.js cũ đang chạy ngầm chiếm cổng.
+* **Cách sửa:** Chạy lệnh PowerShell sau để giải phóng cổng:
+  ```powershell
+  # Giải phóng cổng 8000:
+  Get-Process -Id (Get-NetTCPConnection -LocalPort 8000).OwningProcess -ErrorAction SilentlyContinue | Stop-Process -Force
+
+  # Giải phóng cổng 3000:
+  Get-Process -Id (Get-NetTCPConnection -LocalPort 3000).OwningProcess -ErrorAction SilentlyContinue | Stop-Process -Force
+  ```
 
 ---
-*Multimodal HDSD Chatbot Assistant.*
-#   C h a t b o t - H D S D - W O M  
- 
+
+## 📂 Cấu Trúc Thư Mục Dự Án
+
+```
+Chatbot_HDSD/
+├── Bussiness_Rules/                       # Tài liệu nghiệp vụ & Chứa file Word đầu vào
+│   └── docs/                              # 👉 ĐẶT FILE WORD (.DOCX) TẠI ĐÂY ĐỂ NẠP DỮ LIỆU
+│       └── HDSD WOM v1.0.docx             # File tài liệu hướng dẫn sử dụng mẫu
+├── backend/                               # Máy chủ Python FastAPI & AI RAG Engine
+│   ├── app/
+│   │   ├── api/v1/                        # Các REST API Endpoints (/chat, /health, /ingest)
+│   │   ├── core/                          # Cấu hình tập trung (config.py), Guardrails
+│   │   ├── models/                        # Pydantic Schemas (ChatRequest, Response)
+│   │   ├── services/                      # RAG Service, Qwen Service, Intent Routing
+│   │   ├── ingestion/                     # Module bóc tách OpenXML Docx & Trích xuất ảnh UI
+│   │   └── vectorstore/                   # ChromaDB Store & BM25 Sparse Index
+│   ├── scripts/
+│   │   ├── ingest_docs.py                 # Script nạp dữ liệu chính (hỗ trợ --mode all/dn/phuong)
+│   │   └── ingest_phuong_docs.py          # Script nạp dữ liệu phân hệ Phường/Xã
+│   ├── tests/                             # Bộ kiểm thử tự động & Benchmark đo lường hiệu năng
+│   ├── data/
+│   │   ├── extracted_images/              # 🖼️ Nơi chứa ảnh chụp UI trích xuất tự động từ Word
+│   │   └── catalogs/                      # Domain Catalog JSON sinh tự động sau khi nạp
+│   ├── chroma_data/                       # 🗄️ Cơ sở dữ liệu Vector ChromaDB lưu trữ cục bộ
+│   ├── .env.example                       # Mẫu cấu hình biến môi trường Backend
+│   └── requirements.txt                   # Danh sách thư viện Python cần cài đặt
+├── frontend/                              # Giao diện người dùng Web Next.js 14
+│   ├── src/
+│   │   ├── app/                           # App Router (page.tsx, layout.tsx)
+│   │   ├── components/chat/               # UI Chat, Lightbox zoom ảnh, nhúng video
+│   │   └── lib/                           # Xử lý API Client & giải mã luồng SSE Streaming
+│   ├── .env.example                       # Mẫu cấu hình biến môi trường Frontend
+│   └── package.json                       # Danh sách gói thư viện Node.js
+└── README.md                              # Tài liệu hướng dẫn sử dụng (Tệp này)
+```
+
+---
+*Multimodal HDSD Chatbot Assistant — Bộ tài liệu chuẩn bị sẵn sàng cho khách hàng cài đặt và vận hành.*
