@@ -7,7 +7,8 @@ Tuân thủ chuẩn Arc42, IEEE Std 1016-2009 và Triết lý Tinh Giản Ponyta
 
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Đường dẫn thư mục gốc backend
@@ -258,6 +259,20 @@ class Settings(BaseSettings):
         "https://chatbot-hdsd.vercel.app",
         "https://ipgov-chatbot-frontend.onrender.com",
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        if isinstance(v, str):
+            v_strip = v.strip()
+            if v_strip.startswith("[") and v_strip.endswith("]"):
+                import json
+                try:
+                    return json.loads(v_strip)
+                except Exception:
+                    pass
+            return [i.strip() for i in v_strip.split(",") if i.strip()]
+        return v
 
     model_config = SettingsConfigDict(
         env_file=(
