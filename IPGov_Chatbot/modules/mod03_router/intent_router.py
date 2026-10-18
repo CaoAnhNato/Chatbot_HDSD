@@ -406,22 +406,28 @@ class IntentRouter:
                     y for y in [parsed.temporal_scope.start_year, parsed.temporal_scope.end_year]
                     if y is not None
                 ]
-                if len(years) >= 2:
-                    active_quest.temporal_val = str(max(years))
-                    active_quest.comparison_year = str(min(years))
-                elif len(years) == 1:
-                    y = str(years[0])
+                unique_years = sorted(list(set(years)))
+                if len(unique_years) >= 2:
+                    active_quest.temporal_val = str(max(unique_years))
+                    active_quest.comparison_year = str(min(unique_years))
+                elif len(unique_years) == 1:
+                    y = str(unique_years[0])
                     if active_quest.temporal_val and y != active_quest.temporal_val:
                         active_quest.comparison_year = y
                     else:
                         active_quest.temporal_val = y
+                        if not active_quest.comparison_year or active_quest.comparison_year == active_quest.temporal_val:
+                            if curr_quest and curr_quest.comparison_year and curr_quest.comparison_year != active_quest.temporal_val:
+                                active_quest.comparison_year = curr_quest.comparison_year
+                            elif active_quest.temporal_val and active_quest.temporal_val.isdigit():
+                                active_quest.comparison_year = str(int(active_quest.temporal_val) - 1)
             else:
                 if parsed.temporal_scope.start_year:
                     active_quest.temporal_val = str(parsed.temporal_scope.start_year)
                 elif not active_quest.temporal_val and parsed.temporal_scope.raw_expression:
                     active_quest.temporal_val = parsed.temporal_scope.raw_expression
 
-                if parsed.temporal_scope.end_year:
+                if parsed.temporal_scope.end_year and str(parsed.temporal_scope.end_year) != active_quest.temporal_val:
                     active_quest.comparison_year = str(parsed.temporal_scope.end_year)
 
         if parsed.spatial_scope and parsed.spatial_scope.location_name:

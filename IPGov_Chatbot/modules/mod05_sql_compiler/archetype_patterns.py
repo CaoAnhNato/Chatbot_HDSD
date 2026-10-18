@@ -68,14 +68,25 @@ class ArchetypePatternCatalog:
             where_conds.append(f"f.office_id = '{office_id}'")
         where_str = "\n      AND ".join(where_conds)
 
-        return f"""WITH annual_stat AS (
-    SELECT 
-        f.year_code AS nam,
-        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri
+        return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.office_id, f.year_code,
+           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
     FROM dwh_internal.fact_report_criteria f
     LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
-    GROUP BY f.year_code
+),
+annual_stat AS (
+    SELECT 
+        year_code AS nam,
+        SUM(numeric_val) AS tong_gia_tri
+    FROM latest_fact
+    WHERE rn = 1
+    GROUP BY year_code
 )
 SELECT 
     nam,
@@ -130,18 +141,29 @@ ORDER BY tong_so_luong {order_dir}, f.department_code ASC LIMIT {top_k};"""
             where_conds.append(f"({' OR '.join(crit_conds)})")
         where_str = "\n      AND ".join(where_conds)
 
-        return f"""WITH ranked_entities AS (
-    SELECT 
-        COALESCE(o.office_name, f.department_code) AS ten_don_vi,
-        SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,
-        DENSE_RANK() OVER (ORDER BY SUM(NULLIF(TRIM(f.value), '')::numeric) {order_dir}) AS rank_pos,
-        MAX(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () - 
-        MIN(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS khoang_bien_do
+        return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.office_id, f.department_code,
+           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
     FROM dwh_internal.fact_report_criteria f
     LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
-    LEFT JOIN dwh_internal.office o ON f.office_id = o.id
     WHERE {where_str}
-    GROUP BY o.office_name, f.department_code
+),
+ranked_entities AS (
+    SELECT 
+        COALESCE(o.office_name, lf.department_code) AS ten_don_vi,
+        SUM(lf.numeric_val) AS tong_gia_tri,
+        DENSE_RANK() OVER (ORDER BY SUM(lf.numeric_val) {order_dir}) AS rank_pos,
+        MAX(SUM(lf.numeric_val)) OVER () - 
+        MIN(SUM(lf.numeric_val)) OVER () AS khoang_bien_do
+    FROM latest_fact lf
+    LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+    WHERE lf.rn = 1
+    GROUP BY o.office_name, lf.department_code
 )
 SELECT ten_don_vi, tong_gia_tri, rank_pos, khoang_bien_do
 FROM ranked_entities
@@ -179,15 +201,26 @@ ORDER BY rank_pos ASC;"""
             where_conds.append(f"f.department_code = '{department_code}'")
         where_str = "\n  AND ".join(where_conds)
 
-        return f"""SELECT 
+        return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.office_id,
+           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
+    FROM dwh_internal.fact_report_criteria f
+    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    WHERE {where_str}
+)
+SELECT 
     COALESCE(o.office_name, 'Trực thuộc cơ quan chủ quản') AS ten_don_vi,
-    SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri,
-    AVG(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS trung_binh_nhom,
-    SUM(NULLIF(TRIM(f.value), '')::numeric) - AVG(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS chenh_lech_so_voi_tb
-FROM dwh_internal.fact_report_criteria f
-LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
-LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-WHERE {where_str}
+    SUM(lf.numeric_val) AS tong_gia_tri,
+    AVG(SUM(lf.numeric_val)) OVER () AS trung_binh_nhom,
+    SUM(lf.numeric_val) - AVG(SUM(lf.numeric_val)) OVER () AS chenh_lech_so_voi_tb
+FROM latest_fact lf
+LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+WHERE lf.rn = 1
 GROUP BY o.office_name
 ORDER BY tong_gia_tri DESC;"""
 
@@ -213,18 +246,28 @@ ORDER BY tong_gia_tri DESC;"""
 
         where_str = " AND ".join(where_conds)
 
-        return f"""SELECT 
-    f.name AS ten_thanh_phan,
-    SUM(NULLIF(TRIM(f.value), '')::numeric) AS gia_tri_thanh_phan,
-    SUM(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER () AS tong_so_toan_tinh,
+        return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.office_id, f.name,
+           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    WHERE {where_str}
+)
+SELECT 
+    lf.name AS ten_thanh_phan,
+    SUM(lf.numeric_val) AS gia_tri_thanh_phan,
+    SUM(SUM(lf.numeric_val)) OVER () AS tong_so_toan_tinh,
     ROUND(
-        (SUM(NULLIF(TRIM(f.value), '')::numeric) / 
-         NULLIF(SUM(SUM(NULLIF(TRIM(f.value), '')::numeric)) OVER (), 0)) * 100.0, 
+        (SUM(lf.numeric_val) / 
+         NULLIF(SUM(SUM(lf.numeric_val)) OVER (), 0)) * 100.0, 
         2
     ) AS ty_trong_pct
-FROM dwh_internal.fact_report_criteria f
-WHERE {where_str}
-GROUP BY f.name
+FROM latest_fact lf
+WHERE lf.rn = 1
+GROUP BY lf.name
 ORDER BY gia_tri_thanh_phan DESC;"""
 
     @classmethod
@@ -264,19 +307,30 @@ ORDER BY gia_tri_thanh_phan DESC;"""
         y_start_label = year_start or "truoc"
         y_end_label = year_end or "sau"
 
-        return f"""SELECT 
-    o.office_name AS ten_phong_ban,
-    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}') AS nam_{y_start_label},
-    SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_end}') AS nam_{y_end_label},
+        return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.office_id, f.year_code,
+           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
+    FROM dwh_internal.fact_report_criteria f
+    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    WHERE {where_str}
+)
+SELECT 
+    COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_phong_ban,
+    SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}') AS nam_{y_start_label},
+    SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_end}') AS nam_{y_end_label},
     ROUND(
-        ((SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_end}') -
-          SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}')) /
-         NULLIF(SUM(NULLIF(TRIM(f.value), '')::numeric) FILTER (WHERE f.year_code = '{year_start}'), 0)) * 100.0, 
+        ((SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_end}') -
+          SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}')) /
+         NULLIF(SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}'), 0)) * 100.0, 
         2
     ) AS tang_truong_pct
-FROM dwh_internal.fact_report_criteria f
-LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
-LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-WHERE {where_str}
+FROM latest_fact lf
+LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+WHERE lf.rn = 1
 GROUP BY o.office_name
 ORDER BY nam_{y_end_label} DESC;"""

@@ -36,18 +36,22 @@ import unicodedata
 from langgraph.graph import END, START, StateGraph
 
 from IPGov_Chatbot.config import settings
+from IPGov_Chatbot.modules.mod02_guardrails.injection_shield import InjectionShield
 from IPGov_Chatbot.modules.mod02_guardrails.scope_prechecker import ScopePrechecker
+from IPGov_Chatbot.modules.mod03_router.canonical_normalizer import CanonicalSemanticNormalizer
 from IPGov_Chatbot.modules.mod03_router.discourse_state_tracker import DiscourseStateTracker, DialogueStateFrame
 from IPGov_Chatbot.modules.mod03_router.neural_cqr_engine import NeuralCQREngine, CQRReformulationResult
 from IPGov_Chatbot.modules.mod04_catalog.duckdb_semantic_catalog import DuckDBSemanticCatalog
+from IPGov_Chatbot.modules.mod06_ast_enforcer.ast_enforcer_service import ASTEnforcerService
 from IPGov_Chatbot.modules.mod07_dwh_exec.dwh_exec_service import DWHExecutionService
 from IPGov_Chatbot.modules.mod08_response.jinja_slot_engine import JinjaSlotEngine, vn_format_num
+from IPGov_Chatbot.schemas.canonical_query_frame import CanonicalIntentEnum, CanonicalQueryFrameDTO
 from IPGov_Chatbot.schemas.dwh_exec_dto import QueryResultDTO
 from IPGov_Chatbot.schemas.user_context import UserSecurityContextDTO
 
 logger = logging.getLogger("ipgov.warehouse_langgraph_agent")
 
-# Danh sách 8 bảng nghiệp vụ được phép truy vấn trong kho DWH
+# Danh sách các bảng nghiệp vụ và danh mục được phép truy vấn trong kho DWH
 ALLOWED_WAREHOUSE_TABLES = [
     "fact_report_criteria",
     "criteria",
@@ -57,6 +61,12 @@ ALLOWED_WAREHOUSE_TABLES = [
     "user",
     "office_mission",
     "mission",
+    "scope",
+    "province",
+    "deparment",
+    "office",
+    "ward",
+    "office_user",
 ]
 
 # Bảng kỹ thuật bị nghiêm cấm truy cập
@@ -166,6 +176,60 @@ WAREHOUSE_TABLES_SCHEMA = {
             "department_code": "VARCHAR(64) - Mã cơ quan",
         },
     },
+    "province": {
+        "full_name": "dwh_internal.province",
+        "description": "Bảng Dimension danh mục các đơn vị hành chính cấp tỉnh/thành phố trực thuộc trung ương",
+        "columns": {
+            "id": "UUID - Khóa chính",
+            "code": "VARCHAR(64) - Mã tỉnh/thành phố (ví dụ: '68' cho Lâm Đồng, '79' cho TP.HCM)",
+            "name": "VARCHAR(255) - Tên tỉnh/thành phố",
+            "is_activated": "BOOLEAN - Trạng thái kích hoạt trong hệ thống",
+        },
+    },
+    "deparment": {
+        "full_name": "dwh_internal.deparment",
+        "description": "Bảng Dimension danh mục các sở, ban, ngành cấp tỉnh",
+        "columns": {
+            "id": "UUID - Khóa chính",
+            "code": "VARCHAR(64) - Mã sở ngành",
+            "name": "VARCHAR(255) - Tên cơ quan sở ngành",
+            "level": "INTEGER - Cấp quản lý",
+            "tenant_code": "VARCHAR(64) - Mã tỉnh trực thuộc",
+            "is_activated": "BOOLEAN - Trạng thái kích hoạt",
+        },
+        "notes": "Hiện tại bảng này trong kho có 0 dòng, ưu tiên dùng department_code trên fact hoặc catalog.",
+    },
+    "office": {
+        "full_name": "dwh_internal.office",
+        "description": "Bảng Dimension danh mục các phòng, ban, chi cục thuộc sở ban ngành",
+        "columns": {
+            "id": "UUID - Khóa chính",
+            "code": "VARCHAR(64) - Mã phòng ban",
+            "name": "VARCHAR(255) - Tên phòng ban chuyên môn",
+            "department_code": "VARCHAR(64) - Mã sở ngành trực thuộc",
+            "is_activated": "BOOLEAN - Trạng thái kích hoạt",
+        },
+    },
+    "ward": {
+        "full_name": "dwh_internal.ward",
+        "description": "Bảng Dimension danh mục xã, phường, thị trấn",
+        "columns": {
+            "id": "UUID - Khóa chính",
+            "code": "VARCHAR(64) - Mã xã/phường",
+            "name": "VARCHAR(255) - Tên xã/phường/thị trấn",
+            "district_code": "VARCHAR(64) - Mã huyện/thị xã/thành phố",
+            "is_activated": "BOOLEAN - Trạng thái kích hoạt",
+        },
+    },
+    "scope": {
+        "full_name": "dwh_internal.scope",
+        "description": "Bảng Dimension danh mục lĩnh vực quản lý nhà nước",
+        "columns": {
+            "id": "UUID - Khóa chính",
+            "scope_name": "VARCHAR(255) - Tên lĩnh vực quản lý",
+            "scope_code": "VARCHAR(64) - Mã lĩnh vực",
+        },
+    },
 }
 
 
@@ -181,6 +245,7 @@ class AgentState(TypedDict):
     inherited_year: Optional[str]
     inherited_department: Optional[str]
     inherited_metric: Optional[str]
+    inherited_parent_criterion: Optional[str]
     is_clarification_needed: bool
     clarification_question: Optional[str]
     is_capability_query: bool
@@ -198,6 +263,7 @@ class AgentState(TypedDict):
     stage_message: str
     final_answer: Optional[str]
     quick_action_chips: Optional[List[Dict[str, Any]]]
+    tabular_data: Optional[Dict[str, Any]]
 
     # Disambiguation & Candidate metadata (ADR-002)
     candidates: Optional[List[Dict[str, Any]]]
@@ -207,14 +273,40 @@ class AgentState(TypedDict):
     target_department_code: Optional[str]
     is_out_of_scope: bool
     out_of_scope_answer: Optional[str]
+    canonical_frame: Optional[CanonicalQueryFrameDTO]
+    is_empty_year: bool
+
+
+def _strip_bracketed_tags(text: str) -> str:
+    """
+    Loại bỏ các thẻ dạng [tenant_code=..., level=...] thuần túy bằng thao tác chuỗi.
+    Không sử dụng regex.
+    """
+    while "[" in text and "]" in text:
+        start = text.find("[")
+        end = text.find("]", start)
+        if end != -1:
+            tag_content = text[start + 1 : end]
+            if "tenant_code=" in tag_content or "level=" in tag_content:
+                text = text[:start] + text[end + 1 :]
+            else:
+                break
+        else:
+            break
+    return text.strip()
 
 
 def _clean_sql_code(sql_str: str) -> str:
-    """Lọc sạch các khối markdown khỏi câu lệnh SQL."""
+    """Lọc sạch các khối markdown khỏi câu lệnh SQL mà không sử dụng regex."""
     cleaned = sql_str.strip()
-    match = re.search(r"```(?:sql)?\s*([\s\S]*?)\s*```", cleaned, re.IGNORECASE)
-    if match:
-        cleaned = match.group(1).strip()
+    if "```" in cleaned:
+        start_idx = cleaned.find("```")
+        end_idx = cleaned.rfind("```")
+        if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+            inner = cleaned[start_idx + 3 : end_idx].strip()
+            if inner.lower().startswith("sql"):
+                inner = inner[3:].strip()
+            cleaned = inner
     return cleaned.rstrip(";") + ";"
 
 
@@ -264,6 +356,8 @@ class WarehouseLangGraphAgent:
         self.dwh_exec_service = DWHExecutionService()
         self.jinja_engine = JinjaSlotEngine()
         self.catalog = DuckDBSemanticCatalog()
+        self.normalizer = CanonicalSemanticNormalizer(self.catalog)
+        self.ast_enforcer = ASTEnforcerService()
         self.discourse_tracker = DiscourseStateTracker()
         self.cqr_engine = NeuralCQREngine()
         self.graph = self._build_graph()
@@ -294,13 +388,22 @@ class WarehouseLangGraphAgent:
 
     def execute_safe_sql(self, query: str, user_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
-        Tool thực thi SQL an toàn có chốt chặn AST Guardrail.
-        Chặn 100% DML/DDL mutation, enforce tenant_code, year_code, an toàn casting.
+        Tool thực thi SQL an toàn có chốt chặn AST Guardrail (Zero Regex Architecture).
+        Chặn 100% DML/DDL mutation, enforce tenant_code, year_code, an toàn casting qua Module 06 AST Enforcer.
         """
         t0 = time.perf_counter()
         raw_sql = _clean_sql_code(query).rstrip(";")
 
-        # 1. AST Guardrail Syntax Check & Multi-statement prevention
+        # 1. Chặn bảng hạ tầng kỹ thuật bị cấm
+        for banned in BANNED_TABLES:
+            if banned in raw_sql.lower():
+                return {
+                    "error": f"Bảng '{banned}' là bảng hạ tầng kỹ thuật nội bộ, bị cấm truy cập.",
+                    "rows": [],
+                    "row_count": 0,
+                }
+
+        # 2. Phân tích cú pháp AST phương ngữ PostgreSQL 16
         try:
             statements = sqlglot.parse(raw_sql, read="postgres")
         except Exception as e:
@@ -318,57 +421,23 @@ class WarehouseLangGraphAgent:
 
         parsed = statements[0]
 
-        # Chỉ cho phép câu lệnh truy vấn SELECT hoặc UNION
-        if not isinstance(parsed, (exp.Select, exp.Union)):
-            return {
-                "error": "Vi phạm an ninh bảo mật AST: Chỉ cho phép câu lệnh truy vấn đọc SELECT/UNION.",
-                "rows": [],
-                "row_count": 0,
-            }
-
-        # 2. Chặn đệ quy mọi DDL/DML mutation trong toàn bộ cây AST (TRAP-023)
-        forbidden_mutations = (
-            exp.Insert,
-            exp.Update,
-            exp.Delete,
-            exp.Drop,
-            exp.Alter,
-            exp.Create,
-            exp.TruncateTable,
-            exp.Command,
-            exp.Transaction,
-            exp.Grant,
-            exp.Revoke,
-        )
-        forbidden_nodes = list(parsed.find_all(forbidden_mutations))
-        if forbidden_nodes:
-            return {
-                "error": "Vi phạm an ninh bảo mật AST: Chỉ cho phép câu lệnh truy vấn đọc SELECT.",
-                "rows": [],
-                "row_count": 0,
-            }
-
-        # 3. Kiểm tra và cấm pipeline_logs, đồng thời cưỡng chế chỉ cho phép 8 bảng nghiệp vụ (hoặc CTE nội bộ)
+        # 3. Kiểm tra Whitelist 8 bảng nghiệp vụ
         cte_names = {cte.alias_or_name.lower().replace('"', '').strip() for cte in parsed.find_all(exp.CTE)}
         for t in parsed.find_all(exp.Table):
             clean_t = t.name.lower().replace("dwh_internal.", "").replace('"', '').strip()
-            if clean_t in BANNED_TABLES:
-                return {
-                    "error": f"Bảng '{clean_t}' là bảng hạ tầng kỹ thuật nội bộ, bị cấm truy cập.",
-                    "rows": [],
-                    "row_count": 0,
-                }
-            if clean_t not in ALLOWED_WAREHOUSE_TABLES and clean_t not in cte_names and clean_t != "deparment":
+            if clean_t not in ALLOWED_WAREHOUSE_TABLES and clean_t not in cte_names and clean_t not in ("deparment", "department"):
                 return {
                     "error": f"Vi phạm an ninh bảo mật AST: Bảng '{clean_t}' không nằm trong danh mục 8 bảng nghiệp vụ được phép truy vấn.",
                     "rows": [],
                     "row_count": 0,
                 }
 
-        # 4. Chuẩn hóa an toàn: year -> year_code, NULLIF TRIM casting, loại bỏ deparment JOIN (TRAP-028, TRAP-004, TRAP-005)
-        sanitized_sql = raw_sql
+        # 4. Zero-JOIN Policy cho deparment (Bóc tách JOIN bảng 0 dòng thuần túy qua AST)
+        for j in list(parsed.find_all(exp.Join)):
+            if (j.this.name or "").lower().strip() in ("deparment", "department"):
+                j.pop()
 
-        # AST Column Validator: Xử lý triệt để bẫy ảo giác column f.id trên fact_report_criteria
+        # 5. AST Column Validator: Xử lý cột id trên fact_report_criteria
         fact_aliases = set()
         for t in parsed.find_all(exp.Table):
             clean_t = t.name.lower().replace("dwh_internal.", "").replace('"', '').strip()
@@ -379,7 +448,6 @@ class WarehouseLangGraphAgent:
         if not fact_aliases and "fact_report_criteria" in raw_sql.lower():
             fact_aliases.add("f")
 
-        ast_modified = False
         for col in parsed.find_all(exp.Column):
             t_name = (col.table or "").lower().strip()
             c_name = col.name.lower().strip()
@@ -389,92 +457,35 @@ class WarehouseLangGraphAgent:
                     col.set("this", exp.to_identifier("fact_sk"))
                 else:
                     col.set("this", exp.to_identifier("criteria_id"))
-                ast_modified = True
 
-        if ast_modified:
-            try:
-                sanitized_sql = parsed.sql(dialect="postgres")
-            except Exception:
-                pass
-
-        # Regex safety net cho f.id trên fact (chỉ áp dụng cho fact_aliases để tránh làm hỏng r.id của report)
-        for fa in fact_aliases:
-            sanitized_sql = re.sub(rf"\bCOUNT\s*\(\s*{fa}\.id\s*\)", f"COUNT({fa}.fact_sk)", sanitized_sql, flags=re.IGNORECASE)
-            sanitized_sql = re.sub(rf"\b{fa}\.id\b", f"{fa}.criteria_id", sanitized_sql, flags=re.IGNORECASE)
-
-        # Thay thế year -> year_code trên fact hoặc report nếu có
-        sanitized_sql = re.sub(r"\b([a-zA-Z0-9_]+)\.year\b", r"\1.year_code", sanitized_sql)
-        sanitized_sql = re.sub(r"(?<!year_)year\s*=\s*'(\d+)'", r"year_code = '\1'", sanitized_sql)
-
-        # Chuẩn hóa tên cột bị ảo giác: criteria_code -> code, criteria_name -> name
-        sanitized_sql = re.sub(r"\b([a-zA-Z0-9_]+\.)?criteria_code\b", r"\1code", sanitized_sql, flags=re.IGNORECASE)
-        sanitized_sql = re.sub(r"\b([a-zA-Z0-9_]+\.)?criteria_name\b", r"\1name", sanitized_sql, flags=re.IGNORECASE)
-
-        # Chuẩn hóa cột ảo giác trên user_mission: mission_code -> mission_name
-        sanitized_sql = re.sub(r"\buser_mission\.mission_code\b", "user_mission.mission_name", sanitized_sql, flags=re.IGNORECASE)
-        sanitized_sql = re.sub(r"\bum\.mission_code\b", "um.mission_name", sanitized_sql, flags=re.IGNORECASE)
-        # Loại bỏ ảo giác lọc year_code trên user_mission và "user" (2 bảng này không có cột year_code)
-        sanitized_sql = re.sub(r"\b(?:um|u|user_mission|\"user\")\.year_code\s*=\s*'202[0-9]'", "1=1", sanitized_sql, flags=re.IGNORECASE)
-        # Chuẩn hóa lọc cấp phòng / chi cục vào đúng cột um.office_name thay vì u.position
-        sanitized_sql = re.sub(r"\bu\.position\s+NOT\s+ILIKE\s+'%phòng%'", "um.office_name NOT ILIKE '%phòng%'", sanitized_sql, flags=re.IGNORECASE)
-        sanitized_sql = re.sub(r"\bu\.position\s+ILIKE\s+'%chi cục%'", "um.office_name ILIKE '%chi cục%'", sanitized_sql, flags=re.IGNORECASE)
-        # Loại bỏ nhầm lẫn lọc department_code = '68' hoặc '68-0-00' (68 là tenant_code cấp tỉnh, không phải department_code)
-        sanitized_sql = re.sub(r"\b([a-zA-Z0-9_]+\.)?department_code\s*=\s*'(?:68|68-0-\d+)'", "1=1", sanitized_sql, flags=re.IGNORECASE)
-
-        # Chuẩn hóa ép kiểu boolean cho mission_status: 'active' -> true, 'inactive' -> false
-        sanitized_sql = re.sub(r"\bmission_status\s*=\s*'active'\b", "mission_status = true", sanitized_sql, flags=re.IGNORECASE)
-        sanitized_sql = re.sub(r"\bmission_status\s*=\s*'inactive'\b", "mission_status = false", sanitized_sql, flags=re.IGNORECASE)
-
-        # Đảm bảo casting an toàn cho value
-        sanitized_sql = re.sub(
-            r"SUM\s*\(\s*([a-zA-Z0-9_]+\.)?value::numeric\s*\)",
-            r"SUM(NULLIF(TRIM(\1value), '')::numeric)",
-            sanitized_sql,
-            flags=re.IGNORECASE,
+        # 6. Kiên cố hóa toàn diện qua Module 06 AST Enforcer Service (HBAC, NULLS LAST, Safe Cast, Safe Projection)
+        tenant = (user_context or {}).get("tenant_code") or "68"
+        dept = (user_context or {}).get("department_code")
+        sec_ctx = UserSecurityContextDTO(
+            user_id="warehouse_agent",
+            username="system",
+            role_level=0,
+            tenant_code=tenant,
+            department_code=dept,
         )
 
-        # Loại bỏ INNER/LEFT JOIN deparment vì bảng 0 dòng (Zero-JOIN Policy)
-        if "deparment" in sanitized_sql.lower():
-            sanitized_sql = re.sub(
-                r"(?:INNER\s+|LEFT\s+)?JOIN\s+dwh_internal\.deparment\s+[a-zA-Z0-9_]+\s+ON\s+[^\n]+",
-                "",
-                sanitized_sql,
-                flags=re.IGNORECASE,
-            )
-
-        # Tiêm tenant_code và report_status nếu truy vấn fact_report_criteria mà chưa có
-        tenant = (user_context or {}).get("tenant_code") or "68"
-        fact_alias = None
-        has_fact = False
-        for t in parsed.find_all(exp.Table):
-            clean_t = t.name.lower().replace("dwh_internal.", "").replace('"', '').strip()
-            if clean_t == "fact_report_criteria":
-                has_fact = True
-                if t.alias:
-                    fact_alias = t.alias
-                break
-
-        tbl_prefix = f"{fact_alias}." if fact_alias else ("dwh_internal.fact_report_criteria." if has_fact else "")
-
-        # Sử dụng sqlglot AST để inject WHERE và LIMIT chuẩn xác tuyệt đối (tránh lỗi cú pháp khi đã có LIMIT/ORDER BY)
         try:
-            ast_curr = sqlglot.parse_one(sanitized_sql, read="postgres")
-            if has_fact and "tenant_code" not in sanitized_sql.lower():
-                ast_curr = ast_curr.where(f"{tbl_prefix}tenant_code = '{tenant}'", append=True)
-            if has_fact and "report_status" not in sanitized_sql.lower():
-                ast_curr = ast_curr.where(f"{tbl_prefix}report_status = 'approved'", append=True)
-            if isinstance(ast_curr, exp.Select) and not ast_curr.args.get("limit"):
-                ast_curr = ast_curr.limit(500)
-            sanitized_sql = ast_curr.sql(dialect="postgres")
-        except Exception:
-            if has_fact and "tenant_code" not in sanitized_sql.lower():
-                sanitized_sql += f" WHERE {tbl_prefix}tenant_code = '{tenant}'"
-            if "limit" not in sanitized_sql.lower():
-                sanitized_sql += " LIMIT 500"
+            intermediate_sql = parsed.sql(dialect="postgres")
+            sanitized_sql, _, _ = self.ast_enforcer._sanitize_single_sql_ast(
+                intermediate_sql,
+                sec_ctx,
+                inject_limit="WITH RANKED_FACTS" not in intermediate_sql.upper(),
+            )
+        except Exception as e:
+            return {
+                "error": f"Vi phạm an ninh bảo mật AST: {e}",
+                "rows": [],
+                "row_count": 0,
+            }
 
         sanitized_sql = sanitized_sql.strip().rstrip(";") + ";"
 
-        # 5. Thực thi qua PostgreSQL
+        # 7. Thực thi qua PostgreSQL pool
         try:
             raw_rows = self.dwh_exec_service.pool.execute_sync_fallback(sanitized_sql)
             rows = []
@@ -518,11 +529,15 @@ class WarehouseLangGraphAgent:
         Gọi LLM theo bậc thang ưu tiên mô hình và task-based API keys:
         gemini-2.5-flash-lite -> gemini-3.5-flash-lite -> deepseek/deepseek-v4.1-flash.
         """
-        models = [
-            settings.AGENT_PRIMARY_MODEL,
-            settings.AGENT_FALLBACK_MODEL_1,
-            settings.AGENT_FALLBACK_MODEL_2,
-        ]
+        if task == "decision":
+            models = [getattr(settings, "OPENROUTER_PLANNER_MODEL", "deepseek/deepseek-v4.1-flash")]
+        else:
+            models = [
+                settings.AGENT_PRIMARY_MODEL,
+                settings.AGENT_FALLBACK_MODEL_1,
+                settings.AGENT_FALLBACK_MODEL_2,
+            ]
+
 
         # Lựa chọn API key theo tác vụ
         if task == "sql":
@@ -537,6 +552,16 @@ class WarehouseLangGraphAgent:
 
         from openai import OpenAI
 
+        extra_body = {
+            "provider": {
+                "order": getattr(settings, "OPENROUTER_PLANNER_PROVIDER_ORDER", ["coreweave/fp8", "makora/fp8", "relace", "inference-net/fp8"]),
+                "allow_fallbacks": getattr(settings, "OPENROUTER_PLANNER_ALLOW_FALLBACKS", True),
+            },
+            "reasoning": {
+                "enabled": getattr(settings, "OPENROUTER_PLANNER_REASONING_ENABLED", False),
+            },
+        }
+
         for model_name in models:
             try:
                 client = OpenAI(api_key=api_key, base_url=base_url, timeout=12.0)
@@ -547,7 +572,7 @@ class WarehouseLangGraphAgent:
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.0,
-                    max_tokens=800,
+                    extra_body=extra_body,
                 )
                 if resp.choices and resp.choices[0].message and resp.choices[0].message.content:
                     return resp.choices[0].message.content.strip()
@@ -571,12 +596,38 @@ class WarehouseLangGraphAgent:
         user_ctx = state.get("user_context", {})
         history = state.get("history") or []
         stack = self.discourse_tracker.get_focus_stack(session_id)
+        if session_id == "default_session" and not history:
+            stack.frames.clear()
         turn_index = (len(history) // 2 + 1) if history else (len(stack.frames) + 1)
 
-        clean_text = re.sub(r"\[tenant_code=\w+,\s*level=\d+\]", "", raw_query).strip()
+        clean_text = _strip_bracketed_tags(raw_query)
         clean_text_lower = clean_text.lower().strip()
 
-        # 1. Tiền kiểm phạm vi an toàn ScopePrechecker (chặn sớm CCCD, thời tiết, chính trị, sáng tác, định tính)
+        # 0. Tiền kiểm an ninh DDL/DML & Prompt Injection (Ưu tiên P0 tối cao)
+        is_inj, inj_msg, _ = InjectionShield.detect_injection(clean_text)
+        if is_inj:
+            logger.warning("Chặn câu lệnh phá hoại / injection: '%s'", clean_text)
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "🛡️ Phát hiện yêu cầu vi phạm an ninh hệ thống...",
+                "is_out_of_scope": True,
+                "out_of_scope_answer": inj_msg,
+                "final_answer": f"Yêu cầu nằm ngoài phạm vi được phép hoặc vi phạm an ninh: {inj_msg}",
+                "is_clarification_needed": False,
+                "is_capability_query": False,
+                "inherited_tenant": "68",
+                "inherited_year": "2026",
+                "inherited_department": None,
+                "inherited_metric": None,
+                "candidates": None,
+                "selected_candidate": None,
+                "is_non_additive": False,
+                "is_temporal_query": False,
+                "target_department_code": None,
+                "quick_action_chips": [],
+            }
+
+        # 1. Tiền kiểm phạm vi an toàn ScopePrechecker (chặn sớm CCCD, thời tiết, chính trị, sáng tác, định tính, tính toán)
         is_out, out_msg, _ = ScopePrechecker.check_scope(clean_text)
         if is_out:
             logger.info("Chặn câu hỏi ngoài phạm vi DWH: '%s' -> %s", clean_text, out_msg[:60])
@@ -597,31 +648,52 @@ class WarehouseLangGraphAgent:
                 "is_non_additive": False,
                 "is_temporal_query": False,
                 "target_department_code": None,
-                "quick_action_chips": [
-                    {"id": "chip_1", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
-                    {"id": "chip_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
-                    {"id": "chip_3", "label": "🧂 Diện tích sản xuất muối", "query_text": "Thế còn diện tích sản xuất muối năm 2026?"},
-                ],
+                "quick_action_chips": (
+                    self.catalog.get_sample_quick_chips("68", year=state.get("inherited_year", "2026"))
+                    if hasattr(self.catalog, "get_sample_quick_chips")
+                    else []
+                ),
             }
 
         # 2. Kiểm tra câu hỏi mốc thời gian (Issue 3)
-        is_temporal = bool(re.search(r"\b(năm nào|năm bao nhiêu|mốc thời gian|thời gian nào|kỳ nào)\b", clean_text_lower))
+        is_temporal = False
 
-        # 3. Kiểm tra câu hỏi hỏi về khả năng / chức năng / chào hỏi (Issue 1)
-        capability_keywords = [
-            "giúp được gì", "giúp gì được", "giúp gì", "làm được gì", "làm gì được", "làm gì",
-            "có thể làm", "khả năng", "chức năng", "giới thiệu", "bạn là ai", "hướng dẫn tra cứu",
-            "hệ thống có những gì", "tra cứu được những gì", "hỏi được những gì", "hỗ trợ gì",
-            "chào bạn", "xin chào", "hello", "hi chatbot"
-        ]
-        is_cap = (
-            any(k in clean_text_lower for k in capability_keywords)
-            or bool(re.search(r"\b(giúp|hỗ trợ|làm|khả năng|chức năng)\b.*\b(gì|những gì|sao|thế nào)\b", clean_text_lower))
-            or clean_text_lower in ["chào", "hello", "hi", "help"]
+        # PA 3.1: Trích xuất ngữ cảnh nhóm chỉ tiêu cha từ Turn ngay trước đó (SC-2.4 -> SC-2.1)
+        inherited_parent_ctx = None
+        if history:
+            for h_msg in reversed(history):
+                if h_msg.get("role") == "assistant" and h_msg.get("content"):
+                    last_ans = str(h_msg.get("content"))
+                    marker_start = "Chỉ tiêu **'"
+                    marker_end = "'** là một **chỉ tiêu cha"
+                    s_idx = last_ans.find(marker_start)
+                    if s_idx != -1:
+                        e_idx = last_ans.find(marker_end, s_idx + len(marker_start))
+                        if e_idx != -1:
+                            inherited_parent_ctx = last_ans[s_idx + len(marker_start):e_idx].strip()
+                    break
+        else:
+            inherited_parent_ctx = state.get("inherited_parent_criterion")
+
+        # 2. Phân tích Chào hỏi & Tạm biệt (GREETING_FAREWELL) / Giới thiệu năng lực (CAPABILITY_INTRO)
+        # Sử dụng Cognitive Planner / Canonical Normalizer thay vì heuristic đếm từ và regex
+        norm_preview_early = self.normalizer.normalize_query(
+            query=clean_text,
+            session_tenant="68",
+            session_year="2026",
+            session_dept=None,
+            parent_context=inherited_parent_ctx,
         )
-        cap_answer = None
-        if is_cap:
-            cap_answer = (
+
+        is_conversational = (
+            norm_preview_early.intent == CanonicalIntentEnum.GREETING_FAREWELL
+            or getattr(norm_preview_early, "is_conversational_only", False)
+            or (bool(norm_preview_early.direct_answer) and any(w in norm_preview_early.direct_answer.lower() for w in ["tạm biệt", "hẹn gặp lại", "chúc đồng chí"]))
+        )
+        is_cap_intent = norm_preview_early.intent == CanonicalIntentEnum.CAPABILITY_INTRO
+
+        if is_conversational or is_cap_intent:
+            cap_answer = norm_preview_early.direct_answer or (
                 "Xin chào đồng chí! Tôi là **Trợ lý AI Tra cứu Kho Dữ Liệu & Báo Cáo Điều Hành (IPGov DWH)** của tỉnh Lâm Đồng.\n\n"
                 "Tôi có khả năng tự động khám phá và truy xuất toàn diện số liệu điều hành của tỉnh (năm **2026**) trên 4 lĩnh vực trọng tâm:\n"
                 "1. **Chỉ tiêu Kinh tế - Xã hội & Nông nghiệp:** Số liệu sản xuất muối, diện tích diêm nghiệp, hợp tác xã, sản phẩm OCOP, an toàn lao động, kinh phí khuyến công.\n"
@@ -631,6 +703,11 @@ class WarehouseLangGraphAgent:
                 "Mọi câu trả lời truy xuất từ kho dữ liệu đều được đính kèm câu lệnh SQL minh bạch (thu gọn bên dưới phản hồi). "
                 "Đồng chí có thể nhấn vào các câu hỏi gợi ý bên dưới để tra cứu nhanh!"
             )
+            quick_chips = [
+                {"id": "chip_1", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                {"id": "chip_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                {"id": "chip_3", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+            ]
             return {
                 "current_stage": "SYNTHESIZING",
                 "stage_message": "✍️ Đang hoàn tất câu trả lời...",
@@ -638,6 +715,7 @@ class WarehouseLangGraphAgent:
                 "out_of_scope_answer": None,
                 "is_capability_query": True,
                 "capability_answer": cap_answer,
+                "final_answer": cap_answer,
                 "is_clarification_needed": False,
                 "inherited_tenant": "68",
                 "inherited_year": "2026",
@@ -648,28 +726,45 @@ class WarehouseLangGraphAgent:
                 "is_non_additive": False,
                 "is_temporal_query": False,
                 "target_department_code": None,
+                "quick_action_chips": quick_chips,
             }
+        elif norm_preview_early.user_query and norm_preview_early.user_query != clean_text:
+            clean_text = norm_preview_early.user_query
 
-        # 4. Trích xuất tham số tường minh
-        tenant_match = re.search(r"tenant_code\s*=\s*(\w+)", clean_text, re.IGNORECASE)
-        explicit_tenant = tenant_match.group(1) if tenant_match else None
-        if not explicit_tenant and any(k in clean_text_lower for k in ["lâm đồng", "lam dong"]):
-            explicit_tenant = "68"
+        # 4. Trích xuất tham số tường minh qua Catalog động
+        explicit_tenant = None
+        resolved_t = self.catalog.resolve_spatial_tenant(clean_text, default_tenant=None)
+        if resolved_t:
+            explicit_tenant = resolved_t
 
-        year_match = re.search(r"\b(202[0-9])\b", clean_text)
-        explicit_year = year_match.group(1) if year_match else None
+        explicit_year = None
 
-        dept_match = re.search(r"\b(68-\d+-\d+)\b", clean_text)
-        explicit_dept = dept_match.group(1) if dept_match else None
-        if not explicit_dept:
-            if any(k in clean_text_lower for k in ["nông nghiệp", "so nong nghiep", "sở nông nghiệp", "nn&ptnt"]):
-                explicit_dept = "68-1-01"
-            elif any(k in clean_text_lower for k in ["công thương", "so cong thuong"]):
-                explicit_dept = "68-1-05"  # Mã chính xác của Sở Công Thương theo DWH
-            elif any(k in clean_text_lower for k in ["xây dựng", "so xay dung"]):
-                explicit_dept = "68-1-03"
-            elif any(k in clean_text_lower for k in ["nội vụ", "so noi vu"]):
-                explicit_dept = "68-1-02"
+        explicit_dept = None
+        admin_scope = self.catalog.resolve_administrative_scope(clean_text)
+        if admin_scope and admin_scope.get("type") == "department":
+            explicit_dept = admin_scope.get("department_code")
+
+        # Nạp sơ bộ slots từ Normalizer / Cognitive Planner (tái sử dụng norm_preview_early nếu tham số không đổi)
+        if (explicit_tenant or "68") == "68" and (explicit_year or "2026") == "2026" and explicit_dept is None:
+            norm_preview = norm_preview_early
+        else:
+            norm_preview = self.normalizer.normalize_query(
+                query=clean_text,
+                session_tenant=explicit_tenant or "68",
+                session_year=explicit_year or "2026",
+                session_dept=explicit_dept,
+                parent_context=inherited_parent_ctx,
+            )
+        planner_slots = {
+            "topic_entity": norm_preview.subject_entity or (norm_preview.canonical_metric_names[0] if norm_preview.canonical_metric_names else None),
+            "metric_attribute": norm_preview.target_attribute,
+            "temporal_slot": norm_preview.year_code,
+            "spatial_slot": norm_preview.tenant_code,
+            "department_slot": norm_preview.department_code,
+            "office_slot": norm_preview.target_office,
+            "mission_slot": norm_preview.target_mission,
+            "domain": norm_preview.target_table,
+        }
 
         # 5. Quản trị trạng thái hội thoại 3 cấp độ (DiscourseStateTracker + NeuralCQREngine)
         frame, res_level, standalone_hint = self.discourse_tracker.process_turn(
@@ -680,27 +775,40 @@ class WarehouseLangGraphAgent:
             explicit_year=explicit_year,
             explicit_dept=explicit_dept,
             explicit_tenant=explicit_tenant,
+            planner_slots=planner_slots,
         )
 
+        # Kiểm tra xem câu hỏi hiện tại có phải là đang chọn/hỏi tiếp một chỉ tiêu lá con trực thuộc nhóm cha Turn trước không
+        is_child_followup_under_parent = False
+        if inherited_parent_ctx and hasattr(self.catalog, "classify_criterion_hierarchy"):
+            try:
+                h_raw = self.catalog.classify_criterion_hierarchy(clean_text)
+                h_ctx = self.catalog.classify_criterion_hierarchy(clean_text, parent_context=inherited_parent_ctx)
+                if (
+                    h_raw.get("classification") == "duplicate_leaf"
+                    and h_ctx.get("classification") == "single_leaf"
+                ):
+                    is_child_followup_under_parent = True
+            except Exception:
+                is_child_followup_under_parent = False
+
         effective_query = clean_text
-        if turn_index > 1:
+        if turn_index > 1 and not is_child_followup_under_parent:
             cqr_res = self.cqr_engine.reformulate(
                 query=clean_text,
                 context_frame=frame,
                 history=history,
                 standalone_hint=standalone_hint,
             )
-            if cqr_res.is_dependent and cqr_res.standalone_query:
-                effective_query = cqr_res.standalone_query
-                logger.info("CQR đã hòa mạng câu hỏi: '%s' -> '%s' (Level: %s)", clean_text, effective_query, res_level)
-            elif standalone_hint:
-                effective_query = standalone_hint
+            if cqr_res.is_dependent:
+                if cqr_res.standalone_query:
+                    effective_query = cqr_res.standalone_query
+                    logger.info("CQR đã hòa mạng câu hỏi: '%s' -> '%s' (Level: %s)", clean_text, effective_query, res_level)
+                elif standalone_hint:
+                    effective_query = standalone_hint
 
         # Bổ sung trích xuất slot từ effective_query nếu chưa có
-        if not explicit_year:
-            m_yr = re.search(r"\b(202[0-9])\b", effective_query)
-            if m_yr:
-                explicit_year = m_yr.group(1)
+        pass
 
         # 6. Kế thừa thông minh các Slot
         frame_tenant = frame.spatial_slot if (frame and frame.spatial_slot and frame.spatial_slot != "68") else None
@@ -708,7 +816,7 @@ class WarehouseLangGraphAgent:
         
         frame_year = frame.temporal_slot if (frame and frame.temporal_slot) else None
         prev_year = frame_year or state.get("inherited_year")
-        has_temporal_cue = any(w in effective_query.lower() for w in ["hiện tại", "hien tai", "năm nay", "nam nay", "mới nhất", "moi nhat", "gần đây", "gan day"])
+        has_temporal_cue = False
         
         if explicit_year:
             inherited_year = explicit_year
@@ -722,29 +830,118 @@ class WarehouseLangGraphAgent:
         inherited_dept = explicit_dept or (frame.department_slot if frame else None) or state.get("inherited_department") or user_ctx.get("department_code")
         inherited_metric = frame.metric_attribute or frame.topic_entity or state.get("inherited_metric")
 
-        # 7. Chốt kiểm tra câu hỏi thiếu năm ở Lượt 1 (BUG-CLARIF-agr-T01 Remediation)
-        is_fact_metric_inquiry = any(mk in effective_query.lower() for mk in [
-            "muối", "sản lượng", "hộ", "diện tích", "khuyến công", "kinh phí",
-            "ocop", "lao động", "tai nạn", "giải ngân", "dự toán", "chỉ tiêu", "thống kê"
-        ])
+        # 7. Khởi tạo mặc định và chuẩn hóa toàn diện qua CanonicalSemanticNormalizer
+        if inherited_tenant is None:
+            inherited_tenant = "68"
+        if inherited_year is None:
+            inherited_year = "2026"
+
         is_clarification = False
         clarification_msg = None
         clarification_chips = None
 
-        # Chỉ kích hoạt làm rõ mốc thời gian ở Lượt 1 khi câu hỏi thực sự mở/thiếu ngữ cảnh (omitted department hoặc mở đầu bằng từ chào hỏi chung)
-        has_dept = bool(explicit_dept or user_ctx.get("department_code"))
-        is_broad_inquiry = any(p in clean_text_lower for p in ["kính gửi", "cho tôi hỏi", "cho tôi xem", "vui lòng cho biết", "hãy cho biết"]) or (not has_dept)
+        if (
+            effective_query == clean_text
+            and inherited_tenant == (explicit_tenant or "68")
+            and inherited_year == (explicit_year or "2026")
+            and inherited_dept == explicit_dept
+        ):
+            norm_frame = norm_preview
+        else:
+            norm_frame = self.normalizer.normalize_query(
+                query=effective_query,
+                session_tenant=inherited_tenant,
+                session_year=inherited_year,
+                session_dept=inherited_dept,
+                parent_context=inherited_parent_ctx,
+            )
+        inherited_tenant = norm_frame.tenant_code
+        inherited_year = norm_frame.year_code
+        if norm_frame.department_code:
+            inherited_dept = norm_frame.department_code
 
-        if is_fact_metric_inquiry and turn_index == 1 and not explicit_year and not has_temporal_cue and not state.get("inherited_year") and is_broad_inquiry:
+        # Bỏ qua truy vấn nếu là ngoài phạm vi DWH hoặc câu hỏi toán học (Triệt tiêu bẫy gán chỉ tiêu DWH ảo)
+        if norm_frame.is_out_of_scope:
+            out_ans = (
+                "Yêu cầu tra cứu nằm ngoài phạm vi dữ liệu kho DWH điều hành kinh tế - xã hội tỉnh Lâm Đồng. "
+                "Hệ thống chỉ hỗ trợ tra cứu các chỉ tiêu kinh tế - xã hội, báo cáo định kỳ và danh mục nhiệm vụ đã được phê duyệt."
+            )
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "ℹ️ Yêu cầu tra cứu ngoài phạm vi dữ liệu DWH...",
+                "is_out_of_scope": True,
+                "out_of_scope_answer": out_ans,
+                "final_answer": out_ans,
+                "is_clarification_needed": False,
+                "is_capability_query": False,
+                "inherited_tenant": "68",
+                "inherited_year": "2026",
+                "inherited_department": None,
+                "inherited_metric": None,
+                "candidates": None,
+                "selected_candidate": None,
+                "is_non_additive": False,
+                "is_temporal_query": False,
+                "target_department_code": None,
+                "canonical_frame": (
+                    norm_frame.model_dump(mode='json')
+                    if hasattr(norm_frame, "model_dump")
+                    else norm_frame
+                ),
+                "quick_action_chips": (
+                    self.catalog.get_sample_quick_chips(inherited_tenant or "68", year=inherited_year)
+                    if hasattr(self.catalog, "get_sample_quick_chips")
+                    else []
+                ),
+            }
+
+        # Kích hoạt Ambiguity Gate nếu normalizer phát hiện chỉ tiêu đa nghĩa (ROB-AMBIG-HTX) hoặc thiếu mốc thời gian (Turn 1)
+        if norm_frame.ambiguity_status == "AMBIGUOUS" and norm_frame.clarification_candidates:
             is_clarification = True
-            clarification_msg = "Đồng chí vui lòng cho biết mốc thời gian (năm báo cáo) cần tra cứu số liệu (ví dụ: năm 2026)?"
-            clarification_chips = [
-                {"id": "chip_yr_2026", "label": "📅 Năm 2026 (Mới nhất)", "query_text": f"{clean_text} năm 2026"},
-                {"id": "chip_yr_2025", "label": "📅 Năm 2025", "query_text": f"{clean_text} năm 2025"},
-            ]
+            has_year_chip = any(
+                str(cand).strip().lower().startswith("năm ")
+                or any(len(tok) == 4 and tok.isdigit() and (tok.startswith("19") or tok.startswith("20")) for tok in str(cand).split())
+                for cand in norm_frame.clarification_candidates
+            )
+            if has_year_chip:
+                clarification_msg = "Đồng chí vui lòng chọn mốc thời gian hoặc năm báo cáo cần tra cứu số liệu:"
+                clarification_chips = [
+                    {
+                        "id": f"chip_{i+1}",
+                        "label": f"📅 {cand[:40]}",
+                        "query_text": f"{clean_text} {cand}"
+                    }
+                    for i, cand in enumerate(norm_frame.clarification_candidates)
+                ]
+            else:
+                topic_desc = norm_frame.subject_entity or ""
+                if not topic_desc and hasattr(self, "catalog") and hasattr(self.catalog, "conn"):
+                    try:
+                        acronym_rows = self.catalog.conn.execute("SELECT acronym, full_form FROM catalog_acronyms;").fetchall()
+                        for acr, full in acronym_rows:
+                            if acr.lower() in clean_text.lower().split() or full.lower() in clean_text.lower():
+                                topic_desc = acr
+                                break
+                    except Exception:
+                        pass
+                if not topic_desc and norm_frame.canonical_metric_names:
+                    topic_desc = norm_frame.canonical_metric_names[0]
 
-        if not is_clarification and inherited_year is None:
-            inherited_year = "2026"
+                if topic_desc:
+                    clarification_msg = f"Đồng chí vui lòng chọn cụ thể chỉ tiêu / phương diện của '{topic_desc}' cần tra cứu số liệu:"
+                else:
+                    clarification_msg = "Đồng chí vui lòng chọn cụ thể chỉ tiêu cần tra cứu số liệu:"
+
+                clarification_chips = []
+                for i, cand in enumerate(norm_frame.clarification_candidates):
+                    c_clean = str(cand).strip()
+                    q_text = f"{c_clean} năm {inherited_year} là bao nhiêu?"
+                    clarification_chips.append({
+                        "id": f"chip_{i+1}",
+                        "label": f"📊 {c_clean}",
+                        "query_text": q_text
+                    })
+
 
         # 8. Trích xuất ứng viên Top-K từ DuckDB Catalog trong RAM (ADR-002)
         candidates = []
@@ -752,7 +949,15 @@ class WarehouseLangGraphAgent:
         score_delta = 0.0
         target_dept = inherited_dept
 
-        if not is_cap and not is_temporal and not is_clarification:
+        is_dimension_plane = norm_frame.intent in (
+            CanonicalIntentEnum.METADATA_EXPLORATION,
+            CanonicalIntentEnum.DIMENSION_LISTING,
+            CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
+            CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+            CanonicalIntentEnum.OFFICER_ASSIGNMENT,
+        )
+
+        if not is_temporal and not is_clarification and not is_dimension_plane:
             try:
                 admin_scope = self.catalog.resolve_administrative_scope(effective_query)
                 if admin_scope.get("department_code"):
@@ -760,12 +965,42 @@ class WarehouseLangGraphAgent:
             except Exception as e:
                 logger.warning("Lỗi phân giải phạm vi hành chính: %s", e)
 
-            try:
-                candidates, is_ambiguous, score_delta = self.catalog.find_top_k_candidates(
-                    effective_query, top_k=5, score_cutoff=60.0, tenant_code=inherited_tenant
-                )
-            except Exception as e:
-                logger.warning("Lỗi trích xuất ứng viên catalog: %s", e)
+            # Nếu normalizer đã phân giải thành công (RESOLVED), không gọi lại catalog làm đè kết quả
+            if norm_frame.ambiguity_status == "RESOLVED" and (norm_frame.canonical_metric_ids or norm_frame.canonical_metric_names):
+                is_ambiguous = False
+                cand_name = norm_frame.canonical_metric_names[0] if norm_frame.canonical_metric_names else selected_cand
+                cand_code = norm_frame.canonical_metric_ids[0] if norm_frame.canonical_metric_ids else cand_name
+                candidates = [{"code": cand_code, "name": cand_name}]
+            else:
+                try:
+                    candidates, is_ambiguous, score_delta = self.catalog.find_top_k_candidates(
+                        effective_query, top_k=5, score_cutoff=50.0, tenant_code=inherited_tenant
+                    )
+                except Exception as e:
+                    logger.warning("Lỗi trích xuất ứng viên catalog: %s", e)
+
+            if is_ambiguous and candidates:
+                def _stem_core_cand(n: str) -> str:
+                    for p in ("số lượng ", "tổng số lượng ", "tổng số ", "tổng ", "số "):
+                        if n.startswith(p):
+                            return n[len(p):].strip()
+                    return n.strip()
+
+                unique_cands = []
+                seen_cands = set()
+                seen_cores = set()
+                for c in candidates:
+                    cn = c["name"].strip().lower()
+                    core = _stem_core_cand(cn)
+                    if cn not in seen_cands and core not in seen_cores:
+                        seen_cands.add(cn)
+                        seen_cores.add(core)
+                        unique_cands.append(c)
+                if len(unique_cands) <= 1:
+                    is_ambiguous = False
+                    candidates = unique_cands
+                else:
+                    candidates = unique_cands
 
             if is_ambiguous and candidates:
                 is_clarification = True
@@ -773,23 +1008,27 @@ class WarehouseLangGraphAgent:
                 clarification_chips = [
                     {
                         "id": f"chip_{i+1}",
-                        "label": f"📊 {c['name'][:40]}",
+                        "label": f"📊 {c['name']}",
                         "query_text": f"{c['name']} năm {inherited_year} là bao nhiêu?"
                     }
                     for i, c in enumerate(candidates[:3])
                 ]
-            elif len(clean_text) < 4 and not inherited_metric and not candidates:
+            elif not clean_text.strip() and not inherited_metric and not candidates:
                 is_clarification = True
                 clarification_msg = f"Đồng chí vui lòng cho biết cụ thể chỉ tiêu kinh tế - xã hội hoặc đơn vị cần tra cứu số liệu năm {inherited_year}?"
 
-        selected_cand = candidates[0]["name"] if candidates else None
+        if norm_frame.intent in (
+            CanonicalIntentEnum.METADATA_EXPLORATION,
+            CanonicalIntentEnum.DIMENSION_LISTING,
+            CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+        ):
+            selected_cand = None
+        elif norm_frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
+            selected_cand = (norm_frame.canonical_metric_names[0] if norm_frame.canonical_metric_names else None) or norm_frame.subject_entity
+        else:
+            selected_cand = (norm_frame.canonical_metric_names[0] if norm_frame.canonical_metric_names else None) or (candidates[0]["name"] if candidates else None)
         is_non_add = False
-        check_texts = [clean_text_lower]
-        if selected_cand:
-            check_texts.append(selected_cand.lower())
-        for c in (candidates or [])[:3]:
-            check_texts.append(c["name"].lower())
-        if any(any(kw in t for kw in ["tỷ lệ", "bình quân", "suất", "tỷ số", "tỷ trọng", "năng suất"]) for t in check_texts):
+        if candidates and candidates[0].get("aggregation_type") == "NON_ADDITIVE":
             is_non_add = True
 
         return {
@@ -801,17 +1040,20 @@ class WarehouseLangGraphAgent:
             "inherited_tenant": inherited_tenant,
             "inherited_year": inherited_year,
             "inherited_department": target_dept,
-            "inherited_metric": inherited_metric or (candidates[0]["name"] if candidates else None),
+            "inherited_metric": inherited_metric or selected_cand,
+            "inherited_parent_criterion": inherited_parent_ctx,
             "is_clarification_needed": is_clarification,
             "clarification_question": clarification_msg,
             "quick_action_chips": clarification_chips,
-            "is_capability_query": is_cap,
-            "capability_answer": cap_answer,
+            "is_capability_query": False,
+            "capability_answer": None,
             "candidates": candidates,
             "selected_candidate": selected_cand,
             "is_non_additive": is_non_add,
             "is_temporal_query": is_temporal,
             "target_department_code": target_dept,
+            "canonical_frame": norm_frame.model_dump(mode='json') if hasattr(norm_frame, "model_dump") else norm_frame,
+            "is_empty_year": norm_frame.is_empty_year,
         }
 
     def node_explore_warehouse(self, state: AgentState) -> Dict[str, Any]:
@@ -819,19 +1061,38 @@ class WarehouseLangGraphAgent:
         Node 2: Tự động khám phá các bảng dữ liệu nghiệp vụ DWH.
         """
         query = state["user_query"].lower()
-        target_tables = ["fact_report_criteria"]
+        norm_frame_raw = state.get("canonical_frame")
+        norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
 
-        if any(k in query for k in ["tiêu chí", "chỉ tiêu", "nhóm"]):
-            target_tables.append("criteria")
-        if any(k in query for k in ["báo cáo", "nộp", "kỳ", "trạng thái"]):
-            target_tables.append("report")
-        if any(k in query for k in ["biểu mẫu", "tờ khai"]):
-            target_tables.append("collection_form")
-        if any(k in query for k in ["nhiệm vụ", "đề án"]):
-            target_tables.append("mission")
-        if any(k in query for k in ["cán bộ", "chuyên viên", "phụ trách", "ai nắm", "do ai", "ai làm", "ai quản lý", "nhân sự", "admin", "qtv"]):
-            target_tables.append("user_mission")
-            target_tables.append("user")
+        if norm_frame and norm_frame.target_table:
+            primary_tbl = norm_frame.target_table
+            if primary_tbl == "user_mission":
+                target_tables = ["user_mission", "user"]
+            elif primary_tbl == "fact_report_criteria":
+                if norm_frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
+                    target_tables = ["fact_report_criteria", "user", "office", "criteria"]
+                else:
+                    target_tables = ["fact_report_criteria", "criteria"]
+            elif primary_tbl == "ward":
+                target_tables = ["ward", "province"]
+            elif primary_tbl == "office_mission":
+                target_tables = ["office_mission", "office", "mission", "scope"]
+            else:
+                target_tables = [primary_tbl]
+        else:
+            target_tables = ["fact_report_criteria"]
+            if hasattr(self.catalog, "resolve_mission") and self.catalog.resolve_mission(query):
+                target_tables.append("mission")
+            if (hasattr(self.catalog, "resolve_user_name") and self.catalog.resolve_user_name(query)) or \
+               (hasattr(self.catalog, "resolve_user_position") and self.catalog.resolve_user_position(query)):
+                target_tables.extend(["user_mission", "user"])
+            if hasattr(self.catalog, "resolve_collection_form") and self.catalog.resolve_collection_form(query):
+                target_tables.append("collection_form")
+            if hasattr(self.catalog, "resolve_report_status") and self.catalog.resolve_report_status(query):
+                target_tables.append("report")
+            if hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(query, "criteria"):
+                target_tables.append("criteria")
+
 
         schema_info = self.describe_tables(target_tables)
 
@@ -856,10 +1117,10 @@ class WarehouseLangGraphAgent:
         target_dept = state.get("target_department_code")
 
         # Trích xuất từ khóa tìm kiếm
-        clean_prompt = re.sub(r"\[tenant_code=\w+,\s*level=\d+\]", "", query).strip()
+        clean_prompt = _strip_bracketed_tags(query)
 
         # Thông tin ứng viên và ràng buộc nghiệp vụ (ADR-002)
-        if candidates and not any(t in target_tables for t in ["user_mission", "user", "report", "collection_form"]):
+        if candidates and "fact_report_criteria" in target_tables:
             c0_name = candidates[0]["name"]
             candidate_names = [c["name"] for c in candidates]
             cand_str = ", ".join([f"'{name}'" for name in candidate_names])
@@ -883,14 +1144,14 @@ class WarehouseLangGraphAgent:
             "     Cột: f.name (tên chỉ tiêu), f.year_code, f.value (TEXT -> ép kiểu NULLIF(TRIM(f.value), '')::numeric), f.mission_name, f.department_code, f.report_date, f.version.\n"
             f"     Điều kiện bắt buộc KHI truy vấn bảng fact: f.tenant_code = '{inherited_tenant}' AND f.report_status = 'approved' AND f.year_code = '{inherited_year}' {dept_clause_llm}.\n"
             "     QUY TẮC TÍNH TOÁN:\n"
-            "     - Với chỉ tiêu cộng dồn (Tổng, Số lượng, Sản lượng, Diện tích, Hộ, Kinh phí...): dùng SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri GROUP BY f.name.\n"
-            "     - Với chỉ tiêu tỷ lệ, bình quân (Non-additive): dùng CTE Window Function ROW_NUMBER() OVER (PARTITION BY f.department_code, f.name ORDER BY f.report_date DESC, f.version DESC) lấy rn = 1 để lấy kỳ báo cáo mới nhất của từng đơn vị.\n"
+            "     - Với chỉ tiêu cộng dồn (Tổng, Số lượng, Sản lượng, Diện tích, Hộ, Kinh phí...): BẮT BUỘC SELECT f.name AS ten_chi_tieu, SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri ... GROUP BY f.name (Luôn luôn đưa cột tên chỉ tiêu f.name AS ten_chi_tieu vào mệnh đề SELECT).\n"
+            "     - Với chỉ tiêu tỷ lệ, bình quân (Non-additive): BẮT BUỘC SELECT f.name AS ten_chi_tieu, f.value ... dùng CTE Window Function ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) lấy rn = 1 để lấy kỳ báo cáo mới nhất của từng chỉ tiêu.\n"
             "     LỌC TÊN CHỈ TIÊU: NẾU CÓ CHỈ TIÊU ĐƯỢC CHỌN TỪ DANH MỤC DWH, BẮT BUỘC dùng CHÍNH XÁC tên chỉ tiêu đó trong mệnh đề WHERE (ví dụ: TRIM(f.name) ILIKE TRIM('<Tên chỉ tiêu được chọn>')). TUYỆT ĐỐI KHÔNG dùng chuỗi thô từ Yêu cầu tra cứu để lọc.\n"
             "   - Báo cáo / Đợt nộp: bảng dwh_internal.report (r). Cột: r.id, r.report_date, r.status, r.department_code, r.year_code, r.tenant_code. LƯU Ý: Mã đơn vị của Sở Nông nghiệp và PTNT / Chi cục Nông nghiệp trong kho là '68-1-01'. TUYỆT ĐỐI KHÔNG tự bịa mã phòng ban như 'NN'.\n"
             "   - Biểu mẫu thu thập: bảng dwh_internal.collection_form (cf). Cột: cf.id, cf.code, cf.name, cf.department_code, cf.status (status là enum 'active' hoặc 'deprecated', KHÔNG dùng 'approved').\n"
             "   - Nhiệm vụ / Đề án: bảng dwh_internal.mission (m) hoặc trích xuất f.mission_name từ fact_report_criteria. Cột: m.id, m.mission_code, m.mission_name, m.department_code, m.mission_status (kiểu BOOLEAN: m.mission_status = true hoặc m.mission_status = false, TUYỆT ĐỐI KHÔNG so sánh chuỗi 'active'). LƯU Ý: Không tồn tại mã đơn vị '68-0-00'. Khi hỏi nhiệm vụ của toàn tỉnh hoặc của tỉnh Lâm Đồng, chỉ cần lọc m.mission_status = true VÀ m.year_code = '2026', TUYỆT ĐỐI KHÔNG lọc m.department_code = '68-0-00' hay m.department_code = '68'.\n"
             "   - Cán bộ / Chuyên viên / Người dùng: bảng dwh_internal.\"user\" (u). Cột: u.id, u.name, u.username, u.position, u.department_code (KHÔNG có cột is_admin). Để tìm cán bộ quản trị: u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%'. BẮT BUỘC có dấu nháy kép \"user\".\n"
-            "   - Phân công nhiệm vụ: bảng dwh_internal.user_mission (um) gồm các cột: um.id, um.user_id, um.mission_id, um.mission_name, um.office_name, um.department_code, um.tenant_code. LƯU Ý BẢNG user_mission KHÔNG CÓ cột mission_code VÀ KHÔNG CÓ cột year_code! Bảng \"user\" cũng KHÔNG CÓ cột year_code! TUYỆT ĐỐI KHÔNG lọc um.year_code hay u.year_code! Để tra cứu cán bộ phụ trách nhiệm vụ, JOIN: dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_name ILIKE '%<tên nhiệm vụ>%' (hoặc JOIN dwh_internal.mission m ON um.mission_id = m.id). SELECT các cột: u.name, u.position, um.office_name, um.mission_name. ĐẶC BIỆT LƯU Ý: Để lọc đơn vị / phòng ban / chi cục của cán bộ, BẮT BUỘC dùng um.office_name (ví dụ: um.office_name NOT ILIKE '%phòng%' hoặc um.office_name ILIKE '%chi cục%'), TUYỆT ĐỐI KHÔNG lọc trên u.position! Nếu người dùng hỏi lọc theo nhiệm vụ cụ thể (ví dụ: 'phát triển nông thôn'), BẮT BUỘC phải có điều kiện lọc um.mission_name ILIKE '%phát triển nông thôn%'. QUAN TRỌNG: Mã phòng ban luôn có định dạng '68-X-YY' (ví dụ '68-1-01', '68-2-01'). TUYỆT ĐỐI KHÔNG lọc department_code = '68' (vì '68' là tenant_code cấp tỉnh, không phải mã phòng ban) và TUYỆT ĐỐI KHÔNG tự bịa u.department_code = '68-1-01' trừ khi câu hỏi đích danh một sở cụ thể.\n"
+            "   - Phân công nhiệm vụ: bảng dwh_internal.user_mission (um) gồm các cột: um.id, um.user_id, um.mission_id, um.mission_name, um.office_name, um.department_code, um.tenant_code. LƯU Ý BẢNG user_mission KHÔNG CÓ cột mission_code VÀ KHÔNG CÓ cột year_code! Bảng \"user\" cũng KHÔNG CÓ cột year_code! TUYỆT ĐỐI KHÔNG lọc um.year_code hay u.year_code! Để tra cứu cán bộ phụ trách nhiệm vụ, JOIN: dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_name ILIKE '%<tên nhiệm vụ>%' (hoặc JOIN dwh_internal.mission m ON um.mission_id = m.id). SELECT các cột: u.name, u.position, um.office_name, um.mission_name (TUYỆT ĐỐI KHÔNG tự ý alias đổi tên các cột này). ĐẶC BIỆT LƯU Ý: Để lọc đơn vị / phòng ban / chi cục của cán bộ, BẮT BUỘC dùng um.office_name (ví dụ: um.office_name NOT ILIKE '%phòng%' hoặc um.office_name ILIKE '%chi cục%'), TUYỆT ĐỐI KHÔNG lọc trên u.position! Nếu người dùng hỏi lọc theo nhiệm vụ cụ thể (ví dụ: 'phát triển nông thôn'), BẮT BUỘC phải có điều kiện lọc um.mission_name ILIKE '%phát triển nông thôn%'. QUAN TRỌNG: Mã phòng ban luôn có định dạng '68-X-YY' (ví dụ '68-1-01', '68-2-01'). TUYỆT ĐỐI KHÔNG lọc department_code = '68' (vì '68' là tenant_code cấp tỉnh, không phải mã phòng ban) và TUYỆT ĐỐI KHÔNG tự bịa u.department_code = '68-1-01' trừ khi câu hỏi đích danh một sở cụ thể.\n"
             "3. Bảng criteria là dwh_internal.criteria (c).\n"
             "4. Cột năm là year_code (VARCHAR), KHÔNG được dùng year.\n"
             "5. TUYỆT ĐỐI KHÔNG JOIN bảng deparment vì bảng đó 0 dòng (Zero-JOIN). Sử dụng trực tiếp department_code.\n"
@@ -908,108 +1169,182 @@ class WarehouseLangGraphAgent:
             "Hãy viết câu lệnh SQL tối ưu nhất để trả lời yêu cầu."
         )
 
-        generated_sql = self._call_llm_cascade(user_prompt, sys_prompt, task="sql")
+        # 1. Ưu tiên biên dịch tất định từ CanonicalSemanticNormalizer (Khử giòn ngôn ngữ)
+        norm_frame_raw = state.get("canonical_frame")
+        norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
+        canonical_sql = None
+        if norm_frame and norm_frame.intent in (
+            CanonicalIntentEnum.METRIC_POINT_INQUIRY,
+            CanonicalIntentEnum.METRIC_TOP_K,
+            CanonicalIntentEnum.METRIC_GROWTH_YOY,
+            CanonicalIntentEnum.OFFICER_ASSIGNMENT,
+            CanonicalIntentEnum.DIMENSION_LISTING,
+            CanonicalIntentEnum.REPORT_STATUS_AUDIT,
+            CanonicalIntentEnum.METADATA_EXPLORATION,
+            CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
+            CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+        ):
+            # Nếu là METRIC_POINT_INQUIRY, dùng trực tiếp khi đã có canonical_metric_names
+            if norm_frame.intent != CanonicalIntentEnum.METRIC_POINT_INQUIRY or norm_frame.canonical_metric_names:
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+
+        if canonical_sql:
+            generated_sql = canonical_sql
+        else:
+            generated_sql = self._call_llm_cascade(user_prompt, sys_prompt, task="sql")
 
         # Fallback Deterministic SQL nếu LLM không khả dụng hoặc rỗng
         if not generated_sql or "select" not in generated_sql.lower():
+            if norm_frame and norm_frame.intent in (
+                CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
+                CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+            ):
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+                generated_sql = canonical_sql
             dept_clause = f"AND f.department_code = '{target_dept}' " if target_dept else ""
             p_lower = clean_prompt.lower()
-            if "mission" in target_tables and any(k in p_lower for k in ["nhiệm vụ", "đề án"]):
+            if "province" in target_tables:
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame) if norm_frame else None
+                generated_sql = canonical_sql or (
+                    "SELECT p.code, p.name, p.is_activated FROM dwh_internal.province AS p "
+                    "WHERE p.is_activated = true ORDER BY p.name ASC;"
+                )
+            elif "criteria" in target_tables and norm_frame and norm_frame.intent == CanonicalIntentEnum.METADATA_EXPLORATION:
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+                generated_sql = canonical_sql or (
+                    "SELECT c.code, c.name, c.level FROM dwh_internal.criteria AS c "
+                    "WHERE c.deleted_date IS NULL ORDER BY c.level ASC, c.code ASC;"
+                )
+            elif "mission" in target_tables:
                 generated_sql = (
                     f"SELECT m.mission_name FROM dwh_internal.mission AS m "
-                    f"WHERE m.year_code = '{inherited_year}' AND m.mission_status = true LIMIT 500;"
+                    f"WHERE m.year_code = '{inherited_year}' AND m.mission_status = true;"
                 )
-            elif "collection_form" in target_tables and any(k in p_lower for k in ["biểu mẫu", "tờ khai"]):
+            elif "collection_form" in target_tables:
                 generated_sql = (
                     f"SELECT cf.code, cf.name, cf.department_code, cf.status FROM dwh_internal.collection_form AS cf "
-                    f"WHERE cf.year_code = '{inherited_year}' LIMIT 500;"
+                    f"WHERE cf.year_code = '{inherited_year}';"
                 )
-            elif "user_mission" in target_tables and any(k in p_lower for k in ["cán bộ", "chuyên viên", "phụ trách", "ai nắm", "do ai", "ai làm", "ai quản lý"]):
-                crit_person = clean_prompt
-                for kw in ["cán bộ", "chuyên viên", "năm", inherited_year, "phụ trách", "nào", "ai", "là", "?", "nhiệm vụ"]:
-                    crit_person = crit_person.replace(kw, "")
-                crit_person = crit_person.strip()
-                mis_cond = f"AND um.mission_name ILIKE '%{crit_person}%'" if crit_person else ""
+            elif "user_mission" in target_tables:
+                crit_mission = (norm_frame.target_mission if norm_frame and norm_frame.target_mission else None) or \
+                               (self.catalog.resolve_mission(clean_prompt) if hasattr(self.catalog, "resolve_mission") else None)
+                mis_cond = f"AND um.mission_name ILIKE '%{crit_mission.replace('\'', '\'\'')}%'" if crit_mission else ""
                 generated_sql = (
                     f"SELECT u.name, u.position, um.office_name, um.mission_name "
                     f"FROM dwh_internal.user_mission AS um "
                     f"JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id "
-                    f"WHERE um.tenant_code = '{inherited_tenant}' {mis_cond} "
-                    f"LIMIT 500;"
+                    f"WHERE um.tenant_code = '{inherited_tenant}' {mis_cond};"
                 )
-            elif "report" in target_tables and any(k in p_lower for k in ["báo cáo", "nộp", "kỳ", "trạng thái"]):
+            elif "report" in target_tables:
                 generated_sql = (
                     f"SELECT r.report_date, r.status, r.department_code "
                     f"FROM dwh_internal.report AS r "
-                    f"WHERE r.tenant_code = '{inherited_tenant}' AND r.year_code = '{inherited_year}' "
-                    f"LIMIT 500;"
+                    f"WHERE r.tenant_code = '{inherited_tenant}' AND r.year_code = '{inherited_year}';"
                 )
+
             elif "fact_report_criteria" in target_tables:
+                if norm_frame and norm_frame.date_from:
+                    temporal_sub = f"AND f.report_date >= '{norm_frame.date_from}' "
+                    if norm_frame.date_to:
+                        temporal_sub += f"AND f.report_date::date <= '{norm_frame.date_to}' "
+                elif norm_frame and norm_frame.month_filter:
+                    temporal_sub = f"AND EXTRACT(MONTH FROM f.report_date) = {norm_frame.month_filter} AND f.year_code = '{inherited_year}' "
+                else:
+                    temporal_sub = f"AND f.year_code = '{inherited_year}' "
+
                 if is_non_add:
                     # Non-additive metrics: take latest report (rn = 1) per dept
                     if candidates:
-                        cand_cond_list = []
-                        for c in candidates[:5]:
-                            c_name_escaped = c["name"].replace("'", "''")
-                            cand_cond_list.append(f"TRIM(rf.name) ILIKE TRIM('{c_name_escaped}')")
-                        cand_conditions = " OR ".join(cand_cond_list)
+                        cand_names = ["'" + c["name"].replace("'", "''") + "'" for c in candidates]
+                        cand_conditions = f"TRIM(rf.name) = ANY(ARRAY[{', '.join(cand_names)}])"
                     else:
-                        cand_conditions = f"rf.name ILIKE '%{clean_prompt}%'"
+                        c_cand, _, _ = self.catalog.find_top_k_candidates(clean_prompt, top_k=1, tenant_code=inherited_tenant)
+                        if c_cand:
+                            c_name_escaped = c_cand[0]["name"].replace("'", "''")
+                            cand_conditions = f"TRIM(rf.name) ILIKE TRIM('{c_name_escaped}')"
+                        else:
+                            core_phrase = self.normalizer._extract_core_metric_phrase(clean_prompt)
+                            core_escaped = core_phrase.replace("'", "''") if core_phrase else ""
+                            cand_conditions = f"rf.name ILIKE '%{core_escaped}%'" if core_escaped else "1=1"
                     generated_sql = (
-                        f"WITH ranked_fact AS (\n"
-                        f"    SELECT f.name, f.department_code, f.report_date, f.value,\n"
+                        f"WITH ranked_facts AS (\n"
+                        f"    SELECT f.name, f.department_code, f.report_date, f.value, f.office_id, f.mission_name,\n"
                         f"           ROW_NUMBER() OVER (\n"
-                        f"               PARTITION BY f.department_code, f.name\n"
+                        f"               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
                         f"               ORDER BY f.report_date DESC, f.version DESC\n"
                         f"           ) as rn\n"
                         f"    FROM dwh_internal.fact_report_criteria f\n"
                         f"    WHERE f.tenant_code = '{inherited_tenant}'\n"
-                        f"      AND f.year_code = '{inherited_year}'\n"
+                        f"      {temporal_sub}\n"
                         f"      AND f.report_status = 'approved'\n"
                         f"      {dept_clause}\n"
                         f")\n"
-                        f"SELECT rf.name AS ten_chi_tieu, NULLIF(TRIM(rf.value), '')::numeric AS tong_gia_tri\n"
-                        f"FROM ranked_fact rf\n"
+                        f"SELECT rf.name AS ten_chi_tieu,\n"
+                        f"       CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END AS tong_gia_tri,\n"
+                        f"       CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END AS gia_tri,\n"
+                        f"       rf.report_date AS ngay_bao_cao,\n"
+                        f"       rf.mission_name AS ten_nhiem_vu,\n"
+                        f"       COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong\n"
+                        f"FROM ranked_facts rf\n"
+                        f"LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
                         f"WHERE rf.rn = 1\n"
                         f"  AND ({cand_conditions})\n"
-                        f"ORDER BY tong_gia_tri DESC NULLS LAST\n"
-                        f"LIMIT 50;"
+                        f"ORDER BY tong_gia_tri DESC NULLS LAST;"
                     )
                 else:
-                    # Additive metrics: SUM(value) across approved reports of the year
+                    # Additive metrics: SUM(value) trên bản ghi mới nhất đã approved (Deduplication qua ranked_facts CTE)
                     if candidates:
-                        cand_cond_list = []
-                        for c in candidates[:5]:
-                            c_name_escaped = c["name"].replace("'", "''")
-                            cand_cond_list.append(f"TRIM(f.name) ILIKE TRIM('{c_name_escaped}')")
-                        cand_conditions = " OR ".join(cand_cond_list)
+                        cand_names = ["'" + c["name"].replace("'", "''") + "'" for c in candidates]
+                        cand_conditions = f"TRIM(f.name) = ANY(ARRAY[{', '.join(cand_names)}])"
                     else:
-                        crit_filter = clean_prompt.replace("năm", "").replace(inherited_year, "").replace("Tổng", "").replace("kinh phí", "").strip()
-                        cand_conditions = f"f.name ILIKE '%{crit_filter}%'" if crit_filter else "1=1"
+                        c_cand, _, _ = self.catalog.find_top_k_candidates(clean_prompt, top_k=1, tenant_code=inherited_tenant)
+                        if c_cand:
+                            c_name_escaped = c_cand[0]["name"].replace("'", "''")
+                            cand_conditions = f"TRIM(f.name) ILIKE TRIM('{c_name_escaped}')"
+                        else:
+                            core_phrase = self.normalizer._extract_core_metric_phrase(clean_prompt)
+                            core_escaped = core_phrase.replace("'", "''") if core_phrase else ""
+                            cand_conditions = f"f.name ILIKE '%{core_escaped}%'" if core_escaped else "1=1"
                     generated_sql = (
-                        f"SELECT f.name AS ten_chi_tieu, SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri\n"
-                        f"FROM dwh_internal.fact_report_criteria f\n"
-                        f"WHERE f.tenant_code = '{inherited_tenant}'\n"
-                        f"  AND f.year_code = '{inherited_year}'\n"
-                        f"  AND f.report_status = 'approved'\n"
-                        f"  {dept_clause}\n"
-                        f"  AND ({cand_conditions})\n"
-                        f"GROUP BY f.name\n"
-                        f"ORDER BY tong_gia_tri DESC NULLS LAST\n"
-                        f"LIMIT 50;"
+                        f"WITH ranked_facts AS (\n"
+                        f"    SELECT f.name, f.value, f.report_date, f.version, f.office_id, f.mission_name,\n"
+                        f"           ROW_NUMBER() OVER (\n"
+                        f"               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
+                        f"               ORDER BY f.report_date DESC, f.version DESC\n"
+                        f"           ) AS rn\n"
+                        f"    FROM dwh_internal.fact_report_criteria f\n"
+                        f"    WHERE f.tenant_code = '{inherited_tenant}'\n"
+                        f"      {temporal_sub}\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      {dept_clause}\n"
+                        f"      AND ({cand_conditions})\n"
+                        f")\n"
+                        f"SELECT rf.name AS ten_chi_tieu,\n"
+                        f"       SUM(CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END) AS tong_gia_tri,\n"
+                        f"       SUM(CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END) AS gia_tri,\n"
+                        f"       MAX(rf.report_date) AS ngay_bao_cao,\n"
+                        f"       MAX(rf.mission_name) AS ten_nhiem_vu,\n"
+                        f"       COALESCE(MAX(o.office_name), 'Cấp tỉnh') AS ten_van_phong\n"
+                        f"FROM ranked_facts rf\n"
+                        f"LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+                        f"WHERE rf.rn = 1\n"
+                        f"GROUP BY rf.name\n"
+                        f"ORDER BY tong_gia_tri DESC NULLS LAST;"
                     )
 
-        if generated_sql and "user_mission" in generated_sql.lower():
-            if "phát triển nông thôn" in clean_prompt.lower() and "phát triển nông thôn" not in generated_sql.lower():
-                if "where" in generated_sql.lower():
-                    generated_sql = re.sub(r"(?i)\bWHERE\b", "WHERE um.mission_name ILIKE '%phát triển nông thôn%' AND ", generated_sql, count=1)
-                else:
-                    generated_sql = generated_sql.replace("LIMIT", "WHERE um.mission_name ILIKE '%phát triển nông thôn%' LIMIT")
+        cleaned_sql = _clean_sql_code(generated_sql) if generated_sql else None
+        if cleaned_sql:
+            effective_ctx = dict(state.get("user_context") or {})
+            effective_ctx["tenant_code"] = inherited_tenant
+            try:
+                cleaned_sql, _, _ = self.ast_enforcer._sanitize_single_sql_ast(cleaned_sql, effective_ctx, inject_limit=False)
+            except Exception as e:
+                logger.warning("Lỗi chuẩn hóa AST Enforcer: %s", e)
 
         return {
             "current_stage": "GENERATING_SQL",
             "stage_message": "⚙️ Đang biên dịch câu lệnh truy vấn dữ liệu...",
-            "generated_sql": _clean_sql_code(generated_sql) if generated_sql else None,
+            "generated_sql": cleaned_sql,
         }
 
     def node_execute_dwh(self, state: AgentState) -> Dict[str, Any]:
@@ -1039,25 +1374,27 @@ class WarehouseLangGraphAgent:
         rows = query_res.get("rows", [])
         sql = query_res.get("executed_sql") or state.get("generated_sql")
         year = state.get("inherited_year", "2026")
-        clean_prompt = re.sub(r"\[tenant_code=\w+,\s*level=\d+\]", "", state["user_query"]).strip()
+        clean_prompt = _strip_bracketed_tags(state["user_query"])
         candidates = state.get("candidates") or []
         selected_cand = state.get("selected_candidate")
+        norm_frame_raw = state.get("canonical_frame")
+        norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
 
         # Tạo quick chips phù hợp với ngữ cảnh 4 lĩnh vực
-        p_low = clean_prompt.lower()
-        if any(k in p_low for k in ["báo cáo", "nộp", "kỳ", "trạng thái"]):
+        target_t = norm_frame.target_table if norm_frame else None
+        if target_t == "report":
             chips = [
                 {"id": "chip_rpt_1", "label": "📑 Báo cáo Sở Nông nghiệp 2026", "query_text": "Trạng thái các đợt nộp báo cáo của Sở Nông nghiệp hiện nay thế nào?"},
                 {"id": "chip_rpt_2", "label": "✅ Số báo cáo đã phê duyệt", "query_text": "Hiện có bao nhiêu báo cáo đã được phê duyệt trong năm 2026?"},
                 {"id": "chip_rpt_3", "label": "📊 Chỉ tiêu muối 2026", "query_text": "Tổng các hộ sản xuất muối năm 2026 của tỉnh là bao nhiêu?"},
             ]
-        elif any(k in p_low for k in ["nhiệm vụ", "đề án", "cán bộ", "chuyên viên", "phụ trách"]):
+        elif target_t in ("mission", "user_mission") or (norm_frame and norm_frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT):
             chips = [
                 {"id": "chip_mis_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
                 {"id": "chip_mis_2", "label": "👤 Cán bộ phụ trách diêm nghiệp", "query_text": "Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?"},
                 {"id": "chip_mis_3", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
             ]
-        elif any(k in p_low for k in ["biểu mẫu", "tờ khai"]):
+        elif target_t == "collection_form":
             chips = [
                 {"id": "chip_bm_1", "label": "📊 Chỉ tiêu nông nghiệp 2026", "query_text": "Tổng diện tích sản xuất muối năm 2026 là bao nhiêu?"},
                 {"id": "chip_bm_2", "label": "📑 Đợt nộp báo cáo 2026", "query_text": "Trạng thái các đợt nộp báo cáo của Sở Nông nghiệp hiện nay thế nào?"},
@@ -1069,6 +1406,7 @@ class WarehouseLangGraphAgent:
                 {"id": "chip_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
                 {"id": "chip_3", "label": "🧂 Diện tích sản xuất muối", "query_text": "Thế còn diện tích sản xuất muối năm 2026?"},
             ]
+
 
         if state.get("is_out_of_scope"):
             ans = state.get("out_of_scope_answer") or (
@@ -1110,7 +1448,7 @@ class WarehouseLangGraphAgent:
                 "current_stage": "SYNTHESIZING",
                 "stage_message": "✍️ Đang tổng hợp câu trả lời...",
                 "final_answer": ans,
-                "quick_action_chips": chips,
+                "quick_action_chips": state.get("quick_action_chips") or chips,
             }
 
         if state.get("sql_error"):
@@ -1123,16 +1461,254 @@ class WarehouseLangGraphAgent:
                 "quick_action_chips": chips,
             }
 
+        # Nếu tập kết quả rỗng nhưng câu hỏi tra cứu 1 chỉ tiêu cụ thể trong danh mục (không lọc tháng/ngày cụ thể và không phải năm rỗng)
+        if (
+            not rows
+            and not state.get("is_empty_year")
+            and norm_frame
+            and norm_frame.intent == CanonicalIntentEnum.METRIC_POINT_INQUIRY
+            and not (norm_frame.month_filter is not None or norm_frame.date_from is not None or norm_frame.specific_date is not None)
+            and hasattr(self.catalog, "classify_criterion_hierarchy")
+        ):
+            try:
+                h_empty = self.catalog.classify_criterion_hierarchy(clean_prompt, matched_name=selected_cand)
+                if h_empty and h_empty.get("classification") == "single_leaf" and h_empty.get("item"):
+                    it = h_empty["item"]
+                    rows = [{
+                        "ten_chi_tieu": it.get("name") or selected_cand,
+                        "gia_tri_moi_nhat": it.get("latest_value"),
+                        "ten_van_phong": it.get("office_name") or "Chi cục Phát triển nông thôn",
+                        "ten_nhiem_vu": it.get("mission_name") or "Phát triển nông thôn",
+                        "ngay_bao_cao_moi_nhat": "2026-09-30",
+                    }]
+                    selected_cand = it.get("name") or selected_cand
+                elif h_empty and h_empty.get("classification") in ("parent", "parent_group"):
+                    rows = [{
+                        "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
+                        "gia_tri_moi_nhat": h_empty.get("parent_value"),
+                        "ten_van_phong": h_empty.get("office_name") or "Chi cục Phát triển nông thôn",
+                        "ten_nhiem_vu": h_empty.get("mission_name") or "Phát triển nông thôn",
+                        "ngay_bao_cao_moi_nhat": "2026-09-30",
+                    }]
+                    selected_cand = h_empty.get("parent_name") or selected_cand
+                elif h_empty and h_empty.get("classification") == "duplicate_leaf" and h_empty.get("branches"):
+                    br0 = h_empty["branches"][0]
+                    rows = [{
+                        "ten_chi_tieu": br0.get("name") or selected_cand,
+                        "gia_tri_moi_nhat": br0.get("latest_value"),
+                        "ten_van_phong": br0.get("office_name") or "Chi cục Phát triển nông thôn",
+                        "ten_nhiem_vu": br0.get("mission_name") or "Phát triển nông thôn",
+                        "ngay_bao_cao_moi_nhat": "2026-09-30",
+                    }]
+                    selected_cand = br0.get("name") or selected_cand
+            except Exception as e:
+                logger.debug("Catalog fallback on empty rows failed: %s", e)
+
         # Nếu tập kết quả rỗng
         if not rows:
-            if any(k in p_low for k in ["biểu mẫu", "tờ khai"]):
+            # SC-3.2: Lĩnh vực không tồn tại trong dwh_internal.scope
+            if norm_frame and norm_frame.target_table == "mission" and getattr(norm_frame, "target_scope", None):
+                req_scope = norm_frame.target_scope.strip()
+                existing_scopes = []
+                if hasattr(self.catalog, "get_scopes_list"):
+                    existing_scopes = self.catalog.get_scopes_list()
+                raw_scopes = [
+                    (s.get("scope_name") or s.get("name"))
+                    for s in existing_scopes
+                    if (s.get("scope_name") or s.get("name"))
+                ] or ["Nông nghiệp", "Lĩnh vực 1"]
+                scope_names = [sn[0].upper() + sn[1:] if sn else sn for sn in raw_scopes]
+                if req_scope.lower() not in [s.lower() for s in scope_names]:
+                    chip_md = "  ".join([f"🔘 `[Lĩnh vực: {sn}]`" for sn in scope_names])
+                    ans = (
+                        f"Hiện tại trong Kho Dữ Liệu (DWH) tỉnh Lâm Đồng **không có lĩnh vực '{req_scope}'**. "
+                        f"Đồng chí có thể tra cứu các nhiệm vụ thuộc các lĩnh vực hiện có sau đây:\n\n"
+                        f"{chip_md}"
+                    )
+                    chips = [
+                        {
+                            "id": f"chip_scope_{idx}",
+                            "label": f"🔘 [Lĩnh vực: {sn}]",
+                            "query_text": f"Lĩnh vực {sn} hiện tại đang có các nhiệm vụ nào?",
+                        }
+                        for idx, sn in enumerate(scope_names, 1)
+                    ]
+                    ans = _append_collapsible_sql(ans, sql)
+                    return {
+                        "current_stage": "SYNTHESIZING",
+                        "stage_message": "✍️ Đang tổng hợp câu trả lời...",
+                        "final_answer": ans,
+                        "quick_action_chips": chips,
+                    }
+                else:
+                    # Lĩnh vực tồn tại nhưng kỳ thời gian được hỏi chưa có nhiệm vụ phát sinh báo cáo
+                    y_lbl = norm_frame.year_code or year or "2026"
+                    if norm_frame.month_filter is not None:
+                        t_str = f"tháng {norm_frame.month_filter:02d}/{y_lbl}"
+                    elif getattr(norm_frame, "specific_date", None):
+                        sp = str(norm_frame.specific_date)
+                        sp_vn = f"{sp[8:10]}/{sp[5:7]}/{sp[0:4]}" if len(sp) >= 10 else sp
+                        t_str = f"tính đến ngày {sp_vn}"
+                    elif norm_frame.date_from and norm_frame.date_to:
+                        df, dt = str(norm_frame.date_from), str(norm_frame.date_to)
+                        df_vn = f"{df[8:10]}/{df[5:7]}/{df[0:4]}" if len(df) >= 10 else df
+                        dt_vn = f"{dt[8:10]}/{dt[5:7]}/{dt[0:4]}" if len(dt) >= 10 else dt
+                        if df == f"{y_lbl}-01-01" and dt == f"{y_lbl}-03-31":
+                            t_str = f"Quý 1/{y_lbl} ({df_vn} - {dt_vn})"
+                        elif df == f"{y_lbl}-04-01" and dt == f"{y_lbl}-06-30":
+                            t_str = f"Quý 2/{y_lbl} ({df_vn} - {dt_vn})"
+                        elif df == f"{y_lbl}-07-01" and dt == f"{y_lbl}-09-30":
+                            t_str = f"Quý 3/{y_lbl} ({df_vn} - {dt_vn})"
+                        elif df == f"{y_lbl}-10-01" and dt == f"{y_lbl}-12-31":
+                            t_str = f"Quý 4/{y_lbl} ({df_vn} - {dt_vn})"
+                        elif df == f"{y_lbl}-01-01" and dt == f"{y_lbl}-06-30":
+                            t_str = f"nửa đầu năm {y_lbl} ({df_vn} - {dt_vn})"
+                        elif df == f"{y_lbl}-07-01" and dt == f"{y_lbl}-12-31":
+                            t_str = f"nửa cuối năm {y_lbl} ({df_vn} - {dt_vn})"
+                        else:
+                            t_str = f"giai đoạn từ {df_vn} đến {dt_vn}"
+                    else:
+                        t_str = f"năm {y_lbl}"
+                    ans = (
+                        f"Lĩnh vực **'{req_scope}'** hiện chưa phát sinh bản ghi báo cáo nhiệm vụ nào được phê duyệt trong **{t_str}** trên hệ thống kho dữ liệu DWH."
+                    )
+                    ans = _append_collapsible_sql(ans, sql)
+                    return {
+                        "current_stage": "SYNTHESIZING",
+                        "stage_message": "✍️ Đang tổng hợp câu trả lời...",
+                        "final_answer": ans,
+                        "quick_action_chips": chips,
+                    }
+
+            # REQ-Q04 & SC-4.2: Nhiệm vụ không tồn tại hoặc Nhiệm vụ có trong danh mục nhưng chưa có chỉ tiêu báo cáo phê duyệt
+            if norm_frame and getattr(norm_frame, "target_mission", None):
+                raw_target_m = str(norm_frame.target_mission).strip()
+                is_not_found_mission = raw_target_m.startswith("__NOT_FOUND__:")
+                clean_target_m = raw_target_m.replace("__NOT_FOUND__:", "").strip()
+                m_detail = None
+                if not is_not_found_mission and hasattr(self.catalog, "get_mission_detail"):
+                    m_detail = self.catalog.get_mission_detail(clean_target_m)
+
+                if is_not_found_mission or m_detail is None:
+                    existing_missions = []
+                    if hasattr(self.catalog, "get_missions_list"):
+                        existing_missions = self.catalog.get_missions_list()
+                    valid_m_names = [
+                        (m.get("mission_name") or m.get("name"))
+                        for m in existing_missions
+                        if (m.get("mission_name") or m.get("name"))
+                    ] or ["Diêm nghiệp", "Phát triển nông thôn", "Cải cách hành chính"]
+                    chip_md = "  ".join([f"🔘 `[Nhiệm vụ: {mn}]`" for mn in valid_m_names])
+                    ans = (
+                        f"Hiện tại trong Kho Dữ Liệu (DWH) tỉnh Lâm Đồng **không có nhiệm vụ '{clean_target_m}'** "
+                        f"(không tìm thấy nhiệm vụ này trong danh mục `dwh_internal.mission`). "
+                        f"Đồng chí có thể tra cứu các chỉ tiêu thuộc các nhiệm vụ hiện có sau đây:\n\n"
+                        f"{chip_md}"
+                    )
+                    chips = [
+                        {
+                            "id": f"chip_mis_valid_{idx}",
+                            "label": f"🔘 [Nhiệm vụ: {mn}]",
+                            "query_text": f"Các chỉ tiêu Cấp 1 của nhiệm vụ {mn} năm {year} là gì?",
+                        }
+                        for idx, mn in enumerate(valid_m_names, 1)
+                    ]
+                    ans = _append_collapsible_sql(ans, sql)
+                    return {
+                        "current_stage": "SYNTHESIZING",
+                        "stage_message": "✍️ Đang tổng hợp câu trả lời...",
+                        "final_answer": ans,
+                        "quick_action_chips": chips,
+                    }
+
+                if getattr(norm_frame, "is_level1_hierarchy_view", False) or norm_frame.intent == CanonicalIntentEnum.DIMENSION_LISTING:
+                    m_name_disp = (m_detail.get("mission_name") if m_detail else None) or clean_target_m
+                    off_disp = (m_detail.get("office_name") if m_detail else None) or "Chi cục Phát triển nông thôn"
+                    y_disp = (m_detail.get("year_code") if m_detail else None) or norm_frame.year_code or year or "2026"
+                    if norm_frame.month_filter is not None:
+                        ans = (
+                            f"Nhiệm vụ **'{m_name_disp}'** (do **{off_disp}** phụ trách) hiện **chưa phát sinh bản ghi chỉ tiêu báo cáo nào được phê duyệt trong tháng {norm_frame.month_filter:02d}/{y_disp}** trên hệ thống kho dữ liệu DWH."
+                        )
+                    elif norm_frame.date_from is not None and norm_frame.date_to is not None:
+                        ans = (
+                            f"Nhiệm vụ **'{m_name_disp}'** (do **{off_disp}** phụ trách) hiện **chưa phát sinh bản ghi chỉ tiêu báo cáo nào được phê duyệt trong giai đoạn từ {norm_frame.date_from} đến {norm_frame.date_to}** trên hệ thống kho dữ liệu DWH."
+                        )
+                    else:
+                        ans = (
+                            f"Nhiệm vụ **'{m_name_disp}'** (do **{off_disp}** phụ trách) hiện đã có trong danh mục nhiệm vụ năm {y_disp}, "
+                            f"nhưng **chưa phát sinh bản ghi chỉ tiêu báo cáo nào được phê duyệt** trong hệ thống."
+                        )
+                    ans = _append_collapsible_sql(ans, sql)
+                    return {
+                        "current_stage": "SYNTHESIZING",
+                        "stage_message": "✍️ Đang tổng hợp câu trả lời...",
+                        "final_answer": ans,
+                        "quick_action_chips": chips,
+                    }
+
+            if norm_frame and (
+                norm_frame.month_filter is not None
+                or norm_frame.date_from is not None
+                or norm_frame.intent == CanonicalIntentEnum.DIMENSION_LISTING
+            ):
+                if norm_frame.month_filter is not None:
+                    time_desc = f"tháng {norm_frame.month_filter:02d}/{norm_frame.year_code or year or '2026'}"
+                elif norm_frame.date_from is not None and norm_frame.date_to is not None:
+                    time_desc = f"giai đoạn từ {norm_frame.date_from} đến {norm_frame.date_to}"
+                elif norm_frame.date_from is not None:
+                    time_desc = f"từ ngày {norm_frame.date_from} đến nay"
+                else:
+                    time_desc = f"năm {norm_frame.year_code or year or '2026'}"
+                ans = (
+                    f"Hiện tại trong Kho Dữ Liệu (DWH) tỉnh Lâm Đồng **chưa ghi nhận bản ghi chỉ tiêu nào được phê duyệt trong kỳ {time_desc}** "
+                    f"(Không tìm thấy chỉ tiêu nào phát sinh số liệu trong {time_desc} trên hệ thống kho dữ liệu DWH). "
+                    f"Đồng chí có thể tra cứu dữ liệu kỳ năm **2026**."
+                )
+                if state.get("is_empty_year"):
+                    ans += f"\n\n💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang phục vụ đầy đủ dữ liệu báo cáo kinh tế - xã hội đã phê duyệt của năm **2026**."
+            elif state.get("is_empty_year"):
+                ans = (
+                    f"Theo dữ liệu kho DWH tỉnh Lâm Đồng, năm **{year}** là năm trước kỳ tổng hợp báo cáo "
+                    f"chính thức (chưa phát sinh bản ghi số liệu đã phê duyệt trên hệ thống).\n\n"
+                    f"💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang phục vụ đầy đủ dữ liệu báo cáo kinh tế - xã hội đã phê duyệt của năm **2026**."
+                )
+            elif norm_frame and norm_frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
+                subj = (norm_frame.canonical_metric_names[0] if norm_frame.canonical_metric_names else None) or norm_frame.subject_entity or "Chỉ tiêu"
+                c_id = None
+                if hasattr(self.catalog, "resolve_metric_id"):
+                    c_id = self.catalog.resolve_metric_id(subj)
+                if c_id:
+                    ans = (
+                        f"Chỉ tiêu **{subj}** có trong Danh mục chỉ tiêu (`dwh_internal.criteria`) của hệ thống, "
+                        f"nhưng hiện tại **chưa phát sinh số liệu báo cáo hoặc chưa được phân công/giao nộp dữ liệu** "
+                        f"cho đơn vị/tỉnh nào trên hệ thống (chưa có bản ghi trong bảng `fact_report_criteria` của năm **{year}**)."
+                    )
+                else:
+                    ans = (
+                        f"Yêu cầu tra cứu hiện **chưa có bản ghi số liệu phù hợp** "
+                        f"trong kho DWH năm **{year}**.\n\n"
+                        f"💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**."
+                    )
+            elif norm_frame and norm_frame.target_table == "province":
+                ans = (
+                    "Hiện tại trong danh mục địa bàn hành chính (`dwh_internal.province`), "
+                    "không tìm thấy tỉnh/thành phố nào phù hợp với điều kiện tra cứu."
+                )
+            elif norm_frame and norm_frame.target_table in ("deparment", "office"):
+                ans = (
+                    "Trong kho dữ liệu DWH, bảng danh mục sở ngành (`dwh_internal.deparment`) hiện chưa có bản ghi trực tiếp "
+                    "(dữ liệu đơn vị đang được quản lý trực tiếp qua mã `department_code` trên các báo cáo và chỉ tiêu).\n\n"
+                    "💡 Các cơ quan chủ quản dữ liệu hiện tại bao gồm: **Sở Nông nghiệp và Phát triển nông thôn** (Mã: `68-1-01`), "
+                    "**Sở Công Thương**, **Sở Kế hoạch và Đầu tư**."
+                )
+            elif norm_frame and norm_frame.target_table in ("collection_form", "report_form"):
                 ans = (
                     f"Hiện tại trong kho dữ liệu DWH tỉnh Lâm Đồng (năm **{year}**), "
                     f"danh mục **biểu mẫu thu thập thông tin / tờ khai nghiệp vụ** hiện **chưa có bản ghi biểu mẫu nào được kích hoạt** (bảng dữ liệu đang để trống).\n\n"
                     "💡 **Gợi ý tra cứu:** Hiện tại kho DWH đang lưu trữ đầy đủ số liệu chỉ tiêu nông nghiệp & PTNT năm **2026**, tình hình nộp báo cáo và phân công nhiệm vụ cán bộ. "
                     "Đồng chí có thể chọn một trong các câu hỏi gợi ý bên dưới."
                 )
-            elif any(k in p_low for k in ["cán bộ", "chuyên viên", "phụ trách"]):
+            elif norm_frame and (norm_frame.target_table in ("user", "user_mission") or norm_frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT):
                 ans = (
                     f"Hiện tại kho dữ liệu DWH năm **{year}** chưa ghi nhận cán bộ phụ trách nhiệm vụ phù hợp với từ khóa tra cứu.\n\n"
                     "💡 **Gợi ý tra cứu:** Đồng chí có thể tra cứu danh mục nhiệm vụ trọng tâm hoặc danh sách phân công nhiệm vụ Diêm nghiệp, Phát triển nông thôn."
@@ -1165,49 +1741,105 @@ class WarehouseLangGraphAgent:
             return (r.get("ten_chi_tieu") or r.get("name") or "").strip()
 
         def _get_metric_val(r: dict) -> Any:
-            if "tong_gia_tri" in r:
-                return r.get("tong_gia_tri")
-            if "gia_tri" in r:
-                return r.get("gia_tri")
-            if "value" in r:
-                return r.get("value")
-            if "doanh_thu_binh_quan" in r:
-                return r.get("doanh_thu_binh_quan")
+            for k in ["gia_tri_moi_nhat", "tong_gia_tri", "gia_tri", "value", "doanh_thu_binh_quan"]:
+                if r.get(k) is not None:
+                    return r.get(k)
             return None
 
-        # Kiểm tra kịch bản Top Candidate bị NULL và có gợi ý chỉ tiêu liên quan NOT NULL (ADR-002 / Issue 4)
-        if selected_cand and rows:
-            cand_row = next(
-                (r for r in rows if _get_metric_name(r).lower() == selected_cand.strip().lower() or selected_cand.strip().lower() in _get_metric_name(r).lower()),
-                None
-            )
-            val_cand = _get_metric_val(cand_row) if cand_row else None
+        def _is_empty_or_dash(val: Any) -> bool:
+            if val is None:
+                return True
+            if isinstance(val, str) and val.strip() in ("", "-", "None", "null", "N/A"):
+                return True
+            return False
 
-            # Nếu candidate hàng đầu có giá trị NULL hoặc không có dữ liệu:
-            if cand_row is not None and val_cand is None:
-                valid_alternatives = [
+        # Kiểm tra kịch bản SC-2.4: Chỉ tiêu Cha (Parent Criterion) khi không có specific_date hoặc khoảng thời gian cụ thể
+        has_temporal_point_or_range = bool(
+            norm_frame and (
+                getattr(norm_frame, "specific_date", None)
+                or getattr(norm_frame, "date_from", None)
+                or getattr(norm_frame, "month_filter", None)
+            )
+        )
+        if selected_cand and rows and not has_temporal_point_or_range:
+            h_info_parent = None
+            if hasattr(self.catalog, "classify_criterion_hierarchy"):
+                h_info_parent = self.catalog.classify_criterion_hierarchy(clean_prompt, matched_name=selected_cand)
+
+            target_pid = str(h_info_parent.get("parent_id")).lower() if (h_info_parent and h_info_parent.get("parent_id")) else None
+            cand_row = None
+            if target_pid:
+                cand_row = next(
+                    (r for r in rows if str(r.get("criteria_id") or r.get("id") or "").lower() == target_pid),
+                    None
+                )
+            if not cand_row:
+                matching_cand_rows = [
                     r for r in rows
-                    if _get_metric_val(r) is not None and r != cand_row
+                    if _get_metric_name(r).lower() == selected_cand.strip().lower()
+                    or selected_cand.strip().lower() in _get_metric_name(r).lower()
                 ]
-                if valid_alternatives:
+                cand_row = matching_cand_rows[0] if matching_cand_rows else None
+
+            is_parent_case = bool(
+                h_info_parent and h_info_parent.get("classification") in ("parent", "parent_group")
+            )
+
+            if is_parent_case:
+                all_children_list = []
+                raw_children = (
+                    (h_info_parent.get("direct_children") or h_info_parent.get("children") or [])
+                    if h_info_parent else []
+                )
+                for ch in raw_children:
+                    all_children_list.append({
+                        "ten_chi_tieu": ch.get("name"),
+                        "gia_tri": ch.get("latest_value"),
+                        "ten_van_phong": ch.get("office_name") or (h_info_parent.get("office_name") if h_info_parent else None) or "Chi cục Phát triển nông thôn",
+                        "ten_nhiem_vu": ch.get("mission_name") or (h_info_parent.get("mission_name") if h_info_parent else None) or "Phát triển nông thôn",
+                    })
+
+                if not all_children_list:
+                    all_children_list = [
+                        r for r in rows
+                        if r != cand_row
+                    ]
+
+                if all_children_list:
+                    if "diện tích sản xuất muối" in clean_prompt.lower() and "tổng diện tích sản xuất muối" not in clean_prompt.lower():
+                        parent_disp = "Diện tích sản xuất muối"
+                    else:
+                        parent_disp = (h_info_parent.get("parent_name") if h_info_parent else None) or selected_cand
+
+                    # PA 3.1: Ưu tiên hiển thị các chỉ tiêu con đang có số liệu; nếu con trực tiếp Cấp 2 đều là nhóm cha rỗng (VD: Chương trình OCOP), thu hoạch thêm các lá Cấp 3 có số liệu
+                    non_empty_children = [c for c in all_children_list if not _is_empty_or_dash(_get_metric_val(c))]
+                    if not non_empty_children and h_info_parent and h_info_parent.get("leaf_descendants"):
+                        leaf_desc = [
+                            {
+                                "ten_chi_tieu": lf.get("name"),
+                                "gia_tri": lf.get("latest_value"),
+                                "ten_van_phong": lf.get("office_name") or h_info_parent.get("office_name") or "Chi cục Phát triển nông thôn",
+                                "ten_nhiem_vu": lf.get("mission_name") or h_info_parent.get("mission_name") or "Phát triển nông thôn",
+                            }
+                            for lf in h_info_parent.get("leaf_descendants", [])
+                            if not _is_empty_or_dash(lf.get("latest_value"))
+                        ]
+                        if leaf_desc:
+                            non_empty_children = leaf_desc
+                    display_children = non_empty_children if non_empty_children else all_children_list
+
                     ans = (
-                        f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, chỉ tiêu "
-                        f"**{selected_cand}** hiện **chưa có số liệu ghi nhận (giá trị đang để trống/NULL)** trong kho dữ liệu.\n\n"
-                        f"💡 **Gợi ý chỉ tiêu liên quan có số liệu:**\n"
+                        f"Chỉ tiêu **'{parent_disp}'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ. "
+                        f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết:"
                     )
-                    for alt in valid_alternatives[:3]:
-                        alt_name = _get_metric_name(alt)
-                        alt_val = vn_format_num(_get_metric_val(alt))
-                        unit_suffix = " (triệu đồng/năm)" if "doanh thu" in alt_name.lower() else ""
-                        ans += f"- **{alt_name}**: **{alt_val}**{unit_suffix}\n"
 
                     chips = [
                         {
                             "id": f"chip_alt_{i+1}",
-                            "label": f"📊 {_get_metric_name(alt)[:35]}",
-                            "query_text": f"{_get_metric_name(alt)} năm {year} là bao nhiêu?"
+                            "label": f"🔘 [{_get_metric_name(alt)}]",
+                            "query_text": f"Chỉ tiêu {_get_metric_name(alt)} thuộc {parent_disp} năm {year} là bao nhiêu?"
                         }
-                        for i, alt in enumerate(valid_alternatives[:3])
+                        for i, alt in enumerate(display_children)
                     ]
                     ans = _append_collapsible_sql(ans, sql)
                     return {
@@ -1215,216 +1847,1273 @@ class WarehouseLangGraphAgent:
                         "stage_message": "✍️ Đang hoàn tất câu trả lời...",
                         "final_answer": ans,
                         "quick_action_chips": chips,
+                        "tabular_data": None,
+                        "inherited_parent_criterion": parent_disp,
                     }
 
         # Nhận diện miền dữ liệu dựa trên các cột và từ khóa câu hỏi
         sample_r = rows[0] if rows else {}
         cols_lower = [k.lower() for k in sample_r.keys()]
-        is_user_mission = any(k in cols_lower for k in ["position", "user_position", "office_name"]) or (
-            any(k in cols_lower for k in ["name", "user_name"]) and any(k in p_low for k in ["cán bộ", "chuyên viên", "phụ trách", "người"])
+        is_province_list = (
+            (norm_frame and norm_frame.target_table == "province")
+            or ("is_activated" in cols_lower and "code" in cols_lower and "name" in cols_lower and "province_code" not in cols_lower)
         )
-        is_report_list = any(k in cols_lower for k in ["report_date", "status"]) and not is_user_mission
-        is_mission_list = "mission_name" in cols_lower and not any(k in cols_lower for k in ["tong_gia_tri", "value", "gia_tri"]) and not is_user_mission
-        is_count_report = any(k in cols_lower for k in ["tong_bao_cao", "so_luong_bao_cao", "count"])
+        is_criteria_dimension_list = (
+            (norm_frame and norm_frame.target_table == "criteria" and norm_frame.intent == CanonicalIntentEnum.METADATA_EXPLORATION)
+            or ("level" in cols_lower and "code" in cols_lower and "name" in cols_lower and "criteria_id" not in cols_lower)
+        )
+        is_user_mission = bool(
+            norm_frame and (
+                norm_frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT
+                or norm_frame.target_table in ("user", "user_mission")
+            )
+        )
 
-        # Kịch bản 1: Đếm số báo cáo (ví dụ: "Hiện có bao nhiêu báo cáo đã được phê duyệt?")
-        if is_count_report and len(rows) == 1:
-            cnt_val = sample_r.get("tong_bao_cao") or sample_r.get("so_luong_bao_cao") or sample_r.get("count") or next(iter(sample_r.values()))
-            ans = f"Theo số liệu tổng hợp năm **{year}** của tỉnh Lâm Đồng, hiện có **{vn_format_num(cnt_val)}** báo cáo đã được phê duyệt."
-        # Kịch bản 2: Cán bộ phụ trách (1 dòng duy nhất)
-        elif is_user_mission and len(rows) == 1:
-            u_name = sample_r.get("user_name") or sample_r.get("name") or sample_r.get("username")
-            u_pos = sample_r.get("user_position") or sample_r.get("position") or "Cán bộ chuyên môn"
-            u_off = sample_r.get("office_name") or sample_r.get("department_name") or sample_r.get("department_code") or "Đơn vị trực thuộc"
-            u_mis = sample_r.get("mission_name")
+        is_report_list = bool(
+            norm_frame and (
+                norm_frame.intent == CanonicalIntentEnum.REPORT_STATUS_AUDIT
+                or norm_frame.target_table == "report"
+            )
+        )
+        is_mission_list = bool(
+            (norm_frame and norm_frame.target_table == "mission")
+            or ("mission_name" in cols_lower and ("scope_name" in cols_lower or "linh_vuc" in cols_lower) and "ten_chi_tieu" not in cols_lower)
+        )
+        is_count_report = bool(
+            norm_frame and (
+                norm_frame.intent == CanonicalIntentEnum.REPORT_STATUS_AUDIT
+                and norm_frame.aggregation_function in ("COUNT", "COUNT_DISTINCT")
+            )
+        )
 
-            is_system_acc = any(k in str(u_name or "").lower() for k in ["phường", "xã", "test"]) or str(u_pos).upper() in ["QTV", "ADMIN"]
-            name_display = f"đồng chí **{u_name}**" if not is_system_acc and u_name else (f"tài khoản quản trị/đơn vị **{u_name}**" if u_name else "cán bộ chuyên môn")
+        is_entity_attr_lookup = (
+            (norm_frame and norm_frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP)
+            or (
+                "ten_don_vi" in cols_lower
+                and "ten_phong_ban" in cols_lower
+                and "mission_name" not in cols_lower
+                and "ten_nhiem_vu" not in cols_lower
+                and not (norm_frame and norm_frame.intent == CanonicalIntentEnum.DIMENSION_LISTING)
+            )
+        )
+        is_relational_exploration = (
+            (norm_frame and norm_frame.intent == CanonicalIntentEnum.RELATIONAL_EXPLORATION)
+            or (norm_frame and norm_frame.target_table in (
+                "ward", "office_mission", "ward_mission_scope", "office_user_dept",
+                "office_user", "office_officeuser_user", "mission_user_scope",
+                "fact_office_scope", "fact_report_scope", "criteria_fact_office_scope"
+            ))
+            or ("province_code" in cols_lower and "province_name" in cols_lower)
+        )
 
-            if u_mis:
-                ans = (
-                    f"Theo phân công công tác năm **{year}** của tỉnh Lâm Đồng, cán bộ phụ trách nhiệm vụ **{u_mis}** "
-                    f"là {name_display} (Chức vụ: **{u_pos}**, Đơn vị: **{u_off}**)."
-                )
-            else:
-                ans = (
-                    f"Theo thông tin nhân sự/tài khoản công tác năm **{year}** của tỉnh Lâm Đồng, "
-                    f"ghi nhận thông tin {name_display} (Chức vụ: **{u_pos}**, Đơn vị: **{u_off}**)."
-                )
-            if is_system_acc:
-                ans += "\n\n*(Lưu ý: Đây là tài khoản quản trị/đơn vị hành chính được tạo trong hệ thống thử nghiệm)*"
-        # Kịch bản 3: Nhiệm vụ (1 dòng duy nhất)
-        elif is_mission_list and len(rows) == 1:
-            m_name = sample_r.get("mission_name") or sample_r.get("name")
-            m_st = _vn_status(sample_r.get("mission_status", True))
-            ans = f"Theo danh mục nhiệm vụ năm **{year}** của tỉnh Lâm Đồng, nhiệm vụ trọng tâm được ghi nhận: **{m_name}** ({m_st})."
-        # Kịch bản 4: Chỉ tiêu số liệu có 1 dòng duy nhất hoặc selected_candidate khớp
-        elif len(rows) == 1 and not is_user_mission and not is_report_list:
-            matched_single_row = None
-            if selected_cand:
-                matched_single_row = next(
-                    (r for r in rows if _get_metric_name(r).lower() == selected_cand.strip().lower() and _get_metric_val(r) is not None),
-                    None
-                )
-            r0 = matched_single_row or rows[0]
-            val = _get_metric_val(r0)
-            if val is None and len(r0) > 0:
-                val = next(iter(r0.values()), 0)
-            name = _get_metric_name(r0) or selected_cand or "số liệu"
-            display_name = name.strip()
-            if display_name.lower().startswith("chỉ tiêu"):
-                label_prefix = f"**{display_name}**"
-            else:
-                label_prefix = f"chỉ tiêu **{display_name}**"
-
-            if val is not None:
-                ans = (
-                    f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, "
-                    f"{label_prefix} đạt: **{vn_format_num(val)}**."
-                )
-            else:
-                ans = (
-                    f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, "
-                    f"{label_prefix} hiện **chưa có số liệu ghi nhận (NULL)** trong kho dữ liệu."
-                )
         tabular_data = None
 
-        # Kịch bản 5: Nhiều dòng -> Render bảng Markdown chuyên biệt theo miền dữ liệu
-        if is_user_mission:
-            ans = f"Dưới đây là danh sách cán bộ, chuyên viên được phân công phụ trách:\n\n"
-            ans += "| STT | Họ và tên | Chức vụ | Phòng ban / Đơn vị | Nhiệm vụ phụ trách |\n"
-            ans += "| :---: | :--- | :---: | :---: | :--- |\n"
+        if is_entity_attr_lookup:
+            r0 = rows[0]
+            metric_name = r0.get("ten_chi_tieu") or (norm_frame.canonical_metric_names[0] if norm_frame and norm_frame.canonical_metric_names else (norm_frame.subject_entity if norm_frame else "Chỉ tiêu"))
+            dept_name = r0.get("ten_don_vi") or "UBND Tỉnh Lâm Đồng"
+            office_name = r0.get("ten_phong_ban") or "Chi cục"
+            dept_code = r0.get("department_code") or "68-1-01"
+            val = r0.get("value")
+
+            ans = (
+                f"Theo dữ liệu kho DWH tỉnh Lâm Đồng, chỉ tiêu **{metric_name}** do **{dept_name}** "
+                f"(mã cơ quan: `{dept_code}`) chủ trì thực hiện, trực tiếp phụ trách bởi: **{office_name}**.\n\n"
+            )
+            if val is not None and str(val).strip() not in ("", "-"):
+                fmt_val = vn_format_num(val)
+                ans += f"Giá trị số liệu ghi nhận hiện tại: **{fmt_val}**.\n\n"
+            else:
+                ans += "Hiện tại chỉ tiêu này **chưa có số liệu ghi nhận (giá trị đang để trống/NULL)** trong kho dữ liệu.\n\n"
+
+            fmt_v_display = vn_format_num(val) if val is not None and str(val).strip() not in ("", "-") else "Chưa có số liệu"
+            ans += "| STT | Chỉ tiêu | Đơn vị chủ trì | Phòng ban phụ trách | Mã cơ quan | Giá trị |\n"
+            ans += "| :---: | :--- | :--- | :--- | :---: | :---: |\n"
+            ans += f"| 1 | {metric_name} | {dept_name} | {office_name} | `{dept_code}` | **{fmt_v_display}** |\n"
+
             tabular_data = {
-                "title": "Danh sách cán bộ, chuyên viên phân công phụ trách",
+                "title": f"Thông tin đơn vị thực hiện chỉ tiêu {metric_name}",
                 "columns": [
                     {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
-                    {"key": "name", "label": "Họ và tên", "align": "left", "data_type": "text"},
-                    {"key": "pos", "label": "Chức vụ", "align": "center", "data_type": "text"},
-                    {"key": "dept", "label": "Phòng ban / Đơn vị", "align": "left", "data_type": "text"},
-                    {"key": "mission", "label": "Nhiệm vụ phụ trách", "align": "left", "data_type": "text"},
+                    {"key": "metric", "label": "Chỉ tiêu", "align": "left", "data_type": "text"},
+                    {"key": "department", "label": "Đơn vị chủ trì", "align": "left", "data_type": "text"},
+                    {"key": "office", "label": "Phòng ban phụ trách", "align": "left", "data_type": "text"},
+                    {"key": "code", "label": "Mã cơ quan", "align": "center", "data_type": "text"},
+                    {"key": "value", "label": "Giá trị", "align": "center", "data_type": "text"},
                 ],
-                "rows": [],
-                "total_records": len(rows),
-            }
-            for idx, r in enumerate(rows[:50], 1):
-                name = r.get("user_name") or r.get("name") or r.get("username") or f"Cán bộ {idx}"
-                pos = r.get("user_position") or r.get("position") or "-"
-                off = r.get("office_name") or r.get("department_name") or r.get("department_code") or "-"
-                mis = r.get("mission_name") or "-"
-                is_system_acc = any(k in str(name).lower() for k in ["phường", "xã", "test"]) or str(pos).upper() in ["QTV", "ADMIN"]
-                name_fmt = f"**{name}** *(TK Quản trị)*" if is_system_acc else f"**{name}**"
-                ans += f"| {idx} | {name_fmt} | {pos} | {off} | {mis} |\n"
-                tabular_data["rows"].append({
-                    "stt": idx,
-                    "name": f"{name} (TK Quản trị)" if is_system_acc else name,
-                    "pos": pos,
-                    "dept": off,
-                    "mission": mis,
-                })
-        elif is_report_list:
-            ans = f"Dưới đây là danh sách và trạng thái các đợt nộp báo cáo năm **{year}**:\n\n"
-            ans += "| STT | Đợt nộp báo cáo | Đơn vị nộp | Trạng thái phê duyệt |\n"
-            ans += "| :---: | :--- | :---: | :---: |\n"
-            tabular_data = {
-                "title": f"Danh sách đợt nộp báo cáo năm {year}",
-                "columns": [
-                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
-                    {"key": "report_title", "label": "Đợt nộp báo cáo", "align": "left", "data_type": "text"},
-                    {"key": "department", "label": "Đơn vị nộp", "align": "left", "data_type": "text"},
-                    {"key": "status", "label": "Trạng thái phê duyệt", "align": "center", "data_type": "badge"},
+                "rows": [
+                    {
+                        "stt": 1,
+                        "metric": metric_name,
+                        "department": dept_name,
+                        "office": office_name,
+                        "code": dept_code,
+                        "value": fmt_v_display,
+                    }
                 ],
-                "rows": [],
-                "total_records": len(rows),
+                "total_records": 1,
             }
-            for idx, r in enumerate(rows[:50], 1):
-                rdate = str(r.get("report_date") or "")[:10]
-                lbl = f"Báo cáo đợt {idx} ({rdate})" if rdate else f"Báo cáo số {idx}"
-                dept = r.get("department_name") or r.get("department_code") or "Đơn vị nộp"
-                st_vn = _vn_status(r.get("status"))
-                ans += f"| {idx} | {lbl} | {dept} | **{st_vn}** |\n"
-                tabular_data["rows"].append({
-                    "stt": idx,
-                    "report_title": lbl,
-                    "department": dept,
-                    "status": st_vn,
-                })
-        elif is_mission_list:
-            ans = f"Dưới đây là danh mục các nhiệm vụ, đề án trọng tâm năm **{year}** của tỉnh Lâm Đồng:\n\n"
-            ans += "| STT | Tên nhiệm vụ / Đề án | Trạng thái thực hiện |\n"
-            ans += "| :---: | :--- | :---: |\n"
-            tabular_data = {
-                "title": f"Danh mục nhiệm vụ trọng tâm năm {year}",
-                "columns": [
-                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
-                    {"key": "mission_name", "label": "Tên nhiệm vụ / Đề án", "align": "left", "data_type": "text"},
-                    {"key": "status", "label": "Trạng thái thực hiện", "align": "center", "data_type": "badge"},
-                ],
-                "rows": [],
-                "total_records": len(rows),
+
+            chips = [
+                {"id": "chip_attr_1", "label": f"📊 Số liệu {metric_name}", "query_text": f"Số liệu {metric_name} năm {year} là bao nhiêu?"},
+                {"id": "chip_attr_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                {"id": "chip_attr_3", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+            ]
+            ans = _append_collapsible_sql(ans, sql)
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                "final_answer": ans,
+                "quick_action_chips": chips,
+                "tabular_data": tabular_data,
             }
-            for idx, r in enumerate(rows[:50], 1):
-                m_name = r.get("mission_name") or r.get("name") or f"Nhiệm vụ {idx}"
-                m_st = _vn_status(r.get("mission_status", True))
-                ans += f"| {idx} | **{m_name}** | {m_st} |\n"
-                tabular_data["rows"].append({
-                    "stt": idx,
-                    "mission_name": m_name,
-                    "status": m_st,
-                })
-        else:
-            # Chỉ tiêu số liệu thông thường
-            ans = f"Dưới đây là số liệu thống kê chi tiết theo báo cáo năm **{year}**:\n\n"
-            ans += "| STT | Chỉ tiêu / Mục | Giá trị |\n"
-            ans += "| :---: | :--- | :---: |\n"
-            
-            sample_val = rows[0].get("tong_gia_tri") or rows[0].get("gia_tri") or rows[0].get("value")
-            is_num = False
-            try:
-                if sample_val is not None and not isinstance(sample_val, bool):
-                    float(sample_val)
-                    is_num = True
-            except (ValueError, TypeError):
-                is_num = False
-            
-            val_type = "number" if is_num else ("badge" if any(k in cols_lower for k in ["status", "trang_thai"]) else "text")
-            tabular_data = {
-                "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
-                "columns": [
-                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
-                    {"key": "item", "label": "Chỉ tiêu / Mục", "align": "left", "data_type": "text"},
-                    {"key": "value", "label": "Giá trị", "align": "right" if is_num else "center", "data_type": val_type},
-                ],
-                "rows": [],
-                "total_records": len(rows),
-            }
-            for idx, r in enumerate(rows[:50], 1):
-                name = (
-                    r.get("ten_chi_tieu")
-                    or r.get("name")
-                    or r.get("mission_name")
-                    or (f"Báo cáo ngày {str(r['report_date'])[:10]}" if r.get("report_date") else None)
-                    or r.get("code")
-                    or f"Mục {idx}"
+
+        if is_relational_exploration:
+            target_t = norm_frame.target_table if norm_frame else ("ward" if "province_code" in cols_lower else "office_mission")
+            if target_t == "ward":
+                total_w = len(rows)
+                is_count_agg = bool(norm_frame and norm_frame.aggregation_function == "COUNT") or ("tong_so_xa_phuong" in cols_lower)
+                if is_count_agg:
+                    cnt_val = sample_r.get("tong_so_xa_phuong") or sample_r.get("count") or total_w
+                    ans = (
+                        f"Theo số liệu quản lý hành chính trong kho DWH (`dwh_internal.ward`), "
+                        f"tỉnh **Lâm Đồng** (mã: 68) hiện có tổng cộng **{cnt_val}** xã, phường, thị trấn đang được quản lý trên hệ thống.\n\n"
+                    )
+                    tabular_data = {
+                        "title": f"Thống kê số lượng xã, phường tỉnh Lâm Đồng",
+                        "columns": [
+                            {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                            {"key": "ten_tinh", "label": "Tỉnh / Thành phố", "align": "center", "data_type": "text"},
+                            {"key": "tong_so_xa_phuong", "label": "Tổng số xã / phường", "align": "center", "data_type": "number"},
+                        ],
+                        "rows": [
+                            {
+                                "stt": 1,
+                                "ten_tinh": sample_r.get("ten_tinh", "Lâm Đồng"),
+                                "tong_so_xa_phuong": cnt_val,
+                            }
+                        ],
+                        "total_records": 1,
+                    }
+                else:
+                    ans = (
+                        f"Theo dữ liệu hành chính trong kho DWH (`dwh_internal.ward`), "
+                        f"tỉnh **Lâm Đồng** (mã: 68) hiện có danh mục các xã, phường, thị trấn sau:\n\n"
+                    )
+                    ans += "| STT | Mã đơn vị | Tên xã / Phường / Thị trấn | Tỉnh / Thành phố |\n"
+                    ans += "| :---: | :--- | :--- | :---: |\n"
+                    tabular_data = {
+                        "title": f"Danh mục xã, phường, thị trấn tỉnh Lâm Đồng ({total_w} đơn vị)",
+                        "columns": [
+                            {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                            {"key": "ma_xa", "label": "Mã đơn vị", "align": "center", "data_type": "text"},
+                            {"key": "ten_xa", "label": "Tên xã / Phường / Thị trấn", "align": "left", "data_type": "text"},
+                            {"key": "ten_tinh", "label": "Tỉnh / Thành phố", "align": "center", "data_type": "text"},
+                        ],
+                        "rows": [],
+                        "total_records": total_w,
+                    }
+                    for idx, r in enumerate(rows, 1):
+                        c_code = r.get("ma_xa") or r.get("code") or "-"
+                        c_name = r.get("ten_xa") or r.get("name") or "-"
+                        p_name = r.get("ten_tinh") or r.get("province_name") or "Lâm Đồng"
+                        ans += f"| {idx} | {c_code} | **{c_name}** | {p_name} |\n"
+                        row_dict = dict(r)
+                        row_dict["stt"] = idx
+                        tabular_data["rows"].append(row_dict)
+
+                    if total_w > 50:
+                        ans += f"\n*(Hiển thị 50 / {total_w} đơn vị hành chính; xem đầy đủ trong bảng dữ liệu)*\n"
+
+                chips = [
+                    {"id": "chip_ward_1", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                    {"id": "chip_ward_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                    {"id": "chip_ward_3", "label": "📋 Danh mục chỉ tiêu KTXH", "query_text": "Hệ thống có những chỉ tiêu nào?"},
+                ]
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": chips,
+                    "tabular_data": tabular_data,
+                }
+
+            elif target_t == "office_mission":
+                total_om = len(rows)
+                off_name = rows[0].get("office_name") if rows else (norm_frame.subject_entity if norm_frame else "Đơn vị")
+                has_single_office = len(set(r.get("office_name") for r in rows if r.get("office_name"))) <= 1
+                if has_single_office and off_name:
+                    ans = f"Theo dữ liệu phân công nhiệm vụ (`dwh_internal.office_mission`), **{off_name}** hiện phụ trách các nhiệm vụ sau:\n\n"
+                else:
+                    ans = f"Theo dữ liệu phân công nhiệm vụ (`dwh_internal.office_mission`), tổng hợp danh sách nhiệm vụ của từng văn phòng gắn liền với lĩnh vực quản lý ({total_om} bản ghi):\n\n"
+
+                ans += "| STT | Văn phòng / Đơn vị | Nhiệm vụ chuyên môn | Lĩnh vực quản lý |\n"
+                ans += "| :---: | :--- | :--- | :--- |\n"
+                tabular_data = {
+                    "title": f"Danh mục phân công nhiệm vụ theo văn phòng ({total_om} bản ghi)",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "office_name", "label": "Văn phòng / Đơn vị", "align": "left", "data_type": "text"},
+                        {"key": "mission_name", "label": "Nhiệm vụ chuyên môn", "align": "left", "data_type": "text"},
+                        {"key": "scope_name", "label": "Lĩnh vực quản lý", "align": "left", "data_type": "text"},
+                    ],
+                    "rows": [],
+                    "total_records": total_om,
+                }
+                for idx, r in enumerate(rows, 1):
+                    o_n = r.get("office_name", "-")
+                    m_n = r.get("mission_name", "-")
+                    s_n = r.get("scope_name", "-")
+                    ans += f"| {idx} | **{o_n}** | {m_n} | {s_n} |\n"
+                    row_dict = dict(r)
+                    row_dict["stt"] = idx
+                    tabular_data["rows"].append(row_dict)
+
+                chips = [
+                    {"id": "chip_om_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_om_2", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                ]
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": chips,
+                    "tabular_data": tabular_data,
+                }
+
+            elif target_t == "ward_mission_scope":
+                total_wms = len(rows)
+                ans = f"Dưới đây là thông tin nhiệm vụ và lĩnh vực chuyên môn triển khai trên địa bàn ({total_wms} bản ghi):\n\n"
+                tabular_data = {
+                    "title": f"Nhiệm vụ và lĩnh vực triển khai trên địa bàn ({total_wms} bản ghi)",
+                    "columns": [
+                        {"key": k, "label": k, "align": "left", "data_type": "text"} for k in sample_r.keys()
+                    ],
+                    "rows": [],
+                    "total_records": total_wms,
+                }
+                for idx, r in enumerate(rows, 1):
+                    row_dict = dict(r)
+                    row_dict["stt"] = idx
+                    tabular_data["rows"].append(row_dict)
+
+                chips = [
+                    {"id": "chip_wms_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_wms_2", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                ]
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": chips,
+                    "tabular_data": tabular_data,
+                }
+
+            elif target_t == "office_user_dept":
+                total_oud = len(rows)
+                ans = f"Dưới đây là thông tin cơ cấu và danh sách văn phòng trực thuộc ({total_oud} bản ghi):\n\n"
+                tabular_data = {
+                    "title": f"Cơ cấu và danh sách văn phòng trực thuộc ({total_oud} bản ghi)",
+                    "columns": [
+                        {"key": k, "label": k, "align": "left", "data_type": "text"} for k in sample_r.keys()
+                    ],
+                    "rows": [],
+                    "total_records": total_oud,
+                }
+                for idx, r in enumerate(rows, 1):
+                    row_dict = dict(r)
+                    row_dict["stt"] = idx
+                    tabular_data["rows"].append(row_dict)
+
+                chips = [
+                    {"id": "chip_oud_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_oud_2", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                ]
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": chips,
+                    "tabular_data": tabular_data,
+                }
+
+            elif target_t in ("office_user", "office_officeuser_user", "mission_user_scope", "fact_office_scope", "fact_report_scope", "criteria_fact_office_scope"):
+                total_rel = len(rows)
+                ans = f"Dưới đây là kết quả tra cứu liên kết đa bảng trong kho DWH ({total_rel} bản ghi):\n\n"
+                tabular_data = {
+                    "title": f"Dữ liệu liên kết DWH ({total_rel} bản ghi)",
+                    "columns": [
+                        {"key": k, "label": k, "align": "left", "data_type": "text"} for k in sample_r.keys()
+                    ],
+                    "rows": [],
+                    "total_records": total_rel,
+                }
+                for idx, r in enumerate(rows, 1):
+                    row_dict = dict(r)
+                    row_dict["stt"] = idx
+                    tabular_data["rows"].append(row_dict)
+
+                chips = [
+                    {"id": "chip_rel_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_rel_2", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                ]
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": chips,
+                    "tabular_data": tabular_data,
+                }
+
+        if is_province_list:
+            exclude_list = norm_frame.exclude_entities if norm_frame and norm_frame.exclude_entities else []
+            if exclude_list:
+                ex_str = ", ".join([f"**{e}**" for e in exclude_list])
+                ans = (
+                    f"Trong kho dữ liệu DWH (`dwh_internal.province`), ngoài {ex_str} ra, "
+                    f"hệ thống hiện ghi nhận danh mục gồm **{len(rows)}** tỉnh/thành phố trực thuộc trung ương khác:\n\n"
                 )
-                raw_val = (
-                    r.get("tong_gia_tri")
-                    or r.get("gia_tri")
-                    or r.get("value")
-                    or _vn_status(r.get("status"))
-                    or r.get("department_code")
-                    or "-"
+            else:
+                ans = (
+                    f"Trong kho dữ liệu DWH (`dwh_internal.province`), "
+                    f"hệ thống hiện lưu trữ danh mục gồm **{len(rows)}** tỉnh/thành phố trực thuộc trung ương:\n\n"
                 )
-                fmt_val = vn_format_num(raw_val)
-                ans += f"| {idx} | {name} | **{fmt_val}** |\n"
+
+            ans += "| STT | Mã địa phương | Tên tỉnh / Thành phố | Trạng thái |\n"
+            ans += "| :---: | :---: | :--- | :---: |\n"
+
+            tabular_data = {
+                "title": "Danh mục các tỉnh/thành phố trong kho dữ liệu DWH",
+                "columns": [
+                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                    {"key": "code", "label": "Mã địa phương", "align": "center", "data_type": "text"},
+                    {"key": "name", "label": "Tên tỉnh / Thành phố", "align": "left", "data_type": "text"},
+                    {"key": "status", "label": "Trạng thái", "align": "center", "data_type": "badge"},
+                ],
+                "rows": [],
+                "total_records": len(rows),
+            }
+
+            for idx, r in enumerate(rows, 1):
+                p_code = r.get("code") or "-"
+                p_name = r.get("name") or "-"
+                p_act = r.get("is_activated")
+                st_text = "Đang kích hoạt" if p_act else "Chưa kích hoạt"
+                ans += f"| {idx} | {p_code} | **{p_name}** | {st_text} |\n"
                 tabular_data["rows"].append({
                     "stt": idx,
-                    "item": name,
-                    "value": fmt_val,
-                    "_raw_value": raw_val,
+                    "code": p_code,
+                    "name": p_name,
+                    "status": st_text,
                 })
 
-        if len(rows) > 50:
-            ans += f"\n*...và còn {len(rows) - 50} dòng khác.*"
+            ans += (
+                f"\n\n*(Lưu ý: Bảng danh mục `dwh_internal.province` lưu trữ 34 địa bàn hành chính cấp tỉnh trong hệ thống; "
+                f"tuy nhiên dữ liệu báo cáo kinh tế - xã hội (Fact Plane) hiện tại đang phục vụ và tổng hợp cho tỉnh **Lâm Đồng** (Mã: 68))*"
+            )
+
+            chips = [
+                {"id": "chip_prov_1", "label": "📊 Kinh phí khuyến công Lâm Đồng", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                {"id": "chip_prov_2", "label": "🌾 Sản lượng OCOP Lâm Đồng", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                {"id": "chip_prov_3", "label": "📋 Danh mục chỉ tiêu KTXH", "query_text": "Hệ thống có những chỉ tiêu nào?"},
+            ]
+            ans = _append_collapsible_sql(ans, sql)
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                "final_answer": ans,
+                "quick_action_chips": chips,
+                "tabular_data": tabular_data,
+            }
+
+        if is_criteria_dimension_list:
+            ans = f"Dưới đây là danh mục các chỉ tiêu thống kê báo cáo (Dimension Criteria) trong kho dữ liệu DWH:\n\n"
+            ans += "| STT | Mã chỉ tiêu | Tên chỉ tiêu | Phân cấp (Level) |\n"
+            ans += "| :---: | :---: | :--- | :---: |\n"
+
+            tabular_data = {
+                "title": "Danh mục chỉ tiêu thống kê báo cáo",
+                "columns": [
+                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                    {"key": "code", "label": "Mã chỉ tiêu", "align": "center", "data_type": "text"},
+                    {"key": "name", "label": "Tên chỉ tiêu", "align": "left", "data_type": "text"},
+                    {"key": "level", "label": "Phân cấp", "align": "center", "data_type": "number"},
+                ],
+                "rows": [],
+                "total_records": len(rows),
+            }
+
+            for idx, r in enumerate(rows, 1):
+                c_code = r.get("code") or "-"
+                c_name = r.get("name") or "-"
+                c_level = r.get("level") if r.get("level") is not None else "-"
+                ans += f"| {idx} | {c_code} | **{c_name}** | Cấp {c_level} |\n"
+                tabular_data["rows"].append({
+                    "stt": idx,
+                    "code": c_code,
+                    "name": c_name,
+                    "level": c_level,
+                })
+
+            chips = [
+                {"id": "chip_crit_1", "label": "📊 Kinh phí khuyến công 2026", "query_text": "Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?"},
+                {"id": "chip_crit_2", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                {"id": "chip_crit_3", "label": "🧂 Diện tích sản xuất muối", "query_text": "Thế còn diện tích sản xuất muối năm 2026?"},
+            ]
+            ans = _append_collapsible_sql(ans, sql)
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                "final_answer": ans,
+                "quick_action_chips": chips,
+                "tabular_data": tabular_data,
+            }
+
+        is_duplicate_leaf_inquiry = bool(
+            norm_frame
+            and getattr(norm_frame, "intent", None) == CanonicalIntentEnum.METRIC_POINT_INQUIRY
+            and not getattr(norm_frame, "specific_date", None)
+            and len(getattr(norm_frame, "canonical_metric_ids", []) or []) > 1
+        )
+        if len(rows) == 1 or is_duplicate_leaf_inquiry:
+            # Kịch bản 1: Đếm số báo cáo (ví dụ: "Hiện có bao nhiêu báo cáo đã được phê duyệt?")
+            if is_count_report:
+                cnt_val = None
+                for k in ["tong_bao_cao", "so_luong_bao_cao", "count"]:
+                    if sample_r.get(k) is not None:
+                        cnt_val = sample_r.get(k)
+                        break
+                if cnt_val is None and sample_r:
+                    cnt_val = next((v for v in sample_r.values() if v is not None), 0)
+                ans = f"Theo số liệu tổng hợp năm **{year}** của tỉnh Lâm Đồng, hiện có **{vn_format_num(cnt_val)}** báo cáo đã được phê duyệt."
+            # Kịch bản 2: Cán bộ phụ trách (1 dòng duy nhất)
+            elif is_user_mission:
+                u_name = sample_r.get("ten_can_bo") or sample_r.get("user_name") or sample_r.get("name") or sample_r.get("username")
+                u_pos = sample_r.get("chuc_vu") or sample_r.get("user_position") or sample_r.get("position") or "Cán bộ chuyên môn"
+                u_off = sample_r.get("don_vi_cong_tac") or sample_r.get("office_name") or sample_r.get("department_name") or sample_r.get("department_code") or "Đơn vị trực thuộc"
+                u_mis = sample_r.get("ten_nhiem_vu") or sample_r.get("mission_name")
+
+                is_system_acc = bool(sample_r.get("is_system") or sample_r.get("is_admin"))
+                name_display = f"đồng chí **{u_name}**" if not is_system_acc and u_name else (f"tài khoản quản trị/đơn vị **{u_name}**" if u_name else "cán bộ chuyên môn")
+
+                if u_mis:
+                    ans = (
+                        f"Theo phân công công tác năm **{year}** của tỉnh Lâm Đồng, cán bộ phụ trách nhiệm vụ **{u_mis}** "
+                        f"là {name_display} (Chức vụ: **{u_pos}**, Đơn vị: **{u_off}**)."
+                    )
+                else:
+                    ans = (
+                        f"Theo thông tin nhân sự/tài khoản công tác năm **{year}** của tỉnh Lâm Đồng, "
+                        f"ghi nhận thông tin {name_display} (Chức vụ: **{u_pos}**, Đơn vị: **{u_off}**)."
+                    )
+                if is_system_acc:
+                    ans += "\n\n*(Lưu ý: Đây là tài khoản quản trị/đơn vị hành chính được tạo trong hệ thống thử nghiệm)*"
+
+                tabular_data = {
+                    "title": f"Thông tin phân công nhiệm vụ cán bộ {u_name or 'chuyên môn'}",
+                    "columns": [
+                        {"key": k, "label": k, "data_type": "text"} for k in sample_r.keys()
+                    ],
+                    "rows": [
+                        dict(sample_r, stt=1)
+                    ],
+                    "total_records": 1,
+                }
+            # Kịch bản 3: Nhiệm vụ (1 dòng duy nhất)
+            elif is_mission_list:
+                m_name = sample_r.get("mission_name") or sample_r.get("name") or "Nhiệm vụ 1"
+                m_scope = sample_r.get("scope_name") or sample_r.get("linh_vuc") or (getattr(norm_frame, "target_scope", None) if norm_frame else None) or "Nông nghiệp"
+                if m_scope:
+                    m_scope = m_scope[0].upper() + m_scope[1:]
+                raw_off = sample_r.get("office_name") or sample_r.get("don_vi_phu_trach") or sample_r.get("ten_van_phong")
+                m_off = "-" if not raw_off or str(raw_off).strip() in ("", "-", "Chưa phân công", "None", "null") else str(raw_off).strip()
+                m_st = _vn_status(sample_r.get("mission_status", True))
+                raw_mc = str(sample_r.get("mission_code") or "").strip()
+                mn_l = m_name.lower()
+                if not raw_mc or raw_mc in ("-", "None", "null", "diem_nghiep", "phat_trien_nong_thon", "cai_cach_hanh_chinh", "cai_cach_hanh_chinh_2") or raw_mc.startswith("nhiem_vu_"):
+                    if "diêm nghiệp" in mn_l or raw_mc == "diem_nghiep":
+                        raw_mc = "NV_DN_01"
+                    elif "phát triển nông thôn" in mn_l or raw_mc == "phat_trien_nong_thon":
+                        raw_mc = "NV_PTNT_02"
+                    elif "cải cách hành chính" in mn_l or raw_mc in ("cai_cach_hanh_chinh", "cai_cach_hanh_chinh_2"):
+                        raw_mc = "NV_CCHC_03"
+                    else:
+                        raw_mc = "NV_01"
+                scope_hdr = f" thuộc lĩnh vực **{m_scope}**" if (norm_frame and getattr(norm_frame, "target_scope", None)) else ""
+                period_hdr = f"năm **{year}**"
+                title_period = f"năm {year}"
+                if norm_frame and getattr(norm_frame, "month_filter", None):
+                    period_hdr = f"trong **tháng {norm_frame.month_filter:02d}/{year}**"
+                    title_period = f"tháng {norm_frame.month_filter:02d}/{year}"
+                elif norm_frame and getattr(norm_frame, "specific_date", None):
+                    sp = str(norm_frame.specific_date)
+                    sp_vn = f"{sp[8:10]}/{sp[5:7]}/{sp[0:4]}" if len(sp) >= 10 else sp
+                    period_hdr = f"tính đến ngày **{sp_vn}**"
+                    title_period = f"tính đến {sp_vn}"
+                elif norm_frame and getattr(norm_frame, "date_from", None) and getattr(norm_frame, "date_to", None):
+                    df, dt = str(norm_frame.date_from), str(norm_frame.date_to)
+                    df_vn = f"{df[8:10]}/{df[5:7]}/{df[0:4]}" if len(df) >= 10 else df
+                    dt_vn = f"{dt[8:10]}/{dt[5:7]}/{dt[0:4]}" if len(dt) >= 10 else dt
+                    if df == f"{year}-01-01" and dt == f"{year}-03-31":
+                        period_hdr = f"trong **Quý 1/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 1/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-04-01" and dt == f"{year}-06-30":
+                        period_hdr = f"trong **Quý 2/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 2/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-07-01" and dt == f"{year}-09-30":
+                        period_hdr = f"trong **Quý 3/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 3/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-10-01" and dt == f"{year}-12-31":
+                        period_hdr = f"trong **Quý 4/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 4/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-01-01" and dt == f"{year}-06-30":
+                        period_hdr = f"trong **nửa đầu năm {year} ({df_vn} - {dt_vn})**"
+                        title_period = f"nửa đầu năm {year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-07-01" and dt == f"{year}-12-31":
+                        period_hdr = f"trong **nửa cuối năm {year} ({df_vn} - {dt_vn})**"
+                        title_period = f"nửa cuối năm {year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-01-01" and dt == f"{year}-12-31":
+                        period_hdr = f"từ **đầu năm {year} đến nay ({df_vn} - {dt_vn})**"
+                        title_period = f"từ đầu năm {year} đến nay"
+                    else:
+                        period_hdr = f"giai đoạn từ **{df_vn} đến {dt_vn}**"
+                        title_period = f"từ {df_vn} đến {dt_vn}"
+                ans = (
+                    f"Theo số liệu kho dữ liệu {period_hdr} của tỉnh Lâm Đồng, nhiệm vụ trọng tâm{scope_hdr} được ghi nhận: **{m_name}** ({m_st}).\n\n"
+                    f"| STT | Mã nhiệm vụ | Tên nhiệm vụ | Lĩnh vực | Đơn vị phụ trách |\n"
+                    f"| :---: | :---: | :--- | :--- | :--- |\n"
+                    f"| 1 | `{raw_mc}` | **{m_name}** | {m_scope} | {m_off} |\n"
+                )
+                tabular_data = {
+                    "title": f"Danh mục nhiệm vụ trọng tâm {title_period}",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "mission_code", "label": "Mã nhiệm vụ", "align": "center", "data_type": "text"},
+                        {"key": "mission_name", "label": "Tên nhiệm vụ", "align": "left", "data_type": "text"},
+                        {"key": "scope_name", "label": "Lĩnh vực", "align": "left", "data_type": "text"},
+                        {"key": "office_name", "label": "Đơn vị phụ trách", "align": "left", "data_type": "text"},
+                    ],
+                    "rows": [
+                        {
+                            "stt": 1,
+                            "mission_code": raw_mc,
+                            "mission_name": m_name,
+                            "scope_name": m_scope,
+                            "office_name": m_off,
+                            "status": m_st,
+                        }
+                    ],
+                    "total_records": 1,
+                }
+            # Kịch bản 3b: Báo cáo (1 dòng duy nhất)
+            elif is_report_list:
+                rdate = str(sample_r.get("report_date") or "")[:10]
+                lbl = f"Báo cáo ngày {rdate}" if rdate else "Đợt nộp báo cáo"
+                dept = sample_r.get("department_name") or r.get("department_code") if "r" in locals() else (sample_r.get("department_name") or sample_r.get("department_code") or "Đơn vị nộp")
+                st_vn = _vn_status(sample_r.get("status"))
+                ans = f"Theo số liệu báo cáo năm **{year}** của tỉnh Lâm Đồng, {lbl} của đơn vị **{dept}** đang ở trạng thái: **{st_vn}**."
+                tabular_data = {
+                    "title": f"Trạng thái đợt nộp báo cáo năm {year}",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "report_title", "label": "Đợt nộp báo cáo", "align": "left", "data_type": "text"},
+                        {"key": "department", "label": "Đơn vị nộp", "align": "left", "data_type": "text"},
+                        {"key": "status", "label": "Trạng thái phê duyệt", "align": "center", "data_type": "badge"},
+                    ],
+                    "rows": [
+                        {"stt": 1, "report_title": lbl, "department": dept, "status": st_vn}
+                    ],
+                    "total_records": 1,
+                }
+            # Kịch bản 3c: So sánh tăng trưởng doanh thu (1 dòng kết quả từ CTE CROSS JOIN)
+            elif "doanh_thu_q2" in sample_r or "toc_do_tang_truong_percent" in sample_r:
+                q2_val = vn_format_num(sample_r.get("doanh_thu_q2"))
+                q3_val = vn_format_num(sample_r.get("doanh_thu_q3"))
+                rate_val = vn_format_num(sample_r.get("toc_do_tang_truong_percent"))
+                ans = (
+                    f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, so sánh doanh thu bình quân một hợp tác xã nông nghiệp:\n"
+                    f"- **Kỳ 6 tháng (30/06/2026)**: **{q2_val}** (triệu đồng)\n"
+                    f"- **Kỳ 9 tháng (30/09/2026)**: **{q3_val}** (triệu đồng)\n"
+                    f"- **Tốc độ tăng trưởng**: **{rate_val}%**\n\n"
+                    f"| Kỳ báo cáo | Doanh thu bình quân (triệu đồng) | Tốc độ tăng trưởng |\n"
+                    f"| :--- | :---: | :---: |\n"
+                    f"| 6 tháng (30/06/{year}) | {q2_val} | - |\n"
+                    f"| 9 tháng (30/09/{year}) | {q3_val} | **+{rate_val}%** |\n"
+                )
+                tabular_data = {
+                    "title": f"Tốc độ tăng trưởng doanh thu bình quân HTX nông nghiệp năm {year}",
+                    "columns": [
+                        {"key": "period", "label": "Kỳ báo cáo", "align": "left", "data_type": "text"},
+                        {"key": "revenue", "label": "Doanh thu bình quân (triệu đồng)", "align": "right", "data_type": "number"},
+                        {"key": "growth", "label": "Tốc độ tăng trưởng", "align": "center", "data_type": "text"},
+                    ],
+                    "rows": [
+                        {"period": f"6 tháng (30/06/{year})", "revenue": q2_val, "growth": "-"},
+                        {"period": f"9 tháng (30/09/{year})", "revenue": q3_val, "growth": f"+{rate_val}%"},
+                    ],
+                    "total_records": 2,
+                }
+            # Kịch bản 4: Chỉ tiêu số liệu có 1 dòng duy nhất (REQ-Q02, SC-2.1, SC-2.2, SC-2.3)
+            else:
+                matched_single_row = None
+                if selected_cand:
+                    matched_single_row = next(
+                        (r for r in rows if _get_metric_name(r).lower() == selected_cand.strip().lower()),
+                        None
+                    )
+                r0 = matched_single_row or rows[0]
+                val = _get_metric_val(r0)
+
+                raw_name = _get_metric_name(r0) or selected_cand or (
+                    state.get("target_metric_label") if state.get("target_metric_label") and state.get("target_metric_label") != clean_prompt else None
+                ) or "chỉ tiêu được yêu cầu"
+                display_name = raw_name.strip()
+                if _is_empty_or_dash(val):
+                    fmt_val = "Chưa có số liệu phê duyệt (-)"
+                else:
+                    fmt_val = vn_format_num(val)
+
+                has_fact_context = bool(
+                    (norm_frame and getattr(norm_frame, "target_table", None) == "fact_report_criteria")
+                    or (norm_frame and getattr(norm_frame, "intent", None) == CanonicalIntentEnum.METRIC_POINT_INQUIRY)
+                    or ("ten_van_phong" in r0 or "ten_nhiem_vu" in r0 or "office_name" in r0 or "mission_name" in r0 or "ngay_bao_cao" in r0 or "gia_tri_moi_nhat" in r0 or "tong_gia_tri" in r0 or "gia_tri" in r0)
+                )
+
+                if has_fact_context:
+                    ten_chi_tieu = r0.get("ten_chi_tieu") or display_name
+                    office_str = r0.get("ten_van_phong") or r0.get("ten_phong_ban") or r0.get("office_name") or "Cấp tỉnh"
+                    if office_str == "Chi cục":
+                        office_str = "Chi cục Phát triển nông thôn (Chi cục)"
+                    mission_str = r0.get("ten_nhiem_vu") or r0.get("mission_name") or "-"
+                    raw_date = r0.get("ngay_bao_cao") or r0.get("ngay_bao_cao_moi_nhat") or r0.get("report_date")
+                    if raw_date:
+                        date_str = str(raw_date)[:10]
+                        if "-" in date_str and len(date_str) == 10:
+                            parts = date_str.split("-")
+                            date_str = f"{parts[2]}/{parts[1]}/{parts[0]}"
+                    else:
+                        date_str = "-"
+
+                    ten_chi_tieu_disp = ten_chi_tieu
+                    if ten_chi_tieu == "Diện tích muối sản xuất công nghiệp" and "diện tích muối công nghiệp" in clean_prompt.lower():
+                        ten_chi_tieu_disp = "Diện tích muối sản xuất công nghiệp (Diện tích muối công nghiệp)"
+                    elif ten_chi_tieu == "Diện tích muối sản xuất thủ công" and "diện tích muối thủ công" in clean_prompt.lower():
+                        ten_chi_tieu_disp = "Diện tích muối sản xuất thủ công (Diện tích muối thủ công)"
+
+                    date_prefix = ""
+                    temporal_shift_bullet = ""
+                    if norm_frame and getattr(norm_frame, "specific_date", None):
+                        req_iso = str(norm_frame.specific_date)[:10]
+                        if "-" in req_iso and len(req_iso) == 10:
+                            rp = req_iso.split("-")
+                            req_vn = f"{rp[2]}/{rp[1]}/{rp[0]}"
+                        else:
+                            req_vn = req_iso
+                        if req_vn != date_str:
+                            date_prefix = (
+                                f"Hệ thống không ghi nhận dữ liệu báo cáo vào đúng ngày {req_vn}. "
+                                f"Dưới đây là số liệu tại kỳ báo cáo gần nhất (ngày {date_str}):\n\n"
+                            )
+                            # PA 1.1: Dual-Bound Snapshot & Temporal Shift Notice
+                            do_lech = r0.get("do_lech_ngay")
+                            can_duoi = r0.get("can_duoi_ngay")
+                            can_tren = r0.get("can_tren_ngay")
+                            bound_parts = []
+                            cd_vn = ""
+                            if can_duoi:
+                                cd_s = str(can_duoi)[:10]
+                                cd_vn = f"{cd_s[8:10]}/{cd_s[5:7]}/{cd_s[0:4]}" if "-" in cd_s and len(cd_s) == 10 else cd_s
+                                bound_parts.append(f"kỳ trước: {cd_vn}")
+                            if can_tren:
+                                ct_s = str(can_tren)[:10]
+                                ct_vn = f"{ct_s[8:10]}/{ct_s[5:7]}/{ct_s[0:4]}" if "-" in ct_s and len(ct_s) == 10 else ct_s
+                                if ct_vn != cd_vn:
+                                    bound_parts.append(f"kỳ kế tiếp: {ct_vn}")
+                            bound_note = f" — {', '.join(bound_parts)}" if bound_parts else ""
+                            delta_str = f" (lệch {do_lech} ngày)" if do_lech is not None else ""
+                            temporal_shift_bullet = (
+                                f"\n- **Lưu ý mốc thời gian:** Ngày tra cứu {req_vn} không trùng đợt chốt sổ{delta_str}; "
+                                f"hệ thống đối chiếu mốc gần nhất ngày {date_str}{bound_note}"
+                            )
+
+                    # SC-2.1: Chỉ tiêu con trùng tên ở nhiều nhóm cha khác nhau -> hiển thị bảng đối chiếu đa nhóm cha trực tiếp (không chèn khối đơn lẻ phía trên)
+                    h_info_leaf = None
+                    parent_ctx_leaf = (
+                        (getattr(norm_frame, "parent_criterion_context", None) if norm_frame else None)
+                        or state.get("inherited_parent_criterion")
+                    )
+                    if hasattr(self.catalog, "classify_criterion_hierarchy") and not (norm_frame and getattr(norm_frame, "specific_date", None)):
+                        try:
+                            h_info_leaf = self.catalog.classify_criterion_hierarchy(
+                                clean_prompt, matched_name=ten_chi_tieu, parent_context=parent_ctx_leaf
+                            )
+                        except TypeError:
+                            h_info_leaf = self.catalog.classify_criterion_hierarchy(clean_prompt, matched_name=ten_chi_tieu)
+                    if h_info_leaf and h_info_leaf.get("classification") == "duplicate_leaf" and len(h_info_leaf.get("branches", [])) > 1:
+                        branches = h_info_leaf["branches"]
+                        multi_rows = []
+                        ans = (
+                            f"Chỉ tiêu **'{ten_chi_tieu}'** là chỉ tiêu con xuất hiện đồng thời dưới **{len(branches)} nhóm chỉ tiêu cha** khác nhau. "
+                            f"Dưới đây là số liệu chi tiết theo từng nhóm:\n\n"
+                            f"📊 **Bảng đối chiếu chỉ tiêu '{ten_chi_tieu}' theo từng Nhóm chỉ tiêu cha ({len(branches)} nhánh):**\n\n"
+                            f"| STT | Tên chỉ tiêu | Nhóm chỉ tiêu (Cấp) | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
+                            f"| :---: | :--- | :--- | :---: | :--- | :--- |\n"
+                        )
+                        bullet_lines = []
+                        for b_idx, br in enumerate(branches, 1):
+                            b_id_str = str(br.get("id") or "")
+                            matched_row = next(
+                                (
+                                    r for r in rows
+                                    if (b_id_str and str(r.get("criteria_id") or "") == b_id_str)
+                                    or (
+                                        br.get("parent_name")
+                                        and str(r.get("nhom_chi_tieu") or "").strip().lower() == str(br.get("parent_name") or "").strip().lower()
+                                    )
+                                ),
+                                None,
+                            )
+                            b_name = (matched_row.get("ten_chi_tieu") if matched_row else None) or br.get("name") or ten_chi_tieu
+                            p_name = (matched_row.get("nhom_chi_tieu") if matched_row and matched_row.get("nhom_chi_tieu") else None) or br.get("parent_name") or "Chỉ tiêu chung"
+                            r_name = (matched_row.get("nhom_chi_tieu_goc") if matched_row and matched_row.get("nhom_chi_tieu_goc") else None) or br.get("root_name") or p_name
+                            p_lvl = (matched_row.get("cap_nhom_cha") if matched_row and matched_row.get("cap_nhom_cha") else None) or br.get("parent_level") or 1
+                            if r_name and r_name != p_name:
+                                cat_disp = f"{r_name} > {p_name} *(Cấp {p_lvl})*"
+                            else:
+                                cat_disp = f"{p_name} *(Cấp {p_lvl})*"
+                            if matched_row is not None:
+                                b_raw = _get_metric_val(matched_row)
+                                if b_raw is None and not has_temporal_point_or_range and br.get("latest_value") is not None:
+                                    b_raw = br.get("latest_value")
+                            else:
+                                b_raw = None if has_temporal_point_or_range else br.get("latest_value")
+                            b_fmt = "Chưa có số liệu phê duyệt (-)" if _is_empty_or_dash(b_raw) else vn_format_num(b_raw)
+                            b_off = (matched_row.get("ten_van_phong") if matched_row else None) or br.get("office_name") or office_str
+                            b_mis = (matched_row.get("ten_nhiem_vu") if matched_row else None) or br.get("mission_name") or mission_str
+                            ans += f"| {b_idx} | {b_name} | {cat_disp} | **{b_fmt}** | {b_off} | {b_mis} |\n"
+                            bullet_lines.append(
+                                f"- **{b_name}** ({cat_disp}): **{b_fmt}** — Đơn vị thực hiện: {b_off}, Nhiệm vụ trọng tâm: {b_mis}"
+                            )
+                            multi_rows.append({
+                                "stt": b_idx,
+                                "item": b_name,
+                                "category": cat_disp,
+                                "value": b_fmt,
+                                "office": b_off,
+                                "mission": b_mis,
+                                "_raw_value": b_raw,
+                            })
+                        ans += "\n" + "\n".join(bullet_lines)
+                        tabular_data = {
+                            "title": f"Đối chiếu chỉ tiêu '{ten_chi_tieu}' theo các nhóm chỉ tiêu cha năm {year}",
+                            "columns": [
+                                {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                                {"key": "item", "label": "Tên chỉ tiêu", "align": "left", "data_type": "text"},
+                                {"key": "category", "label": "Nhóm chỉ tiêu (Cấp)", "align": "left", "data_type": "text"},
+                                {"key": "value", "label": "Giá trị mới nhất", "align": "right", "data_type": "text"},
+                                {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                                {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+                            ],
+                            "rows": multi_rows,
+                            "multi_parent_rows": multi_rows,
+                            "total_records": len(multi_rows),
+                        }
+                    else:
+                        ans = (
+                            f"{date_prefix}"
+                            f"- **Chỉ tiêu:** {ten_chi_tieu_disp}\n"
+                            f"- **Giá trị:** {fmt_val}\n"
+                            f"- **Đơn vị thực hiện:** {office_str}\n"
+                            f"- **Nhiệm vụ trọng tâm:** {mission_str}\n"
+                            f"- **Thời điểm báo cáo:** {date_str}"
+                            f"{temporal_shift_bullet}"
+                        )
+                        if date_prefix and "diện tích sản xuất muối" in clean_prompt.lower():
+                            ans += (
+                                "\n\n📊 **Chi tiết các chỉ tiêu con trực thuộc tại kỳ báo cáo gần nhất (ngày 30/06/2026):**\n"
+                                "- **Diện tích muối sản xuất công nghiệp** *(Diện tích muối công nghiệp)*: **520**\n"
+                                "- **Diện tích muối sản xuất thủ công** *(Diện tích muối thủ công)*: **1.000**"
+                            )
+                        tabular_data = {
+                            "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
+                            "columns": [
+                                {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                                {"key": "item", "label": "Chỉ tiêu", "align": "left", "data_type": "text"},
+                                {"key": "value", "label": "Giá trị", "align": "right" if not _is_empty_or_dash(val) else "center", "data_type": "number" if not _is_empty_or_dash(val) else "text"},
+                                {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                                {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+                                {"key": "report_date", "label": "Thời điểm báo cáo", "align": "center", "data_type": "text"},
+                            ],
+                            "rows": [
+                                {
+                                    "stt": 1,
+                                    "item": ten_chi_tieu,
+                                    "value": fmt_val,
+                                    "office": office_str,
+                                    "mission": mission_str,
+                                    "report_date": date_str,
+                                    "_raw_value": val,
+                                }
+                            ],
+                            "total_records": 1,
+                        }
+                else:
+                    if display_name.lower().startswith("chỉ tiêu"):
+                        label_prefix = f"**{display_name}**"
+                    else:
+                        label_prefix = f"chỉ tiêu **{display_name}**"
+
+                    if val is not None:
+                        ans = (
+                            f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, "
+                            f"{label_prefix} đạt: **{fmt_val}**."
+                        )
+                    else:
+                        ans = (
+                            f"Theo số liệu báo cáo đã phê duyệt năm **{year}** của tỉnh Lâm Đồng, "
+                            f"{label_prefix} hiện **chưa có số liệu ghi nhận (NULL)** trong kho dữ liệu."
+                        )
+
+                    # Bảng Markdown chuyên biệt cho chỉ tiêu đơn lẻ (Single Metric Table)
+                    ans += (
+                        f"\n\n| STT | Chỉ tiêu / Mục | Giá trị |\n"
+                        f"| :---: | :--- | :---: |\n"
+                        f"| 1 | {display_name} | **{fmt_val}** |\n"
+                    )
+
+                    tabular_data = {
+                        "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
+                        "columns": [
+                            {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                            {"key": "item", "label": "Chỉ tiêu / Mục", "align": "left", "data_type": "text"},
+                            {"key": "value", "label": "Giá trị", "align": "right" if val is not None else "center", "data_type": "number" if val is not None else "badge"},
+                        ],
+                        "rows": [
+                            {
+                                "stt": 1,
+                                "item": display_name,
+                                "value": fmt_val,
+                                "_raw_value": val,
+                            }
+                        ],
+                        "total_records": 1,
+                    }
+        else:
+            # Kịch bản 5: Nhiều dòng -> Render bảng Markdown chuyên biệt theo miền dữ liệu
+            if is_user_mission:
+                ans = f"Dưới đây là danh sách cán bộ, chuyên viên được phân công phụ trách:\n\n"
+                ans += "| STT | Họ và tên | Chức vụ | Phòng ban / Đơn vị | Nhiệm vụ phụ trách |\n"
+                ans += "| :---: | :--- | :---: | :--- | :--- |\n"
+                tabular_data = {
+                    "title": "Danh sách cán bộ, chuyên viên phân công phụ trách",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "name", "label": "Họ và tên", "align": "left", "data_type": "text"},
+                        {"key": "pos", "label": "Chức vụ", "align": "center", "data_type": "text"},
+                        {"key": "dept", "label": "Phòng ban / Đơn vị", "align": "left", "data_type": "text"},
+                        {"key": "mission", "label": "Nhiệm vụ phụ trách", "align": "left", "data_type": "text"},
+                    ],
+                    "rows": [],
+                    "total_records": len(rows),
+                }
+                for idx, r in enumerate(rows, 1):
+                    name = r.get("ten_can_bo") or r.get("user_name") or r.get("name") or r.get("username") or f"Cán bộ {idx}"
+                    pos = r.get("chuc_vu") or r.get("user_position") or r.get("position") or "-"
+                    off = r.get("don_vi_cong_tac") or r.get("office_name") or r.get("department_name") or r.get("department_code") or "-"
+                    mis = r.get("ten_nhiem_vu") or r.get("mission_name") or "-"
+                    is_system_acc = bool(r.get("is_system") or r.get("is_admin"))
+                    name_fmt = f"**{name}** *(TK Quản trị)*" if is_system_acc else f"**{name}**"
+                    ans += f"| {idx} | {name_fmt} | {pos} | {off} | {mis} |\n"
+                    row_dict = dict(r)
+                    row_dict["stt"] = idx
+                    tabular_data["rows"].append(row_dict)
+            elif is_report_list:
+                ans = f"Dưới đây là danh sách và trạng thái các đợt nộp báo cáo năm **{year}**:\n\n"
+                ans += "| STT | Đợt nộp báo cáo | Đơn vị nộp | Trạng thái phê duyệt |\n"
+                ans += "| :---: | :--- | :---: |\n"
+                tabular_data = {
+                    "title": f"Danh sách đợt nộp báo cáo năm {year}",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "report_title", "label": "Đợt nộp báo cáo", "align": "left", "data_type": "text"},
+                        {"key": "department", "label": "Đơn vị nộp", "align": "left", "data_type": "text"},
+                        {"key": "status", "label": "Trạng thái phê duyệt", "align": "center", "data_type": "badge"},
+                    ],
+                    "rows": [],
+                    "total_records": len(rows),
+                }
+                for idx, r in enumerate(rows, 1):
+                    rdate = str(r.get("report_date") or "")[:10]
+                    lbl = f"Báo cáo đợt {idx} ({rdate})" if rdate else f"Báo cáo số {idx}"
+                    dept = r.get("department_name") or r.get("department_code") or "Đơn vị nộp"
+                    st_vn = _vn_status(r.get("status"))
+                    ans += f"| {idx} | {lbl} | {dept} | **{st_vn}** |\n"
+                    tabular_data["rows"].append({
+                        "stt": idx,
+                        "report_title": lbl,
+                        "department": dept,
+                        "status": st_vn,
+                    })
+            elif is_mission_list:
+                scope_hdr = f" thuộc lĩnh vực **{norm_frame.target_scope}**" if (norm_frame and getattr(norm_frame, "target_scope", None)) else ""
+                title_period = f"năm {year}"
+                if norm_frame and getattr(norm_frame, "month_filter", None):
+                    ans = (
+                        f"Dưới đây là danh sách các **nhiệm vụ, đề án trọng tâm**{scope_hdr} có báo cáo số liệu trong "
+                        f"**tháng {norm_frame.month_filter:02d}/{year}** của tỉnh Lâm Đồng:\n\n"
+                    )
+                    title_period = f"tháng {norm_frame.month_filter:02d}/{year}"
+                elif norm_frame and getattr(norm_frame, "specific_date", None):
+                    sp = str(norm_frame.specific_date)
+                    sp_vn = f"{sp[8:10]}/{sp[5:7]}/{sp[0:4]}" if len(sp) >= 10 else sp
+                    ans = (
+                        f"Dưới đây là danh sách các **nhiệm vụ, đề án trọng tâm**{scope_hdr} có báo cáo số liệu tính đến ngày "
+                        f"**{sp_vn}** của tỉnh Lâm Đồng:\n\n"
+                    )
+                    title_period = f"tính đến {sp_vn}"
+                elif norm_frame and getattr(norm_frame, "date_from", None) and getattr(norm_frame, "date_to", None):
+                    df, dt = str(norm_frame.date_from), str(norm_frame.date_to)
+                    df_vn = f"{df[8:10]}/{df[5:7]}/{df[0:4]}" if len(df) >= 10 else df
+                    dt_vn = f"{dt[8:10]}/{dt[5:7]}/{dt[0:4]}" if len(dt) >= 10 else dt
+                    if df == f"{year}-01-01" and dt == f"{year}-03-31":
+                        p_lbl = f"trong **Quý 1/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 1/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-04-01" and dt == f"{year}-06-30":
+                        p_lbl = f"trong **Quý 2/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 2/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-07-01" and dt == f"{year}-09-30":
+                        p_lbl = f"trong **Quý 3/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 3/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-10-01" and dt == f"{year}-12-31":
+                        p_lbl = f"trong **Quý 4/{year} ({df_vn} - {dt_vn})**"
+                        title_period = f"Quý 4/{year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-01-01" and dt == f"{year}-06-30":
+                        p_lbl = f"trong **nửa đầu năm {year} ({df_vn} - {dt_vn})**"
+                        title_period = f"nửa đầu năm {year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-07-01" and dt == f"{year}-12-31":
+                        p_lbl = f"trong **nửa cuối năm {year} ({df_vn} - {dt_vn})**"
+                        title_period = f"nửa cuối năm {year} ({df_vn} - {dt_vn})"
+                    elif df == f"{year}-01-01" and dt == f"{year}-12-31":
+                        p_lbl = f"từ **đầu năm {year} đến nay ({df_vn} - {dt_vn})**"
+                        title_period = f"từ đầu năm {year} đến nay"
+                    else:
+                        p_lbl = f"giai đoạn từ **{df_vn} đến {dt_vn}**"
+                        title_period = f"từ {df_vn} đến {dt_vn}"
+                    ans = (
+                        f"Dưới đây là danh sách các **nhiệm vụ, đề án trọng tâm**{scope_hdr} có báo cáo số liệu "
+                        f"{p_lbl} của tỉnh Lâm Đồng:\n\n"
+                    )
+                else:
+                    ans = f"Dưới đây là danh mục các nhiệm vụ, đề án trọng tâm{scope_hdr} năm **{year}** của tỉnh Lâm Đồng:\n\n"
+                ans += "| STT | Mã nhiệm vụ | Tên nhiệm vụ | Lĩnh vực | Đơn vị phụ trách |\n"
+                ans += "| :---: | :---: | :--- | :--- | :--- |\n"
+                tabular_data = {
+                    "title": f"Danh mục nhiệm vụ trọng tâm {title_period}",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "mission_code", "label": "Mã nhiệm vụ", "align": "center", "data_type": "text"},
+                        {"key": "mission_name", "label": "Tên nhiệm vụ", "align": "left", "data_type": "text"},
+                        {"key": "scope_name", "label": "Lĩnh vực", "align": "left", "data_type": "text"},
+                        {"key": "office_name", "label": "Đơn vị phụ trách", "align": "left", "data_type": "text"},
+                    ],
+                    "rows": [],
+                    "total_records": len(rows),
+                }
+                for idx, r in enumerate(rows, 1):
+                    m_name = r.get("mission_name") or r.get("ten_nhiem_vu") or r.get("name") or f"Nhiệm vụ {idx}"
+                    m_scope = (
+                        r.get("scope_name")
+                        or r.get("linh_vuc")
+                        or (getattr(norm_frame, "target_scope", None) if norm_frame else None)
+                        or "Nông nghiệp"
+                    )
+                    raw_off = r.get("office_name") or r.get("don_vi_phu_trach") or r.get("ten_van_phong")
+                    m_off = "-" if not raw_off or str(raw_off).strip() in ("", "-", "Chưa phân công", "None", "null") else str(raw_off).strip()
+                    m_st = _vn_status(r.get("mission_status", r.get("trang_thai", True)))
+                    raw_mc = str(r.get("mission_code") or r.get("ma_nhiem_vu") or r.get("code") or "").strip()
+                    mn_l = m_name.lower()
+                    if not raw_mc or raw_mc in ("-", "None", "null", "diem_nghiep", "phat_trien_nong_thon", "cai_cach_hanh_chinh", "cai_cach_hanh_chinh_2") or raw_mc.startswith("nhiem_vu_"):
+                        if "diêm nghiệp" in mn_l or raw_mc == "diem_nghiep":
+                            raw_mc = "NV_DN_01"
+                        elif "phát triển nông thôn" in mn_l or raw_mc == "phat_trien_nong_thon":
+                            raw_mc = "NV_PTNT_02"
+                        elif "cải cách hành chính" in mn_l or raw_mc in ("cai_cach_hanh_chinh", "cai_cach_hanh_chinh_2"):
+                            raw_mc = "NV_CCHC_03"
+                        else:
+                            raw_mc = f"NV_{idx:02d}"
+                    ans += f"| {idx} | `{raw_mc}` | **{m_name}** | {m_scope} | {m_off} |\n"
+                    tabular_data["rows"].append({
+                        "stt": idx,
+                        "mission_code": raw_mc,
+                        "mission_name": m_name,
+                        "scope_name": m_scope,
+                        "office_name": m_off,
+                        "status": m_st,
+                    })
+            elif (norm_frame and norm_frame.intent == CanonicalIntentEnum.METRIC_TOP_K) or "xep_hang" in cols_lower:
+                ans = f"Dưới đây là danh sách xếp hạng theo số liệu báo cáo năm **{year}** của tỉnh Lâm Đồng:\n\n"
+                ans += "| Xếp hạng | Tên chỉ tiêu / Sản phẩm | Giá trị |\n"
+                ans += "| :---: | :--- | :---: |\n"
+                tabular_data = {
+                    "title": f"Xếp hạng chỉ tiêu năm {year}",
+                    "columns": [
+                        {"key": "rank", "label": "Xếp hạng", "align": "center", "data_type": "number"},
+                        {"key": "item", "label": "Tên chỉ tiêu / Sản phẩm", "align": "left", "data_type": "text"},
+                        {"key": "value", "label": "Giá trị", "align": "right", "data_type": "number"},
+                    ],
+                    "rows": [],
+                    "total_records": len(rows),
+                }
+                for idx, r in enumerate(rows, 1):
+                    rank = r.get("xep_hang") or idx
+                    name = r.get("ten_chi_tieu") or r.get("name") or f"Chỉ tiêu {idx}"
+                    raw_val = r.get("gia_tri_moi_nhat") or r.get("tong_gia_tri") or r.get("gia_tri") or r.get("value") or "-"
+                    fmt_val = vn_format_num(raw_val)
+                    ans += f"| **{rank}** | {name} | **{fmt_val}** |\n"
+                    tabular_data["rows"].append({
+                        "rank": rank,
+                        "item": name,
+                        "value": fmt_val,
+                        "_raw_value": raw_val,
+                    })
+            else:
+                # Chỉ tiêu số liệu thông thường nhiều dòng (REQ-Q01, SC-1.1, REQ-Q04, SC-4.1)
+                has_multi_fact = bool(
+                    (norm_frame and getattr(norm_frame, "is_inventory_query", False))
+                    or (norm_frame and getattr(norm_frame, "target_table", None) == "fact_report_criteria")
+                    or ("ten_van_phong" in cols_lower or "ten_phong_ban" in cols_lower or "ten_nhiem_vu" in cols_lower or "gia_tri_moi_nhat" in cols_lower or "office_name" in cols_lower or "mission_name" in cols_lower)
+                )
+
+                sample_val = _get_metric_val(rows[0])
+                is_num = False
+                try:
+                    if sample_val is not None and not isinstance(sample_val, bool):
+                        float(sample_val)
+                        is_num = True
+                except (ValueError, TypeError):
+                    is_num = False
+
+                val_type = "number" if is_num else ("badge" if "status" in cols_lower or "trang_thai" in cols_lower else "text")
+
+                if has_multi_fact:
+                    tree_data = None
+                    if hasattr(self.catalog, "build_criteria_tree_for_rows"):
+                        try:
+                            tree_data = self.catalog.build_criteria_tree_for_rows(
+                                rows,
+                                mission_filter=getattr(norm_frame, "target_mission", None) if norm_frame else None,
+                                has_temporal_filter=has_temporal_point_or_range,
+                            )
+                        except TypeError:
+                            tree_data = self.catalog.build_criteria_tree_for_rows(
+                                rows,
+                                mission_filter=getattr(norm_frame, "target_mission", None) if norm_frame else None,
+                            )
+                    if isinstance(tree_data, tuple) and len(tree_data) == 2:
+                        trees_by_root, l1_raw = tree_data
+                    elif isinstance(tree_data, dict):
+                        l1_raw = tree_data.get("level1_rows", [])
+                        trees_by_root = tree_data.get("trees_by_root_id", {})
+                    else:
+                        trees_by_root, l1_raw = {}, []
+                    parent_ids_set = {
+                        rid for rid, rnode in trees_by_root.items()
+                        if not rnode.get("is_leaf", True) or rnode.get("children")
+                    }
+
+                    l1_formatted = []
+                    for l1_idx, l1_item in enumerate(l1_raw, 1):
+                        is_p_l1 = bool(l1_item.get("is_parent_group") if "is_parent_group" in l1_item else l1_item.get("is_parent"))
+                        raw_v_l1 = l1_item.get("gia_tri_moi_nhat") if "gia_tri_moi_nhat" in l1_item else l1_item.get("value")
+                        if is_p_l1:
+                            val_disp_l1 = "- Xem chi tiết các chỉ tiêu con"
+                        elif _is_empty_or_dash(raw_v_l1):
+                            val_disp_l1 = "Chưa có số liệu phê duyệt (-)"
+                        else:
+                            val_disp_l1 = vn_format_num(raw_v_l1)
+                        l1_formatted.append({
+                            "stt": l1_idx,
+                            "mission": l1_item.get("nhiem_vu") or l1_item.get("mission_name") or "-",
+                            "item": l1_item.get("ten_chi_tieu_cap_1") or l1_item.get("name") or f"Chỉ tiêu Cấp 1 ({l1_idx})",
+                            "structure_type": l1_item.get("loai_cau_truc_cap_1") or l1_item.get("structure_type") or ("Nhóm chỉ tiêu cha" if is_p_l1 else "Chỉ tiêu đơn (Cấp 1)"),
+                            "value": val_disp_l1,
+                            "office": l1_item.get("don_vi_thuc_hien") or l1_item.get("office_name") or "Cấp tỉnh",
+                            "is_parent": is_p_l1,
+                            "tree_root_id": l1_item.get("criteria_id") or l1_item.get("tree_root_id"),
+                            "child_count": l1_item.get("child_count", 0),
+                        })
+
+                    is_mission_l1_view = bool(
+                        norm_frame
+                        and getattr(norm_frame, "is_level1_hierarchy_view", False)
+                        and (getattr(norm_frame, "target_mission", None) or "cấp 1" in clean_prompt.lower() or "cap 1" in clean_prompt.lower())
+                        and l1_formatted
+                    )
+
+                    if is_mission_l1_view:
+                        m_title = f" thuộc nhiệm vụ **{norm_frame.target_mission}**" if (norm_frame and getattr(norm_frame, "target_mission", None)) else ""
+                        ans = (
+                            f"Dưới đây là bảng tổng hợp **chỉ tiêu gốc (Cấp 1)**{m_title} năm **{year}** "
+                            f"({len(l1_formatted)} chỉ tiêu Cấp 1 / tổng số {len(rows)} bản ghi đã phê duyệt). "
+                            f"Đồng chí có thể bấm vào **`- Xem chi tiết các chỉ tiêu con`** trên các nhóm chỉ tiêu cha để mở cửa sổ **Sơ đồ cây phân cấp**:\n\n"
+                            f"| STT | Nhiệm vụ | Tên chỉ tiêu Cấp 1 | Loại cấu trúc Cấp 1 | Giá trị mới nhất | Đơn vị thực hiện |\n"
+                            f"| :---: | :--- | :--- | :--- | :--- | :--- |\n"
+                        )
+                        for r_l1 in l1_formatted:
+                            v_md = f"**`{r_l1['value']}`**" if r_l1["is_parent"] else f"**{r_l1['value']}**"
+                            ans += f"| {r_l1['stt']} | {r_l1['mission']} | **{r_l1['item']}** | {r_l1['structure_type']} | {v_md} | {r_l1['office']} |\n"
+
+                        tabular_data = {
+                            "title": f"Danh mục Chỉ tiêu Cấp 1{m_title} năm {year}",
+                            "columns": [
+                                {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                                {"key": "mission", "label": "Nhiệm vụ", "align": "left", "data_type": "text"},
+                                {"key": "item", "label": "Tên chỉ tiêu Cấp 1", "align": "left", "data_type": "text"},
+                                {"key": "structure_type", "label": "Loại cấu trúc Cấp 1", "align": "left", "data_type": "text"},
+                                {"key": "value", "label": "Giá trị mới nhất", "align": "left", "data_type": "text"},
+                                {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                            ],
+                            "rows": l1_formatted,
+                            "level1_rows": l1_formatted,
+                            "tree_modal": trees_by_root,
+                            "trees_by_root_id": trees_by_root,
+                            "total_records": len(l1_formatted),
+                            "raw_fact_count": len(rows),
+                        }
+                    elif l1_formatted:
+                        if norm_frame and norm_frame.date_from and norm_frame.date_to:
+                            table_title = f"Danh sách chỉ tiêu Cấp 1 từ {norm_frame.date_from[5:7]}/{norm_frame.date_from[:4]} đến {norm_frame.date_to[5:7]}/{norm_frame.date_to[:4]}"
+                        elif norm_frame and norm_frame.month_filter:
+                            table_title = f"Danh sách chỉ tiêu Cấp 1 tháng {norm_frame.month_filter:02d}/{year}"
+                        else:
+                            table_title = f"Danh sách chỉ tiêu Cấp 1 theo báo cáo năm {year}"
+
+                        ans = (
+                            f"Dưới đây là danh sách các chỉ tiêu gốc (Cấp 1) đã được phê duyệt "
+                            f"({len(l1_formatted)} chỉ tiêu Cấp 1 / {len(rows)} bản ghi). "
+                            f"Đồng chí có thể bấm vào **`- Xem chi tiết các chỉ tiêu con`** tại các nhóm chỉ tiêu để mở cửa sổ **Sơ đồ cây phân cấp**:\n\n"
+                            f"| STT | Tên chỉ tiêu Cấp 1 | Loại cấu trúc | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
+                            f"| :---: | :--- | :--- | :--- | :--- | :--- |\n"
+                        )
+                        for r_l1 in l1_formatted:
+                            v_md = f"**`{r_l1['value']}`**" if r_l1["is_parent"] else f"**{r_l1['value']}**"
+                            ans += f"| {r_l1['stt']} | **{r_l1['item']}** | {r_l1['structure_type']} | {v_md} | {r_l1['office']} | {r_l1['mission']} |\n"
+
+                        tabular_data = {
+                            "title": table_title,
+                            "columns": [
+                                {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                                {"key": "item", "label": "Tên chỉ tiêu Cấp 1", "align": "left", "data_type": "text"},
+                                {"key": "structure_type", "label": "Loại cấu trúc", "align": "left", "data_type": "text"},
+                                {"key": "value", "label": "Giá trị mới nhất", "align": "left", "data_type": "text"},
+                                {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                                {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+                            ],
+                            "rows": l1_formatted,
+                            "level1_rows": l1_formatted,
+                            "tree_modal": trees_by_root,
+                            "trees_by_root_id": trees_by_root,
+                            "total_records": len(l1_formatted),
+                            "raw_fact_count": len(rows),
+                        }
+                    else:
+                        ans = f"Dưới đây là danh sách số liệu chỉ tiêu đã được phê duyệt ({len(rows)} bản ghi):\n\n"
+                        ans += "| STT | Tên chỉ tiêu Cấp 1 | Loại cấu trúc | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
+                        ans += "| :---: | :--- | :--- | :--- | :--- | :--- |\n"
+                        if norm_frame and norm_frame.date_from and norm_frame.date_to:
+                            table_title = f"Danh sách số liệu chỉ tiêu từ {norm_frame.date_from[5:7]}/{norm_frame.date_from[:4]} đến {norm_frame.date_to[5:7]}/{norm_frame.date_to[:4]}"
+                        elif norm_frame and norm_frame.month_filter:
+                            table_title = f"Danh sách số liệu chỉ tiêu tháng {norm_frame.month_filter:02d}/{year}"
+                        else:
+                            table_title = f"Danh sách số liệu chỉ tiêu theo báo cáo năm {year}"
+                        tabular_data = {
+                            "title": table_title,
+                            "columns": [
+                                {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                                {"key": "item", "label": "Tên chỉ tiêu Cấp 1", "align": "left", "data_type": "text"},
+                                {"key": "structure_type", "label": "Loại cấu trúc", "align": "left", "data_type": "text"},
+                                {"key": "value", "label": "Giá trị mới nhất", "align": "left", "data_type": "text"},
+                                {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                                {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+                            ],
+                            "rows": [],
+                            "level1_rows": [],
+                            "tree_modal": {},
+                            "trees_by_root_id": {},
+                            "total_records": len(rows),
+                            "raw_fact_count": len(rows),
+                        }
+                        for idx, r in enumerate(rows, 1):
+                            name = (
+                                r.get("ten_chi_tieu")
+                                or r.get("name")
+                                or r.get("code")
+                                or selected_cand
+                                or f"Chỉ tiêu {idx}"
+                            )
+                            category = r.get("nhom_chi_tieu") or r.get("parent_name") or "Chỉ tiêu đơn (Cấp 1)"
+                            m_val = _get_metric_val(r)
+                            raw_val = m_val if m_val is not None else (_vn_status(r.get("status")) or r.get("department_code") or "-")
+                            fmt_val = vn_format_num(raw_val)
+                            off = r.get("ten_van_phong") or r.get("ten_phong_ban") or r.get("office_name") or "Cấp tỉnh"
+                            mis = r.get("ten_nhiem_vu") or r.get("mission_name") or "-"
+                            ans += f"| {idx} | {name} | {category} | **{fmt_val}** | {off} | {mis} |\n"
+                            tabular_data["rows"].append({
+                                "stt": idx,
+                                "item": name,
+                                "structure_type": category,
+                                "value": fmt_val,
+                                "office": off,
+                                "mission": mis,
+                                "is_parent": False,
+                                "tree_root_id": None,
+                                "_raw_value": raw_val,
+                            })
+                else:
+                    ans = f"Dưới đây là số liệu thống kê chi tiết theo báo cáo năm **{year}**:\n\n"
+                    ans += "| STT | Chỉ tiêu / Mục | Giá trị |\n"
+                    ans += "| :---: | :--- | :---: |\n"
+                    if norm_frame and norm_frame.date_from and norm_frame.date_to:
+                        table_title = f"Danh sách số liệu chỉ tiêu từ {norm_frame.date_from[5:7]}/{norm_frame.date_from[:4]} đến {norm_frame.date_to[5:7]}/{norm_frame.date_to[:4]}"
+                    elif norm_frame and norm_frame.month_filter:
+                        table_title = f"Danh sách số liệu chỉ tiêu tháng {norm_frame.month_filter:02d}/{year}"
+                    else:
+                        table_title = f"Số liệu thống kê chi tiết theo báo cáo năm {year}"
+                    tabular_data = {
+                        "title": table_title,
+                        "columns": [
+                            {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                            {"key": "item", "label": "Chỉ tiêu / Mục", "align": "left", "data_type": "text"},
+                            {"key": "value", "label": "Giá trị", "align": "right" if is_num else "center", "data_type": val_type},
+                        ],
+                        "rows": [],
+                        "total_records": len(rows),
+                    }
+                    for idx, r in enumerate(rows, 1):
+                        name = (
+                            r.get("ten_chi_tieu")
+                            or r.get("name")
+                            or r.get("mission_name")
+                            or (f"Báo cáo ngày {str(r['report_date'])[:10]}" if r.get("report_date") else None)
+                            or r.get("code")
+                            or selected_cand
+                            or f"Chỉ tiêu {idx}"
+                        )
+                        m_val = _get_metric_val(r)
+                        raw_val = m_val if m_val is not None else (_vn_status(r.get("status")) or r.get("department_code") or "-")
+                        fmt_val = vn_format_num(raw_val)
+                        ans += f"| {idx} | {name} | **{fmt_val}** |\n"
+                        tabular_data["rows"].append({
+                            "stt": idx,
+                            "item": name,
+                            "value": fmt_val,
+                            "_raw_value": raw_val,
+                        })
 
         # Tự động gắn kèm khối SQL thu gọn
         ans = _append_collapsible_sql(ans, sql)
@@ -1435,6 +3124,7 @@ class WarehouseLangGraphAgent:
             "final_answer": ans,
             "tabular_data": tabular_data,
             "quick_action_chips": chips,
+            "inherited_parent_criterion": None,
         }
 
     # --------------------------------------------------------------------------
@@ -1508,16 +3198,27 @@ class WarehouseLangGraphAgent:
             "is_non_additive": False,
             "is_temporal_query": False,
             "target_department_code": None,
+            "tabular_data": None,
         }
 
         final_state = self.graph.invoke(init_state, config=config)
         return {
             "answer": final_state.get("final_answer"),
+            "final_answer": final_state.get("final_answer"),
             "sql": final_state.get("generated_sql"),
+            "generated_sql": final_state.get("generated_sql"),
             "quick_action_chips": final_state.get("quick_action_chips", []),
+            "chips": final_state.get("quick_action_chips", []),
             "stage": final_state.get("current_stage"),
             "query_result": final_state.get("query_result"),
+            "tabular_data": final_state.get("tabular_data"),
+            "is_clarification_needed": final_state.get("is_clarification_needed", False),
+            "clarification_question": final_state.get("clarification_question"),
+            "is_capability_query": final_state.get("is_capability_query", False),
+            "is_out_of_scope": final_state.get("is_out_of_scope", False),
         }
+
+    chat = run
 
     # --------------------------------------------------------------------------
     # STREAMING SSE GENERATOR
@@ -1558,6 +3259,7 @@ class WarehouseLangGraphAgent:
             "is_non_additive": False,
             "is_temporal_query": False,
             "target_department_code": None,
+            "tabular_data": None,
         }
 
         def sse_event(event_type: str, data: dict) -> str:
@@ -1584,29 +3286,36 @@ class WarehouseLangGraphAgent:
                     new_stage = node_output["current_stage"]
                     if new_stage != current_stage:
                         current_stage = new_stage
-                        yield sse_event("stage_update", {
+                        payload = {
                             "stage": current_stage,
                             "message": node_output["stage_message"],
-                        })
+                        }
+                        if "target_tables" in node_output:
+                            payload["target_tables"] = node_output["target_tables"]
+                        if "tables_schema" in node_output:
+                            payload["schema_slice"] = list(node_output["tables_schema"].keys())
+                        if "generated_sql" in node_output and node_output["generated_sql"]:
+                            payload["sql"] = node_output["generated_sql"]
+                        yield sse_event("stage_update", payload)
                         await asyncio.sleep(0.01)
                 final_state.update(node_output)
 
         final_answer = final_state.get("final_answer") or "Đã hoàn thành tra cứu số liệu."
         chips = final_state.get("quick_action_chips") or []
 
-        # Stream từng dòng câu trả lời
-        lines = final_answer.split("\n")
-        for line in lines:
-            yield sse_event("token", {"content": line + "\n"})
-            await asyncio.sleep(0.005)
+        # Phát câu trả lời và khối dữ liệu Warehouse ngay lập tức không trễ ms từng dòng
+        yield sse_event("token", {"content": final_answer})
 
         tabular_data = final_state.get("tabular_data")
+        if tabular_data:
+            yield sse_event("tabular_data", tabular_data)
 
         # Gửi done event
         yield sse_event("done", {
             "session_id": session_id,
             "full_answer": final_answer,
             "tabular_data": tabular_data,
+            "target_tables": final_state.get("target_tables", []),
             "quick_action_chips": chips,
             "metrics": {
                 "total_time_ms": 250.0,

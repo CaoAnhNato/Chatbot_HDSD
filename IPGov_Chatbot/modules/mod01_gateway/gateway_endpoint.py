@@ -196,13 +196,44 @@ async def chat_sse_event_generator(
     }
 
     effective_session = session_id or session_ctx.session_id or "default_session"
+    saved_full_answer = ""
+    saved_tabular_data = None
+    saved_chips = None
     async for sse_chunk in warehouse_agent.run_stream(
         query=guardrail_result.sanitized_prompt,
         session_id=effective_session,
         user_context=agent_user_ctx,
         history=history,
     ):
+        for line in sse_chunk.split("\n"):
+            if line.startswith("data: "):
+                try:
+                    payload = json.loads(line[6:])
+                    if payload.get("full_answer"):
+                        saved_full_answer = payload["full_answer"]
+                    if payload.get("tabular_data"):
+                        saved_tabular_data = payload["tabular_data"]
+                    if payload.get("quick_action_chips"):
+                        saved_chips = payload["quick_action_chips"]
+                except Exception:
+                    pass
         yield sse_chunk
+
+    if session_id and saved_full_answer:
+        try:
+            from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+            ChatHistoryStore.get_instance().save_turn(
+                session_id=session_id,
+                user_prompt=prompt,
+                assistant_answer=saved_full_answer,
+                role=client_role or "phuong",
+                level=agent_user_ctx["role_level"],
+                tenant_code=agent_user_ctx["tenant_code"],
+                tabular_data=saved_tabular_data,
+                quick_action_chips=saved_chips,
+            )
+        except Exception as e:
+            logger.warning("Could not persist turn to ChatHistoryStore: %s", e)
     return
 
 
@@ -257,6 +288,7 @@ async def chat_sync_endpoint(
 
     full_answer = ""
     tabular_data = None
+    quick_action_chips = []
     async for chunk in chat_sse_event_generator(
         prompt=raw_prompt,
         auth_header=authorization,
@@ -276,6 +308,8 @@ async def chat_sync_endpoint(
                         full_answer = data["full_answer"]
                     if "tabular_data" in data and data["tabular_data"]:
                         tabular_data = data["tabular_data"]
+                    if "quick_action_chips" in data and data["quick_action_chips"]:
+                        quick_action_chips = data["quick_action_chips"]
                 except Exception:
                     pass
 
@@ -285,6 +319,7 @@ async def chat_sync_endpoint(
             "session_id": req.session_id or "default_session",
             "answer": full_answer,
             "tabular_data": tabular_data,
+            "quick_action_chips": quick_action_chips,
             "images": [],
             "youtube_links": [],
         }

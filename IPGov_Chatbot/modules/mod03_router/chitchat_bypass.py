@@ -31,8 +31,41 @@ class ChitchatBypassEngine:
     5. STATUS_INQUIRY (Thăm hỏi trạng thái hệ thống)
     """
 
-    def __init__(self) -> None:
+    def __init__(self, catalog: Optional[Any] = None) -> None:
+        self.catalog = catalog
         self._compile_patterns()
+
+    def _has_catalog_match(self, text: str) -> bool:
+        """Kiểm tra động xem văn bản có chứa thực thể trong DuckDB Catalog RAM hay không."""
+        if not text:
+            return False
+        try:
+            cat = self.catalog
+            if cat is None:
+                from IPGov_Chatbot.modules.mod04_catalog.duckdb_semantic_catalog import DuckDBSemanticCatalog
+                cat = DuckDBSemanticCatalog()
+                self.catalog = cat
+
+            # 1. Tra cứu chỉ tiêu (criteria)
+            if hasattr(cat, "find_top_k_candidates"):
+                cands, _, _ = cat.find_top_k_candidates(text, top_k=1, score_cutoff=70.0)
+                if cands:
+                    return True
+
+            # 2. Tra cứu cơ quan / phòng ban (department / office)
+            if hasattr(cat, "resolve_administrative_scope"):
+                scope = cat.resolve_administrative_scope(text)
+                if scope and scope.get("type") in ("office", "department"):
+                    return True
+
+            # 3. Tra cứu nhiệm vụ trọng tâm (mission)
+            if hasattr(cat, "resolve_mission"):
+                m = cat.resolve_mission(text)
+                if m:
+                    return True
+        except Exception:
+            pass
+        return False
 
     def _compile_patterns(self) -> None:
         # 1. FAREWELL patterns (Ưu tiên kiểm tra trước vì có thể chứa từ "cảm ơn" kèm "nghỉ thôi")
@@ -60,8 +93,8 @@ class ChitchatBypassEngine:
 
         # 5. GREETING patterns
         self._greeting_patterns = [
-            re.compile(r"^(kính chào|kinh chao|chào đồng chí|chào bạn|xin chào|xin chao|chào trợ lý|hello|hi\b|alo)", re.IGNORECASE),
-            re.compile(r"\b(chào chatbot|chào trợ lý ảo|kính chào)\b", re.IGNORECASE),
+            re.compile(r"^(kính chào|kinh chao|chào đồng chí|chào bạn|xin chào|xin chao|chào trợ lý|chào bot|chào chatbot|chào|hello|hi\b|alo)", re.IGNORECASE),
+            re.compile(r"\b(chào chatbot|chào bot|chào trợ lý ảo|kính chào)\b", re.IGNORECASE),
         ]
 
         # Business indicators (Nếu có các từ này thì KHÔNG PHẢI là chitchat đơn thuần, ngoại trừ status check)
@@ -89,12 +122,8 @@ class ChitchatBypassEngine:
                 is_pure_intro = (
                     re.match(r"^(tôi đang chuẩn bị|tôi là đại diện doanh nghiệp|chúc |rất vui |rất hân hạnh|chúc một ngày)", rest, re.IGNORECASE)
                     and "?" not in rest
-                    and not any(w in rest.lower() for w in [
-                        "tai nạn", "tnld", "tnlđ", "lao động", "khuyến công", "y tế", "giảm nghèo",
-                        "kiên cố", "chi ngân sách", "đầu tư công", "null", "rỗng", "zero",
-                        "báo cáo này", "chức năng gì", "làm được gì", "biểu mẫu nào đang áp dụng",
-                        "đã nộp và duyệt chưa"
-                    ])
+                    and not self._has_catalog_match(rest)
+                    and not re.search(r"\b(chức năng|làm được gì|biểu mẫu|báo cáo|chỉ tiêu|nhiệm vụ|tra cứu|hướng dẫn|thống kê|dữ liệu)\b", rest, re.IGNORECASE)
                 )
                 if is_pure_intro:
                     return True, greeting_part, None
@@ -103,12 +132,9 @@ class ChitchatBypassEngine:
                 has_biz_content = (
                     "?" in rest
                     or self._business_indicator.search(rest)
-                    or re.search(r"\b(cho tôi (xem|xin|hỏi)|cho em (xem|xin|hỏi)|tra giúp|xem giúp|liệt kê|danh sách|thống kê|tổng hợp|so sánh|đối chiếu|kiểm tra|tìm hiểu|giới thiệu|hướng dẫn)\b", rest, re.IGNORECASE)
-                    or any(k in rest.lower() for k in [
-                        "tai nạn", "lao động", "khuyến công", "y tế", "giảm nghèo",
-                        "kiên cố", "chi ngân sách", "đầu tư công", "năm 202", "null", "rỗng", "zero",
-                        "chức năng gì", "hệ thống này", "tiện ích gì", "biểu mẫu nào", "đã nộp và duyệt chưa"
-                    ])
+                    or re.search(r"\b(cho tôi (xem|xin|hỏi)|cho em (xem|xin|hỏi)|tra giúp|xem giúp|liệt kê|danh sách|thống kê|tổng hợp|so sánh|đối chiếu|kiểm tra|tìm hiểu|giới thiệu|hướng dẫn|chức năng|tiện ích|làm được gì|biểu mẫu|báo cáo)\b", rest, re.IGNORECASE)
+                    or re.search(r"\b(năm \d{4}|202\d|quý \d|tháng \d)\b", rest, re.IGNORECASE)
+                    or self._has_catalog_match(rest)
                 )
                 if has_biz_content:
                     return True, greeting_part, rest

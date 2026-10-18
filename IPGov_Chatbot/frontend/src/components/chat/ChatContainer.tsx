@@ -2,13 +2,24 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ChatMessage, ChatSession, QuickActionChip } from '@/types/chat';
-import { sendMessageStream, fetchChatSessions, fetchSessionHistory } from '@/lib/api';
+import {
+  sendMessageStream,
+  fetchChatSessions,
+  fetchSessionHistory,
+  renameChatSessionApi,
+  deleteChatSessionApi,
+  clearAllChatSessionsApi,
+} from '@/lib/api';
 import {
   loadSessions,
   saveSession,
   deleteSession,
   renameSession,
   clearAllSessions,
+  mergeSessions,
+  cleanSessionTitle,
+  saveActiveSessionId,
+  loadActiveSessionId,
 } from '@/lib/storage';
 import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
@@ -130,24 +141,56 @@ export const ChatContainer: React.FC = () => {
     altText: '',
   });
 
-  // Tải danh sách lịch sử phiên khi khởi động
+  // Tải danh sách lịch sử phiên & tự động khôi phục phiên đang hoạt động khi khởi động
   useEffect(() => {
+    const restoreSessionView = async (target: ChatSession) => {
+      const matchingRole =
+        PRESET_ROLES.find((r) => r.id === target.role || r.role_level === target.level) ||
+        PRESET_ROLES[0];
+      setSelectedRole(matchingRole);
+      setSessionId(target.id);
+      saveActiveSessionId(target.id);
+
+      if (target.messages && target.messages.length > 0) {
+        setMessages(target.messages);
+        return;
+      }
+      try {
+        const msgs = await fetchSessionHistory(target.id);
+        if (msgs && msgs.length > 0) {
+          setMessages(msgs);
+          target.messages = msgs;
+          saveSession(target);
+        }
+      } catch (err) {
+        console.warn(`Could not restore messages for session ${target.id}:`, err);
+      }
+    };
+
     const initSessions = async () => {
       const local = loadSessions();
       if (local.length > 0) {
         setSessions(local);
       }
+      let finalSessions = local;
       try {
         const cloudSessions = await fetchChatSessions();
         if (cloudSessions && cloudSessions.length > 0) {
-          const merged = cloudSessions.map((cs) => {
-            const found = local.find((ls) => ls.id === cs.id);
-            return found && found.messages && found.messages.length > 0 ? found : cs;
-          });
-          setSessions(merged);
+          finalSessions = mergeSessions(local, cloudSessions);
+          setSessions(finalSessions);
         }
       } catch (err) {
         console.warn('Could not sync sessions from cloud, keeping local state:', err);
+      }
+
+      if (finalSessions.length > 0) {
+        const savedActiveId = loadActiveSessionId();
+        const target =
+          (savedActiveId ? finalSessions.find((s) => s.id === savedActiveId) : undefined) ||
+          finalSessions[0];
+        if (target) {
+          await restoreSessionView(target);
+        }
       }
     };
     initSessions();
@@ -159,13 +202,13 @@ export const ChatContainer: React.FC = () => {
     if (userMessages.length === 0) return;
 
     const firstUserText = userMessages[0].content;
-    const title = firstUserText.length > 40 ? `${firstUserText.slice(0, 40)}...` : firstUserText;
+    const title = cleanSessionTitle(firstUserText);
 
     const currentSessions = loadSessions();
     const existingSession = currentSessions.find((s) => s.id === sid);
     const sessionObj: ChatSession = {
       id: sid,
-      title: existingSession?.title || title,
+      title: existingSession?.title ? cleanSessionTitle(existingSession.title) : title,
       role: currentRole.id,
       level: currentRole.role_level,
       tenant_code: currentRole.tenant_code,
@@ -191,11 +234,13 @@ export const ChatContainer: React.FC = () => {
     setSelectedRole(newRole);
     setMessages([getWelcomeMessage(newRole)]);
     setSessionId(undefined);
+    saveActiveSessionId(undefined);
   };
 
   const handleNewChat = () => {
     const newSid = `session-${Date.now()}`;
     setSessionId(newSid);
+    saveActiveSessionId(undefined);
     setMessages([getWelcomeMessage(selectedRole)]);
   };
 
@@ -205,6 +250,7 @@ export const ChatContainer: React.FC = () => {
     ) || PRESET_ROLES[0];
     setSelectedRole(matchingRole);
     setSessionId(session.id);
+    saveActiveSessionId(session.id);
 
     if (!session.messages || session.messages.length === 0) {
       try {
@@ -225,20 +271,27 @@ export const ChatContainer: React.FC = () => {
 
   const handleDeleteSession = (sid: string) => {
     deleteSession(sid);
+    void deleteChatSessionApi(sid);
     const updated = loadSessions();
     setSessions(updated);
     if (sessionId === sid) {
-      handleNewChat();
+      if (updated.length > 0) {
+        void handleSelectSession(updated[0]);
+      } else {
+        handleNewChat();
+      }
     }
   };
 
   const handleRenameSession = (sid: string, newTitle: string) => {
     renameSession(sid, newTitle);
+    void renameChatSessionApi(sid, newTitle);
     setSessions(loadSessions());
   };
 
   const handleClearAll = () => {
     clearAllSessions();
+    void clearAllChatSessionsApi();
     setSessions([]);
     handleNewChat();
   };
@@ -262,6 +315,7 @@ export const ChatContainer: React.FC = () => {
       role: 'assistant',
       content: '',
       timestamp: new Date().toISOString(),
+      isStreaming: true,
     };
 
     const nextMessages = [...messages, userMsg, initialBotMsg];
@@ -340,6 +394,7 @@ export const ChatContainer: React.FC = () => {
                       contact_support: doneData.contact_support || msg.contact_support,
                       quick_action_chips: doneData.quick_action_chips || msg.quick_action_chips,
                       tabular_data: doneData.tabular_data || msg.tabular_data,
+                      isStreaming: false,
                     }
                   : msg
               );
@@ -357,6 +412,7 @@ export const ChatContainer: React.FC = () => {
                   ? {
                       ...msg,
                       content: `⚠️ ${errMsg}`,
+                      isStreaming: false,
                     }
                   : msg
               );
@@ -381,6 +437,7 @@ export const ChatContainer: React.FC = () => {
             ? {
                 ...msg,
                 content: `⚠️ Không thể kết nối với máy chủ AI (${err.message || 'Lỗi mạng'}). Vui lòng kiểm tra backend server đang chạy tại port 8000.`,
+                isStreaming: false,
               }
             : msg
         );

@@ -15,14 +15,15 @@ class ScopePrechecker:
     # Đặc biệt: Lâm Đồng là tỉnh vùng núi Tây Nguyên không có biển, không có giàn khoan dầu khí ngoài khơi
     _RE_OUT_OF_SCOPE_SPECIFIC = re.compile(
         r"(?:(?:(?:khai\s+thác\s+)?dầu\s+khí(?:\s+ngoài\s+khơi)?|giàn\s+khoan(?:\s+dầu\s+khí)?|điện\s+hạt\s+nhân|lọc\s+dầu|nhà\s+máy\s+lọc\s+dầu)|"
-        r"\b(?:tiền\s+ảo|crypto|bitcoin|ethereum|tử\s+vi|bói\s+toán|soi\s+kèo|đánh\s+bạc|cá\s+độ|cá\s+cược|chiến\s+tranh\s+(?:quốc\s+tế|ukraine|thế\s+giới|nga\s*-\s*ukraine|trung\s+đông)|bầu\s+cử\s+(?:tổng\s+thống\s+)?(?:mỹ|hoa\s+kỳ|nước\s+ngoài))\b)",
+        r"\b(?:tiền\s+ảo|crypto|bitcoin|ethereum|tử\s+vi|bói\s+toán|soi\s+kèo|đánh\s+bạc|cá\s+độ|cá\s+cược|giá\s+vàng|chứng\s+khoán|thị\s+trường\s+tự\s+do|tỷ\s+giá(?:\s+ngoại\s+tệ)?|chiến\s+tranh\s+(?:quốc\s+tế|ukraine|thế\s+giới|nga\s*-\s*ukraine|trung\s+đông)|bầu\s+cử\s+(?:tổng\s+thống\s+)?(?:mỹ|hoa\s+kỳ|nước\s+ngoài))\b)",
         re.IGNORECASE
     )
 
     # 2. Thủ tục hành chính công (Dịch vụ công một cửa: CCCD, hộ chiếu, hộ khẩu, khai sinh...)
     _RE_ADMINISTRATIVE_PROCEDURE = re.compile(
-        r"\b(?:thủ\s+tục|giấy\s+tờ|hồ\s+sơ|quy\s+trình\s+xin|xin\s+cấp|hướng\s+dẫn\s+làm)\b.*\b(?:căn\s+cước|cccd|hộ\s+chiếu|passport|kết\s+hôn|khai\s+sinh|giấy\s+phép\s+lái\s+xe|gplx|sổ\s+đỏ|hộ\s+khẩu|tạm\s+trú|thường\s+trú)\b|"
-        r"\b(?:căn\s+cước\s+công\s+dân|cccd\s+gắn\s+chip)\b",
+        r"\b(?:thủ\s+tục|giấy\s+tờ|hồ\s+sơ|quy\s+trình(?:\s+đăng\s+ký|\s+xin)?|xin\s+cấp|hướng\s+dẫn\s+(?:làm|thực\s+hiện)|đăng\s+ký)\b.*\b(?:căn\s+cước|cccd|hộ\s+chiếu|passport|kết\s+hôn|khai\s+sinh|giấy\s+phép\s+lái\s+xe|gplx|sổ\s+đỏ|hộ\s+khẩu|tạm\s+trú|thường\s+trú)\b|"
+        r"\b(?:căn\s+cước|cccd|hộ\s+chiếu|passport|kết\s+hôn|khai\s+sinh|giấy\s+phép\s+lái\s+xe|gplx|sổ\s+đỏ|hộ\s+khẩu|tạm\s+trú|thường\s+trú)\b.*\b(?:thủ\s+tục|giấy\s+tờ|hồ\s+sơ|quy\s+trình|xin\s+cấp|hướng\s+dẫn|đăng\s+ký)\b|"
+        r"\b(?:căn\s+cước\s+công\s+dân|cccd\s+gắn\s+chip|đăng\s+ký\s+kết\s+hôn)\b",
         re.IGNORECASE
     )
 
@@ -47,6 +48,13 @@ class ScopePrechecker:
     # 6. Đánh giá định tính chủ quan về mức độ tin cậy
     _RE_QUALITATIVE_APPRAISAL = re.compile(
         r"\b(?:đáng\s+tin\s+cậy\s+không|có\s+đáng\s+tin\s+không|có\s+chuẩn\s+không|có\s+chính\s+xác\s+không|làm\s+tốt\s+không|đánh\s+giá\s+(?:chất\s+lượng\s+số\s+liệu|xem\s+sở\s+nào\s+tốt))\b",
+        re.IGNORECASE
+    )
+
+    # 7. Phép tính số học thuần túy / giải toán ngoài phạm vi DWH
+    _RE_MATH_CALCULATION = re.compile(
+        r"(?:\b(?:tính\s+(?:kết\s+quả\s+)?(?:biểu\s+thức|phép\s+tính|toán|phương\s+trình|tổng|tích)|giải\s+(?:toán|phương\s+trình|hệ\s+phương\s+trình)|nhân\s+\d+|chia\s+cho\s+\d+|cộng\s+\d+|trừ\s+\d+)\b|"
+        r"^\s*tính\s+\d+.*[+\-*/x×nhân chia])",
         re.IGNORECASE
     )
 
@@ -154,6 +162,18 @@ class ScopePrechecker:
                 True,
                 "Thông tin phạm vi: Hệ thống Trợ lý ảo DWH cung cấp số liệu thực tế được trích xuất nguyên trạng từ các báo cáo đã được phê duyệt chính thức trong kho dữ liệu, "
                 "không đưa ra nhận định hoặc đánh giá định tính chủ quan về mức độ tin cậy của các cơ quan ban ngành.",
+                details
+            )
+
+        # 7. Kiểm tra phép tính số học thuần túy / giải toán
+        math_match = cls._RE_MATH_CALCULATION.search(clean_text)
+        if math_match:
+            details["pattern"] = "math_calculation_out_of_scope"
+            details["matched_topic"] = math_match.group(0)
+            return (
+                True,
+                "Thông tin phạm vi: Yêu cầu tính toán biểu thức số học thuần túy nằm ngoài phạm vi phục vụ của Hệ thống Trợ lý ảo Tra cứu Kho Dữ Liệu DWH tỉnh Lâm Đồng. "
+                "Hệ thống chuyên trách tra cứu báo cáo và chỉ tiêu điều hành chính quyền số.",
                 details
             )
 

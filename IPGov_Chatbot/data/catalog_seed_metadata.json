@@ -202,6 +202,18 @@
         {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"},
         {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
       ]
+    },
+    {
+      "table_name": "dwh_internal.province",
+      "simple_name": "province",
+      "description": "Bảng Dimension danh mục địa giới hành chính các tỉnh, thành phố trực thuộc Trung ương",
+      "primary_key": "id",
+      "columns": [
+        {"name": "id", "type": "UUID", "description": "Định danh duy nhất địa bàn tỉnh", "is_pk": true},
+        {"name": "code", "type": "TEXT", "description": "Mã định danh tỉnh thành phố (vd: 68, 79)"},
+        {"name": "name", "type": "TEXT", "description": "Tên tỉnh, thành phố trực thuộc Trung ương (Lâm Đồng, TP.HCM, Hà Nội...)"},
+        {"name": "is_activated", "type": "BOOLEAN", "description": "Trạng thái kích hoạt"}
+      ]
     }
   ],
   "foreign_keys": [
@@ -240,7 +252,9 @@
     {"id": "a0000000-0000-0000-0000-000000000004", "name": "Phòng ban An toàn vệ sinh lao động", "code": "PATVSLD", "department_code": "68-1-03", "tenant_code": "68", "level": 2},
     {"id": "a0000000-0000-0000-0000-000000000005", "name": "Phòng ban xây dựng", "code": "PXD_LD", "department_code": "68-1-04", "tenant_code": "68", "level": 2},
     {"id": "a0000000-0000-0000-0000-000000000006", "name": "Phòng công thương", "code": "PCT_LD", "department_code": "68-1-05", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000007", "name": "Phòng ban y tế", "code": "PYT_LD", "department_code": "68-1-06", "tenant_code": "68", "level": 2}
+    {"id": "a0000000-0000-0000-0000-000000000007", "name": "Phòng ban y tế", "code": "PYT_LD", "department_code": "68-1-06", "tenant_code": "68", "level": 2},
+    {"id": "a738d08b-45c0-4041-9760-213641d799f8", "name": "Chi cục", "code": "CC_LD", "department_code": "68-1-01", "tenant_code": "68", "level": 2},
+    {"id": "10dfc6c1-2393-413c-92ad-e8952c344524", "name": "Phòng nông nghiệp", "code": "PNN_LD", "department_code": "68-2-01", "tenant_code": "68", "level": 2}
   ],
   "criteria": [
     {"id": 1, "code": "tai_nan_lao_dong_2", "name": "Số vụ tai nạn lao động", "unit": "vụ", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["tai nan lao dong", "tnld", "tnlđ", "tai nạn lđ", "an toàn lao động", "tai nan ld"]},
@@ -265,5 +279,41 @@
     {"id": 2, "code": "BM_COLLECTION_ACTIVE_2026", "name": "Biểu mẫu tổng hợp số liệu chỉ tiêu định kỳ xã phường áp dụng năm 2026", "year_code": "2026", "department_code": "68-1-02", "is_active": true, "status": "active"},
     {"id": 3, "code": "BM_ATVSLD_02", "name": "Biểu mẫu báo cáo tình hình tai nạn lao động và an toàn vệ sinh lao động", "year_code": "2025", "department_code": "68-1-03", "is_active": true, "status": "active"},
     {"id": 4, "code": "BM_Y_TE_XA_03", "name": "Biểu mẫu đánh giá trạm y tế xã đạt chuẩn quốc gia về y tế", "year_code": "2026", "department_code": "68-1-06", "is_active": true, "status": "active"}
+  ],
+  "provinces": [
+    {"id": "cc25db32-dda3-4d34-af2f-134b5bc8091c", "code": "01", "name": "Thành phố Hà Nội", "is_activated": true},
+    {"id": "1c471c4d-37fa-457c-b47e-7021ba5f97a2", "code": "04", "name": "Cao Bằng", "is_activated": true},
+    {"id": "637a05c4-f9bc-4ba7-ad6a-34641dcc4f84", "code": "08", "name": "Tuyên Quang", "is_activated": true},
+    {"id": "681067ba-815c-4704-adac-8388c7a444c2", "code": "11", "name": "Điện Biên", "is_activated": true},
+    {"id": "0ce5233b-0ce1-431c-b4dc-29bcd4ef0f33", "code": "12", "name": "Lai Châu", "is_activated": true},
+    {"id": "58118eb5-60f4-4b70-bb7a-76e624eccacd", "code": "14", "name": "Sơn La", "is_activated": true},
+    {"id": "50ed1f90-762b-456c-b083-a88890d14525", "code": "15", "name": "Lào Cai", "is_activated": true},
+    {"id": "1a94d6d9-dc13-42d0-a88c-b9e2c5454266", "code": "19", "name": "Thái Nguyên", "is_activated": true},
+    {"id": "66102969-d8c9-4a02-b9d9-eec80ee1f437", "code": "20", "name": "Lạng Sơn", "is_activated": true},
+    {"id": "0354260f-f266-4ad0-81da-ae2fd17b528a", "code": "22", "name": "Quảng Ninh", "is_activated": true},
+    {"id": "097fc785-13d4-4aa9-8d47-a8629d9f8b54", "code": "24", "name": "Bắc Ninh", "is_activated": true},
+    {"id": "de1ca232-762c-4991-86af-1e141072f635", "code": "25", "name": "Phú Thọ", "is_activated": true},
+    {"id": "0f6c6b4c-9e59-4e60-a14f-7222d2de489f", "code": "31", "name": "Thành phố Hải Phòng", "is_activated": true},
+    {"id": "d597930f-0b15-41be-ac9e-2aca69f91b9b", "code": "33", "name": "Hưng Yên", "is_activated": true},
+    {"id": "35e2faf5-0656-473c-a9eb-0aee857366cb", "code": "37", "name": "Ninh Bình", "is_activated": true},
+    {"id": "bddfea27-22c1-4018-acdc-d6a04f77a1cd", "code": "38", "name": "Thanh Hóa", "is_activated": true},
+    {"id": "3013ee02-8eaa-452b-b086-ae6c80438279", "code": "40", "name": "Nghệ An", "is_activated": true},
+    {"id": "9b002d7b-319c-41bc-b00c-573e8386b693", "code": "42", "name": "Hà Tĩnh", "is_activated": true},
+    {"id": "f8321162-8aad-4e45-893f-c0ba8662c3ef", "code": "44", "name": "Quảng Trị", "is_activated": true},
+    {"id": "2f8cbdf8-75e3-49fb-8a09-1b1ec62795b0", "code": "46", "name": "Thành phố Huế", "is_activated": true},
+    {"id": "4cb8ee16-9ed1-4fff-b99c-96c4726e5f49", "code": "48", "name": "Thành phố Đà Nẵng", "is_activated": true},
+    {"id": "08b1433b-139f-43ab-b2b6-d0a7f7d6dc81", "code": "51", "name": "Quảng Ngãi", "is_activated": true},
+    {"id": "1ccc0d88-b18a-403d-a13e-ce07656e913f", "code": "52", "name": "Gia Lai", "is_activated": true},
+    {"id": "e25ca154-d6db-4563-b8ca-e4cd6611b7e7", "code": "56", "name": "Khánh Hòa", "is_activated": true},
+    {"id": "10040b95-2e2c-4c3e-bf1f-2a62d790c205", "code": "66", "name": "Đắk Lắk", "is_activated": true},
+    {"id": "f60d3ad6-80db-4b95-a08c-2857bce1122d", "code": "68", "name": "Lâm Đồng", "is_activated": true},
+    {"id": "e6f0b547-449a-483d-9a65-d10d42c7aefc", "code": "75", "name": "Đồng Nai", "is_activated": true},
+    {"id": "d495f77f-d94a-497e-8ae9-6072c83a4aca", "code": "79", "name": "Thành phố Hồ Chí Minh", "is_activated": true},
+    {"id": "2897d9c7-99a8-4aa1-be2d-2b6025c7269b", "code": "80", "name": "Tây Ninh", "is_activated": true},
+    {"id": "9883409e-96f4-4f57-8fbd-66aab8292b91", "code": "82", "name": "Đồng Tháp", "is_activated": true},
+    {"id": "a2bb96f9-46de-43be-a122-b5b98b1d2fc1", "code": "86", "name": "Vĩnh Long", "is_activated": true},
+    {"id": "af80f9fa-764a-4816-a26f-73355efafbe8", "code": "91", "name": "An Giang", "is_activated": true},
+    {"id": "d6e0a423-a845-40a2-b4e0-0795114cd753", "code": "92", "name": "Thành phố Cần Thơ", "is_activated": true},
+    {"id": "e839060a-ce68-42e2-8eac-58db3bfabf1b", "code": "96", "name": "Cà Mau", "is_activated": true}
   ]
 }

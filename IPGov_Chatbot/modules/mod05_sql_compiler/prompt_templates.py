@@ -60,23 +60,34 @@ Trong trường `thought_scratchpad`, bạn BẮT BUỘC thực hiện suy luậ
    - Tên bảng danh mục cơ quan trong CSDL hiện hữu là `dwh_internal.deparment` (không có chữ 't' thứ hai).
    - ĐẶC BIỆT LƯU Ý: Bảng `deparment` hiện đang có 0 bản ghi (trống sau đợt reset data). TUYỆT ĐỐI KHÔNG JOIN với `dwh_internal.deparment` vì sẽ làm kết quả trả về 0 dòng! Dùng trực tiếp mã sở ngành suy biến `f.department_code` trên `fact_report_criteria`.
 
-6. ƯU TIÊN TUYỆT ĐỐI SINGLE UNIFIED SQL (WINDOW FUNCTIONS):
+6. LATEST SNAPSHOT & NGỮ CẢNH ĐƠN VỊ/NHIỆM VỤ ([TRAP-007]):
+   - Khi truy vấn chỉ tiêu từ `dwh_internal.fact_report_criteria`, BẮT BUỘC SELECT kèm `f.mission_name` và `LEFT JOIN dwh_internal.office o ON f.office_id = o.id` để lấy `COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_van_phong`.
+   - Nếu người dùng không yêu cầu đơn vị hay nhiệm vụ cụ thể, luôn lấy bản ghi mới nhất đã phê duyệt (`report_status = 'approved'`) qua Window Function:
+     `ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid) ORDER BY f.report_date DESC, f.version DESC) = 1`.
+   - BẮT BUỘC lọc `report_status = 'approved'` trên 100% các truy vấn số liệu để loại trừ các bản ghi dự thảo (`draft`).
+
+7. DẢI THỜI GIAN VÀ KIỂM KÊ DANH MỤC (DATE RANGE & INVENTORY):
+   - Truy vấn tháng cụ thể: Lọc `EXTRACT(MONTH FROM f.report_date) = :month` và `f.year_code = :year`, lấy snapshot mới nhất (`rn = 1`).
+   - Truy vấn dải thời gian: Lọc `f.report_date >= :start_date` và `f.report_date <= :end_date`, lấy snapshot mới nhất từng chỉ tiêu (`rn = 1`), sắp xếp theo dòng thời gian `ORDER BY f.report_date ASC`.
+   - Truy vấn kiểm kê: Lấy `DISTINCT` danh mục chỉ tiêu hiện có với snapshot mới nhất (`rn = 1`) và `report_status = 'approved'`.
+
+8. ƯU TIÊN TUYỆT ĐỐI SINGLE UNIFIED SQL (WINDOW FUNCTIONS):
    - Đẩy toàn bộ các phép tính phức tạp (YoY, MoM, Top-K, Tỷ trọng, Pivot) xuống hàm cửa sổ PostgreSQL 16:
      * Tăng trưởng liên kỳ: `LAG(metric_val) OVER (ORDER BY year_code ASC)`
      * Xếp hạng: `DENSE_RANK() OVER (ORDER BY metric_val DESC)`
      * Tỷ trọng: `ROUND((metric_val / NULLIF(SUM(metric_val) OVER (), 0)) * 100.0, 2)`
      * Chênh lệch bình quân: `metric_val - AVG(metric_val) OVER ()`
 
-7. TRA CỨU TIẾN ĐỘ / TRẠNG THÁI BÁO CÁO:
+9. TRA CỨU TIẾN ĐỘ / TRẠNG THÁI BÁO CÁO:
    - Khi câu hỏi hỏi về trạng thái phê duyệt báo cáo ('đã duyệt chưa', 'chờ duyệt', 'ngày nộp báo cáo', 'tiến độ nộp báo cáo'), TRUY VẤN BẢNG `dwh_internal.report r`. Các cột: `r.id`, `r.status`, `r.report_date`, `r.year_code`, `r.department_code`. KHÔNG dùng `fact_report_criteria` khi hỏi tiến độ duyệt văn bản báo cáo.
 
-8. TRA CỨU BIỂU MẪU BÁO CÁO (COLLECTION FORMS):
+10. TRA CỨU BIỂU MẪU BÁO CÁO (COLLECTION FORMS):
    - Khi câu hỏi hỏi về danh mục biểu mẫu thu thập số liệu, mẫu phiếu, tờ khai, TRUY VẤN BẢNG `dwh_internal.collection_form cf`. Các cột: `cf.id`, `cf.code`, `cf.name`, `cf.year_code`, `cf.status`, `cf.start_date`, `cf.end_date`. Tuyệt đối KHÔNG dùng các bảng ảo giác như `report_template` hay `report_type`.
 
-9. TRA CỨU NHIỆM VỤ VÀ LĨNH VỰC (MISSIONS & SCOPES):
+11. TRA CỨU NHIỆM VỤ VÀ LĨNH VỰC (MISSIONS & SCOPES):
    - Khi câu hỏi hỏi về nhiệm vụ, đề án, chương trình công tác, TRUY VẤN BẢNG `dwh_internal.mission m` (có thể JOIN `dwh_internal.scope s ON m.scope_id = s.id`, `dwh_internal.user_mission um`, hoặc `dwh_internal.office_mission om`). Các cột: `m.mission_code`, `m.mission_name`, `m.scope_name`, `m.mission_status`, `m.year_code`. Tuyệt đối KHÔNG dùng bảng ảo giác `field`.
 
-10. NĂM DỮ LIỆU THỰC TẾ TRONG KHO ([TRAP-025]):
+12. NĂM DỮ LIỆU THỰC TẾ TRONG KHO ([TRAP-025]):
    - CSDL thử nghiệm hiện hành lưu trữ số liệu thực tế cho năm 2026 (`f.year_code = '2026'`, `cf.year_code = '2026'`, `m.year_code = '2026'`). Cột năm trong CSDL là `year_code` (KHÔNG dùng `year`). Khi truy vấn số liệu báo cáo, ưu tiên `year_code = '2026'` hoặc chuỗi liên kỳ `f.year_code IN ('2024', '2025', '2026')`.
 
 ---

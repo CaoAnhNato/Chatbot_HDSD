@@ -188,6 +188,32 @@
     </div>
   </div>
 
+  <!-- Modal Pop-up Sơ Đồ Cây Phân Cấp Chỉ Tiêu (REQ-Q01 / SC-1.1 / REQ-Q04 / SC-4.1) -->
+  <div id="criteria-tree-modal" onclick="if(event.target === this || event.target.id === 'criteria-tree-modal-backdrop') closeCriteriaTreeModal()" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs hidden items-center justify-center z-50 p-4">
+    <div id="criteria-tree-modal-backdrop" onclick="if(event.target === this) closeCriteriaTreeModal()" class="w-full h-full flex items-center justify-center">
+      <div class="bg-white border border-slate-200 rounded-2xl max-w-5xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <!-- Modal Header -->
+        <div class="flex items-center justify-between px-5 py-3.5 bg-slate-50 border-b border-slate-200 shrink-0">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-bold">
+              <i class="fa-solid fa-sitemap"></i>
+            </span>
+            <div>
+              <h3 id="criteria-tree-modal-title" class="text-sm font-bold text-slate-800">Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)</h3>
+              <p id="criteria-tree-modal-subtitle" class="text-[11px] text-slate-500">Cuộn xuống để xem toàn bộ nhánh chỉ tiêu con và số liệu chi tiết</p>
+            </div>
+          </div>
+          <button id="criteria-tree-modal-close" type="button" onclick="closeCriteriaTreeModal()" title="Đóng cửa sổ (X)" class="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center font-bold text-sm transition cursor-pointer">
+            ✕
+          </button>
+        </div>
+        <!-- Modal Scrollable Body (Horizontal Left-to-Right Tree) -->
+        <div id="criteria-tree-modal-body" class="p-5 max-h-[80vh] overflow-y-auto overflow-x-auto space-y-4 bg-slate-50/60 flex-1">
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- JavaScript Logic Kế Thừa Gọn Gàng Cho Test Bench -->
   <script>
     // 1. Hồ sơ vai trò HBAC
@@ -439,6 +465,8 @@
 
       // Gọi SSE Stream hoặc fallback
       let resData = null;
+      window.__latestTreeModalData = {};
+      window.__latestTabularData = null;
       try {
         const token = getTestJWT(profile);
         const resp = await fetch("/api/v1/chat/stream", {
@@ -499,11 +527,23 @@
                   intent = d.intent || intent;
                   latencyMs = d.latency_ms || latencyMs;
                 }
-              } else if (block.includes("event: content_chunk")) {
+              } else if (block.includes("event: content_chunk") || block.includes("event: token")) {
                 const match = block.match(/data:\s*(\{.*\})/);
                 if (match) {
                   const d = JSON.parse(match[1]);
-                  bypassResponse += d.chunk || "";
+                  bypassResponse += d.chunk || d.content || "";
+                }
+              } else if (block.includes("event: tabular_data")) {
+                const match = block.match(/data:\s*(\{.*\})/);
+                if (match) {
+                  try {
+                    const d = JSON.parse(match[1]);
+                    const tbl = d.data || d;
+                    window.__latestTabularData = tbl || null;
+                    if (tbl && (tbl.tree_modal || tbl.trees_by_root_id)) {
+                      window.__latestTreeModalData = tbl.tree_modal || tbl.trees_by_root_id || {};
+                    }
+                  } catch (_) {}
                 }
               } else if (block.includes("event: action_chips")) {
                 const match = block.match(/data:\s*(\{.*\})/);
@@ -582,14 +622,20 @@
       if (resData.chips && resData.chips.length > 0) {
         chipsHtml = `
           <div class="pt-2 flex flex-wrap gap-1.5">
-            ${resData.chips.map(c => `
-              <button onclick="handleChipClick('${escapeForAttr(c)}')" class="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition font-medium">
-                ${escapeHtml(c)}
+            ${resData.chips.map(c => {
+              const lbl = typeof c === "object" ? (c.label || c.query_text || "") : c;
+              const qtxt = typeof c === "object" ? (c.query_text || c.label || "") : c;
+              return `
+              <button onclick="handleChipClick('${escapeForAttr(qtxt)}')" class="px-2.5 py-1 text-xs rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition font-medium">
+                ${escapeHtml(lbl)}
               </button>
-            `).join("")}
+            `;
+            }).join("")}
           </div>
         `;
       }
+
+      const formattedResponseHtml = formatResponseWithTreeButtons(resData.bypassResponse || "Đã tiếp nhận yêu cầu.");
 
       contentEl.innerHTML = `
         <!-- Khối hiển thị chi tiết kỹ thuật (Ẩn khi tắt Debug Mode) -->
@@ -636,7 +682,7 @@
               <p>${escapeHtml(resData.violationMessage)}</p>
             </div>
           ` : `
-            <div>${escapeHtml(resData.bypassResponse || "Đã tiếp nhận yêu cầu.")}</div>
+            <div class="space-y-2">${formattedResponseHtml}</div>
           `}
           ${chipsHtml}
         </div>
@@ -651,6 +697,310 @@
       `;
 
       container.scrollTop = container.scrollHeight;
+    }
+
+    function stripMarkdownFormatting(text) {
+      return String(text || "")
+        .replace(/\*\*/g, "")
+        .replace(/`/g, "")
+        .replace(/^\s+|\s+$/g, "");
+    }
+
+    function formatInlineMarkdown(text, rowRootId) {
+      let safe = escapeHtml(text || "");
+      // Biến đổi nút '- Xem chi tiết các chỉ tiêu con' gắn kèm rootId cụ thể của hàng
+      safe = safe.replace(/(?:\*\*`)?-\s*(?:\(Xem chi tiết con\)|Xem chi tiết các chỉ tiêu con|\(Xem chi tiết các chỉ tiêu con\))(?:`\*\*)?/g, () => {
+        const arg = escapeForAttr(rowRootId || "");
+        return `<button type="button" data-root-id="${arg}" onclick="openCriteriaTreeModal('${arg}')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold transition cursor-pointer shadow-2xs" title="Bấm để mở sơ đồ cây phân cấp chỉ tiêu con">- Xem chi tiết các chỉ tiêu con</button>`;
+      });
+      // Bold **...**
+      safe = safe.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900">$1</strong>');
+      // Italic *...*
+      safe = safe.replace(/\*([^*]+)\*/g, '<em class="italic text-slate-600">$1</em>');
+      // Inline code `...`
+      safe = safe.replace(/`([^`]+)`/g, '<code class="px-1.5 py-0.5 rounded bg-slate-100 text-indigo-700 font-mono text-[11px]">$1</code>');
+      return safe;
+    }
+
+    function renderMarkdownTableBlock(tableLines) {
+      if (!tableLines || tableLines.length < 2) {
+        return tableLines.map(l => `<div>${formatInlineMarkdown(l, "")}</div>`).join("");
+      }
+      const parseCells = (line) => {
+        let trimmed = line.trim();
+        if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+        if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+        return trimmed.split("|").map(c => c.trim());
+      };
+
+      const headerCells = parseCells(tableLines[0]);
+      // Tìm vị trí cột chứa tên chỉ tiêu (Tên chỉ tiêu Cấp 1, Tên chỉ tiêu, Chỉ tiêu)
+      let nameColIdx = headerCells.findIndex(h => {
+        const hl = h.toLowerCase();
+        return hl.includes("tên chỉ tiêu") || hl.includes("chỉ tiêu") || hl.includes("mục");
+      });
+      if (nameColIdx === -1) {
+        nameColIdx = headerCells.length > 1 ? 1 : 0;
+      }
+
+      const bodyRows = [];
+      for (let i = 1; i < tableLines.length; i++) {
+        const rowLine = tableLines[i].trim();
+        // Bỏ qua dòng phân cách | :---: | :--- |
+        if (/^\|?[\s:|-]+\|?$/.test(rowLine) && rowLine.includes("-")) {
+          continue;
+        }
+        const cells = parseCells(rowLine);
+        if (cells.length === 0) continue;
+        const rawCritName = stripMarkdownFormatting(cells[nameColIdx] || "");
+        bodyRows.push({ cells, rawCritName });
+      }
+
+      const theadHtml = `
+        <thead class="bg-slate-100/95 text-slate-700 border-b border-slate-200">
+          <tr class="divide-x divide-slate-200/70">
+            ${headerCells.map((h, idx) => `<th class="px-3 py-2 font-bold text-xs whitespace-nowrap ${idx === 0 ? 'text-center w-12' : 'text-left'}">${formatInlineMarkdown(h, "")}</th>`).join("")}
+          </tr>
+        </thead>
+      `;
+
+      const tbodyHtml = `
+        <tbody class="divide-y divide-slate-200 bg-white">
+          ${bodyRows.map(row => `
+            <tr class="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/40 transition-colors divide-x divide-slate-100">
+              ${row.cells.map((cell, idx) => `<td class="px-3 py-2 text-xs text-slate-700 align-middle ${idx === 0 ? 'text-center w-12 whitespace-nowrap' : 'text-left max-w-[280px] break-words'}">${formatInlineMarkdown(cell, row.rawCritName)}</td>`).join("")}
+            </tr>
+          `).join("")}
+        </tbody>
+      `;
+
+      return `
+        <div class="my-2 inline-block w-fit max-w-full overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+          <table class="w-auto text-left border-collapse">
+            ${theadHtml}
+            ${tbodyHtml}
+          </table>
+        </div>
+      `;
+    }
+
+    function formatResponseWithTreeButtons(rawText) {
+      const lines = String(rawText || "").split(/\r?\n/);
+      const outBlocks = [];
+      let i = 0;
+
+      while (i < lines.length) {
+        const line = lines[i];
+        const trimmed = line.trim();
+
+        // Nhận diện khối bảng Markdown
+        if (trimmed.startsWith("|") && trimmed.endsWith("|") && trimmed.split("|").length >= 3) {
+          const tableLines = [];
+          while (i < lines.length) {
+            const tl = lines[i].trim();
+            if (tl.startsWith("|") && tl.includes("|")) {
+              tableLines.push(lines[i]);
+              i++;
+            } else {
+              break;
+            }
+          }
+          outBlocks.push(renderMarkdownTableBlock(tableLines));
+          continue;
+        }
+
+        // Bảo toàn khối <details><summary>...</summary>...</details> thu gọn SQL thực sự trên DOM
+        if (trimmed.startsWith("<details")) {
+          let summaryText = "🔍 Xem câu lệnh truy vấn (SQL Query)";
+          const codeLines = [];
+          i++;
+          while (i < lines.length) {
+            const dl = lines[i];
+            const dTrim = dl.trim();
+            if (dTrim.startsWith("</details")) {
+              i++;
+              break;
+            }
+            if (dTrim.startsWith("<summary")) {
+              summaryText = dTrim.replace(/^<summary[^>]*>/i, "").replace(/<\/summary>$/i, "").trim() || summaryText;
+              i++;
+              continue;
+            }
+            if (dTrim.startsWith("```")) {
+              i++;
+              continue;
+            }
+            codeLines.push(dl);
+            i++;
+          }
+          outBlocks.push(`
+            <details class="mt-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs">
+              <summary class="cursor-pointer font-semibold text-slate-600 hover:text-indigo-600 select-none">${escapeHtml(summaryText)}</summary>
+              <pre class="mt-2 overflow-x-auto rounded-lg bg-slate-900 p-2.5 text-[11px] text-emerald-300 font-mono leading-relaxed"><code>${escapeHtml(codeLines.join("\n").trim())}</code></pre>
+            </details>
+          `);
+          continue;
+        }
+
+        if (trimmed === "") {
+          outBlocks.push('<div class="h-1"></div>');
+          i++;
+          continue;
+        }
+
+        // Nếu dòng ngoài bảng có '- (Xem chi tiết con)', thử trích tên chỉ tiêu trên cùng dòng
+        let inferredRoot = "";
+        if (trimmed.includes("(Xem chi tiết con)")) {
+          const boldMatch = trimmed.match(/\*\*([^*]+)\*\*/);
+          if (boldMatch && !boldMatch[1].includes("Xem chi tiết con")) {
+            inferredRoot = stripMarkdownFormatting(boldMatch[1]);
+          }
+        }
+        outBlocks.push(`<div class="leading-relaxed">${formatInlineMarkdown(line, inferredRoot)}</div>`);
+        i++;
+      }
+
+      return outBlocks.join("\n");
+    }
+
+    function renderHorizontalTreeNode(node) {
+      const children = Array.isArray(node.children) ? node.children : [];
+      const hasChildren = children.length > 0;
+      const valStr = node.value !== null && node.value !== undefined && String(node.value).trim() !== "" && String(node.value).trim() !== "-"
+        ? `<span class="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs">Số lượng: ${escapeHtml(String(node.value))}</span>`
+        : (hasChildren
+          ? `<span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold">Nhóm cha (${children.length} chỉ tiêu con)</span>`
+          : `<span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px]">Chưa có số liệu phê duyệt (-)</span>`);
+      const lvlBadge = `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-mono text-[10px] font-semibold">Cấp ${node.level || 1}</span>`;
+      const isSingle = children.length === 1;
+      const childrenHtml = hasChildren
+        ? `<div class="flex items-start shrink-0">
+             <div class="relative flex items-center mt-[27px] w-7 shrink-0">
+               <div class="w-2 h-2 rounded-full bg-indigo-500 -ml-1 shrink-0"></div>
+               <div class="w-full h-0.5 bg-indigo-400"></div>
+             </div>
+             <div class="flex flex-col gap-3">
+               ${children.map((ch, idx) => {
+                 const isFirst = idx === 0;
+                 const isLast = idx === children.length - 1;
+                 return `
+                   <div class="relative flex items-start pl-9">
+                     ${(!isSingle && !isFirst) ? '<div class="absolute left-0 top-0 h-[28px] w-0.5 bg-indigo-400"></div>' : ''}
+                     ${(!isSingle && !isLast) ? '<div class="absolute left-0 top-[27px] -bottom-3 w-0.5 bg-indigo-400"></div>' : ''}
+                     <div class="absolute left-0 top-[22px] w-9 flex items-center">
+                       ${!isSingle ? '<div class="w-1.5 h-1.5 rounded-full bg-indigo-500 -ml-[2px] shrink-0"></div>' : ''}
+                       <div class="flex-1 h-0.5 bg-indigo-400"></div>
+                       <svg class="w-3 h-3 text-indigo-500 -ml-1 shrink-0" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
+                         <path d="M2 1.5L10.5 6L2 10.5V1.5Z"></path>
+                       </svg>
+                     </div>
+                     ${renderHorizontalTreeNode(ch)}
+                   </div>
+                 `;
+               }).join("")}
+             </div>
+           </div>`
+        : "";
+      return `
+        <div class="flex items-start">
+          <div class="relative min-w-[230px] max-w-[280px] p-3 rounded-xl bg-white border border-slate-200/90 shadow-xs space-y-1.5 shrink-0">
+            <div class="flex items-center justify-between gap-2">
+              ${lvlBadge}
+              ${valStr}
+            </div>
+            <div class="text-xs font-bold text-slate-800 leading-snug">${escapeHtml(node.name || "Chỉ tiêu")}</div>
+            <div class="text-[11px] text-slate-500">Đơn vị: <span class="font-medium text-slate-700">${escapeHtml(node.office_name || "Cấp tỉnh")}</span></div>
+          </div>
+          ${childrenHtml}
+        </div>
+      `;
+    }
+
+    function findMatchingTreeNode(treeMap, rootId) {
+      const allRoots = Object.values(treeMap || {});
+      if (!rootId) return allRoots;
+      if (treeMap && treeMap[rootId]) return [treeMap[rootId]];
+
+      const targetNorm = stripMarkdownFormatting(rootId).toLowerCase();
+      // 1. Tìm khớp ở nút gốc Cấp 1 (theo id, code, hoặc name)
+      const directRoots = allRoots.filter(r => {
+        const rName = stripMarkdownFormatting(r.name || "").toLowerCase();
+        const rCode = String(r.code || "").toLowerCase();
+        const rId = String(r.id || "").toLowerCase();
+        return rName === targetNorm || rCode === targetNorm || rId === targetNorm;
+      });
+      if (directRoots.length > 0) return directRoots;
+
+      // 2. Tìm đệ quy ở các nhánh con Cấp 2 (nếu người dùng bấm từ bảng chi tiết 67 bản ghi)
+      const findInSubtree = (node) => {
+        const nName = stripMarkdownFormatting(node.name || "").toLowerCase();
+        const nCode = String(node.code || "").toLowerCase();
+        const nId = String(node.id || "").toLowerCase();
+        if (nName === targetNorm || nCode === targetNorm || nId === targetNorm) {
+          return node;
+        }
+        for (const ch of (node.children || [])) {
+          const found = findInSubtree(ch);
+          if (found) return found;
+        }
+        return null;
+      };
+
+      for (const r of allRoots) {
+        const subMatch = findInSubtree(r);
+        if (subMatch) return [subMatch];
+      }
+
+      // 3. Fallback so khớp chứa chuỗi con (substring)
+      const partialRoots = allRoots.filter(r => {
+        const rName = stripMarkdownFormatting(r.name || "").toLowerCase();
+        return rName.includes(targetNorm) || targetNorm.includes(rName);
+      });
+      if (partialRoots.length > 0) return partialRoots;
+
+      return allRoots;
+    }
+
+    function openCriteriaTreeModal(rootId) {
+      const modal = document.getElementById("criteria-tree-modal");
+      const body = document.getElementById("criteria-tree-modal-body");
+      const titleEl = document.getElementById("criteria-tree-modal-title");
+      const treeMap = window.__latestTreeModalData || {};
+      const entries = findMatchingTreeNode(treeMap, rootId);
+
+      if (titleEl) {
+        if (entries.length === 1 && entries[0] && entries[0].name) {
+          titleEl.textContent = `Sơ đồ cây phân cấp chỉ tiêu: ${entries[0].name} (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)`;
+        } else {
+          titleEl.textContent = "Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)";
+        }
+      }
+
+      if (!entries || entries.length === 0) {
+        body.innerHTML = `
+          <div class="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500">
+            Chưa có dữ liệu sơ đồ cây phân cấp chỉ tiêu cho truy vấn hiện tại.
+          </div>
+        `;
+      } else {
+        body.innerHTML = entries.map(rootNode => `
+          <div class="p-4 rounded-2xl bg-white border border-slate-200/90 shadow-xs overflow-x-auto">
+            <div class="text-xs font-bold text-indigo-700 mb-3 flex items-center gap-1.5">
+              <i class="fa-solid fa-diagram-project"></i>
+              <span>Nhánh gốc Cấp ${rootNode.level || 1}: ${escapeHtml(rootNode.name || "Chỉ tiêu Cấp 1")} (${escapeHtml(rootNode.mission_name || "Nhiệm vụ trọng tâm")})</span>
+            </div>
+            ${renderHorizontalTreeNode(rootNode)}
+          </div>
+        `).join("");
+      }
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeCriteriaTreeModal() {
+      const modal = document.getElementById("criteria-tree-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
     }
 
     function handleChipClick(chipText) {

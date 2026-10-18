@@ -211,10 +211,34 @@ Tài liệu này ghi nhận và phân loại toàn diện các lỗi (bugs, defe
 | **BUG-014** | Hardcode thời gian `year = '2026'` và `comp_years = ['2025', '2026']` trong Track A & Archetype Patterns | Tham số hóa thời gian động, xóa bỏ mọi gán cứng năm, tôn trọng filters của spec và router | ✅ Đã khắc phục (20/20 Pass) |
 | **BUG-015** | Không Warm-up đầy đủ model khi chạy khởi động backend -> First request bị lag 51 giây | Triển khai Non-blocking Lifespan Hydration trong `main.py`, nạp sẵn `ModelRegistry` và DuckDB vector cache | ✅ Đã khắc phục (v1.5.0) |
 | **BUG-016** | F5 ở UI kích hoạt Uvicorn WatchFiles restart ngầm và xóa sạch state model | Cấu hình Scoped Directory Watcher (`reload_dirs` + `reload_excludes`) và Process-Level `ModelRegistry` Singleton | ✅ Đã khắc phục (v1.5.0) |
+| **BUG-017** | Mặc định kết nối Remote HF Space gây lỗi khi chạy Local và thiếu cờ CLI runner | Đặt default `USE_REMOTE_EMBEDDING=false`, thêm CLI flags `--local-embedding`/`--remote-embedding`, hoàn thiện 2-way fallback | ✅ Đã khắc phục (v1.5.1) |
 
 ---
 
 ### BUG-015 & BUG-016: Lỗi Không Warm-up Đầy Đủ & Mất State Model Khi F5 UI
+...
+
+---
+
+### BUG-017: Lỗi Mặc Định Kết Nối Remote HuggingFace Space Khi Khởi Động Local
+
+* **Ngữ cảnh phát hiện:** Người dùng chạy lệnh khởi động `.\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server` trên máy trạm cá nhân, terminal in ra hàng loạt cảnh báo lỗi kết nối:
+  `⚠️ [RemoteHFEmbedding] Lỗi kết nối HF Space (thử lần 1/3): Gradio Space trả về error event: event: error data: null`
+* **Hiện tượng lỗi (Bug Symptom):** Quá trình warmup khởi động bị nghẽn do phải đợi retry 3 lần tới Gradio Space bên ngoài, cảnh báo `Không thể kết nối HF Space sau 3 lần thử` xuất hiện làm chậm quá trình sẵn sàng của máy chủ.
+* **Nguyên nhân gốc rễ (Root Cause):**
+  1. *Cấu hình mặc định chưa hợp lý:* Trong `backend/config.py`, `USE_REMOTE_EMBEDDING` mặc định là `"true"` (vốn được tối ưu tạm thời cho Render Free Tier). Khi chạy local mà file `.env` không set biến này, hệ thống tự động gán là `True`.
+  2. *Thiếu cơ chế chuyển đổi qua CLI:* Script `run_server.py` không có tham số dòng lệnh để chọn chế độ nạp model (Local vs Remote).
+  3. *Cơ chế Fallback một chiều (Asymmetric Fallback Trap):* `ModelRegistry` chỉ có nhánh fallback từ Local sang Remote nếu nạp local thất bại, nhưng nếu cấu hình Remote mà HF Space bên ngoài bị lỗi/ngủ thì không tự động fallback về Local `SentenceTransformer`.
+  4. *Tài liệu chưa phân định:* `BACKEND_RUN_GUIDE.md` thiếu mục giải thích về 2 chế độ Embedding và câu lệnh tương ứng.
+* **Giải pháp khắc phục:**
+  1. *Thiết lập Sensible Defaults:* Đổi giá trị mặc định của `USE_REMOTE_EMBEDDING` thành `False` trong `backend/config.py`, `.env` và `backend/.env`.
+  2. *Bổ sung CLI Flags (`IPGov_Chatbot/run_server.py`):* Hỗ trợ cờ `--local-embedding` và `--remote-embedding`, hiển thị nhãn `🧠 Chế độ Embedding` trên banner khởi động.
+  3. *Hoàn thiện 2-Way Graceful Fallback (`ModelRegistry`):* Tự động bắt lỗi kết nối Remote HF Space và kích hoạt nạp `SentenceTransformer` cục bộ vào RAM.
+  4. *Cập nhật tài liệu:* Bổ sung Mục 1.2 vào `IPGov_Chatbot/docs/BACKEND_RUN_GUIDE.md`.
+* **Kết quả đo lường thực nghiệm:**
+  - Khởi động mặc định: Tự động nạp `SentenceTransformer` local trong **2.6 giây**, 0 cuộc gọi mạng ngoài, độ trễ vector hóa < 1ms.
+  - Khi bật `--remote-embedding` nhưng HF Space lỗi: Hệ thống tự động bắt lỗi và fallback về Local thành công, 100% không bị crash tiến trình.
+
 
 * **Ngữ cảnh phát hiện:** Người dùng gửi câu hỏi đầu tiên sau khi khởi động backend phải chờ hơn 50 giây; và cứ mỗi khi bấm **F5** trên trình duyệt Web UI thì hệ thống lại bắt đầu tải lại weights từ đầu (`Loading weights: 0%| ... 100%| 391/391`).
 * **Hiện tượng lỗi (Bug Symptom):**

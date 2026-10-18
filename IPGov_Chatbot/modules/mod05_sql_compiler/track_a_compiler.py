@@ -52,6 +52,13 @@ class TrackACompiler:
         dag_archetype = getattr(router_output, "dag_archetype", None)
         if dag_archetype in ArchetypePatternCatalog.get_supported_archetypes():
             return True
+        if dag_archetype in (
+            "MONTHLY_COLLECTION_METRIC_LISTING",
+            "DATE_RANGE_CUMULATIVE_METRIC_DISCOVERY",
+            "SYSTEM_WIDE_CRITERIA_INVENTORY",
+            "SINGLE_METRIC_LATEST_SNAPSHOT",
+        ):
+            return True
 
         # Nếu có DAG Archetype phức tạp không hỗ trợ -> Fallthrough sang Track B
         if dag_archetype and dag_archetype not in ("NONE", "SINGLE_FACT", "DIRECT_LOOKUP"):
@@ -279,13 +286,25 @@ class TrackACompiler:
         ]
 
         raw_sql = (
-            f"{cte_leaf}\n"
-            f"SELECT\n    " + ",\n    ".join(select_cols) + "\n"
-            f"FROM dwh_internal.fact_report_criteria f\n"
-            f"LEFT JOIN leaf_criteria lc ON f.criteria_id = lc.id\n"
-            f"WHERE {where_str}\n"
-            f"GROUP BY COALESCE(lc.name, f.name), f.year_code\n"
-            f"ORDER BY f.year_code ASC;"
+            f"WITH latest_fact AS (\n"
+            f"    SELECT f.criteria_id, f.office_id, f.name, f.year_code, f.value, f.department_code,\n"
+            f"           ROW_NUMBER() OVER (\n"
+            f"               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
+            f"               ORDER BY f.report_date DESC, f.version DESC\n"
+            f"           ) AS rn\n"
+            f"    FROM dwh_internal.fact_report_criteria f\n"
+            f"    WHERE {where_str}\n"
+            f")\n"
+            f"SELECT\n"
+            f"    COALESCE(lc.name, lf.name) AS ten_chi_tieu,\n"
+            f"    lf.year_code AS nam,\n"
+            f"    SUM(NULLIF(TRIM(lf.value), '')::numeric) AS tong_gia_tri,\n"
+            f"    COUNT(DISTINCT lf.office_id) AS so_don_vi_bao_cao\n"
+            f"FROM latest_fact lf\n"
+            f"LEFT JOIN dwh_internal.criteria lc ON lf.criteria_id = lc.id\n"
+            f"WHERE lf.rn = 1\n"
+            f"GROUP BY COALESCE(lc.name, lf.name), lf.year_code\n"
+            f"ORDER BY lf.year_code ASC;"
         )
 
         latency_ms = (time.perf_counter() - t0) * 1000.0
@@ -362,6 +381,128 @@ class TrackACompiler:
                     latency_ms=latency_ms,
                     trace_id=trace_id,
                 )
+
+        # 1.1 Fast Track cho 4 mẫu truy vấn khám phá và snapshot chỉ tiêu (P-01, P-02, P-03, P-04)
+        if dag_archetype in (
+            "MONTHLY_COLLECTION_METRIC_LISTING",
+            "DATE_RANGE_CUMULATIVE_METRIC_DISCOVERY",
+            "SYSTEM_WIDE_CRITERIA_INVENTORY",
+            "SINGLE_METRIC_LATEST_SNAPSHOT",
+        ):
+            tenant_code = user_ctx.tenant_code or "68"
+            query_low = (router_output.query_sanitized or "").lower()
+            m_code, m_name = self._resolve_metric_info(router_output, user_ctx)
+            if dag_archetype == "MONTHLY_COLLECTION_METRIC_LISTING":
+                m_num = 9
+                m_match = re.search(r"tháng\s+([1-9]|1[0-2])", query_low)
+                if m_match:
+                    m_num = int(m_match.group(1))
+                raw_sql = f"""WITH latest_monthly_fact AS (
+    SELECT f.name AS ten_chi_tieu, f.value, f.mission_name, f.office_id, f.report_date,
+           ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    WHERE f.tenant_code = '{tenant_code}' AND f.year_code = '{year or "2026"}'
+      AND EXTRACT(MONTH FROM f.report_date) = {m_num} AND f.report_status = 'approved'
+)
+SELECT lmf.ten_chi_tieu, lmf.value AS gia_tri_moi_nhat, lmf.mission_name AS ten_nhiem_vu,
+       COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_van_phong, lmf.report_date AS ngay_bao_cao_moi_nhat
+FROM latest_monthly_fact lmf
+LEFT JOIN dwh_internal.office o ON lmf.office_id = o.id
+WHERE lmf.rn = 1
+ORDER BY lmf.ten_chi_tieu ASC LIMIT 500;"""
+            elif dag_archetype == "DATE_RANGE_CUMULATIVE_METRIC_DISCOVERY":
+                start_date = None
+                active_q = getattr(router_output, "active_quest", None)
+                if active_q:
+                    t_val = getattr(active_q, "temporal_val", None)
+                    if t_val:
+                        if re.match(r"^\d{4}-\d{2}-\d{2}$", str(t_val).strip()):
+                            start_date = str(t_val).strip()
+                        else:
+                            m_t = re.search(r"(?:tháng\s+)?([1-9]|1[0-2])", str(t_val).lower())
+                            if m_t:
+                                start_date = f"{year or '2026'}-{int(m_t.group(1)):02d}-01"
+                    extra = getattr(active_q, "extra_slots", {}) or {}
+                    if not start_date and extra.get("date_from"):
+                        start_date = str(extra["date_from"])
+                    if not start_date and extra.get("temporal_scope"):
+                        t_scope = str(extra["temporal_scope"])
+                        m_scope = re.search(r"(?:tháng\s+)?([1-9]|1[0-2])", t_scope.lower())
+                        if m_scope:
+                            start_date = f"{year or '2026'}-{int(m_scope.group(1)):02d}-01"
+
+                if not start_date:
+                    date_match = re.search(r"(\d{4}-\d{2}-\d{2})", query_low)
+                    if date_match:
+                        start_date = date_match.group(1)
+                    else:
+                        m_match = re.search(r"(?:từ|sau|từ\s+đầu)\s+tháng\s+([1-9]|1[0-2])", query_low)
+                        if m_match:
+                            start_date = f"{year or '2026'}-{int(m_match.group(1)):02d}-01"
+                        else:
+                            m_any = re.search(r"tháng\s+([1-9]|1[0-2])", query_low)
+                            if m_any:
+                                start_date = f"{year or '2026'}-{int(m_any.group(1)):02d}-01"
+                            else:
+                                start_date = f"{year or '2026'}-01-01"
+
+                raw_sql = f"""WITH latest_range_fact AS (
+    SELECT f.name AS ten_chi_tieu, f.value, f.mission_name, f.office_id, f.report_date,
+           ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    WHERE f.tenant_code = '{tenant_code}' AND f.report_date >= '{start_date}' AND f.report_status = 'approved'
+)
+SELECT lrf.ten_chi_tieu, lrf.value AS gia_tri_moi_nhat, lrf.mission_name AS ten_nhiem_vu,
+       COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_van_phong, lrf.report_date AS ngay_bao_cao_moi_nhat
+FROM latest_range_fact lrf
+LEFT JOIN dwh_internal.office o ON lrf.office_id = o.id
+WHERE lrf.rn = 1
+ORDER BY lrf.report_date ASC, lrf.ten_chi_tieu ASC LIMIT 500;"""
+            elif dag_archetype == "SYSTEM_WIDE_CRITERIA_INVENTORY":
+                raw_sql = f"""WITH latest_inventory AS (
+    SELECT f.name AS ten_chi_tieu, f.value, f.mission_name, f.office_id, f.report_date,
+           ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    WHERE f.tenant_code = '{tenant_code}' AND f.report_status = 'approved'
+)
+SELECT DISTINCT li.ten_chi_tieu, li.value AS gia_tri_moi_nhat, li.mission_name AS ten_nhiem_vu,
+       COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_van_phong, li.report_date AS ngay_bao_cao_moi_nhat
+FROM latest_inventory li
+LEFT JOIN dwh_internal.office o ON li.office_id = o.id
+WHERE li.rn = 1
+ORDER BY li.ten_chi_tieu ASC LIMIT 500;"""
+            else:
+                crit_filter = f"f.code = '{m_code}'" if m_code else (f"f.name ILIKE '%{m_name}%'" if m_name else "1=1")
+                raw_sql = f"""WITH ranked_facts AS (
+    SELECT f.criteria_id, f.parent_criteria_id, f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat,
+           f.mission_name AS ten_nhiem_vu, f.office_id, f.report_date AS ngay_bao_cao_moi_nhat,
+           ROW_NUMBER() OVER (PARTITION BY f.criteria_id, f.office_id ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    WHERE f.tenant_code = '{tenant_code}' AND f.year_code = '{year or "2026"}'
+      AND f.report_status = 'approved' AND ({crit_filter})
+)
+SELECT lf.ten_chi_tieu, lf.gia_tri_moi_nhat, lf.ten_nhiem_vu,
+       COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong, lf.ngay_bao_cao_moi_nhat,
+       p.name AS nhom_chi_tieu
+FROM ranked_facts lf
+LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+LEFT JOIN dwh_internal.criteria p ON lf.parent_criteria_id = p.id
+WHERE lf.rn = 1
+ORDER BY lf.ngay_bao_cao_moi_nhat DESC NULLS LAST;"""
+
+            return True, GeneratedSQLDTO(
+                raw_sql=raw_sql,
+                execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+                dag_archetype=dag_archetype,
+                tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.office"],
+                parameters={"tenant_code": tenant_code},
+                generator_track="TRACK_A_COMPILER",
+                thought_scratchpad=f"Biên dịch tất định qua Track A Fast Track ({dag_archetype}) (0 token LLM).",
+                confidence_score=0.99,
+                ast_valid=True,
+                latency_ms=(time.perf_counter() - t0) * 1000.0,
+                trace_id=trace_id,
+            )
 
         # 2. Xử lý tra cứu quy trình Báo cáo hoặc Biểu mẫu
         query = (router_output.query_sanitized or "").lower()

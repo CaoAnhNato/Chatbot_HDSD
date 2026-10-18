@@ -50,11 +50,11 @@ class SteinerTreeBuilder:
                 "dwh_internal.report",
                 {"weight": 1.0, "on": "f.report_id = report.id", "role": "primary"}
             ),
-            # Fact -> Department trực tiếp (Weight 10.0) - Tăng trọng số để tránh tự động chọn deparment làm bridge khi bảng này có 0 bản ghi
+            # Fact -> Department trực tiếp (Weight 1.0) - Cạnh trực tiếp nối qua department_code bảo toàn dòng có office_id IS NULL (FAIL-007)
             (
                 "dwh_internal.fact_report_criteria",
                 "dwh_internal.deparment",
-                {"weight": 10.0, "on": "f.department_code = deparment.code", "role": "direct_dept"}
+                {"weight": 1.0, "on": "f.department_code = deparment.code", "role": "direct_dept"}
             ),
             # Dimensions Phân cấp Hành chính (Level 2 Office -> Level 1 Department) (Weight 10.0)
             (
@@ -117,6 +117,18 @@ class SteinerTreeBuilder:
                 "dwh_internal.fact_report_criteria",
                 "dwh_internal.user_mission",
                 {"weight": 1.1, "on": "fact_report_criteria.mission_id = user_mission.mission_id", "role": "fact_user_mission"}
+            ),
+            # Province -> Ward (Weight 1.0)
+            (
+                "dwh_internal.province",
+                "dwh_internal.ward",
+                {"weight": 1.0, "on": "ward.province_code = province.code", "role": "province_ward"}
+            ),
+            # Fact -> User (Direct on department_code when deparment table is empty)
+            (
+                "dwh_internal.fact_report_criteria",
+                "dwh_internal.user",
+                {"weight": 1.1, "on": "fact_report_criteria.department_code = \"user\".department_code", "role": "fact_user_dept"}
             ),
         ]
 

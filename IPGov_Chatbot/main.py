@@ -300,12 +300,38 @@ async def warmup_endpoint() -> Dict[str, Any]:
 
 @app.get("/api/v1/chat/sessions", summary="Lấy danh sách phiên hội thoại (Tương thích Web Frontend)")
 async def get_chat_sessions(limit: int = 50) -> Dict[str, Any]:
-    return {"success": True, "data": []}
+    from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+    sessions = ChatHistoryStore.get_instance().list_sessions(limit=limit)
+    return {"success": True, "data": sessions}
 
 
 @app.get("/api/v1/chat/history/{session_id}", summary="Lấy lịch sử tin nhắn của phiên (Tương thích Web Frontend)")
 async def get_session_history(session_id: str) -> Dict[str, Any]:
-    return {"success": True, "data": []}
+    from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+    messages = ChatHistoryStore.get_instance().get_session_messages(session_id=session_id)
+    return {"success": True, "data": messages}
+
+
+@app.patch("/api/v1/chat/sessions/{session_id}", summary="Đổi tên phiên hội thoại")
+async def rename_chat_session_endpoint(session_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+    new_title = str(payload.get("title") or "").strip()
+    ok = ChatHistoryStore.get_instance().rename_session(session_id=session_id, new_title=new_title)
+    return {"success": ok}
+
+
+@app.delete("/api/v1/chat/sessions/{session_id}", summary="Xóa một phiên hội thoại")
+async def delete_chat_session_endpoint(session_id: str) -> Dict[str, Any]:
+    from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+    ok = ChatHistoryStore.get_instance().delete_session(session_id=session_id)
+    return {"success": ok}
+
+
+@app.delete("/api/v1/chat/sessions", summary="Xóa toàn bộ lịch sử phiên hội thoại")
+async def clear_all_chat_sessions_endpoint() -> Dict[str, Any]:
+    from IPGov_Chatbot.core.chat_history_store import ChatHistoryStore
+    ChatHistoryStore.get_instance().clear_all_sessions()
+    return {"success": True}
 
 
 @app.get("/bench", summary="Giao diện Test Bench Thử Nghiệm Module 1, 2 & 3", response_class=HTMLResponse)

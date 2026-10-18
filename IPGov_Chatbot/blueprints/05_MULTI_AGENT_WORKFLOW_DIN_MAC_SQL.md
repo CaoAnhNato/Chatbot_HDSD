@@ -243,8 +243,9 @@ stateDiagram-v2
          if quest.filled_slots.get("year"):
              temp_mem.default_temporal_window = quest.filled_slots["year"]
          temp_mem.committed_quest_history.append(quest.quest_id)
-         # Lưu vết vào Session Fast Cache / Redis
-         await cache_service.save_session_temp_memory(session_id, temp_mem)
+         # Lưu vết vào Session Store SQLite / agent_memory.db
+         await session_service.save_session_temp_memory(session_id, temp_mem)
+
      ```
    * **Triệt tiêu Context Bleeding:** Dữ liệu trong `temp_memory` chỉ đóng vai trò là **Giá trị Gợi ý Mặc định (Default Fallback Context)** khi người dùng bắt đầu một Quest mới hoàn toàn mơ hồ, không bị trộn lẫn vào các truy vấn đang thực thi.
 ```
@@ -258,16 +259,17 @@ Toàn bộ các Node suy luận ngôn ngữ (Node 1, Node 4b, Node 5) đều đ�
 - **Hàng Rào Kiểm Định Bất Biến (Invariant Gate):** Đánh giá đồng thời độ tin cậy `confidence_score >= 0.70` và điều kiện kiểm thử bất biến riêng của từng Node (AST syntax, schema grounding, hoặc data reconciliation).
 - **Cổng Dự Phòng Chuyên Sâu (Heavy Fallback - Stage 2):** Tự động kích hoạt `deepseek/deepseek-v4.1-flash` khi độ tin cậy thấp, kiểm định bất biến thất bại, hoặc gặp lỗi kết nối upstream API.
 
-#### 3.1. Node 1: Intent & Complexity Router (OpenRouter Gated 2-Stage Confidence Fallback & Redis Session Memory)
+#### 3.1. Node 1: Intent & Complexity Router (OpenRouter End-Provider Routing & SQLite/RAM Session Memory)
 * **Kiến trúc vận hành:** Kế thừa `call_structured_with_fallback[LLMRouterStructuredOutput]`.
-  - Stage 1: `google/gemini-2.5-flash-lite` phân loại ý định dựa trên Chain-of-Thought (`thought_scratchpad`), nhiệt độ $0.0$, JSON mode.
+  - Cognitive Planner duy nhất: `deepseek/deepseek-v4.1-flash` với cấu hình OpenRouter End-Provider Routing `["coreweave/fp8", "makora/fp8", "relace", "inference-net/fp8"]`, `allow_fallbacks: True`, vô hiệu hóa reasoning (`reasoning: {"enabled": False}`) và không giới hạn `max_tokens` cứng để đạt TTFT < 800ms.
   - Invariant Validator: Xác thực schema Pydantic, kiểm tra tính hợp lệ của `intent`, không rỗng trường bắt buộc, tính toàn vẹn của phạm vi không gian/thời gian, và ngưỡng tin cậy `confidence_score >= 0.70`.
-  - Stage 2: Tự động fallback sang `deepseek/deepseek-v4.1-flash` khi `confidence_score < 0.70` hoặc schema validation fail.
-  - Stage 3: Dự phòng khẩn cấp qua DuckDB Local In-Memory Fuzzy Catalog (0 token LLM, phản hồi $< 2\text{ms}$).
-* **Bộ nhớ phiên phân tán (Redis Session Manager - `ipgov-redis`):**
-  - Tích hợp Dual-Context Injection: Khi người dùng truy vấn Lượt 2+, System Prompt được tiêm đồng thời cả `ActiveQuestFrame` (để nắm slot hiện tại) và `Sliding Window Messages` (3 lượt gần nhất qua lệnh `LTRIM`).
-  - **Tier 0.3 Semantic Decision Cache:** Lưu kết quả phân loại Lượt 1 theo SHA-256 hash của prompt (`cache:router:{hash}`) với TTL 3600s, phản hồi tức thì $< 50\text{ms}$ (0 token LLM).
-* **Input Prompt:** Câu hỏi người dùng + User Security Context + Dual-Context từ Redis.
+  - Nhận diện toàn diện lời chào hỏi & tạm biệt / cảm ơn (`GREETING_FAREWELL`), trả lời lịch sự không gọi xuống kho DWH.
+  - Dự phòng khẩn cấp qua DuckDB Local In-Memory Fuzzy Catalog (0 token LLM, phản hồi $< 2\text{ms}$).
+* **Bộ nhớ phiên SQLite & RAM (SQLite Session Store `agent_memory.db` & H-DFT Focus Stack):**
+  - Lưu trữ bền vững checkpoint trạng thái hội thoại của từng `session_id`, lịch sử tin nhắn và ngữ cảnh lượt trước vào SQLite (`agent_memory.db`) mà không cần hạ tầng Redis ngoài.
+  - Working memory trong RAM qua `DialogueStateFrame` và `HierarchicalFocusStack` hỗ trợ khôi phục chủ đề và anaphora resolution đa lượt tức thì (< 1ms).
+* **Input Prompt:** Câu hỏi người dùng + User Security Context + Context từ Focus Stack.
+
 * **Output Contract (Pydantic v2 `extra="forbid"`):**
   ```python
   class LLMRouterStructuredOutput(BaseModel):

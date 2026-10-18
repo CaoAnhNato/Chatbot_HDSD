@@ -18,7 +18,6 @@ Căn cứ:
 from __future__ import annotations
 
 import logging
-import re
 from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from rapidfuzz import fuzz
@@ -36,6 +35,8 @@ class DialogueStateFrame(BaseModel):
     temporal_slot: Optional[str] = None             # e.g. "2026"
     spatial_slot: str = "68"                        # e.g. "68" (Lâm Đồng)
     department_slot: Optional[str] = None           # e.g. "68-1-01"
+    office_slot: Optional[str] = None               # e.g. "Chi cục Phát triển nông thôn"
+    mission_slot: Optional[str] = None              # e.g. "Diêm nghiệp"
     domain: str = "fact_criteria"                    # "fact_criteria" | "report" | "mission_personnel" | "collection_form"
     raw_query: str = ""
     keywords: List[str] = Field(default_factory=list)
@@ -98,14 +99,8 @@ class HierarchicalFocusStack:
             if catalog and hasattr(catalog, "is_compatible"):
                 if catalog.is_compatible(frame.topic_entity, new_metric):
                     return frame
-            else:
-                # Heuristic fallback nếu không có catalog
-                t_low = frame.topic_entity.lower()
-                m_low = new_metric.lower()
-                if ("muối" in t_low and any(w in m_low for w in ["diện tích", "sản lượng", "hộ"])) or \
-                   ("lao động" in t_low and any(w in m_low for w in ["vụ", "người", "chết", "tai nạn"])) or \
-                   ("cán bộ" in t_low and any(w in m_low for w in ["chức vụ", "phòng", "đơn vị", "nhiệm vụ"])):
-                    return frame
+            elif frame.metric_attribute and fuzz.token_set_ratio(frame.metric_attribute.lower(), new_metric.lower()) > 60:
+                return frame
         return None
 
     def find_semantically_similar_frame(
@@ -147,20 +142,9 @@ class DiscourseStateTracker:
     - Level 2: Interleaved Topic Return
     - Level 3: Frame-Aware Discourse Resumption
     - New Topic
+    Toàn bộ cấu trúc thực thể nạp trực tiếp từ JSON output của Cognitive Planner vào DialogueStateFrame.
+    Khử 100% Whitelist / Filter words / Regex / Heuristic static mapping.
     """
-
-    # Danh sách các từ khóa đặc trưng của câu hỏi thuộc tính tỉnh lược (Attribute Pivot)
-    ATTRIBUTE_PIVOT_PATTERNS = [
-        r"\b(?:diện\s+tích|dien\s+tich)\b",
-        r"\b(?:sản\s+lượng|san\s+luong)\b",
-        r"\b(?:bao\s+nhiêu\s+hộ|so\s+ho|số\s+hộ|có\s+bao\s+nhiêu\s+hộ)\b",
-        r"\b(?:kinh\s+phí|kinh\s+phi|ngân\s+sách|dự\s+toán|giải\s+ngân)\b",
-        r"\b(?:chức\s+vụ|chuc\s+vu|vị\s+trí|vi\s+tri)\b",
-        r"\b(?:phòng\s+ban|đơn\s+vị|chi\s+cục)\b",
-        r"\b(?:ai\s+phụ\s+trách|ai\s+nắm|do\s+ai|người\s+nào)\b",
-        r"\b(?:trạng\s+thái|tiến\s+độ|tình\s+hình)\b",
-        r"\b(?:bao\s+nhiêu|thế\s+nào|ra\s+sao|như\s+thế\s+nào)\b",
-    ]
 
     def __init__(self) -> None:
         self._sessions: Dict[str, HierarchicalFocusStack] = {}
@@ -171,61 +155,42 @@ class DiscourseStateTracker:
             self._sessions[session_id] = HierarchicalFocusStack(max_depth=10)
         return self._sessions[session_id]
 
-    def extract_metric_attribute(self, text: str) -> Optional[str]:
-        """Trích xuất thuộc tính đo lường / trường thông tin cần hỏi."""
-        t_low = text.lower().strip()
-        if any(k in t_low for k in ["diện tích", "dien tich", "ha"]):
-            return "diện tích"
-        if any(k in t_low for k in ["sản lượng", "san luong", "tấn"]):
-            return "sản lượng"
-        if any(k in t_low for k in ["bao nhiêu hộ", "số hộ", "tong so ho", "hộ"]):
-            return "Tổng hộ"
-        if any(k in t_low for k in ["kinh phí", "kinh phi", "tiền", "ngân sách"]):
-            return "kinh phí"
-        if any(k in t_low for k in ["chức vụ", "vị trí"]):
-            return "chức vụ"
-        if any(k in t_low for k in ["đơn vị công tác", "đơn vị", "phòng ban", "chi cục"]):
-            return "đơn vị"
-        if any(k in t_low for k in ["ai phụ trách", "ai nắm", "do ai"]):
-            return "cán bộ phụ trách"
-        if any(k in t_low for k in ["trạng thái", "tiến độ"]):
-            return "trạng thái"
+    def extract_metric_attribute(self, text: str, catalog: Any = None) -> Optional[str]:
+        """
+        Trích xuất thuộc tính đo lường / trường thông tin cần hỏi động qua DuckDB Catalog.
+        Không hardcode bất kỳ danh sách từ khóa tĩnh nào.
+        """
+        if catalog and hasattr(catalog, "resolve_metric_attribute"):
+            return catalog.resolve_metric_attribute(text)
         return None
 
-    def extract_topic_entity(self, text: str) -> Optional[str]:
-        """Trích xuất thực thể chủ đề từ câu hỏi (nếu có nói rõ)."""
-        t_low = text.lower().strip()
-        topic_map = [
-            ("sản xuất muối", ["sản xuất muối", "san xuat muoi", "diêm nghiệp", "diem nghiep", "muối thủ công", "muối công nghiệp", "muối"]),
-            ("tai nạn lao động", ["tai nạn lao động", "tai nan lao dong", "tnlđ", "tnld", "an toàn lao động"]),
-            ("khuyến công", ["khuyến công", "khuyen cong"]),
-            ("hợp tác xã", ["hợp tác xã", "htx"]),
-            ("ocop", ["ocop", "sản phẩm ocop"]),
-            ("cán bộ", ["cán bộ", "chuyên viên", "nhân sự", "admin"]),
-            ("nhiệm vụ", ["nhiệm vụ", "đề án", "chương trình"]),
-            ("báo cáo", ["báo cáo", "đợt nộp", "kỳ nộp"]),
-            ("biểu mẫu", ["biểu mẫu", "tờ khai", "bm_01", "bm_02"]),
-        ]
-        for topic, kws in topic_map:
-            if any(kw in t_low for kw in kws):
-                return topic
+    def extract_topic_entity(self, text: str, catalog: Any = None) -> Optional[str]:
+        """
+        Trích xuất thực thể chủ đề từ câu hỏi động qua DuckDB Catalog RAM.
+        Không sử dụng topic_map tĩnh.
+        """
+        if catalog and hasattr(catalog, "resolve_topic_entity"):
+            return catalog.resolve_topic_entity(text)
+        if catalog and hasattr(catalog, "find_criteria_by_name"):
+            res = catalog.find_criteria_by_name(text, limit=1)
+            if res:
+                return res[0].get("name")
         return None
 
-    def is_attribute_followup(self, text: str) -> bool:
-        """Xác định xem câu hỏi có phải là câu hỏi tiếp nối chỉ mang thuộc tính mới hay không."""
-        t_low = text.lower().strip()
-        # Nếu có từ nối tiếp hoặc câu rất ngắn hỏi đại lượng
-        has_followup_cue = any(w in t_low for w in ["vậy", "thế", "thì sao", "còn", "bao nhiêu", "thế nào", "ở đâu"])
-        words = t_low.split()
-        if len(words) <= 7 and (has_followup_cue or self.extract_metric_attribute(text) is not None):
-            # Kiểm tra xem có nói rõ chủ đề mới độc lập không
-            explicit_topic = self.extract_topic_entity(text)
-            if not explicit_topic:
-                return True
-            # Nếu có chủ đề nhưng là đại từ thay thế
-            if any(w in t_low for w in ["đó", "này", "vừa rồi", "trên"]):
-                return True
-        return False
+    def is_attribute_followup(self, text: str, catalog: Any = None) -> bool:
+        """
+        Xác định xem câu hỏi có phải là câu hỏi tiếp nối chỉ mang thuộc tính mới hay không.
+        Triệt tiêu hoàn toàn điều kiện đếm từ tĩnh (len(words) <= 5).
+        Xác định dựa trên việc câu hỏi không định danh một chủ đề/chỉ tiêu độc lập mới trong Catalog
+        và có trích xuất được metric_attribute tiếp nối.
+        """
+        if not text:
+            return False
+        if catalog and hasattr(catalog, "resolve_metric_id"):
+            if catalog.resolve_metric_id(text.strip()):
+                return False
+        attr = self.extract_metric_attribute(text, catalog=catalog)
+        return bool(attr)
 
     def process_turn(
         self,
@@ -236,9 +201,12 @@ class DiscourseStateTracker:
         explicit_year: Optional[str] = None,
         explicit_dept: Optional[str] = None,
         explicit_tenant: Optional[str] = None,
+        planner_slots: Optional[Dict[str, Any]] = None,
     ) -> Tuple[DialogueStateFrame, str, Optional[str]]:
         """
         Xử lý trạng thái hội thoại cho lượt hỏi hiện tại.
+        Hỗ trợ nạp trực tiếp toàn bộ các slots (topic_entity, metric_attribute, temporal_slot,
+        spatial_slot, office_slot, mission_slot) từ JSON output của Cognitive Planner.
         
         Returns:
             Tuple[DialogueStateFrame, str, Optional[str]]:
@@ -250,30 +218,46 @@ class DiscourseStateTracker:
         active_frame = stack.get_active_frame()
         q_clean = query.strip()
 
-        metric_attr = self.extract_metric_attribute(q_clean)
-        explicit_topic = self.extract_topic_entity(q_clean)
-        is_attr_query = self.is_attribute_followup(q_clean)
+        # Nạp trực tiếp từ Cognitive Planner JSON output nếu có
+        p_slots = planner_slots or {}
+        topic_from_planner = p_slots.get("topic_entity")
+        metric_from_planner = p_slots.get("metric_attribute")
+        year_from_planner = p_slots.get("temporal_slot")
+        spatial_from_planner = p_slots.get("spatial_slot")
+        dept_from_planner = p_slots.get("department_slot")
+        office_from_planner = p_slots.get("office_slot")
+        mission_from_planner = p_slots.get("mission_slot")
+        domain_from_planner = p_slots.get("domain")
+
+        metric_attr = metric_from_planner or self.extract_metric_attribute(q_clean, catalog=catalog)
+        explicit_topic = topic_from_planner or self.extract_topic_entity(q_clean, catalog=catalog)
+        is_attr_query = self.is_attribute_followup(q_clean, catalog=catalog) if not metric_from_planner else bool(metric_from_planner and not explicit_topic)
+
+        effective_year = year_from_planner or explicit_year
+        effective_tenant = spatial_from_planner or explicit_tenant or "68"
+        effective_dept = dept_from_planner or explicit_dept
 
         # ----------------------------------------------------------------------
         # LEVEL 1: Contiguous Attribute Pivoting (Q1 -> Q2 -> Q3)
         # ----------------------------------------------------------------------
         if active_frame and metric_attr and (not explicit_topic or explicit_topic == active_frame.topic_entity):
-            # Kiểm tra Schema Compatibility Gate với Active Frame
             is_compat = False
             if catalog and hasattr(catalog, "is_compatible"):
                 is_compat = catalog.is_compatible(active_frame.topic_entity, metric_attr)
             else:
-                is_compat = True  # Fallback
+                is_compat = True
 
             if is_compat and (is_attr_query or not explicit_topic):
                 fused_frame = DialogueStateFrame(
                     turn_index=turn_index,
                     topic_entity=active_frame.topic_entity,
                     metric_attribute=metric_attr,
-                    temporal_slot=explicit_year or active_frame.temporal_slot,
-                    spatial_slot=active_frame.spatial_slot,
-                    department_slot=explicit_dept or active_frame.department_slot,
-                    domain=active_frame.domain,
+                    temporal_slot=effective_year or active_frame.temporal_slot,
+                    spatial_slot=effective_tenant or active_frame.spatial_slot,
+                    department_slot=effective_dept or active_frame.department_slot,
+                    office_slot=office_from_planner or active_frame.office_slot,
+                    mission_slot=mission_from_planner or active_frame.mission_slot,
+                    domain=domain_from_planner or active_frame.domain,
                     raw_query=q_clean,
                     keywords=list(set(active_frame.keywords + [metric_attr])),
                     metadata={"parent_turn": active_frame.turn_index, "resolution": "LEVEL_1_CONTIGUOUS_PIVOT"}
@@ -286,7 +270,6 @@ class DiscourseStateTracker:
         # ----------------------------------------------------------------------
         # LEVEL 2: Interleaved Topic Return (Hồi sinh chủ đề đã qua trong Stack)
         # ----------------------------------------------------------------------
-        # Trường hợp 2A: Người dùng đề cập rõ chủ đề cũ đã từng xuất hiện trong stack
         if active_frame and explicit_topic:
             revived_frame = stack.find_frame_by_topic(explicit_topic)
             if revived_frame and revived_frame.turn_index != active_frame.turn_index:
@@ -294,10 +277,12 @@ class DiscourseStateTracker:
                     turn_index=turn_index,
                     topic_entity=revived_frame.topic_entity,
                     metric_attribute=metric_attr or revived_frame.metric_attribute,
-                    temporal_slot=explicit_year or revived_frame.temporal_slot,
-                    spatial_slot=revived_frame.spatial_slot,
-                    department_slot=explicit_dept or revived_frame.department_slot,
-                    domain=revived_frame.domain,
+                    temporal_slot=effective_year or revived_frame.temporal_slot,
+                    spatial_slot=effective_tenant or revived_frame.spatial_slot,
+                    department_slot=effective_dept or revived_frame.department_slot,
+                    office_slot=office_from_planner or revived_frame.office_slot,
+                    mission_slot=mission_from_planner or revived_frame.mission_slot,
+                    domain=domain_from_planner or revived_frame.domain,
                     raw_query=q_clean,
                     keywords=list(set(revived_frame.keywords + ([metric_attr] if metric_attr else []))),
                     metadata={"revived_turn": revived_frame.turn_index, "resolution": "LEVEL_2_INTERLEAVED_RETURN"}
@@ -308,7 +293,6 @@ class DiscourseStateTracker:
                             revived_frame.topic_entity, revived_frame.turn_index, q_clean)
                 return (fused_frame, "LEVEL_2_INTERLEAVED_RETURN", standalone_hint)
 
-        # Trường hợp 2B: Người dùng chỉ hỏi thuộc tính mới, tương thích với Frame cũ trong stack
         if active_frame and metric_attr and is_attr_query:
             compat_frame = stack.find_compatible_frame(metric_attr, catalog=catalog)
             if compat_frame and compat_frame.turn_index != active_frame.turn_index:
@@ -316,10 +300,12 @@ class DiscourseStateTracker:
                     turn_index=turn_index,
                     topic_entity=compat_frame.topic_entity,
                     metric_attribute=metric_attr,
-                    temporal_slot=explicit_year or compat_frame.temporal_slot,
-                    spatial_slot=compat_frame.spatial_slot,
-                    department_slot=explicit_dept or compat_frame.department_slot,
-                    domain=compat_frame.domain,
+                    temporal_slot=effective_year or compat_frame.temporal_slot,
+                    spatial_slot=effective_tenant or compat_frame.spatial_slot,
+                    department_slot=effective_dept or compat_frame.department_slot,
+                    office_slot=office_from_planner or compat_frame.office_slot,
+                    mission_slot=mission_from_planner or compat_frame.mission_slot,
+                    domain=domain_from_planner or compat_frame.domain,
                     raw_query=q_clean,
                     keywords=list(set(compat_frame.keywords + [metric_attr])),
                     metadata={"revived_turn": compat_frame.turn_index, "resolution": "LEVEL_2_INTERLEAVED_RETURN"}
@@ -340,10 +326,12 @@ class DiscourseStateTracker:
                     turn_index=turn_index,
                     topic_entity=similar_frame.topic_entity,
                     metric_attribute=metric_attr or similar_frame.metric_attribute,
-                    temporal_slot=explicit_year or similar_frame.temporal_slot,
-                    spatial_slot=similar_frame.spatial_slot,
-                    department_slot=explicit_dept or similar_frame.department_slot,
-                    domain=similar_frame.domain,
+                    temporal_slot=effective_year or similar_frame.temporal_slot,
+                    spatial_slot=effective_tenant or similar_frame.spatial_slot,
+                    department_slot=effective_dept or similar_frame.department_slot,
+                    office_slot=office_from_planner or similar_frame.office_slot,
+                    mission_slot=mission_from_planner or similar_frame.mission_slot,
+                    domain=domain_from_planner or similar_frame.domain,
                     raw_query=q_clean,
                     keywords=list(set(similar_frame.keywords + ([metric_attr] if metric_attr else []))),
                     metadata={"resumed_turn": similar_frame.turn_index, "resolution": "LEVEL_3_RESUMPTION"}
@@ -357,23 +345,17 @@ class DiscourseStateTracker:
         # DEFAULT: New Topic / Explicit Query
         # ----------------------------------------------------------------------
         topic = explicit_topic or (metric_attr if metric_attr else q_clean[:50])
-        domain = "fact_criteria"
-        if any(k in q_clean.lower() for k in ["cán bộ", "chuyên viên", "admin", "qtv"]):
-            domain = "mission_personnel"
-        elif any(k in q_clean.lower() for k in ["báo cáo", "nộp", "kỳ"]):
-            domain = "report"
-        elif any(k in q_clean.lower() for k in ["biểu mẫu", "tờ khai"]):
-            domain = "collection_form"
-        elif any(k in q_clean.lower() for k in ["nhiệm vụ", "đề án"]):
-            domain = "mission_personnel"
+        domain = domain_from_planner or "fact_criteria"
 
         new_frame = DialogueStateFrame(
             turn_index=turn_index,
             topic_entity=topic,
             metric_attribute=metric_attr,
-            temporal_slot=explicit_year or (active_frame.temporal_slot if active_frame else None),
-            spatial_slot=explicit_tenant or (active_frame.spatial_slot if active_frame else "68"),
-            department_slot=explicit_dept or (active_frame.department_slot if active_frame else None),
+            temporal_slot=effective_year or (active_frame.temporal_slot if active_frame else None),
+            spatial_slot=effective_tenant or (active_frame.spatial_slot if active_frame else "68"),
+            department_slot=effective_dept or (active_frame.department_slot if active_frame else None),
+            office_slot=office_from_planner or (active_frame.office_slot if active_frame else None),
+            mission_slot=mission_from_planner or (active_frame.mission_slot if active_frame else None),
             domain=domain,
             raw_query=q_clean,
             keywords=[topic] if topic else [],
@@ -381,6 +363,6 @@ class DiscourseStateTracker:
         )
         stack.push(new_frame)
         standalone_hint = None
-        if active_frame and new_frame.temporal_slot and not explicit_year:
+        if active_frame and new_frame.temporal_slot and not effective_year:
             standalone_hint = f"{topic} năm {new_frame.temporal_slot}"
         return (new_frame, "NEW_TOPIC", standalone_hint)

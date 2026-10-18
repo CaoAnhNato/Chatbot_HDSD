@@ -222,6 +222,40 @@ flowchart TD
 
 ---
 
+### 3.3. ĐẶC TẢ CHUẨN HÓA SNAPSHOT MỚI NHẤT, LIÊN KẾT OFFICE/MISSION, TRUY VẤN CHUỖI THỜI GIAN VÀ PHÂN GIẢI ĐA NGHĨA CHỦ ĐỀ
+
+#### 3.3.1. Khử Trùng Lặp Số Liệu Bằng Window Function (Latest Snapshot Deduplication)
+Bảng Fact `dwh_internal.fact_report_criteria` chứa các bản ghi nộp định kỳ theo nhiều đợt trong năm (ví dụ: ngày 31/03/2026, 30/06/2026, 30/09/2026). Một chỉ tiêu xuất hiện nhiều lần qua các đợt nộp.  
+Để loại trừ triệt để tình trạng Double-Counting, hệ thống cưỡng chế lấy duy nhất bản ghi mới nhất đã phê duyệt (`report_status = 'approved'`) qua CTE:
+```sql
+ROW_NUMBER() OVER (
+    PARTITION BY f.criteria_id, f.office_id 
+    ORDER BY f.report_date DESC, f.version DESC
+) = 1
+```
+
+#### 3.3.2. Ràng Buộc Kết Nối Đơn Vị và Nhiệm Vụ Cốt Lõi ([TRAP-007])
+- **Bắt buộc dùng `LEFT JOIN`:** Luôn kết nối qua `LEFT JOIN dwh_internal.office o ON f.office_id = o.id` để bảo toàn 34 bản ghi cấp Tỉnh có `office_id IS NULL`. Tuyệt đối không dùng `INNER JOIN`.
+- **Chuẩn hóa hiển thị:** `COALESCE(o.office_name, 'Cơ quan chủ quản') AS ten_van_phong`.
+- **Mẫu hiển thị phản hồi chuẩn:**
+  * **Chỉ tiêu:** `[Tên chỉ tiêu]`
+  * **Giá trị:** `[Số liệu]`
+  * **Đơn vị thực hiện :** `[Tên văn phòng / phòng ban]`
+  * **Nhiệm vụ trọng tâm :** `[Tên nhiệm vụ]`
+  * **Thời điểm báo cáo :** `[Ngày phê duyệt]`
+
+#### 3.3.3. Truy Vấn Dải Thời Gian và Kiểm Kê Toàn Hệ Thống
+- **Tháng cụ thể (P-01):** Lọc `EXTRACT(MONTH FROM report_date) = 9` và `year_code = '2026'`, `report_status = 'approved'`.
+- **Dải thời gian liên tục (P-02):** Lọc `report_date >= '2026-03-01'`, mỗi chỉ tiêu lấy bản ghi mới nhất trong dải thời gian đó.
+- **Kiểm kê toàn hệ thống (P-03):** Lấy `DISTINCT` danh mục chỉ tiêu hiện có kèm giá trị mới nhất đã phê duyệt.
+
+#### 3.3.4. Động Cơ Làm Rõ Chủ Đề Đa Nghĩa (Active Clarification Chips cho P-05 & P-06)
+Khi câu hỏi người dùng chỉ là cụm chủ đề ngắn mang tính bao trùm:
+- **Chủ đề Hợp tác xã (HTX):** Kích hoạt Clarification Chips: `["HTX nông nghiệp", "Liên hiệp HTX nông nghiệp", "Số HTX nông nghiệp hoạt động hiệu quả tốt"]`.
+- **Chủ đề OCOP:** Kích hoạt Clarification Chips: `["Chủ thể sản phẩm OCOP 3 sao", "Chủ thể sản phẩm OCOP 4 sao", "Tổng số sản phẩm OCOP"]`.
+
+---
+
 ### 4. BÀI TOÁN DOUBLE-COUNTING VÀ THUẬT TOÁN DUYỆT CÂY VỚI SQL `WITH RECURSIVE` (DATABASE-FIRST)
 
 Khi người dùng hỏi tổng hợp vĩ mô (Cấp Tỉnh hoặc Cấp Sở), hệ thống đối mặt với 2 rủi ro nhân đôi số liệu (Double-Counting):

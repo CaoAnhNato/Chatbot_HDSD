@@ -4,7 +4,7 @@ Chức năng: Tầng LLM Gateway trừu tượng (Template API Call Functions) p
 Áp dụng mẫu thiết kế Strategy & Facade Pattern (GoF):
 - Hỗ trợ OpenRouter (OpenAI SDK de-facto standard) làm Active Provider chính.
 - Tự động ghi nhận Metadata Logging chi tiết: generation_id, latency_ms, tokens, real cost_usd vào data/logs/llm_usage.jsonl.
-- Cấu hình Vô Lăng (System Prompt) + Cầu Dao An Toàn (max_tokens=400, extra_body={"enable_thinking": False}, stop=["}\\n", "\\n\\n"]).
+- Cấu hình Vô Lăng (System Prompt) + Cầu Dao An Toàn (max_tokens=3000, extra_body={"enable_thinking": False}, stop=["}\\n", "\\n\\n"]).
 - Hỗ trợ trích xuất chi tiết qua API GET https://openrouter.ai/api/v1/generation?id={generation_id}.
 - Cung cấp giao diện nhất quán cho cả Async (FastAPI/Streaming) và Sync (CLI/Testing).
 - Tích hợp cơ chế tự động thử lại (Retry with Exponential Backoff) và dự phòng (Fallback Driver).
@@ -108,6 +108,11 @@ def _log_llm_metric(
             # OpenRouter định mức: $0.075 / 1M prompt, $0.30 / 1M completion
             prompt_cost = (prompt_tokens / 1_000_000.0) * 0.075
             comp_cost = (completion_tokens / 1_000_000.0) * 0.30
+            cost_usd = round(prompt_cost + comp_cost, 8)
+        elif "gemini-3.1-flash-lite" in model:
+            # OpenRouter định mức: $0.15 / 1M prompt, $0.60 / 1M completion
+            prompt_cost = (prompt_tokens / 1_000_000.0) * 0.15
+            comp_cost = (completion_tokens / 1_000_000.0) * 0.60
             cost_usd = round(prompt_cost + comp_cost, 8)
         elif "gemini-3.5-flash-lite" in model:
             # OpenRouter định mức: $0.25 / 1M prompt, $1.00 / 1M completion
@@ -248,7 +253,7 @@ class OpenRouterDriver(LLMDriver):
     Driver chính giao tiếp qua OpenRouter API Gateway sử dụng OpenAI Python SDK.
     Tích hợp:
     - Default Headers: HTTP-Referer, X-Title, X-OpenRouter-Cache (cho phép zero-cost response cache).
-    - Cầu Dao An Toàn: max_tokens=400 cho structured, max_tokens=1500 cho raw SQL, extra_body={"enable_thinking": False}.
+    - Cầu Dao An Toàn: max_tokens=3000 cho structured, max_tokens=1500 cho raw SQL, extra_body={"enable_thinking": False}.
     - Stop Sequences: stop=["}\n", "\n\n"] cắt ngay khi kết thúc JSON.
     - Metadata Logging trích xuất usage.cost, latency_ms, generation_id.
     """
@@ -412,8 +417,8 @@ class OpenRouterDriver(LLMDriver):
         messages = self._build_messages(prompt, system_prompt)
         t0 = time.perf_counter()
 
-        # Áp dụng Cầu Dao An Toàn: max_tokens=400 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
-        max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
+        # Áp dụng Cầu Dao An Toàn: max_tokens=3000 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
+        max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 3000)
         extra_body = {"enable_thinking": False}
         if "gemini-3.8-flash" in target_model or "deepseek" in target_model:
             extra_body = {"reasoning": {"effort": "low"}}
@@ -445,8 +450,8 @@ class OpenRouterDriver(LLMDriver):
         messages = self._build_messages(prompt, system_prompt)
         t0 = time.perf_counter()
 
-        # Áp dụng Cầu Dao An Toàn: max_tokens=400 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
-        max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
+        # Áp dụng Cầu Dao An Toàn: max_tokens=3000 cho Router, max_tokens=4096 cho TextToSQL (TRAP-018)
+        max_tok = 4096 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 3000)
         extra_body = {"enable_thinking": False}
         if "gemini-3.8-flash" in target_model or "deepseek" in target_model:
             extra_body = {"reasoning": {"effort": "low"}}
@@ -525,6 +530,7 @@ class GoogleGenAIDriver(LLMDriver):
             target = target[len("google/"):]
         mapping = {
             "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite": "gemini-3.1-flash-lite",
             "gemini-3.8-flash": "gemini-3.7-flash",
             "deepseek/deepseek-v4.1-flash": "gemini-3.7-flash",
             "deepseek-v4.1-flash": "gemini-3.7-flash",
@@ -582,7 +588,7 @@ class GoogleGenAIDriver(LLMDriver):
         temperature: float = 0.0,
     ) -> T:
         target_model = self._get_model(model, "gemini-3.5-flash-lite")
-        max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
+        max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 3000)
         thinking_cfg = None
         if ("gemini-3.8-flash" in target_model or "gemini-3.7-flash" in target_model) and hasattr(self._types, "ThinkingConfig"):
             thinking_cfg = self._types.ThinkingConfig(thinking_budget=1024)
@@ -613,7 +619,7 @@ class GoogleGenAIDriver(LLMDriver):
         temperature: float = 0.0,
     ) -> T:
         target_model = self._get_model(model, "gemini-3.5-flash-lite")
-        max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 400)
+        max_tok = 2048 if "TextToSQL" in getattr(schema, "__name__", "") else getattr(settings, "ROUTER_MAX_TOKENS", 3000)
         thinking_cfg = None
         if ("gemini-3.8-flash" in target_model or "gemini-3.7-flash" in target_model) and hasattr(self._types, "ThinkingConfig"):
             thinking_cfg = self._types.ThinkingConfig(thinking_budget=1024)
@@ -746,7 +752,7 @@ class OpenAICompatibleDriver(LLMDriver):
             model=self._get_model(model),
             messages=messages,
             temperature=temperature,
-            max_tokens=400,
+            max_tokens=3000,
             response_format={"type": "json_object"},
         )
         raw_text = res.choices[0].message.content or "{}"
@@ -766,7 +772,7 @@ class OpenAICompatibleDriver(LLMDriver):
             model=self._get_model(model),
             messages=messages,
             temperature=temperature,
-            max_tokens=400,
+            max_tokens=3000,
             response_format={"type": "json_object"},
         )
         raw_text = res.choices[0].message.content or "{}"

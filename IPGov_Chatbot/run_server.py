@@ -57,15 +57,43 @@ def parse_arguments() -> argparse.Namespace:
         default=1,
         help="Số lượng tiến trình worker (mặc định: 1)"
     )
+    parser.add_argument(
+        "--local-embedding",
+        action="store_true",
+        default=False,
+        help="Cưỡng chế nạp mô hình SentenceTransformer vào RAM local (Khuyên dùng cho máy trạm dev)"
+    )
+    parser.add_argument(
+        "--remote-embedding",
+        action="store_true",
+        default=False,
+        help="Cưỡng chế kết nối Remote Hugging Face Space ZeroGPU (Dành cho cloud/Render RAM thấp)"
+    )
     return parser.parse_args()
 
 
 def main():
     """Hàm thực thi chính."""
     args = parse_arguments()
+
+    import os
+    if args.remote_embedding:
+        os.environ["USE_REMOTE_EMBEDDING"] = "true"
+        settings.USE_REMOTE_EMBEDDING = True
+    elif args.local_embedding:
+        os.environ["USE_REMOTE_EMBEDDING"] = "false"
+        settings.USE_REMOTE_EMBEDDING = False
+
+    embedding_mode_label = (
+        "☁️ Remote HF Space ZeroGPU (Zero-RAM Cloud)"
+        if settings.USE_REMOTE_EMBEDDING
+        else "💻 Local In-Memory (SentenceTransformer RAM)"
+    )
+
     print("\n" + "=" * 70)
     print(f"🚀 Đang kích hoạt IPGov_Chatbot (Backend Server), port {args.port}...")
     print(f"📌 Định danh hệ thống: IPGov_Chatbot (Kho Dữ Liệu Tỉnh - Độc lập với Chatbot_HDSD)")
+    print(f"🧠 Chế độ Embedding:  {embedding_mode_label}")
     print(f"📡 Địa chỉ phục vụ:   http://{args.host}:{args.port}")
     print(f"📖 Swagger OpenAPI:    http://{args.host}:{args.port}/docs")
     print(f"🩺 Sức khỏe hệ thống:  http://{args.host}:{args.port}/api/v1/health")

@@ -24,7 +24,7 @@ class InjectionShield:
     _RE_PROMPT_INJECTION = re.compile(
         r"(?:\b(?:ignore\s+all\s+previous\s+instructions|system\s+prompt|jailbreak|bypass\s+rules|"
         r"act\s+as\s+admin|you\s+are\s+now|DAN\s+mode|unfiltered)\b|"
-        r"(?:bỏ\s+qua\s+toàn\s+bộ\s+chỉ\s+dẫn|tiết\s+lộ\s+prompt|quên\s+hết\s+quy\s+tắc|đóng\s+vai\s+quản\s+trị\s+viên))",
+        r"(?:bỏ\s+qua\s+(?:toàn\s+bộ|mọi)\s+(?:chỉ\s+dẫn|quy\s+tắc)|tiết\s+lộ\s+prompt|quên\s+hết\s+quy\s+tắc|đóng\s+vai\s+quản\s+trị\s+viên))",
         re.IGNORECASE
     )
 

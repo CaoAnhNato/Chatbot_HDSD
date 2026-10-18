@@ -229,3 +229,28 @@ flowchart TD
   - `HTTP Health Readiness`: Chuyển từ `warming_up` sang `ready` sau **1.0 - 3.3s**.
 * **Version:** `v1.5.0`
 
+---
+
+### 11. Tách Biệt Chế Độ Mô Hình Embedding (Local vs Remote ZeroGPU) & Cơ Chế 2-Way Graceful Fallback (v1.5.1)
+
+* **Bối Cảnh & Vấn Đề:**
+  - Cấu hình biến môi trường `USE_REMOTE_EMBEDDING` trong `backend/config.py` trước đây mặc định là `true`, dẫn đến khi khởi chạy local máy chủ cố kết nối ra Hugging Face Space ZeroGPU bên ngoài (`nato1306-vietnamese-embedding-api`).
+  - Khi HF Space bị ngủ (Sleep) hoặc lỗi event, quá trình khởi động bị nghẽn và ném cảnh báo kết nối.
+  - CLI Server Runner (`run_server.py`) thiếu các tham số dòng lệnh để lựa chọn chế độ Embedding.
+  - Tài liệu `BACKEND_RUN_GUIDE.md` chưa phân định rõ ràng giữa lệnh chạy Local In-Memory và Remote Cloud.
+* **Hoàn Thiện:**
+  - **Sensible Environment Defaults:** Đặt mặc định `USE_REMOTE_EMBEDDING = False` trong `backend/config.py`, `.env` và `backend/.env` để bảo đảm môi trường Local Development luôn ưu tiên tính toán nội bộ an toàn (Offline-first, 0 network calls, < 1ms vector latency).
+  - **Tích hợp CLI Flag Runner (`IPGov_Chatbot/run_server.py`):**
+    * `--local-embedding`: Cưỡng chế nạp mô hình SentenceTransformer trực tiếp vào RAM máy trạm.
+    * `--remote-embedding`: Cưỡng chế kết nối Remote HF Space ZeroGPU (dành cho cloud/Render 512MB RAM).
+    * Bổ sung hiển thị `🧠 Chế độ Embedding` trực quan trên Terminal Banner khi khởi động máy chủ.
+  - **Cơ Chế Phòng Vệ 2 Chiều (Bi-directional Graceful Fallback trong `ModelRegistry`):**
+    * Nếu kích hoạt Remote nhưng Hugging Face Space không phản hồi hoặc trả về mã lỗi sau retry, hệ thống tự động bắt ngoại lệ và kích hoạt fallback nạp `SentenceTransformer` cục bộ vào RAM.
+    * Đảm bảo hệ thống không bao giờ bị gián đoạn hay sập lỗi khi HF Space gặp sự cố.
+  - **Chuẩn Hóa Tài Liệu `BACKEND_RUN_GUIDE.md`:** Bổ sung mục 1.2 bảng so sánh chi tiết giữa 2 chế độ và cập nhật cú pháp lệnh terminal trong mục 2.
+* **Kết Quả Đo Lường:**
+  - `TEST 1 (Local Mode Default)`: 100% PASSED (Nạp model local, `USE_REMOTE_EMBEDDING=False`).
+  - `TEST 2 (Remote Mode with Error Fallback)`: 100% PASSED (Tự động fallback Remote $\to$ Local thành công).
+* **Version:** `v1.5.1`
+
+

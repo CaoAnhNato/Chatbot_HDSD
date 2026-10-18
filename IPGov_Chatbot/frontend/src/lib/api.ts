@@ -66,6 +66,30 @@ export const fetchSessionHistory = async (sessionId: string): Promise<ChatMessag
   }
 };
 
+export const renameChatSessionApi = async (sessionId: string, title: string): Promise<void> => {
+  try {
+    await apiClient.patch(`/chat/sessions/${sessionId}`, { title });
+  } catch (err) {
+    console.warn(`Failed to rename session ${sessionId} on server:`, err);
+  }
+};
+
+export const deleteChatSessionApi = async (sessionId: string): Promise<void> => {
+  try {
+    await apiClient.delete(`/chat/sessions/${sessionId}`);
+  } catch (err) {
+    console.warn(`Failed to delete session ${sessionId} on server:`, err);
+  }
+};
+
+export const clearAllChatSessionsApi = async (): Promise<void> => {
+  try {
+    await apiClient.delete(`/chat/sessions`);
+  } catch (err) {
+    console.warn("Failed to clear all sessions on server:", err);
+  }
+};
+
 export const sendMessageToBot = async (
   query: string,
   sessionId?: string,

@@ -38,7 +38,7 @@ class RecursiveScopeVisitor:
         self.user_ctx = user_ctx
 
     def _build_hbac_predicates(
-        self, table_ref: str, table_name: str, has_status_filter: bool = False
+        self, table_ref: str, table_name: str, has_status_filter: bool = False, has_tenant_filter: bool = False
     ) -> List[str]:
         """
         Xây dựng danh sách các vị từ HBAC bắt buộc dựa trên UserSecurityContextDTO.
@@ -49,8 +49,8 @@ class RecursiveScopeVisitor:
         """
         conditions: List[str] = []
 
-        # 1. Cưỡng chế phân vùng địa bàn tỉnh (tenant_code)
-        if self.user_ctx.tenant_code:
+        # 1. Cưỡng chế phân vùng địa bàn tỉnh (tenant_code) nếu câu lệnh chưa tự định danh phạm vi
+        if not has_tenant_filter and self.user_ctx.tenant_code:
             tenant_safe = self.user_ctx.tenant_code.replace("'", "''")
             conditions.append(f"{table_ref}.tenant_code = '{tenant_safe}'")
 
@@ -98,11 +98,14 @@ class RecursiveScopeVisitor:
                 # Xác định bí danh tham chiếu cục bộ trong scope này
                 table_ref = alias if alias else source.name
 
-                # Kiểm tra xem trong scope này đã có sẵn bộ lọc report_status / status chưa
+                # Kiểm tra xem trong scope này đã có sẵn bộ lọc report_status / status / tenant_code chưa
                 has_status_filter = False
+                has_tenant_filter = False
                 existing_where = scope.expression.args.get("where")
                 if existing_where:
                     where_sql = existing_where.sql(dialect="postgres").lower()
+                    if "tenant_code" in where_sql:
+                        has_tenant_filter = True
                     if "report_status" in where_sql or "status" in where_sql:
                         has_status_filter = True
 
@@ -111,6 +114,7 @@ class RecursiveScopeVisitor:
                     table_ref=table_ref,
                     table_name=source_tbl_name,
                     has_status_filter=has_status_filter,
+                    has_tenant_filter=has_tenant_filter,
                 )
                 if not predicates:
                     continue

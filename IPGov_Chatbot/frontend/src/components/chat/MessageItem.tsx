@@ -9,6 +9,7 @@ import { YouTubeEmbed } from './YouTubeEmbed';
 import { ContactCard } from './ContactCard';
 import { QuickActionChips } from './QuickActionChips';
 import { SmartTable } from './SmartTable';
+import { FluidTextStream } from './FluidTextStream';
 import { resolveImageUrl } from '@/lib/utils';
 import { normalizeMarkdownTables } from '@/lib/table_normalizer';
 
@@ -73,12 +74,16 @@ const CollapsibleSqlBlock: React.FC<{ summary: string; content: string }> = ({ s
   );
 };
 
-export const MessageItem: React.FC<MessageItemProps> = ({
+const MessageItemComponent: React.FC<MessageItemProps> = ({
   message,
   onImageClick,
   onSelectChip,
 }) => {
   const isUser = message.role === 'user';
+
+  // Animation settlement state: if message is not streaming when mounted (e.g. historical messages),
+  // it is settled immediately. If streaming, it stays active until FluidTextStream drains completely.
+  const [isAnimationSettled, setIsAnimationSettled] = React.useState(!message.isStreaming);
 
   // Process placeholder tags [IMAGE_N] and [VIDEO] with metadata and normalize markdown tables
   const processedContent = React.useMemo(() => {
@@ -230,21 +235,41 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             {message.contact_support && <ContactCard info={message.contact_support} />}
 
             {message.content ? (
-              contentSegments.map((seg, idx) =>
-                seg.type === 'details' ? (
-                  <CollapsibleSqlBlock
-                    key={`details-${idx}`}
-                    summary={seg.summary || '🔍 Xem câu lệnh truy vấn (SQL Query)'}
-                    content={seg.content}
-                  />
-                ) : (
-                  <ReactMarkdown
-                    key={`md-${idx}`}
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {seg.content}
-                  </ReactMarkdown>
+              !isAnimationSettled ? (
+                <FluidTextStream
+                  content={message.content}
+                  isStreaming={Boolean(message.isStreaming)}
+                  components={markdownComponents}
+                  onSettled={() => setIsAnimationSettled(true)}
+                />
+              ) : (
+                contentSegments.map((seg, idx) =>
+                  seg.type === 'details' ? (
+                    <React.Fragment key={`details-${idx}`}>
+                      {message.quick_action_chips &&
+                        onSelectChip &&
+                        message.quick_action_chips.some(
+                          (c) => c.id?.startsWith('chip_alt_') || c.label?.startsWith('🔘')
+                        ) && (
+                          <QuickActionChips
+                            chips={message.quick_action_chips}
+                            onSelect={onSelectChip}
+                          />
+                        )}
+                      <CollapsibleSqlBlock
+                        summary={seg.summary || '🔍 Xem câu lệnh truy vấn (SQL Query)'}
+                        content={seg.content}
+                      />
+                    </React.Fragment>
+                  ) : (
+                    <ReactMarkdown
+                      key={`md-${idx}`}
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {seg.content}
+                    </ReactMarkdown>
+                  )
                 )
               )
             ) : !message.contact_support ? (
@@ -256,9 +281,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               </div>
             ) : null}
 
-            {message.quick_action_chips && onSelectChip && (
-              <QuickActionChips chips={message.quick_action_chips} onSelect={onSelectChip} />
-            )}
+            {message.quick_action_chips &&
+              onSelectChip &&
+              !(
+                isAnimationSettled &&
+                contentSegments.some((s) => s.type === 'details') &&
+                message.quick_action_chips.some(
+                  (c) => c.id?.startsWith('chip_alt_') || c.label?.startsWith('🔘')
+                )
+              ) && (
+                <QuickActionChips chips={message.quick_action_chips} onSelect={onSelectChip} />
+              )}
           </div>
         )}
         <div
@@ -273,3 +306,18 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     </div>
   );
 };
+
+export const MessageItem = React.memo(MessageItemComponent, (prev, next) => {
+  return (
+    prev.message.id === next.message.id &&
+    prev.message.content === next.message.content &&
+    prev.message.isStreaming === next.message.isStreaming &&
+    prev.message.tabular_data === next.message.tabular_data &&
+    prev.message.contact_support === next.message.contact_support &&
+    prev.message.quick_action_chips === next.message.quick_action_chips &&
+    prev.onImageClick === next.onImageClick &&
+    prev.onSelectChip === next.onSelectChip
+  );
+});
+MessageItem.displayName = 'MessageItem';
+

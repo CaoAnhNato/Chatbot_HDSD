@@ -23,6 +23,7 @@ export interface ChatMessage {
   quick_action_chips?: QuickActionChip[];
   intent?: string;
   tabular_data?: TabularData;
+  isStreaming?: boolean;
 }
 
 export interface QuickActionChip {

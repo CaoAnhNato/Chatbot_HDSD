@@ -12,12 +12,24 @@ interface QuickActionChipsProps {
 export const QuickActionChips: React.FC<QuickActionChipsProps> = ({ chips, onSelect }) => {
   if (!chips || chips.length === 0) return null;
 
+  const isChildCriterionSelection = chips.some(
+    (c) => c.id?.startsWith('chip_alt_') || c.label?.startsWith('🔘')
+  );
+
   return (
-    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold tracking-wide">
-        <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
-        <span>Gợi ý câu hỏi liên quan tiếp theo:</span>
-      </div>
+    <div
+      className={
+        isChildCriterionSelection
+          ? 'my-2.5 not-prose'
+          : 'mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/60 space-y-2 not-prose'
+      }
+    >
+      {!isChildCriterionSelection && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold tracking-wide">
+          <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+          <span>Gợi ý câu hỏi liên quan tiếp theo:</span>
+        </div>
+      )}
       <div className="flex flex-wrap gap-2">
         {chips.map((chip) => (
           <button

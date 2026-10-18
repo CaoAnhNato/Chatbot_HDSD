@@ -71,9 +71,10 @@ class RedisSessionManager:
         self.client = redis.Redis(connection_pool=self.pool)
 
     def ping(self) -> bool:
-        """Kiểm tra tính sẵn sàng của Redis Server với Circuit Breaker 5s cache."""
+        """Kiểm tra tính sẵn sàng của Redis Server với Circuit Breaker (5s nếu online, 60s nếu offline)."""
         now = time.perf_counter()
-        if self._available is not None and (now - self._last_ping < 5.0):
+        cache_duration = 5.0 if self._available else 60.0
+        if self._available is not None and (now - self._last_ping < cache_duration):
             return self._available
         try:
             res = bool(self.client.ping())
@@ -314,7 +315,10 @@ class RedisSessionManager:
             logger.debug(f"Lỗi lưu decision cache ({key}): {e}")
 
     def clear_decision_cache(self) -> None:
-        """Xóa toàn bộ các khóa cache:router:* trong Redis."""
+        """Xóa toàn bộ các khóa cache:router:* trong Redis (hoặc local cache)."""
+        self._local_cache = {k: v for k, v in self._local_cache.items() if not k.startswith("cache:router:")}
+        if not self.ping():
+            return
         try:
             keys = self.client.keys("cache:router:*")
             if keys:
@@ -324,6 +328,9 @@ class RedisSessionManager:
 
     def clear_session(self, session_id: str) -> None:
         """Xóa toàn bộ các khóa liên quan đến một phiên làm việc."""
+        self._local_cache = {k: v for k, v in self._local_cache.items() if not k.startswith(f"session:{session_id}:")}
+        if not self.ping():
+            return
         try:
             keys = self.client.keys(f"session:{session_id}:*")
             if keys:

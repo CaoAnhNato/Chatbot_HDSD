@@ -39,7 +39,7 @@ class ModelRegistry:
         Ưu tiên RemoteHFEmbeddingModel (Zero-RAM Cloud) khi USE_REMOTE_EMBEDDING=True.
         """
         target_name = model_name or getattr(settings, "EMBEDDING_MODEL_NAME", "AITeamVN/Vietnamese_Embedding_v2")
-        use_remote = getattr(settings, "USE_REMOTE_EMBEDDING", True)
+        use_remote = getattr(settings, "USE_REMOTE_EMBEDDING", False)
 
         if cls._embed_model is None or cls._model_name != target_name:
             with cls._instance_lock:
@@ -88,22 +88,48 @@ class ModelRegistry:
     def warmup_embedding_model(cls, model_name: Optional[str] = None) -> None:
         """
         Thực hiện Warm-up chủ động:
-        1. Nạp trọng số mô hình vào RAM (391 tensors).
-        2. Chạy 1 chuỗi Dummy Inference Forward-Pass để biên dịch đồ thị PyTorch và cấp phát bộ nhớ tensor cache.
+        1. Nạp trọng số mô hình vào RAM hoặc khởi tạo Remote Client.
+        2. Chạy 1 chuỗi Dummy Inference Forward-Pass để kiểm tra kết nối & cấp phát bộ nhớ tensor cache.
+        3. Tự động kích hoạt Bi-directional Fallback (Remote -> Local) nếu Remote HF Space không phản hồi.
         """
         if not cls._is_warmed_up:
             with cls._instance_lock:
                 if not cls._is_warmed_up:
                     t0 = time.perf_counter()
-                    model = cls.get_embedding_model(model_name)
+                    target_name = model_name or getattr(settings, "EMBEDDING_MODEL_NAME", "AITeamVN/Vietnamese_Embedding_v2")
+                    model = cls.get_embedding_model(target_name)
                     logger.info("🔥 [ModelRegistry] Bắt đầu Warm-up Dummy Forward-Pass...")
-                    _ = model.encode(
-                        ["Khởi động hệ thống IPGov DWH phục vụ điều hành tỉnh Lâm Đồng"],
-                        normalize_embeddings=True
-                    )
-                    cls._is_warmed_up = True
-                    elapsed = (time.perf_counter() - t0) * 1000
-                    logger.info("🔥 [ModelRegistry] Warm-up Dummy Inference hoàn tất trong %.1f ms (Sẵn sàng phục vụ request < 1s).", elapsed)
+                    try:
+                        _ = model.encode(
+                            ["Khởi động hệ thống IPGov DWH phục vụ điều hành tỉnh Lâm Đồng"],
+                            normalize_embeddings=True
+                        )
+                        cls._is_warmed_up = True
+                        elapsed = (time.perf_counter() - t0) * 1000
+                        logger.info("🔥 [ModelRegistry] Warm-up Dummy Inference hoàn tất trong %.1f ms (Sẵn sàng phục vụ request < 1s).", elapsed)
+                    except Exception as e:
+                        from IPGov_Chatbot.core.remote_embedding import RemoteHFEmbeddingModel
+                        if isinstance(model, RemoteHFEmbeddingModel):
+                            logger.warning(
+                                "⚠️ [ModelRegistry] Warm-up Remote HF Space không phản hồi (%s). "
+                                "Tự động kích hoạt Graceful Fallback nạp SentenceTransformer Local vào RAM...",
+                                e
+                            )
+                            from sentence_transformers import SentenceTransformer
+                            try:
+                                cls._embed_model = SentenceTransformer(target_name, local_files_only=True)
+                            except Exception:
+                                cls._embed_model = SentenceTransformer(target_name)
+                            cls._model_name = target_name
+                            _ = cls._embed_model.encode(
+                                ["Khởi động hệ thống IPGov DWH phục vụ điều hành tỉnh Lâm Đồng"],
+                                normalize_embeddings=True
+                            )
+                            cls._is_warmed_up = True
+                            elapsed = (time.perf_counter() - t0) * 1000
+                            logger.info("✅ [ModelRegistry] Tự động Fallback sang SentenceTransformer Local thành công trong %.1f ms.", elapsed)
+                        else:
+                            raise
 
     @classmethod
     def is_warmed_up(cls) -> bool:

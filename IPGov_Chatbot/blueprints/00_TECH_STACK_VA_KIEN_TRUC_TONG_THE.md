@@ -21,7 +21,7 @@ flowchart TD
         
         AGENT["CONTAINER 2: REASONING ENGINE (LangGraph)<br/>- 2-Tier Quest State Machine (H-DFT)<br/>- Intent & Complexity Router (OpenRouter Gated LLM Gateway)<br/>- Text-to-SQL Generator (DIN-SQL / MAC-SQL)<br/>- Python Math Engine (NumPy Delta/YoY)"]
         
-        REDIS[("CONTAINER 5: REDIS SESSION STORE (ipgov-redis)<br/>- ActiveQuestFrame & temp_memory<br/>- Sliding Window Messages (LTRIM 3 turns)<br/>- Tier 0.3 Decision Cache (< 50ms)")]
+        SQLITE[("CONTAINER 5: SQLITE SESSION STORE (agent_memory.db)<br/>- DialogueStateFrame & Focus Stack trong RAM<br/>- Checkpoint phiên hội thoại SQLite<br/>- Không phụ thuộc Redis ngoài")]
         
         CATALOG["IN-MEMORY CATALOG & SEARCH (DuckDB & NetworkX)<br/>- Lean 2-Stage Schema Engine: DuckDB Native FTS (BM25)<br/>- RapidFuzz C++ Entity Matching<br/>- NetworkX Minimal Steiner Tree & Hierarchy Graph"]
         
@@ -32,7 +32,7 @@ flowchart TD
 
     CLIENT -->|HTTP POST / JSON & SSE Stream| API
     API -->|Dispatch State & Context| AGENT
-    AGENT <-->|Đọc/Ghi Context & Decision Cache O(1)| REDIS
+    AGENT <-->|Đọc/Ghi Context & Focus Stack| SQLITE
     AGENT <-->|Tra cứu siêu dữ liệu & FTS BM25 < 2ms| CATALOG
     AGENT -->|Untrusted SQL String| AST
     AST -->|"Sanitized SQL (HBAC Injected)"| DB
@@ -41,14 +41,15 @@ flowchart TD
     classDef clientNode fill:#1f2937,stroke:#9ca3af,stroke-width:2px,color:#fff;
     classDef apiNode fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#fff;
     classDef agentNode fill:#14532d,stroke:#22c55e,stroke-width:2px,color:#fff;
-    classDef redisNode fill:#c2410c,stroke:#ea580c,stroke-width:2px,color:#fff;
+    classDef sqliteNode fill:#c2410c,stroke:#ea580c,stroke-width:2px,color:#fff;
     classDef securityNode fill:#7c2d12,stroke:#f97316,stroke-width:2px,color:#fff;
     classDef dbNode fill:#581c87,stroke:#a855f7,stroke-width:2px,color:#fff;
 
     class CLIENT clientNode;
     class API apiNode;
     class AGENT,CATALOG agentNode;
-    class REDIS redisNode;
+    class SQLITE sqliteNode;
+
     class AST securityNode;
     class DB dbNode;
 ```
@@ -65,8 +66,9 @@ Toàn bộ các thành phần công nghệ được lựa chọn dựa trên ngu
 | **ASGI Server** | **Uvicorn** | $\ge 0.28.0$ | Máy chủ web production hiệu năng cao cho ứng dụng bất đồng bộ Python. |
 | **Agent Orchestration** | **LangGraph** | $\ge 0.0.30$ | Khung điều phối Multi-Agent dạng đồ thị trạng thái (StateGraph). Tích hợp **2-Tier Quest State Machine**: Quản lý slot dở dang trong RAM (0 tokens LLM) và Background Worker chắt lọc thông tin phiên vào `temp_memory`. |
 | **LLM Gateway & Abstract Fallback Layer** | **IPGov LLMGateway (`IPGov_Chatbot/core/llm_gateway.py`)** | Core Module | Tầng trừu tượng hóa cuộc gọi LLM theo mẫu Strategy/Facade Pattern, tích hợp Ponytail Helper `call_structured_with_fallback[T: BaseModel]()` (đồng bộ & bất đồng bộ). Hỗ trợ OpenRouter (OpenAI SDK), Google GenAI SDK (`google-genai`), tự động ghi nhận metadata logging chi tiết (`data/logs/llm_usage.jsonl`), tự động kiểm tra `confidence_score < 0.7`, chạy `invariant_validator`, và fallback linh hoạt giữa các model/provider. |
-| **Router LLM & Lightweight Structured Tasks** | **OpenRouter API (`google/gemini-2.5-flash-lite`)** | Cloud API | Primary Model cho suy luận phân loại ý định, trích xuất slot và sinh cấu trúc nhẹ (Module 03 Router, Schema Linking Module 04, Fast Synthesis Module 05). Tối ưu hóa chi phí siêu tiết kiệm (~$0.0001/call), độ trễ thấp, tích hợp `thought_scratchpad` CoT ở đầu schema, cầu dao an toàn `max_tokens=800`. |
-| **Heavy Fallback & Complex Tasks LLM** | **OpenRouter API (`deepseek/deepseek-v4.1-flash`)** | Cloud API | Heavy Fallback Model chuyên trách tự động kích hoạt khi: (1) Mô hình chính tự đánh giá độ tự tin thấp (`confidence_score < 0.7`), (2) Lỗi Pydantic schema validation, hoặc (3) Vi phạm kiểm tra bất biến logic (`invariant_validator` trả về `False`). Kế thừa và tái sử dụng nhất quán trên Module 03, Module 04 (Text-to-SQL phức tạp), và Module 05 (Response Synthesizer đa chiều). |
+| **Router / Cognitive Planner LLM** | **OpenRouter API (`deepseek/deepseek-v4.1-flash`)** | Cloud API | Primary Model duy nhất cho Cognitive Planner và Intent Routing. Cấu hình OpenRouter End-Provider Routing: `["coreweave/fp8", "makora/fp8", "relace", "inference-net/fp8"]`, `allow_fallbacks: True`, vô hiệu hóa reasoning (`reasoning: {"enabled": False}`) và không giới hạn `max_tokens` cứng để đạt TTFT < 800ms. |
+| **Heavy Fallback & Complex Tasks LLM** | **OpenRouter API (`deepseek/deepseek-v4.1-flash`)** | Cloud API | Fallback Model chuyên trách tự động kích hoạt khi: (1) Mô hình chính tự đánh giá độ tự tin thấp (`confidence_score < 0.7`), (2) Lỗi Pydantic schema validation, hoặc (3) Vi phạm kiểm tra bất biến logic (`invariant_validator` trả về `False`). Kế thừa và tái sử dụng nhất quán trên Module 03, Module 04 (Text-to-SQL phức tạp), và Module 05 (Response Synthesizer đa chiều). |
+
 | **AST Parser & Rewriter** | **SQLGlot** | $\ge 23.0.0$ | Bộ phân tích cú pháp SQL tĩnh, dịch phương ngữ (transpiler) và duyệt cây AST. Đảm bảo 100% mã SQL sinh ra không chứa mã độc và tự động inject điều kiện phân quyền HBAC mà không phụ thuộc vào LLM. |
 | **In-Memory DB & BM25 Search** | **DuckDB (FTS Extension)** | $\ge 0.10.0$ | CSDL phân tích nhúng chạy trong RAM tích hợp bộ tìm kiếm toàn văn Native FTS (BM25). Thực hiện **Giai đoạn 1 của Lean 2-Stage Retrieval**: lọc thô Top-K bảng/cột ứng viên với độ trễ $< 2\text{ms}$, triệt tiêu tải CSDL chính và loại bỏ nhu cầu dựng Vector DB riêng. |
 | **Entity Hierarchy & Schema Graph** | **NetworkX** | $\ge 3.2.0$ | Cấu trúc dữ liệu đồ thị. Đảm nhận 2 vai trò: (1) Quản lý cây phân cấp `tenant` $\to$ `deparment` $\to$ `office` và `criteria` để tìm Leaf Criteria; (2) **Giai đoạn 2 của Lean 2-Stage Retrieval**: giải thuật Minimal Steiner Tree kết nối Schema subgraph, tự động bù đắp các bảng cầu nối (Bridge Tables). |

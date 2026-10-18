@@ -24,9 +24,19 @@ CÁC RÀNG BUỘC PHỦ ĐỊNH TUYỆT ĐỐI (NEGATIVE CONSTRAINTS):
 4. [CẤM ẢO GIÁC]: Chỉ sử dụng các con số, cột, dòng có trong dữ liệu kết quả DWH. Không tự bịa đặt hay suy diễn thêm số liệu ngoài bảng.
 
 CẤU TRÚC PHẢN HỒI BẮT BUỘC (BLUF FORMAT):
-- DÒNG 1 (BOTTOM LINE): Viết đúng 1 câu trực diện nêu kết luận số liệu cốt lõi (gắn kèm số liệu, đơn vị tính, kỳ báo cáo, đơn vị thẩm quyền nếu có).
-- BẢNG MARKDOWN: Nếu dữ liệu có từ 2 dòng trở lên, bắt buộc trình bày dưới dạng 1 bảng Markdown tinh gọn, căn lề số liệu rõ ràng. Định dạng số bằng dấu chấm phân cách hàng nghìn (ví dụ 1.234.567).
-- DÒNG QUAN SÁT (TÙY CHỌN): Tối đa đúng 1 gạch đầu dòng (bullet) nhận xét xu hướng chính hoặc chênh lệch cao nhất/thấp nhất (không quá 30 từ). Không viết thêm bất kỳ đoạn văn nào khác.
+1. ĐỐI VỚI TRA CỨU ĐƠN LẺ MỘT CHỈ TIÊU (SINGLE METRIC SNAPSHOT - 1 DÒNG):
+Bắt buộc trình bày đầy đủ 5 trường thông tin theo đúng định dạng:
+- **Chỉ tiêu:** [Tên chỉ tiêu]
+- **Giá trị:** [Số liệu định dạng phân cách hàng nghìn]
+- **Đơn vị thực hiện:** [Tên văn phòng / phòng ban, vd: Chi cục]
+- **Nhiệm vụ trọng tâm:** [Tên nhiệm vụ, vd: Phát triển nông thôn]
+- **Thời điểm báo cáo:** [Ngày báo cáo / phê duyệt dạng DD/MM/YYYY]
+
+2. ĐỐI VỚI DANH SÁCH / BẢNG CHỈ TIÊU (LISTING / INVENTORY - TỪ 2 DÒNG TRỞ LÊN):
+Bắt buộc trình bày dưới dạng 1 bảng Markdown tinh gọn với các cột:
+`STT | Tên chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm`
+Định dạng số bằng dấu chấm phân cách hàng nghìn (ví dụ 1.234.567).
+- DÒNG QUAN SÁT (TÙY CHỌN): Tối đa đúng 1 gạch đầu dòng (bullet) nhận xét xu hướng chính (không quá 30 từ). Không viết thêm bất kỳ đoạn văn nào khác.
 """
 
 
@@ -59,7 +69,7 @@ def _construct_user_prompt(
         f"CÂU HỎI NGƯỜI DÙNG: \"{user_prompt}\"\n\n"
         f"KẾT QUẢ DỮ LIỆU TỪ KHO DWH:\n"
         f"```json\n{json.dumps(data_summary, ensure_ascii=False, indent=2)}\n```\n\n"
-        f"Hãy tổng hợp câu trả lời theo đúng chuẩn BLUF: 1 câu kết luận số liệu cốt lõi + bảng Markdown (nếu >= 2 dòng) + tối đa 1 dòng nhận xét xu hướng."
+        f"Hãy tổng hợp câu trả lời theo đúng chuẩn BLUF: nếu là 1 chỉ tiêu đơn lẻ thì trình bày 5 gạch đầu dòng (Chỉ tiêu, Giá trị, Đơn vị thực hiện, Nhiệm vụ trọng tâm, Thời điểm báo cáo). Nếu là danh sách >= 2 dòng thì trình bày Bảng Markdown 5 cột (STT, Tên chỉ tiêu, Giá trị mới nhất, Đơn vị thực hiện, Nhiệm vụ trọng tâm)."
     )
     return prompt
 
@@ -74,26 +84,68 @@ def _render_offline_fallback(
     if not rows:
         return "Không tìm thấy bản ghi số liệu đã được phê duyệt trong kho DWH.", False
 
-    # Xác định các cột hiển thị
     first_row = rows[0]
+
+    # Kiểm tra xem có cấu trúc fact chỉ tiêu với đơn vị thực hiện và nhiệm vụ hay không
+    has_fact_context = any(k in first_row for k in ["ten_chi_tieu", "ten_van_phong", "ten_nhiem_vu", "gia_tri_moi_nhat", "ngay_bao_cao"]) or "office_name" in first_row or "mission_name" in first_row
+
+    if len(rows) == 1 and has_fact_context:
+        crit_name = first_row.get("ten_chi_tieu") or first_row.get("name") or extracted_entities.get("metric_name") or "Chỉ tiêu"
+        val = first_row.get("gia_tri") or first_row.get("gia_tri_moi_nhat") or first_row.get("value") or first_row.get("tong_gia_tri")
+        if val is None or (isinstance(val, str) and val.strip() in ("", "-", "None", "null", "N/A")):
+            fmt_val = "Chưa có số liệu phê duyệt (-)"
+        else:
+            fmt_val = vn_format_num(val)
+        office = first_row.get("ten_van_phong") or first_row.get("office_name") or "Toàn tỉnh / Cơ quan chủ quản"
+        mission = first_row.get("ten_nhiem_vu") or first_row.get("mission_name") or "Theo dõi chung"
+        raw_date = first_row.get("ngay_bao_cao") or first_row.get("ngay_bao_cao_moi_nhat") or first_row.get("report_date") or ""
+        date_str = str(raw_date)[:10] if raw_date else "-"
+        if "-" in date_str and len(date_str) == 10:
+            parts = date_str.split("-")
+            date_str = f"{parts[2]}/{parts[1]}/{parts[0]}"
+
+        content = (
+            f"- **Chỉ tiêu:** {crit_name}\n"
+            f"- **Giá trị:** {fmt_val}\n"
+            f"- **Đơn vị thực hiện:** {office}\n"
+            f"- **Nhiệm vụ trọng tâm:** {mission}\n"
+            f"- **Thời điểm báo cáo:** {date_str}"
+        )
+        return content, False
+
+    # Nếu có nhiều dòng và là bảng chỉ tiêu
+    if len(rows) >= 2 and has_fact_context:
+        table_lines = [
+            "| STT | Tên chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |",
+            "| :--- | :--- | :--- | :--- | :--- |",
+        ]
+        for idx, r in enumerate(rows[:20], 1):
+            name = r.get("ten_chi_tieu") or r.get("name") or "-"
+            val = r.get("gia_tri") or r.get("gia_tri_moi_nhat") or r.get("value") or r.get("tong_gia_tri") or "-"
+            office = r.get("ten_van_phong") or r.get("office_name") or "Cơ quan chủ quản"
+            mission = r.get("ten_nhiem_vu") or r.get("mission_name") or "Theo dõi chung"
+            table_lines.append(f"| {idx} | {name} | {vn_format_num(val)} | {office} | {mission} |")
+
+        table_md = "\n".join(table_lines)
+        return f"Danh sách số liệu chỉ tiêu đã phê duyệt ({len(rows)} bản ghi):\n\n{table_md}", True
+
+    # Fallback mặc định cho các bảng khác (province, deparment, etc.)
     cols = [k for k in first_row.keys() if not k.endswith("_id")]
     if not cols:
         cols = list(first_row.keys())
 
-    period = extracted_entities.get("year") or extracted_entities.get("period") or "2024"
+    period = extracted_entities.get("year") or extracted_entities.get("period") or "2026"
     metric = extracted_entities.get("metric_name") or extracted_entities.get("criteria_name") or "Chỉ tiêu"
 
-    # Nếu chỉ có 1 dòng
     if len(rows) == 1:
         val_str = ", ".join(f"{c}: {vn_format_num(first_row[c])}" for c in cols)
         content = f"Số liệu báo cáo năm {period} ghi nhận {metric}: **{val_str}**."
         return content, False
 
-    # Nếu có nhiều dòng: Render bảng Markdown
     header = "| " + " | ".join(cols) + " |"
     divider = "| " + " | ".join([":---" for _ in cols]) + " |"
     table_lines = [header, divider]
-    for r in rows[:10]:
+    for r in rows[:15]:
         line = "| " + " | ".join(str(vn_format_num(r.get(c, "-"))) for c in cols) + " |"
         table_lines.append(line)
 
