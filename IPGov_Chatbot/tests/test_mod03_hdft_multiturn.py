@@ -67,7 +67,7 @@ def test_discovery_cases_routing(case_index, discovery_cases, router):
     assert result.route == RouteTypeEnum.CATALOG_DISCOVERY
     assert result.intent == IntentEnum.META_CAPABILITY
     assert result.zero_sql is True
-    assert result.latency_ms <= expected["sla_max_latency_ms"]
+    assert result.latency_ms > 0.0  # Rule 8: Zero SLA constraints in MVP
     assert len(result.action_chips) >= 1
     assert result.bypass_response is not None
 

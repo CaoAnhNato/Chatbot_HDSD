@@ -33,7 +33,10 @@ from IPGov_Chatbot.modules.mod02_guardrails.injection_shield import InjectionShi
 from IPGov_Chatbot.modules.mod02_guardrails.pii_sanitizer import PIISanitizer
 from IPGov_Chatbot.modules.mod02_guardrails.scope_prechecker import ScopePrechecker
 from IPGov_Chatbot.modules.mod03_router.chitchat_bypass import ChitchatBypassEngine
-from IPGov_Chatbot.modules.mod03_router.hdft_dialogue_tracker import HDFTDialogueTracker
+from IPGov_Chatbot.modules.mod03_router.hdft_dialogue_tracker import (
+    HDFTDialogueTracker,
+    normalize_entity_name,
+)
 from IPGov_Chatbot.modules.mod03_router.persona_classifier import PersonaClassifier
 from IPGov_Chatbot.modules.mod03_router.dashscope_router_client import DashScopeRouterClient
 from IPGov_Chatbot.modules.mod03_router.redis_session_manager import RedisSessionManager
@@ -145,6 +148,10 @@ class IntentRouter:
         # 2. Trích xuất địa bàn
         fuzzy_ent = self.hdft_tracker.fuzzy_strategy.match_entity(text)
         location_name = fuzzy_ent[0] if fuzzy_ent else ("Toàn tỉnh" if "toàn tỉnh" in text.lower() else None)
+        if not location_name:
+            dept_match = self.hdft_tracker._dept_names_pat.search(text)
+            if dept_match:
+                location_name = normalize_entity_name(dept_match.group(0))
         if not location_name and curr_quest and curr_quest.admin_entity:
             location_name = curr_quest.admin_entity
 
@@ -643,9 +650,9 @@ class IntentRouter:
                     safety_timeout_seconds=5.0,
                     sla_max_latency_ms=50.0,
                     latency_ms=round(latency_ms, 3),
-                    active_quest=curr_quest,
-                    active_quest_preserved=True if curr_quest else False,
-                    active_quest_action=QuestActionEnum.INIT,
+                    active_quest=active_quest,
+                    active_quest_preserved=True if active_quest else False,
+                    active_quest_action=QuestActionEnum.INIT if not curr_quest else QuestActionEnum.PRESERVE,
                     bypass_response=None,
                     action_chips=[],
                     missing_slots=[],
@@ -666,9 +673,9 @@ class IntentRouter:
                     safety_timeout_seconds=5.0,
                     sla_max_latency_ms=50.0,
                     latency_ms=round(latency_ms, 3),
-                    active_quest=curr_quest,
-                    active_quest_preserved=True if curr_quest else False,
-                    active_quest_action=QuestActionEnum.INIT,
+                    active_quest=active_quest,
+                    active_quest_preserved=True if active_quest else False,
+                    active_quest_action=QuestActionEnum.INIT if not curr_quest else QuestActionEnum.PRESERVE,
                     bypass_response=catalog_answer,
                     action_chips=catalog_chips,
                     missing_slots=[],

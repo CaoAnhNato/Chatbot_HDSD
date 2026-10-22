@@ -58,6 +58,7 @@ ALLOWED_TABLES: Set[str] = {
     "office",
     "criteria",
     "criteria_group",
+    "criteria_group_map",
     "report",
     "pipeline_logs",
     "collection_form",
@@ -150,6 +151,9 @@ class ASTEnforcerService:
                 tenant_code=str(effective_ctx.get("tenant_code") or "68"),
                 role_level=int(effective_ctx.get("role_level", 0)),
                 department_code=effective_ctx.get("department_code"),
+                office_id=effective_ctx.get("office_id"),
+                status_filter=effective_ctx.get("status_filter"),
+                explicit_role_provided=("role_level" in effective_ctx and effective_ctx.get("role_level") is not None),
             )
         elif effective_ctx is not None:
             user_ctx = effective_ctx
@@ -159,6 +163,7 @@ class ASTEnforcerService:
                 username="anonymous_user",
                 tenant_code="68",
                 role_level=0,
+                explicit_role_provided=False,
             )
 
         cleaned = clean_raw_sql(raw_sql)
@@ -295,6 +300,11 @@ class ASTEnforcerService:
                 if tbl.alias:
                     cte_aliases.add(tbl.alias.lower().strip())
 
+        arithmetic_col_names = set()
+        for math_node in parsed.find_all((exp.Sum, exp.Avg, exp.Min, exp.Max, exp.Add, exp.Sub, exp.Mul, exp.Div)):
+            for c_in_math in math_node.find_all(exp.Column):
+                arithmetic_col_names.add(c_in_math.name.lower().strip())
+
         for col in list(parsed.find_all(exp.Column)):
             if col.name.lower().strip() == "value":
                 curr = col
@@ -310,6 +320,9 @@ class ASTEnforcerService:
                             if tbl.name.lower().strip() in cte_aliases or (tbl.alias and tbl.alias.lower().strip() in cte_aliases):
                                 skip_cast = True
                                 break
+
+                if isinstance(col.parent, exp.Alias) and col.parent.alias.lower().strip() in arithmetic_col_names:
+                    needs_numeric_cast = True
 
                 while curr.parent and not skip_cast:
                     curr = curr.parent
@@ -328,7 +341,7 @@ class ASTEnforcerService:
                     col_sql = col.sql(dialect="postgres")
                     safe_cast_sql = (
                         f"CASE WHEN TRIM({col_sql}) ~ '^-?[0-9]+(\\.[0-9]+)?$' "
-                        f"THEN CAST(TRIM({col_sql}) AS DECIMAL) ELSE NULL END"
+                        f"THEN CAST(NULLIF(TRIM({col_sql}), '') AS DECIMAL) ELSE NULL END"
                     )
                     if isinstance(col.parent, exp.Select):
                         replacement = sqlglot.parse_one(safe_cast_sql, read="postgres").as_(col.name)
@@ -438,6 +451,9 @@ class ASTEnforcerService:
                 tenant_code=str(user_ctx.get("tenant_code") or "68"),
                 role_level=int(user_ctx.get("role_level", 0)),
                 department_code=user_ctx.get("department_code"),
+                office_id=user_ctx.get("office_id"),
+                status_filter=user_ctx.get("status_filter"),
+                explicit_role_provided=("role_level" in user_ctx and user_ctx.get("role_level") is not None),
             )
 
         t0 = time.perf_counter()
@@ -458,6 +474,7 @@ class ASTEnforcerService:
                 subquery_tasks=[],
                 is_safe=True,
                 ast_valid=True,
+                blocked_draft_access=bool(getattr(user_ctx, "blocked_draft_access", False)),
                 latency_ms=latency,
                 trace_id=t_id,
             )
@@ -512,6 +529,7 @@ class ASTEnforcerService:
                 subquery_tasks=sanitized_tasks,
                 is_safe=True,
                 ast_valid=True,
+                blocked_draft_access=bool(getattr(user_ctx, "blocked_draft_access", False)),
                 latency_ms=latency,
                 trace_id=t_id,
             )
@@ -534,6 +552,7 @@ class ASTEnforcerService:
             subquery_tasks=[],
             is_safe=True,
             ast_valid=True,
+            blocked_draft_access=bool(getattr(user_ctx, "blocked_draft_access", False)),
             latency_ms=latency,
             trace_id=t_id,
         )

@@ -240,7 +240,7 @@
     {"code": "68-1-04", "name": "Sở Xây Dựng Lâm Đồng", "tenant_code": "68", "level": 1},
     {"code": "68-1-05", "name": "Sở Công Thương Lâm Đồng", "tenant_code": "68", "level": 1},
     {"code": "68-1-06", "name": "Sở Y Tế Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-07", "name": "Sở Nông nghiệp và PTNT Lâm Đồng", "tenant_code": "68", "level": 1},
+    {"code": "68-1-07", "name": "Sở Nông nghiệp và PTNT Lâm Đồng", "tenant_code": "68", "level": 1, "related_codes": ["68-1-07", "68-1-01"]},
     {"code": "68-1-08", "name": "Sở Văn hóa, Thể thao và Du lịch Lâm Đồng", "tenant_code": "68", "level": 1},
     {"code": "79-1-01", "name": "Sở Nội Vụ TP. Hồ Chí Minh", "tenant_code": "79", "level": 1},
     {"code": "79-1-02", "name": "UBND TP. Hồ Chí Minh", "tenant_code": "79", "level": 1}

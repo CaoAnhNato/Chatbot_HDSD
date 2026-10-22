@@ -146,68 +146,71 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
     return segs;
   }, [processedContent]);
 
-  const markdownComponents = {
-    table: ({ node, children, ...props }: any) => {
-      return (
-        <SmartTable tabularData={message.tabular_data}>
-          {children}
-        </SmartTable>
-      );
-    },
-    img: ({ node, src, alt, ...props }: any) => {
-      const finalSrc = resolveImageUrl(src || '');
-      return (
-        <div className="my-3 relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm inline-block max-w-full hover:shadow-md transition">
-          <img
-            src={finalSrc}
-            alt={alt || 'UI Preview'}
-            className="max-h-80 w-auto object-contain cursor-pointer transition-transform group-hover:scale-[1.01]"
-            onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
-            loading="lazy"
-            {...props}
-          />
-          <button
-            onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
-            className="absolute bottom-2.5 right-2.5 bg-slate-900/80 hover:bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-md"
-            title="Xem phóng to"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-        </div>
-      );
-    },
-    a: ({ node, href, children, ...props }: any) => {
-      const isYouTube = href && (href.includes('youtube.com') || href.includes('youtu.be'));
-      if (isYouTube && href) {
+  const markdownComponents = React.useMemo(
+    () => ({
+      table: ({ node, children, ...props }: any) => {
         return (
-          <div className="not-prose my-3">
-            <YouTubeEmbed url={href} />
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1 font-medium"
+          <SmartTable tabularData={message.tabular_data} onSelectChip={onSelectChip}>
+            {children}
+          </SmartTable>
+        );
+      },
+      img: ({ node, src, alt, ...props }: any) => {
+        const finalSrc = resolveImageUrl(src || '');
+        return (
+          <div className="my-3 relative group rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm inline-block max-w-full hover:shadow-md transition">
+            <img
+              src={finalSrc}
+              alt={alt || 'UI Preview'}
+              className="max-h-80 w-auto object-contain cursor-pointer transition-transform group-hover:scale-[1.01]"
+              onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
+              loading="lazy"
+              {...props}
+            />
+            <button
+              onClick={() => finalSrc && onImageClick(finalSrc, alt || 'Ảnh minh họa')}
+              className="absolute bottom-2.5 right-2.5 bg-slate-900/80 hover:bg-slate-900 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 transition shadow-md"
+              title="Xem phóng to"
             >
-              <span>{children}</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+              <ZoomIn className="w-4 h-4" />
+            </button>
           </div>
         );
-      }
-      return (
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 font-medium underline hover:text-blue-700 inline-flex items-center gap-0.5"
-          {...props}
-        >
-          {children}
-          <ExternalLink className="w-3.5 h-3.5" />
-        </a>
-      );
-    },
-  };
+      },
+      a: ({ node, href, children, ...props }: any) => {
+        const isYouTube = href && (href.includes('youtube.com') || href.includes('youtu.be'));
+        if (isYouTube && href) {
+          return (
+            <div className="not-prose my-3">
+              <YouTubeEmbed url={href} />
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline mt-1 font-medium"
+              >
+                <span>{children}</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+          );
+        }
+        return (
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 font-medium underline hover:text-blue-700 inline-flex items-center gap-0.5"
+            {...props}
+          >
+            {children}
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        );
+      },
+    }),
+    [message.tabular_data, onImageClick, onSelectChip]
+  );
 
   return (
     <div className={`flex gap-3 my-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -229,7 +232,9 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
         }`}
       >
         {isUser ? (
-          <p className="whitespace-pre-wrap">{message.content}</p>
+          <p className="whitespace-pre-wrap">
+            {message.content.replace(/^\[tenant_code=[^\]]+\]\s*/i, '').trim()}
+          </p>
         ) : (
           <div className="prose prose-slate prose-base max-w-none space-y-2 text-slate-800 text-[15px]">
             {message.contact_support && <ContactCard info={message.contact_support} />}
@@ -237,7 +242,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
             {message.content ? (
               !isAnimationSettled ? (
                 <FluidTextStream
-                  content={message.content}
+                  content={processedContent}
                   isStreaming={Boolean(message.isStreaming)}
                   components={markdownComponents}
                   onSettled={() => setIsAnimationSettled(true)}

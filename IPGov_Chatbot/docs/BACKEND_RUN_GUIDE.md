@@ -233,8 +233,8 @@ Căn cứ: Đặc tả nghiệp vụ và phân cấp dữ liệu [output.md](fil
 | **SC-2.2 (Khoảng thời gian)** | `số lượng chỉ tiêu trang trại trong nửa đầu năm nay` | `METRIC_POINT_INQUIRY` (`date_from='2026-01-01'`, `date_to='2026-06-30'`). Luôn lấy theo `report_date` mới nhất trong khoảng là ngày **30/06/2026** với giá trị **`Chưa có số liệu phê duyệt (-)`** (`NULL`). |
 | **SC-2.3 (Lá rỗng `-`)**| `Cho tôi biết số liệu chỉ tiêu Liên kết sản xuất năm 2026?` | `METRIC_POINT_INQUIRY`. Hiển thị rõ **`Chưa có số liệu phê duyệt (-)`**, không văng lỗi hoặc trả về rỗng. |
 | **SC-2.4 (Chỉ tiêu cha)**| `số lượng chỉ tiêu HTX nông nghiệp` | Hiển thị duy nhất câu thông báo chỉ tiêu cha chuẩn `output.md` và hàng nút bấm `🔘 [Tên chỉ tiêu con]` ngay bên dưới (không sinh bảng phụ hay danh sách lặp). |
-| **REQ-Q03 (Đơn vị phụ trách & NULL `-`)** | `lĩnh vực nông nghiệp hiện đang có những nhiệm vụ nào` / `Lĩnh vực 1 hiện có những nhiệm vụ nào?` | `METADATA_EXPLORATION` (`target_table='mission'`). Bảng 5 cột (`STT`, `Mã nhiệm vụ`, `Tên nhiệm vụ`, `Lĩnh vực`, `Đơn vị phụ trách`): mỗi nhiệm vụ chỉ hiển thị **01 đơn vị phụ trách duy nhất** (`Chi cục` cho `Diêm nghiệp` và `Phát triển nông thôn`, `Phòng kinh tế` cho `Cải cách hành chính`), và hiển thị **`-`** nếu kho dữ liệu là `NULL` (`nhiệm vụ 2`, `nhiệm vụ 3`). |
-| **SC-3.1 (Lọc nhiệm vụ theo thời gian)** | `Lĩnh vực Nông nghiệp trong nửa đầu năm / quý 1 / quý 2 / từ đầu năm tới giờ / từ tháng 2 đến tháng 9 có những nhiệm vụ nào?` | Lọc các nhiệm vụ thuộc lĩnh vực có báo cáo đã duyệt (`report_status='approved'`) trong khoảng thời gian tương ứng (`01/01..30/06`, `01/01..31/03`, `01/04..30/06`, `01/01..31/12`, `01/02..30/09`), hiển thị rõ kỳ thời gian trên tiêu đề bảng. |
+| **REQ-Q03 (Đơn vị phụ trách & NULL `-`)** | `lĩnh vực nông nghiệp hiện đang có những nhiệm vụ nào` / `Lĩnh vực 1 hiện có những nhiệm vụ nào?` | `METADATA_EXPLORATION` (`target_table='mission'`). Bảng 5 cột (`STT`, `Mã nhiệm vụ`, `Tên nhiệm vụ`, `Lĩnh vực`, `Đơn vị phụ trách`): mỗi nhiệm vụ chỉ hiển thị **01 đơn vị phụ trách duy nhất** (`Chi cục` cho `Diêm nghiệp` và `Phát triển nông thôn`, `Phòng kinh tế` cho `Cải cách hành chính`), hiển thị **`-`** nếu kho dữ liệu là `NULL`, kèm nút **`🔍 Xem chỉ tiêu Cấp 1`** (1-Click Cross-Archetype Drill-Down sang `REQ-Q04`). |
+| **SC-3.1 (Lọc nhiệm vụ theo thời gian)** | `Lĩnh vực Nông nghiệp trong nửa đầu năm / quý 1 / quý 2 / từ đầu năm tới giờ / từ tháng 2 đến tháng 9 có những nhiệm vụ nào?` | Lọc các nhiệm vụ thuộc lĩnh vực có báo cáo đã duyệt (`report_status='approved'`) trong khoảng thời gian tương ứng (`01/01..30/06`, `01/01..31/03`, `01/04..30/06`, `01/01..31/12`, `01/02..30/09`), hiển thị rõ kỳ thời gian trên tiêu đề bảng và bảo toàn kỳ thời gian khi bấm **`🔍 Xem chỉ tiêu Cấp 1`**. |
 | **SC-3.2 (Ngoài phạm vi)**| `Lĩnh vực Hàng không vũ trụ hiện tại đang có các nhiệm vụ nào?` | Từ chối an toàn, thông báo DWH không có lĩnh vực `'Hàng không vũ trụ'` và hiển thị Chips gợi ý 2 lĩnh vực hiện có (`Nông nghiệp`, `Lĩnh vực 1`). |
 | **REQ-Q04 / SC-4.1** | `Nhiệm vụ Diêm nghiệp năm 2026 bao gồm các chỉ tiêu gốc Cấp 1 nào?` | Hiển thị bảng 6 cột các chỉ tiêu Cấp 1 của nhiệm vụ `Diêm nghiệp` (`Tổng diện tích sản xuất muối` và `Tổng sản lượng muối` hiển thị **`- Xem chi tiết các chỉ tiêu con`**, bấm vào mở Pop-up Tree Modal sơ đồ cây ngang Cấp 1 $\to$ Cấp 2 $\to$ Cấp 3). |
 | **SC-4.2 (Nhiệm vụ rỗng)**| `Nhiệm vụ Cải cách hành chính năm 2026 có các chỉ tiêu nào?` | Phản hồi rõ nhiệm vụ **'Cải cách hành chính'** đã có trong danh mục nhiệm vụ năm 2026 nhưng **chưa phát sinh bản ghi chỉ tiêu báo cáo nào được phê duyệt**. |
@@ -270,3 +270,27 @@ Căn cứ: Kế hoạch triển khai [implementation_plan.md](file:///C:/Users/A
 ```powershell
 .\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_srs_v3_upgrades.py IPGov_Chatbot/tests/test_req_q01_to_q04_full_spec.py -v
 ```
+
+---
+
+## 11. Bộ Kiểm Thử Kiểm Toán Kỳ Báo Cáo, Biểu Mẫu Thu Thập & Ma Trận Phân Công Nhiệm Vụ (`REQ-Q05`: `SC-5.1`, `SC-5.2`, `SC-5.3`) & Cổng Kiểm Toán AST Zero-Heuristic Gate
+
+Căn cứ: Đặc tả nghiệp vụ Mục `2.5 (LOẠI 5 / REQ-Q05)` tại [output.md](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/docs/output.md).
+
+| Mã Kịch Bản | Câu Hỏi Kiểm Thử Mẫu (Test Prompt) | Phân Quyền HBAC / Cờ Cấu Hình | Kết Quả Định Tuyến & Hành Vi Đầu Ra Kỳ Vọng |
+| :---: | :--- | :--- | :--- |
+| **`SC-5.1a` & `SC-5.1b` (Role $\le 2$ - Cán bộ nội bộ)** | `Liệt kê trạng thái các kỳ báo cáo năm 2026, ngày nộp và những báo cáo nào đang ở trạng thái nháp chưa nộp?` | `role_level <= 2` (`0` Tỉnh, `1` Sở, `2` Phòng ban), `status_filter=['approved', 'draft']` | `REPORT_FORM_MISSION_AUDIT` (`audit_sub_intent='REPORT_SUBMISSION_STATUS'`). Tầng AST Enforcer mở khóa trạng thái, gắn **Banner Cảnh báo Pháp lý**, trả về **9 kỳ báo cáo** (**6 báo cáo `approved`** / **342 dòng fact** + **3 báo cáo `draft`** / **121 dòng fact** có `submitted_date IS NULL`), kèm chi tiết **14 bản ghi nháp Diêm nghiệp** (`22/09/2026` và `31/08/2026`) và bảng đối chiếu chênh lệch `Draft - Approved`. |
+| **`SC-5.1` (Role $= 3$ - HBAC Guard)** | `Liệt kê các báo cáo nháp chưa phê duyệt năm 2026?` | `role_level = 3` (Công dân / Khách vãng lai), `blocked_draft_access=True` | Tầng AST Enforcer cưỡng chế giữ nguyên `status = 'approved'`, trả về **6 kỳ báo cáo đã duyệt** kèm cảnh báo phân quyền HBAC chặn truy cập dữ liệu nháp (`draft`). |
+| **`SC-5.2a` & `SC-5.2b` (Dual Form & Group)** | `Hệ thống hiện có những biểu mẫu thu thập hoặc bộ chỉ tiêu thu thập nào đang áp dụng?` | Mặc định (`tenant_code='68'`) | `REPORT_FORM_MISSION_AUDIT` (`audit_sub_intent='FORM_CRITERIA_GROUP'`). Thông báo minh bạch bảng `collection_form` hiện có **`0` bản ghi** và hiển thị bảng đối soát **5 bộ chỉ tiêu thu thập** từ `criteria_group` (`3 active`: `Bộ thu thập Diêm nghiệp` 3/7, `Bộ thu thập Phát triển nông thôn` 6/107, `Bộ thu thập cải cách` 0/0 do `admin-lamdong` tạo; `2 draft`: `Thu Thập` 3/7 do `tzyalnh` tạo, `tt` 0/0 do `tuong` tạo). |
+| **`SC-5.3a` & `SC-5.3b` (Mission Matrix & Officer)** | `Hiển thị ma trận phân công nhiệm vụ năm 2026 giữa các phòng ban và cá nhân phụ trách?` | Mặc định (`tenant_code='68'`) | `REPORT_FORM_MISSION_AUDIT` (`audit_sub_intent='MISSION_ASSIGNMENT_MATRIX'`). Hiển thị bảng đối soát **8 nhiệm vụ** kết nối `mission` + `office_mission` (7 dòng) + `user_mission` (3 dòng) + `office_user`: `Tăng Thị Mỹ Lành` (`tzyalnh`, `BA`, `LEADER` - `Chi cục`) phụ trách `Diêm nghiệp` & `Phát triển nông thôn`; `Vũ Đặng Thanh Tường` (`tuong`, `dev`, `LEADER` - `Phòng kinh tế`) phụ trách `Cải cách hành chính`; phát hiện độ lệch phân công tại `Phòng nông nghiệp` và `nhiệm vụ 1`. |
+
+### 11.1. Lệnh Chạy Kiểm Thử AST Enforcer, Catalog & AST Zero-Heuristic Gate
+```powershell
+# 1. Kiểm thử tầng AST Enforcer (bao gồm mở khóa/chặn HBAC cho SC-5.1) và DuckDB Semantic Catalog (SC-5.2, SC-5.3)
+.\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_mod06_ast_enforcer.py IPGov_Chatbot/tests/test_mod04_catalog.py -v
+
+# 2. Kiểm tra Import Runtime Verification trước khi triển khai
+.\.venv\Scripts\python.exe -c "import IPGov_Chatbot.main; print('Import Verified!')"
+```
+
+

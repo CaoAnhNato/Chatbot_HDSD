@@ -58,9 +58,15 @@ class ClarificationEngine:
         q_norm = "".join(c if c not in "?!:;\"'[](){}" else " " for c in text.lower()).strip()
         q_norm = " ".join(q_norm.split())
 
-        # Bỏ qua Clarification cho các truy vấn giới thiệu năng lực, danh mục nhiệm vụ theo lĩnh vực (REQ-Q03), hoặc danh mục chỉ tiêu theo nhiệm vụ (REQ-Q04)
-        if any(kw in q_norm for kw in ("giúp gì", "làm được gì", "chức năng", "hỗ trợ những gì", "hỗ trợ gì", "bạn là ai")):
+        # Bỏ qua Clarification cho các truy vấn giới thiệu năng lực
+        if self.catalog and hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(text, "CAPABILITY_META"):
             return False, [], [], []
+        if self.catalog and hasattr(self.catalog, "resolve_report_audit_intent"):
+            try:
+                if self.catalog.resolve_report_audit_intent(text):
+                    return False, [], [], []
+            except Exception:
+                pass
         if self.catalog and hasattr(self.catalog, "resolve_attribute_lookup"):
             try:
                 if self.catalog.resolve_attribute_lookup(text):
@@ -73,71 +79,49 @@ class ClarificationEngine:
                     return False, [], [], []
             except Exception:
                 pass
-        if ("nhiệm vụ" in q_norm or "nhiem vu" in q_norm) and any(
-            w in q_norm for w in (
-                "chỉ tiêu", "chi tieu", "đề án", "de an", "lĩnh vực", "linh vuc",
-                "danh sách", "danh sach", "liệt kê", "liet ke", "có những", "co nhung",
-                "gồm những", "gom nhung", "thuộc", "thuoc", "cấp 1", "cap 1"
-            )
-        ):
-            return False, [], [], []
+        if self.catalog and hasattr(self.catalog, "has_lexicon_term"):
+            has_mission_kw = self.catalog.has_lexicon_term(text, "MISSION_KEYWORD")
+            if has_mission_kw:
+                has_mission_info = (
+                    hasattr(self.catalog, "extract_mission_from_query")
+                    and self.catalog.extract_mission_from_query(text).get("status") in ("MATCH", "FOUND")
+                )
+                has_crit_signal = (
+                    self.catalog.has_lexicon_term(text, "METRIC_LIST_TARGET")
+                    or self.catalog.has_lexicon_term(text, "METRIC_LIST_TRIGGER")
+                    or self.catalog.has_lexicon_term(text, "LEVEL1_CRITERIA_SIGNAL")
+                )
+                if has_mission_info or has_crit_signal:
+                    return False, [], [], []
         if self.catalog and hasattr(self.catalog, "is_dimension_query"):
             try:
-                if self.catalog.is_dimension_query(text, "criteria") or self.catalog.is_dimension_query(text, "fact_report_criteria"):
+                if (
+                    self.catalog.is_dimension_query(text, "criteria")
+                    or self.catalog.is_dimension_query(text, "fact_report_criteria")
+                    or self.catalog.is_dimension_query(text, "mission")
+                    or self.catalog.is_dimension_query(text, "office")
+                    or self.catalog.is_dimension_query(text, "department")
+                    or (hasattr(self.catalog, "is_inventory_query") and self.catalog.is_inventory_query(text))
+                ):
                     return False, [], [], []
             except Exception:
                 pass
 
         # 1. KIỂM TRA ĐA NGHĨA CHỈ TIÊU (REAR MARGIN GAP - ACL 2024 & ACRONYM TOPIC DISCOVERY)
-        # Tra cứu từ viết tắt công vụ (Official Acronyms) qua catalog_acronyms trong RAM
+        # Tra cứu động qua classify_criterion_hierarchy và catalog_acronyms trong RAM
         has_specific_leaf = False
         has_exact_hierarchy_crit = False
-        if any(
-            kw in q_norm
-            for kw in (
-                "diện tích sản xuất muối",
-                "diện tích muối công nghiệp",
-                "diện tích muối thủ công",
-                "diện tích muối sản xuất công nghiệp",
-                "diện tích muối sản xuất thủ công",
-                "sản lượng muối sản xuất công nghiệp",
-                "sản lượng muối sản xuất thủ công",
-                "làng nghề truyền thống",
-                "liên kết sản xuất",
-                "thành lập mới",
-                "doanh thu hợp tác xã",
-                "doanh thu bình quân",
-                "tổng số hiện có",
-                "chuyển đổi số",
-                "tạm ngừng hoạt động",
-                "giải thể",
-                "ứng dụng công nghệ cao",
-                "lĩnh vực hoạt động của hợp tác xã",
-                "lĩnh vực hoạt động của htx",
-                "lĩnh vực hoạt động của liên hiệp",
-                "lĩnh vực hoạt động của lhhtx",
-                "lĩnh vực hoạt động của tổ hợp tác",
-                "lĩnh vực hoạt động của tht",
-                "lĩnh vực hoạt động của trang trại",
-                "hợp tác xã có những chỉ tiêu nào",
-                "htx có những chỉ tiêu nào",
-                "số lượng htx",
-                "số lượng hợp tác xã",
-            )
-        ):
-            has_specific_leaf = True
-            has_exact_hierarchy_crit = True
         if self.catalog and hasattr(self.catalog, "classify_criterion_hierarchy"):
             try:
                 h_check = self.catalog.classify_criterion_hierarchy(text)
                 h_cls = h_check.get("classification")
                 h_mname = h_check.get("matched_name") or ""
-                if h_check.get("matched_code"):
+                if h_check.get("matched_code") or h_check.get("parent_code"):
                     if h_cls in ("single_leaf", "duplicate_leaf"):
                         has_specific_leaf = True
                         has_exact_hierarchy_crit = True
                     elif h_cls in ("parent", "parent_group") and (
-                        len(h_mname) >= 12 or "chỉ tiêu" in q_norm or "chi tieu" in q_norm or "làng nghề, ngành nghề" in q_norm
+                        len(h_mname) >= 6 or (self.catalog and hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(text, "METRIC_LIST_TARGET"))
                     ):
                         has_specific_leaf = True
                         has_exact_hierarchy_crit = True
@@ -174,7 +158,7 @@ class ClarificationEngine:
                 for c_code, c_name, is_leaf in all_crits:
                     c_low = c_name.lower().strip()
                     if c_low in q_norm and len(c_low) >= 10:
-                        c_toks = set(c_low.split()) - stop_tokens - {"ocop", "htx", "hợp", "tác", "xã", "chỉ", "tiêu"}
+                        c_toks = set(c_low.split()) - stop_tokens - {"chỉ", "tiêu"}
                         if len(c_toks) >= 1:
                             has_specific_leaf = True
                             break
@@ -221,7 +205,7 @@ class ClarificationEngine:
                 logger.debug("Lỗi tra cứu acronym trong ClarificationEngine: %s", e)
 
         # Tra cứu trực tiếp qua DuckDB Semantic Catalog không cắt chuỗi cơ học (REJ-07, REJ-08)
-        if self.catalog and hasattr(self.catalog, "find_top_k_candidates"):
+        if not has_exact_hierarchy_crit and self.catalog and hasattr(self.catalog, "find_top_k_candidates"):
             try:
                 cands, is_ambig, score_delta = self.catalog.find_top_k_candidates(q_norm, top_k=3)
                 if cands and len(cands) >= 2:
@@ -236,9 +220,8 @@ class ClarificationEngine:
 
                     # Chuẩn hóa tiền tố để lấy danh xưng thực thể cốt lõi
                     def _stem_core(n: str) -> str:
-                        for p in ("số lượng ", "tổng số lượng ", "tổng số ", "tổng ", "số "):
-                            if n.startswith(p):
-                                return n[len(p):].strip()
+                        if hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+                            return self.catalog.strip_query_noise(n, "METRIC_AGG_PREFIX_NOISE")
                         return n.strip()
 
                     core1 = _stem_core(top1_name_low)

@@ -8,8 +8,6 @@ Căn cứ: Blueprint 03_SEMANTIC_LAYER_MDL_VA_IN_MEMORY_CATALOG.md
 from __future__ import annotations
 import json
 import logging
-import os
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import duckdb
@@ -24,12 +22,865 @@ from IPGov_Chatbot.schemas.catalog_dto import ColumnMetadataDTO, TableMetadataDT
 logger = logging.getLogger(__name__)
 
 
-def _remove_accents(text: str) -> str:
-    if not text:
+def _remove_accents(raw_str: str) -> str:
+    if not raw_str:
         return ""
     import unicodedata
-    s = text.replace("đ", "d").replace("Đ", "D")
+    s = raw_str.replace("đ", "d").replace("Đ", "D")
     return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+
+
+ALLOWED_SEMANTIC_LEXICON_SEED = (
+    # SC-5.2 Form criteria group
+    ("FORM_CRITERIA_GROUP", "biểu mẫu", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "bieu mau", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "collection_form", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "criteria_group", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "bộ thu thập", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "bo thu thap", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "tờ khai", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "to khai", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "mẫu biểu", "FORM_CRITERIA_GROUP", 1.0),
+    ("FORM_CRITERIA_GROUP", "mau bieu", "FORM_CRITERIA_GROUP", 1.0),
+    # Mission keywords
+    ("MISSION_KEYWORD", "nhiệm vụ", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "nhiem vu", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "mission", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "phân công", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "phan cong", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "đề án", "MISSION", 1.0),
+    ("MISSION_KEYWORD", "de an", "MISSION", 1.0),
+    # Office keywords
+    ("OFFICE_KEYWORD", "phòng ban", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "phong ban", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "đơn vị", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "don vi", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "office_mission", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "văn phòng", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "van phong", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "sở", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "ban ngành", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "ban nganh", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "chi cục", "OFFICE", 1.0),
+    ("OFFICE_KEYWORD", "chi cuc", "OFFICE", 1.0),
+    # Officer keywords
+    ("OFFICER_KEYWORD", "cán bộ", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "can bo", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "nhân sự", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "nhan su", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "user_mission", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "office_user", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "phụ trách", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "phu trach", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "chủ trì", "OFFICER", 1.0),
+    ("OFFICER_KEYWORD", "chu tri", "OFFICER", 1.0),
+    # Matrix cues
+    ("MATRIX_CUE", "ma trận", "MATRIX", 1.0),
+    ("MATRIX_CUE", "ma tran", "MATRIX", 1.0),
+    ("MATRIX_CUE", "kiểm toán phân công", "MATRIX", 1.0),
+    ("MATRIX_CUE", "kiem toan phan cong", "MATRIX", 1.0),
+    ("MATRIX_CUE", "office_mission", "MATRIX", 1.0),
+    ("MATRIX_CUE", "user_mission", "MATRIX", 1.0),
+    ("MATRIX_CUE", "chưa phân công", "MATRIX", 1.0),
+    ("MATRIX_CUE", "chua phan cong", "MATRIX", 1.0),
+    ("MATRIX_CUE", "độ lệch", "MATRIX", 1.0),
+    ("MATRIX_CUE", "do lech", "MATRIX", 1.0),
+    ("MATRIX_CUE", "tổng hợp phân công", "MATRIX", 1.0),
+    ("MATRIX_CUE", "tong hop phan cong", "MATRIX", 1.0),
+    # Report signals
+    ("REPORT_SIGNAL", "báo cáo", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "bao cao", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "đợt nộp", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "dot nop", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "kỳ báo cáo", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "ky bao cao", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "tiến độ nộp", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "tien do nop", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "trạng thái báo cáo", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "trang thai bao cao", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "phê duyệt báo cáo", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "phe duyet bao cao", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "submitted_date", "REPORT", 1.0),
+    ("REPORT_SIGNAL", "tiến độ nộp báo cáo", "REPORT", 1.2),
+    ("REPORT_SIGNAL", "tien do nop bao cao", "REPORT", 1.2),
+    ("REPORT_SIGNAL", "báo cáo nháp", "REPORT", 1.2),
+    ("REPORT_SIGNAL", "bao cao nhap", "REPORT", 1.2),
+    # Report status
+    ("REPORT_STATUS", "bản nháp", "STATUS", 1.0),
+    ("REPORT_STATUS", "ban nhap", "STATUS", 1.0),
+    ("REPORT_STATUS", "nháp", "STATUS", 1.0),
+    ("REPORT_STATUS", "nhap", "STATUS", 1.0),
+    ("REPORT_STATUS", "draft", "STATUS", 1.0),
+    ("REPORT_STATUS", "approved", "STATUS", 1.0),
+    ("REPORT_STATUS", "pending", "STATUS", 1.0),
+    ("REPORT_STATUS", "chưa phê duyệt", "STATUS", 1.0),
+    ("REPORT_STATUS", "chua phe duyet", "STATUS", 1.0),
+    ("REPORT_STATUS", "chờ duyệt", "STATUS", 1.0),
+    ("REPORT_STATUS", "cho duyet", "STATUS", 1.0),
+    ("REPORT_STATUS", "chưa nộp", "STATUS", 1.0),
+    ("REPORT_STATUS", "chua nop", "STATUS", 1.0),
+    ("REPORT_STATUS", "tiến độ", "STATUS", 1.0),
+    ("REPORT_STATUS", "tien do", "STATUS", 1.0),
+    ("REPORT_STATUS", "trạng thái", "STATUS", 1.0),
+    ("REPORT_STATUS", "trang thai", "STATUS", 1.0),
+    ("REPORT_STATUS", "đã phê duyệt", "STATUS", 1.0),
+    ("REPORT_STATUS", "da phe duyet", "STATUS", 1.0),
+    ("REPORT_STATUS", "đối chiếu", "STATUS", 1.0),
+    ("REPORT_STATUS", "doi chieu", "STATUS", 1.0),
+    ("REPORT_STATUS", "chênh lệch", "STATUS", 1.0),
+    ("REPORT_STATUS", "chenh lech", "STATUS", 1.0),
+    # Report diff
+    ("REPORT_DIFF", "bản nháp", "DIFF", 1.0),
+    ("REPORT_DIFF", "ban nhap", "DIFF", 1.0),
+    ("REPORT_DIFF", "nháp", "DIFF", 1.0),
+    ("REPORT_DIFF", "nhap", "DIFF", 1.0),
+    ("REPORT_DIFF", "draft", "DIFF", 1.0),
+    ("REPORT_DIFF", "đối chiếu", "DIFF", 1.0),
+    ("REPORT_DIFF", "doi chieu", "DIFF", 1.0),
+    ("REPORT_DIFF", "so sánh", "DIFF", 1.0),
+    ("REPORT_DIFF", "so sanh", "DIFF", 1.0),
+    ("REPORT_DIFF", "chênh lệch", "DIFF", 1.0),
+    ("REPORT_DIFF", "chenh lech", "DIFF", 1.0),
+    ("REPORT_DIFF", "chi tiết", "DIFF", 1.0),
+    ("REPORT_DIFF", "chi tiet", "DIFF", 1.0),
+    ("REPORT_DIFF", "tất cả", "DIFF", 1.0),
+    ("REPORT_DIFF", "tat ca", "DIFF", 1.0),
+    # Officer query
+    ("OFFICER_QUERY", "cán bộ", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "can bo", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "nhân sự", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "nhan su", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "người dùng", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "nguoi dung", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "user", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "officer", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "ai phụ trách", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "ai phu trach", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "ai chủ trì", "OFFICER_QUERY", 1.0),
+    ("OFFICER_QUERY", "ai chu tri", "OFFICER_QUERY", 1.0),
+    # Officer query negative keywords (for _is_officer_query)
+    ("OFFICER_QUERY_NEGATIVE", "nào", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "nao", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "các chỉ tiêu", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "cac chi tieu", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "những chỉ tiêu", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "nhung chi tieu", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "danh mục", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "danh muc", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "thu thập", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "thu thap", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "tiêu chí", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "tieu chi", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "các tiêu chí", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "cac tieu chi", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "những tiêu chí", "NEGATIVE", 1.0),
+    ("OFFICER_QUERY_NEGATIVE", "nhung tieu chi", "NEGATIVE", 1.0),
+    # Officer query positive keywords (for _is_officer_query)
+    ("OFFICER_QUERY_POSITIVE", "cán bộ", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "can bo", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "nhân sự", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "nhan su", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "nhân viên", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "nhan vien", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "chuyên viên", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "chuyen vien", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "chức vụ", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "chuc vu", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "ai phụ trách", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "ai phu trach", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "tài khoản", "POSITIVE", 1.0),
+    ("OFFICER_QUERY_POSITIVE", "tai khoan", "POSITIVE", 1.0),
+    # Capability meta
+    ("CAPABILITY_META", "bạn có thể làm gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban co the lam gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "bạn có thể giúp gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban co the giup gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "bạn có thể giúp", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban co the giup", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "chức năng của bạn", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "chuc nang cua ban", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "giới thiệu về bạn", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "gioi thieu ve ban", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "năng lực của bạn", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "nang luc cua ban", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "hướng dẫn sử dụng", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "huong dan su dung", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "trợ giúp", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "tro giup", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "bạn là ai", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban la ai", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "bạn làm được gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban lam duoc gi", "CAPABILITY", 1.0),
+    # Domain signal
+    ("DOMAIN_SIGNAL", "nông nghiệp", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "nong nghiep", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "phát triển nông thôn", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "phat trien nong thon", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "diêm nghiệp", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "diem nghiep", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "chỉ tiêu", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "chi tieu", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "nhiệm vụ", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "nhiem vu", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "chi cục", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "chi cuc", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "thực hiện", "DOMAIN", 1.0),
+    ("DOMAIN_SIGNAL", "thuc hien", "DOMAIN", 1.0),
+    # Metric listing triggers
+    ("METRIC_LIST_TRIGGER", "danh sách", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "danh sach", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "danh mục", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "danh muc", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "liệt kê", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "liet ke", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "có những chỉ tiêu nào", "LIST", 1.2),
+    ("METRIC_LIST_TRIGGER", "gồm những chỉ tiêu nào", "LIST", 1.2),
+    ("METRIC_LIST_TRIGGER", "những chỉ tiêu nào", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "nhung chi tieu nao", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "những chỉ tiêu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "nhung chi tieu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "các chỉ tiêu nào", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "cac chi tieu nao", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "chỉ tiêu nào", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "chi tieu nao", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "chỉ tiêu gì", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "chi tieu gi", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "tất cả chỉ tiêu", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "tất cả các chỉ tiêu", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "có các chỉ tiêu nào", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "hệ thống đang có các chỉ tiêu nào", "LIST", 1.2),
+    ("METRIC_LIST_TRIGGER", "thu thập các chỉ tiêu nào", "LIST", 1.2),
+    ("METRIC_LIST_TRIGGER", "thu thap cac chi tieu nao", "LIST", 1.2),
+    ("METRIC_LIST_TRIGGER", "các chỉ tiêu năm", "LIST", 1.1),
+    ("METRIC_LIST_TRIGGER", "các chỉ tiêu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "cac chi tieu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "phụ trách chỉ tiêu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "quản lý chỉ tiêu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "thực hiện chỉ tiêu", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "các tiêu chí", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "cac tieu chi", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "những tiêu chí", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "nhung tieu chi", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "tiêu chí nào", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "tieu chi nao", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "tiêu chí gì", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "tieu chi gi", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "các hạng mục", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "cac hang muc", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "hiển thị", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "hien thi", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "thu thập được", "LIST", 1.0),
+    ("METRIC_LIST_TRIGGER", "thu thap duoc", "LIST", 1.0),
+    # Metric listing target
+    ("METRIC_LIST_TARGET", "chỉ tiêu", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "chi tieu", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "tiêu chí", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "tieu chi", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "hạng mục", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "hang muc", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cấp đầu", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cap dau", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cấp 1", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cap 1", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cấp một", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "cap mot", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "bậc 1", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "bac 1", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "đầu mục", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "dau muc", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "gốc", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "goc", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "chỉ số", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "chi so", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "mục tiêu", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "muc tieu", "METRIC", 1.0),
+    ("METRIC_LIST_TARGET", "criteria", "METRIC", 1.0),
+    # Criteria count
+    ("CRITERIA_COUNT", "có bao nhiêu", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "co bao nhieu", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "tổng số", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "tong so", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "đếm số", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "dem so", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "số lượng", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "so luong", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "có mấy", "COUNT", 1.0),
+    ("CRITERIA_COUNT", "co may", "COUNT", 1.0),
+    # Criteria reported
+    ("CRITERIA_REPORTED", "được báo cáo", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "duoc bao cao", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "được thu thập", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "duoc thu thap", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "phát sinh", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "phat sinh", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "thu thập được", "REPORTED", 1.0),
+    ("CRITERIA_REPORTED", "thu thap duoc", "REPORTED", 1.0),
+    # Point value
+    ("POINT_VALUE", "là bao nhiêu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "la bao nhieu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "đạt bao nhiêu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "dat bao nhieu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "hiện tại là bao nhiêu", "POINT_VALUE", 1.2),
+    ("POINT_VALUE", "hien tai la bao nhieu", "POINT_VALUE", 1.2),
+    ("POINT_VALUE", "giá trị bao nhiêu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "gia tri bao nhieu", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "bao nhiêu ?", "POINT_VALUE", 1.0),
+    ("POINT_VALUE", "bao nhieu ?", "POINT_VALUE", 1.0),
+    # Performer verb
+    ("PERFORMER_VERB", "thực hiện", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "thuc hien", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "chủ trì", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "chu tri", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "quản lý", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "quan ly", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "phụ trách", "PERFORMER", 1.0),
+    ("PERFORMER_VERB", "phu trach", "PERFORMER", 1.0),
+    # Unit interrogative
+    ("UNIT_INTERROGATIVE", "đơn vị nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "don vi nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "phòng nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "phong nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "phòng ban nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "phong ban nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "cơ quan nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "co quan nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "sở nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "so nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "chi cục nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "chi cuc nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "văn phòng nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "van phong nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "tỉnh nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "tinh nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "địa phương nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "dia phuong nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai thực hiện", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai thuc hien", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai phụ trách", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai phu trach", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai chủ trì", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai chu tri", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai quản lý", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "ai quan ly", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "do ai", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "do don vi", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "do đơn vị", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "do phong", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "do phòng", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "thuộc đơn vị nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "thuoc don vi nao", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "của đơn vị nào", "UNIT", 1.0),
+    ("UNIT_INTERROGATIVE", "cua don vi nao", "UNIT", 1.0),
+    # Capability meta
+    ("CAPABILITY_META", "giúp gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "giup gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "làm được gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "lam duoc gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "chức năng gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "chuc nang gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "những chức năng", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "nhung chuc nang", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "hỗ trợ những gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ho tro nhung gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "hỗ trợ gì", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ho tro gi", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "bạn là ai", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "ban la ai", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "giới thiệu về bạn", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "gioi thieu ve ban", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "khả năng của bạn", "CAPABILITY", 1.0),
+    ("CAPABILITY_META", "kha nang cua ban", "CAPABILITY", 1.0),
+    # Discourse connectives (True ellipsis connectives only)
+    ("DISCOURSE_CONNECTIVE", "thế còn", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "the con", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "vậy còn", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "vay con", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "thế thì", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "the thi", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "còn thì", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "con thi", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "còn", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "thì sao", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "thi sao", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "thế sao", "CONNECTIVE", 1.0),
+    ("DISCOURSE_CONNECTIVE", "the sao", "CONNECTIVE", 1.0),
+    # Discourse demonstratives (Explicit referential phrases only)
+    ("DISCOURSE_DEMONSTRATIVE", "nhóm đó", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhom do", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhánh đó", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhanh do", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhóm này", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhom nay", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhánh này", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nhanh nay", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "chỉ tiêu đó", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "chi tieu do", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "chỉ tiêu này", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "chi tieu nay", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "ở trên", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "o tren", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "nêu trên", "DEMONSTRATIVE", 1.0),
+    ("DISCOURSE_DEMONSTRATIVE", "neu tren", "DEMONSTRATIVE", 1.0),
+    # Report status signal
+    ("REPORT_STATUS_SIGNAL", "trạng thái", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "trang thai", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "tiến độ", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "tien do", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "phê duyệt", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "phe duyet", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "vòng đời", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "vong doi", "STATUS", 1.0),
+    ("REPORT_STATUS_SIGNAL", "report_status", "STATUS", 1.0),
+    # Province scope signal
+    ("PROVINCE_SCOPE_SIGNAL", "toàn tỉnh", "PROV", 1.0),
+    ("PROVINCE_SCOPE_SIGNAL", "toan tinh", "PROV", 1.0),
+    ("PROVINCE_SCOPE_SIGNAL", "của tỉnh", "PROV", 1.0),
+    ("PROVINCE_SCOPE_SIGNAL", "cua tinh", "PROV", 1.0),
+    ("PROVINCE_SCOPE_SIGNAL", "hệ thống", "PROV", 1.0),
+    ("PROVINCE_SCOPE_SIGNAL", "he thong", "PROV", 1.0),
+    # Mission scope cue
+    ("MISSION_SCOPE_CUE", "nhóm lĩnh vực", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "nhom linh vuc", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "lĩnh vực", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "linh vuc", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "mảng", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "mang", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "ngành", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "nganh", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "khối", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "khoi", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "thuộc về", "SCOPE", 1.0),
+    ("MISSION_SCOPE_CUE", "thuoc ve", "SCOPE", 1.0),
+    # Office or ward cue
+    ("OFFICE_OR_WARD_CUE", "văn phòng", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "van phong", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "từng văn phòng", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "tung van phong", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "quản lý nhà nước nào", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "quản lý nhà nước", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "quan ly nha nuoc", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "xã ", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "xa ", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "phường ", "CUE", 1.0),
+    ("OFFICE_OR_WARD_CUE", "phuong ", "CUE", 1.0),
+    # Office scope cue
+    ("OFFICE_SCOPE_CUE", "văn phòng", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "van phong", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "từng văn phòng", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "tung van phong", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "lĩnh vực", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "linh vuc", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "quản lý nhà nước", "CUE", 1.0),
+    ("OFFICE_SCOPE_CUE", "quan ly nha nuoc", "CUE", 1.0),
+    # Province list query
+    ("PROVINCE_LIST_QUERY", "các tỉnh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "cac tinh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh sách tỉnh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh sach tinh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "những tỉnh nào", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "nhung tinh nao", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "tỉnh thành nào", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "tinh thanh nao", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh mục tỉnh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh muc tinh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh sách các tỉnh", "PROV", 1.0),
+    ("PROVINCE_LIST_QUERY", "danh sach cac tinh", "PROV", 1.0),
+    # Code search keyword
+    ("CODE_SEARCH_KEYWORD", "mã", "CODE", 1.0),
+    ("CODE_SEARCH_KEYWORD", "ma", "CODE", 1.0),
+    ("CODE_SEARCH_KEYWORD", "đầu tiên", "CODE", 1.0),
+    ("CODE_SEARCH_KEYWORD", "dau tien", "CODE", 1.0),
+    # Synthesis action cue (when 'tổng hợp' acts as a verb/action modifying another query target)
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp số lượng", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop so luong", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp số liệu", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop so lieu", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp báo cáo", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop bao cao", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp danh sách", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop danh sach", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp tình hình", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop tinh hinh", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp các", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop cac", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tổng hợp chỉ tiêu", "ACTION", 1.0),
+    ("SYNTHESIS_ACTION_CUE", "tong hop chi tieu", "ACTION", 1.0),
+    # Synthesis metric cue (when 'tổng hợp' is part of an explicit metric mention)
+    ("SYNTHESIS_METRIC_CUE", "chỉ tiêu tổng hợp", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "chi tieu tong hop", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "trang trại tổng hợp", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "trang trai tong hop", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "lĩnh vực tổng hợp", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "linh vuc tong hop", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "nhóm tổng hợp", "METRIC", 1.0),
+    ("SYNTHESIS_METRIC_CUE", "nhom tong hop", "METRIC", 1.0),
+    # Local office or ward cue
+    ("LOCAL_OFFICE_OR_WARD_CUE", "lâm đồng", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "lam dong", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "văn phòng", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "van phong", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "sở", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "so", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "phòng", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "phong", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "xã", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "xa", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "phường", "LOCAL", 1.0),
+    ("LOCAL_OFFICE_OR_WARD_CUE", "phuong", "LOCAL", 1.0),
+    # Ward dimension
+    ("WARD_DIMENSION", "xã", "WARD", 1.0),
+    ("WARD_DIMENSION", "xa", "WARD", 1.0),
+    ("WARD_DIMENSION", "phường", "WARD", 1.0),
+    ("WARD_DIMENSION", "phuong", "WARD", 1.0),
+    ("WARD_DIMENSION", "thị trấn", "WARD", 1.0),
+    ("WARD_DIMENSION", "thi tran", "WARD", 1.0),
+    # Province list
+    ("PROV_LIST", "tỉnh", "PROV", 1.0),
+    ("PROV_LIST", "tinh", "PROV", 1.0),
+    ("PROV_LIST", "thành phố", "PROV", 1.0),
+    ("PROV_LIST", "thanh pho", "PROV", 1.0),
+    ("PROV_LIST", "địa bàn", "PROV", 1.0),
+    ("PROV_LIST", "dia ban", "PROV", 1.0),
+    ("PROV_LIST", "mã tỉnh", "PROV", 1.0),
+    ("PROV_LIST", "ma tinh", "PROV", 1.0),
+    ("PROV_LIST", "tỉnh thành", "PROV", 1.0),
+    ("PROV_LIST", "tinh thanh", "PROV", 1.0),
+    ("PROV_LIST", "province", "PROV", 1.0),
+    # Time term
+    ("TIME_TERM", "từ tháng", "TIME", 1.0),
+    ("TIME_TERM", "tu thang", "TIME", 1.0),
+    ("TIME_TERM", "đến tháng", "TIME", 1.0),
+    ("TIME_TERM", "den thang", "TIME", 1.0),
+    ("TIME_TERM", "trong tháng", "TIME", 1.0),
+    ("TIME_TERM", "trong thang", "TIME", 1.0),
+    ("TIME_TERM", "quý", "TIME", 1.0),
+    ("TIME_TERM", "quy", "TIME", 1.0),
+    ("TIME_TERM", "nửa đầu năm", "TIME", 1.0),
+    ("TIME_TERM", "nua dau nam", "TIME", 1.0),
+    ("TIME_TERM", "nửa cuối năm", "TIME", 1.0),
+    ("TIME_TERM", "nua cuoi nam", "TIME", 1.0),
+    ("TIME_TERM", "hết năm", "TIME", 1.0),
+    ("TIME_TERM", "het nam", "TIME", 1.0),
+    ("TIME_TERM", "cuối năm", "TIME", 1.0),
+    ("TIME_TERM", "cuoi nam", "TIME", 1.0),
+    ("TIME_TERM", "đầu năm", "TIME", 1.0),
+    ("TIME_TERM", "dau nam", "TIME", 1.0),
+    ("TIME_TERM", "tới nay", "TIME", 1.0),
+    ("TIME_TERM", "toi nay", "TIME", 1.0),
+    ("TIME_TERM", "đến nay", "TIME", 1.0),
+    ("TIME_TERM", "den nay", "TIME", 1.0),
+    ("TIME_TERM", "giai đoạn", "TIME", 1.0),
+    ("TIME_TERM", "giai doan", "TIME", 1.0),
+    # Level 1 criteria
+    ("LEVEL1_CRITERIA_SIGNAL", "chỉ tiêu cấp 1", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "chi tieu cap 1", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "chỉ tiêu cấp một", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "chi tieu cap mot", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "chỉ tiêu cấp i", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "chi tieu cap i", "LEVEL1", 1.0),
+    ("LEVEL1_CRITERIA_SIGNAL", "cấp 1", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cap 1", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cấp một", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cap mot", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cấp i", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cap i", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "bậc 1", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "bac 1", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cấp đầu", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "cap dau", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "gốc", "LEVEL1", 0.8),
+    ("LEVEL1_CRITERIA_SIGNAL", "goc", "LEVEL1", 0.8),
+    ("LEVEL1_CRITERIA_SIGNAL", "đầu mục", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "dau muc", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "tiêu chí cấp", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "tieu chi cap", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "chỉ tiêu cấp", "LEVEL1", 0.9),
+    ("LEVEL1_CRITERIA_SIGNAL", "chi tieu cap", "LEVEL1", 0.9),
+    # Mission scope signal
+    ("MISSION_SCOPE_SIGNAL", "nhiệm vụ", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "nhiem vu", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "lĩnh vực", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "linh vuc", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "đề án", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "de an", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "chương trình", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "chuong trinh", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "công tác", "MISSION_SCOPE", 1.0),
+    ("MISSION_SCOPE_SIGNAL", "cong tac", "MISSION_SCOPE", 1.0),
+    # Noise stripping lexicon entries (Task 4)
+    ("QUERY_LEAD_NOISE", "cho tôi biết", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "cho tôi xem", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "vui lòng cho biết", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "hãy cho biết", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "thông tin số liệu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "số liệu chỉ tiêu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "số liệu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "kết quả chỉ tiêu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "giá trị chỉ tiêu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "nhóm chỉ tiêu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "chỉ tiêu", "LEAD_NOISE", 1.0),
+    ("QUERY_LEAD_NOISE", "tiêu chí", "LEAD_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "hiện tại là bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "hiện nay là bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "hiện đạt bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "có giá trị là bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "có giá trị bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "đạt bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "là bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "bao nhiêu", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "hiện tại", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "hiện nay", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "trong năm", "TAIL_NOISE", 1.0),
+    ("QUERY_TAIL_NOISE", "năm", "TAIL_NOISE", 1.0),
+    ("OFFICER_PREFIX_NOISE", "cán bộ", "PREFIX_NOISE", 1.0),
+    ("OFFICER_PREFIX_NOISE", "chuyên viên", "PREFIX_NOISE", 1.0),
+    ("OFFICER_PREFIX_NOISE", "đồng chí", "PREFIX_NOISE", 1.0),
+    ("METRIC_PREFIX_NOISE", "chỉ tiêu", "PREFIX_NOISE", 1.0),
+    ("METRIC_PREFIX_NOISE", "tiêu chí", "PREFIX_NOISE", 1.0),
+    ("MISSION_ENTITY_MARKER", "nhiệm vụ", "MARKER", 1.0),
+    ("MISSION_ENTITY_MARKER", "nhiem vu", "MARKER", 1.0),
+    ("MISSION_STOP_TOKEN", "hiện tại là bao nhiêu", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hien tai la bao nhieu", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hiện tại", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hien tai", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hiện nay", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hien nay", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hiện có", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hien co", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hiện đang", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hien dang", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trên hệ thống", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "tren he thong", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trên kho", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "tren kho", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "có chỉ tiêu", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "co chi tieu", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "có những", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "co nhung", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "có các", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "co cac", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "gồm những", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "gom nhung", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "gồm các", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "gom cac", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "bao gồm", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "bao gom", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trong năm", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trong nam", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thu thập", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thu thap", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trọng tâm", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "trong tam", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "chuyên môn", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "chuyen mon", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "công tác", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "cong tac", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "là gì", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "la gi", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thuộc", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thuoc", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "của", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "cua", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "tại", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "tai", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "năm", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "nam", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "nào", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "nao", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thì", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "thi", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hãy", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "hay", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "được", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "duoc", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "đang", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "dang", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "đã", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "da", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "do", "STOP", 1.0),
+    ("MISSION_STOP_TOKEN", "?", "STOP", 1.0),
+    # Metric and entity aggregation prefix noise categories
+    ("METRIC_AGG_PREFIX_NOISE", "tổng số lượng", "PREFIX_NOISE", 1.0),
+    ("METRIC_AGG_PREFIX_NOISE", "tổng số", "PREFIX_NOISE", 1.0),
+    ("METRIC_AGG_PREFIX_NOISE", "tổng", "PREFIX_NOISE", 1.0),
+    ("METRIC_AGG_PREFIX_NOISE", "số lượng", "PREFIX_NOISE", 1.0),
+    ("METRIC_AGG_PREFIX_NOISE", "số", "PREFIX_NOISE", 1.0),
+    # Office, Department, and Mission noise stripping categories
+    ("OFFICE_PREFIX_NOISE", "phòng ban", "PREFIX_NOISE", 1.0),
+    ("OFFICE_PREFIX_NOISE", "phòng", "PREFIX_NOISE", 1.0),
+    ("OFFICE_PREFIX_NOISE", "văn phòng", "PREFIX_NOISE", 1.0),
+    ("DEPT_PREFIX_NOISE", "sở", "PREFIX_NOISE", 1.0),
+    ("DEPT_PREFIX_NOISE", "phòng", "PREFIX_NOISE", 1.0),
+    ("DEPT_PREFIX_NOISE", "chi cục", "PREFIX_NOISE", 1.0),
+    ("DEPT_PREFIX_NOISE", "ban", "PREFIX_NOISE", 1.0),
+    ("MISSION_LEAD_PREFIX_NOISE", "kế hoạch", "PREFIX_NOISE", 1.0),
+    ("MISSION_LEAD_PREFIX_NOISE", "chương trình", "PREFIX_NOISE", 1.0),
+    ("MISSION_LEAD_PREFIX_NOISE", "đề án", "PREFIX_NOISE", 1.0),
+    ("MISSION_LEAD_PREFIX_NOISE", "nhiệm vụ", "PREFIX_NOISE", 1.0),
+    # Greeting / farewell lead noise categories
+    ("GREETING_LEAD_NOISE", "kính chào trợ lý ảo", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "kính chào trợ lý", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "kính chào", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "kinh chao", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào chatbot", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào chatbot", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào bot", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào bot", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào đồng chí", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào đồng chí", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào bạn", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào bạn", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào anh", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào anh", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào chị", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào chị", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào em", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào em", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "xin chào", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "good morning", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "chào", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "hello", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "hi", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "hẹn gặp lại", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "thank you", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "tạm biệt", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "cảm ơn", "LEAD_NOISE", 1.0),
+    ("GREETING_LEAD_NOISE", "thanks", "LEAD_NOISE", 1.0),
+    ("FAREWELL_SIGNAL", "hẹn gặp lại", "FAREWELL", 1.0),
+    ("FAREWELL_SIGNAL", "thank you", "FAREWELL", 1.0),
+    ("FAREWELL_SIGNAL", "tạm biệt", "FAREWELL", 1.0),
+    ("FAREWELL_SIGNAL", "cảm ơn", "FAREWELL", 1.0),
+    ("FAREWELL_SIGNAL", "thanks", "FAREWELL", 1.0),
+    # Scope resolution markers, prepositions and stop tokens
+    ("SCOPE_ENTITY_MARKER", "nhóm lĩnh vực", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "nhom linh vuc", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "lĩnh vực", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "linh vuc", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "mảng", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "mang", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "khối", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "khoi", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "thuộc về", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "thuoc ve", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "ngành", "MARKER", 1.0),
+    ("SCOPE_ENTITY_MARKER", "nganh", "MARKER", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "về", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "ve", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "của", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "cua", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "trong", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "thuộc", "PREP", 1.0),
+    ("SCOPE_LEAD_PREPOSITION", "thuoc", "PREP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện tại là bao nhiêu", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện nay là bao nhiêu", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện tại", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hien tai", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện nay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hien nay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện có", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hien co", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện đang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hien dang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hiện", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hien", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong năm", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong nam", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "năm", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nam", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong quý", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong quy", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "ở quý", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "o quy", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "quý", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "quy", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong nửa", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong nua", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nửa đầu", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nua dau", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nửa cuối", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nua cuoi", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nửa sau", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nua sau", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "6 tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "6 thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "sáu tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "sau thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "3 tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "3 thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "9 tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "9 thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "từ đầu năm", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tu dau nam", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "đầu năm", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "dau nam", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tính từ", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tinh tu", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "lũy kế", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "luy ke", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "từ tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tu thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trong thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "ở tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "o thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tháng", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "vào ngày", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "vao ngay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "ngày", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "ngay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tính đến", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tinh den", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "đến nay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "den nay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tới giờ", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "toi gio", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "đến giờ", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "den gio", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tại", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tai", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "ở", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "o", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "của", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "cua", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trên hệ thống", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tren he thong", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trên kho", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "tren kho", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thì", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thi", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hãy", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "hay", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "có những", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "co nhung", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "có các", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "co cac", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "gồm những", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "gom nhung", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "gồm các", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "gom cac", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "bao gồm", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "bao gom", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "là gì", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "la gi", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nào", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "nao", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "đang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "dang", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thuộc", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thuoc", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "triển khai", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "trien khai", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thực hiện", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "thuc hien", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "phụ trách", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "phu trach", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "quản lý", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "quan ly", "STOP", 1.0),
+    ("SCOPE_STOP_TOKEN", "?", "STOP", 1.0),
+)
 
 
 class DuckDBSemanticCatalog:
@@ -97,7 +948,8 @@ class DuckDBSemanticCatalog:
                 code VARCHAR PRIMARY KEY,
                 name VARCHAR NOT NULL,
                 tenant_code VARCHAR NOT NULL,
-                level INTEGER NOT NULL
+                level INTEGER NOT NULL,
+                related_codes VARCHAR
             );
         """)
 
@@ -200,7 +1052,10 @@ class DuckDBSemanticCatalog:
         self.conn.execute("""
             INSERT OR IGNORE INTO catalog_acronyms VALUES
             ('PTNT', 'phát triển nông thôn', 'department'),
+            ('NN', 'nông nghiệp', 'department'),
             ('HTX', 'hợp tác xã', 'criteria'),
+            ('THT', 'tổ hợp tác', 'criteria'),
+            ('LHHTX', 'liên hiệp hợp tác xã', 'criteria'),
             ('OCOP', 'mỗi xã một sản phẩm', 'criteria'),
             ('TNLĐ', 'tai nạn lao động', 'criteria'),
             ('UBND', 'ủy ban nhân dân', 'administration');
@@ -245,6 +1100,277 @@ class DuckDBSemanticCatalog:
                 has_approved_facts BOOLEAN NOT NULL DEFAULT FALSE
             );
         """)
+
+        # 15. Bảng Danh mục Ngữ nghĩa (Semantic Lexicon - Anti-heuristic NLU)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS semantic_lexicon (
+                category VARCHAR,
+                term VARCHAR,
+                sub_intent VARCHAR,
+                weight DOUBLE DEFAULT 1.0
+            );
+        """)
+        lex_rows = []
+        for cat, term, sub_intent, w in ALLOWED_SEMANTIC_LEXICON_SEED:
+            t_low = term.lower().strip()
+            lex_rows.append((cat, t_low, sub_intent, float(w)))
+            t_unacc = _remove_accents(t_low)
+            if t_unacc and t_unacc != t_low:
+                if cat == "DISCOURSE_CONNECTIVE" and len(t_unacc.split()) <= 1:
+                    continue
+                lex_rows.append((cat, t_unacc, sub_intent, float(w) * 0.95))
+        self.conn.executemany("INSERT INTO semantic_lexicon VALUES (?, ?, ?, ?)", lex_rows)
+
+        # 16. Bảng Danh mục Alias Chỉ tiêu (Criteria Aliases Catalog)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS catalog_aliases (
+                alias VARCHAR PRIMARY KEY,
+                code VARCHAR NOT NULL,
+                is_leaf BOOLEAN NOT NULL DEFAULT TRUE
+            );
+        """)
+        seed_aliases = [
+            ("diện tích muối công nghiệp", "dien_tich_muoi_san_xuat_cong_nghiep", True),
+            ("diện tích muối thủ công", "dien_tich_muoi_san_xuat_thu_cong", True),
+            ("sản lượng muối công nghiệp", "san_luong_muoi_san_xuat_cong_nghiep", True),
+            ("sản lượng muối thủ công", "san_luong_muoi_san_xuat_thu_cong", True),
+            ("tổng số hộ dân tham gia sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("tổng số hộ tham gia sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("tổng số hộ sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("tổng hộ sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("tổng hộ sản xuất muôi", "tong_ho_san_xuat_muoi", True),
+            ("số hộ sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("hộ dân tham gia sản xuất muối", "tong_ho_san_xuat_muoi", True),
+            ("làng nghề truyền thống", "lang_nghe_truyen_thong", True),
+            ("làng nghề truyền thồng", "lang_nghe_truyen_thong", True),
+            ("doanh thu hợp tác xã", "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep", True),
+            ("doanh thu bình quân", "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep", True),
+            ("tổng số hiện có", "dang_hoat_dong", True),
+            ("tổng số hiện nay", "dang_hoat_dong", True),
+            ("số lượng đơn vị đang hoạt động", "dang_hoat_dong", True),
+            ("đang hoạt động", "dang_hoat_dong", True),
+            ("liên kết sản xuất", "lien_ket_san_xuat", True),
+            ("liên kết chuỗi giá trị", "lien_ket_san_xuat", True),
+            ("tạm ngừng hoạt động", "tam_ngung_hoat_dong", True),
+            ("giải thể", "giai_the", True),
+            ("lợi nhuận bình quân", "loi_nhuan_binh_quan", True),
+            ("thu nhập bình quân", "thu_nhap_binh_quan", True),
+            ("ứng dụng công nghệ cao", "ung_dung_cong_nghe_cao", True),
+            ("chuyển đổi số", "chuyen_doi_so", True),
+            ("nông nghiệp khác", "nong_nghiep_khac", True),
+            ("an toàn thực phẩm / vietgap", "an_toan_thuc_pham_vietgap", True),
+            ("an toàn thực phẩm", "an_toan_thuc_pham_vietgap", True),
+            ("vietgap", "an_toan_thuc_pham_vietgap", True),
+            ("chế biến sâu", "che_bien_sau", True),
+            ("liên kết tiêu thụ sản phẩm", "lien_ket_tieu_thu_san_pham", True),
+            ("liên kết tiêu thụ", "lien_ket_tieu_thu_san_pham", True),
+            ("tổng số lao động", "tong_so_lao_dong", True),
+            ("tổng số thành viên", "thanh_vien", True),
+            ("số lượng sản phẩm ocop 3 sao", "so_luong_san_pham_ocop_3_sao_duoc_cong_nhan_trong_nam", True),
+            ("số lượng sản phẩm ocop 4 sao", "so_luong_san_pham_ocop_4_sao_duoc_cong_nhan_trong_nam", True),
+            ("số lượng sản phẩm ocop 5 sao", "so_luong_san_pham_ocop_5_sao_duoc_cong_nhan_trong_nam", True),
+            ("diện tích sản xuất muối", "tong_dien_tich_san_xuat_muoi", False),
+            ("diện tích sản xuất muôi", "tong_dien_tich_san_xuat_muoi", False),
+            ("sản xuất muôi", "tong_dien_tich_san_xuat_muoi", False),
+            ("sản lượng muối", "tong_san_luong_muoi_gd2", False),
+            ("lũy kế tổng số lượng chủ thể có sản phẩm đạt ocop", "luy_ke_tong_so_luong_chu_the_den_thoi_diem_bao_cao", False),
+            ("lũy kế tổng số lượng sản phẩm ocop đạt chuẩn", "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao", False),
+            ("đánh giá, phân hạng sản phẩm ocop", "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao", False),
+            ("chương trình mỗi xã một sản phẩm", "chuong_trinh_ocop", False),
+            ("lĩnh vực hoạt động của liên hiệp hợp tác xã nông nghiệp", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của liên hiệp hợp tác xã", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của liên hiệp htx", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của lhhtx", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("tổng số liên hiệp hợp tác xã phân theo lĩnh vực", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("tổng số liên hiệp htx phân theo lĩnh vực", "tong_so_lhhtx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của hợp tác xã nông nghiệp", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của hợp tác xã", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của htx nông nghiệp", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của htx", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("số lượng hợp tác xã phân theo lĩnh vực", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("số lượng htx phân theo lĩnh vực", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của tổ hợp tác nông nghiệp", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của tổ hợp tác", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của tht", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("tổng số tổ hợp tác phân theo lĩnh vực", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động của trang trại", "tong_so_luong_tt_phan_theo_linh_vuc", False),
+            ("tổng số lượng trang trại phân theo lĩnh vực", "tong_so_luong_tt_phan_theo_linh_vuc", False),
+            ("tổng số trang trại phân theo lĩnh vực", "tong_so_luong_tt_phan_theo_linh_vuc", False),
+            ("tổng số trang trại", "trang_trai", False),
+            ("trang trại", "trang_trai", False),
+            ("tổng số liên hiệp hợp tác xã nông nghiệp", "lien_hiep_htx_nong_nghiep", False),
+            ("liên hiệp hợp tác xã nông nghiệp", "lien_hiep_htx_nong_nghiep", False),
+            ("tổng số lhhtx nông nghiệp", "lien_hiep_htx_nong_nghiep", False),
+            ("tổng số tổ hợp tác nông nghiệp", "to_hop_tac_nong_nghiep", False),
+            ("tổ hợp tác nông nghiệp", "to_hop_tac_nong_nghiep", False),
+            ("tổ hợp tác", "to_hop_tac_nong_nghiep", False),
+            ("tht nông nghiệp", "to_hop_tac_nong_nghiep", False),
+            ("tht", "to_hop_tac_nong_nghiep", False),
+            ("tổng số tht nông nghiệp", "to_hop_tac_nong_nghiep", False),
+            ("số lượng tổ hợp tác", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("số lượng tht", "tong_so_tht_phan_theo_linh_vuc", False),
+            ("tổng số htx nông nghiệp", "htx_nong_nghiep", False),
+            ("số lượng hợp tác xã nông nghiệp", "htx_nong_nghiep", False),
+            ("số lượng htx nông nghiệp", "htx_nong_nghiep", False),
+            ("hợp tác xã nông nghiệp", "htx_nong_nghiep", False),
+            ("hợp tác xã có những chỉ tiêu nào", "htx_nong_nghiep", False),
+            ("htx có những chỉ tiêu nào", "htx_nong_nghiep", False),
+            ("số lượng hợp tác xã", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("số lượng htx", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("lĩnh vực hoạt động", "so_luong_htx_phan_theo_linh_vuc", False),
+            ("làng nghề, ngành nghề nông thôn", "lang_nghe", False),
+            ("phát triển làng nghề", "lang_nghe", False),
+        ]
+        self.conn.executemany("INSERT OR IGNORE INTO catalog_aliases VALUES (?, ?, ?)", seed_aliases)
+
+    def has_lexicon_term(self, raw_input: str, category: str) -> bool:
+        if not raw_input:
+            return False
+        norm_val = raw_input.lower()
+        if category == "DISCOURSE_CONNECTIVE":
+            padded = f" {norm_val.replace('?', ' ').replace(',', ' ').replace('.', ' ').replace('!', ' ')} "
+            row = self.conn.execute(
+                """SELECT 1 FROM semantic_lexicon 
+                   WHERE category = ? 
+                     AND (
+                       (LENGTH(term) > 4 AND INSTR(?, term) > 0)
+                       OR INSTR(?, ' ' || term || ' ') > 0
+                     ) 
+                   LIMIT 1;""",
+                [category, norm_val, padded],
+            ).fetchone()
+            return row is not None
+        if "LEAD" in category or "PREFIX" in category:
+            row = self.conn.execute(
+                """SELECT 1 
+                   FROM semantic_lexicon l, (SELECT ? AS text) t
+                   WHERE l.category = ? 
+                     AND (
+                       LOWER(t.text) = LOWER(l.term)
+                       OR LOWER(t.text) LIKE LOWER(l.term) || ' %'
+                       OR LOWER(t.text) LIKE LOWER(l.term) || ',%'
+                       OR LOWER(t.text) LIKE LOWER(l.term) || '!%'
+                       OR LOWER(t.text) LIKE LOWER(l.term) || '.%'
+                       OR LOWER(t.text) LIKE LOWER(l.term) || ':%'
+                       OR LOWER(t.text) LIKE LOWER(l.term) || '?%'
+                     )
+                   LIMIT 1;""",
+                [norm_val, category],
+            ).fetchone()
+            return row is not None
+        row = self.conn.execute(
+            "SELECT 1 FROM semantic_lexicon WHERE category = ? AND INSTR(?, term) > 0 LIMIT 1;",
+            [category, norm_val],
+        ).fetchone()
+        return row is not None
+
+    def get_lexicon_sub_intent(self, raw_input: str, category: str) -> Optional[str]:
+        if not raw_input:
+            return None
+        norm_val = raw_input.lower()
+        row = self.conn.execute(
+            "SELECT sub_intent FROM semantic_lexicon WHERE category = ? AND INSTR(?, term) > 0 ORDER BY weight DESC, LENGTH(term) DESC LIMIT 1;",
+            [category, norm_val],
+        ).fetchone()
+        return row[0] if row else None
+
+    def get_matching_lexicon_sub_intents(self, raw_input: str, category: str) -> List[str]:
+        if not raw_input:
+            return []
+        norm_val = raw_input.lower()
+        rows = self.conn.execute(
+            "SELECT DISTINCT sub_intent FROM semantic_lexicon WHERE category = ? AND INSTR(?, term) > 0;",
+            [category, norm_val],
+        ).fetchall()
+        return [r[0] for r in rows]
+
+    def get_associated_department_codes(self, department_code: Optional[str]) -> List[str]:
+        """
+        Truy vấn danh sách mã cơ quan / phòng ban liên kết từ DuckDB catalog metadata (Zero Hardcoding).
+        """
+        if not department_code:
+            return []
+        try:
+            row = self.conn.execute(
+                "SELECT related_codes FROM catalog_departments WHERE code = ? LIMIT 1;",
+                [department_code],
+            ).fetchone()
+            if row and row[0]:
+                return [c.strip() for c in row[0].split(",") if c.strip()]
+        except Exception as e:
+            logger.debug("Lỗi truy vấn get_associated_department_codes: %s", e)
+        return [department_code]
+
+    def strip_query_noise(self, text: str, category: str = "QUERY_LEAD_NOISE") -> str:
+        """
+        Loại bỏ từ nhiễu/tiền tố/hậu tố bằng DuckDB SQL truy vấn từ bảng semantic_lexicon (Zero Heuristics).
+        """
+        if not text:
+            return ""
+        try:
+            rows = self.conn.execute(
+                "SELECT term FROM semantic_lexicon WHERE category = ? ORDER BY LENGTH(term) DESC;",
+                [category]
+            ).fetchall()
+        except Exception:
+            return text.strip()
+
+        cleaned = text.strip()
+        is_lead = "LEAD" in category or "PREFIX" in category
+        is_tail = "TAIL" in category or "SUFFIX" in category
+
+        changed = True
+        while changed:
+            changed = False
+            for (term,) in rows:
+                if not term:
+                    continue
+                if is_lead:
+                    new_val = self.conn.execute(
+                        """SELECT CASE 
+                            WHEN LOWER(text) = LOWER(term) 
+                            THEN ''
+                            WHEN LOWER(text) LIKE LOWER(term) || ' %' 
+                            THEN TRIM(SUBSTR(text, LENGTH(term) + 2)) 
+                            WHEN LOWER(text) LIKE LOWER(term) || ',%' 
+                              OR LOWER(text) LIKE LOWER(term) || ':%' 
+                              OR LOWER(text) LIKE LOWER(term) || '.%' 
+                              OR LOWER(text) LIKE LOWER(term) || '!%' 
+                              OR LOWER(text) LIKE LOWER(term) || '?%' 
+                            THEN TRIM(SUBSTR(text, LENGTH(term) + 2)) 
+                            ELSE text 
+                        END
+                        FROM (SELECT ? AS text, ? AS term);""",
+                        [cleaned, term]
+                    ).fetchone()[0]
+                elif is_tail:
+                    new_val = self.conn.execute(
+                        """SELECT CASE 
+                            WHEN LOWER(text) = LOWER(term) 
+                            THEN ''
+                            WHEN LOWER(text) LIKE '% ' || LOWER(term) 
+                            THEN TRIM(SUBSTR(text, 1, LENGTH(text) - LENGTH(term) - 1)) 
+                            WHEN LOWER(text) LIKE '%,' || LOWER(term) 
+                              OR LOWER(text) LIKE '%?' || LOWER(term) 
+                              OR LOWER(text) LIKE '%!' || LOWER(term) 
+                              OR LOWER(text) LIKE '%.' || LOWER(term) 
+                            THEN TRIM(SUBSTR(text, 1, LENGTH(text) - LENGTH(term) - 1)) 
+                            ELSE text 
+                        END
+                        FROM (SELECT ? AS text, ? AS term);""",
+                        [cleaned, term]
+                    ).fetchone()[0]
+                else:
+                    new_val = self.conn.execute(
+                        "SELECT TRIM(REPLACE(?, ?, ''));",
+                        [cleaned, term]
+                    ).fetchone()[0]
+                if new_val != cleaned:
+                    cleaned = " ".join(new_val.split()).strip()
+                    changed = True
+                    break
+        return cleaned
+
 
 
     def _hydrate_catalog(self) -> None:
@@ -343,8 +1469,20 @@ class DuckDBSemanticCatalog:
                         COALESCE(gp.name, p.name, c.name) AS root_name,
                         c.level,
                         NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
-                        COALESCE(fm.mission_name, CASE WHEN c.code = 'du_lieu_cai_cach_1' THEN 'Cải cách hành chính' ELSE 'Phát triển nông thôn' END) AS mission_name,
-                        COALESCE(fm.office_name, CASE WHEN c.code = 'du_lieu_cai_cach_1' THEN 'Phòng kinh tế' ELSE 'Chi cục' END) AS office_name,
+                        COALESCE(fm.mission_name, c.mission_name, (SELECT m_sub.mission_name FROM dwh_internal.mission m_sub WHERE m_sub.id = c.mission_id LIMIT 1), '-') AS mission_name,
+                        COALESCE(
+                            fm.office_name,
+                            (
+                                SELECT o_m.office_name
+                                FROM dwh_internal.office_mission om
+                                JOIN dwh_internal.office o_m ON o_m.id = om.office_id
+                                WHERE (om.mission_id = c.mission_id OR om.mission_name = COALESCE(c.mission_name, fm.mission_name))
+                                  AND om.deleted_date IS NULL
+                                ORDER BY om.created_date DESC NULLS LAST
+                                LIMIT 1
+                            ),
+                            '-'
+                        ) AS office_name,
                         CASE WHEN fm.latest_value IS NOT NULL AND TRIM(fm.latest_value) NOT IN ('', '-') THEN fm.latest_value ELSE fm.latest_value END AS latest_value
                     FROM dwh_internal.criteria c
                     LEFT JOIN dwh_internal.criteria p ON c.parent_id = p.id
@@ -593,7 +1731,8 @@ class DuckDBSemanticCatalog:
         # 3. Nạp departments
         dept_rows = []
         for d in data.get("departments", []):
-            dept_rows.append((d["code"], d["name"], d["tenant_code"], d["level"]))
+            rel_codes = ",".join(d.get("related_codes", [])) if d.get("related_codes") else ""
+            dept_rows.append((d["code"], d["name"], d["tenant_code"], d["level"], rel_codes))
             # Đăng ký alias
             self._alias_registry.append({
                 "alias": d["name"].lower().strip(),
@@ -602,7 +1741,7 @@ class DuckDBSemanticCatalog:
                 "type": "department",
                 "target_table": "dwh_internal.deparment"
             })
-        self.conn.executemany("INSERT INTO catalog_departments VALUES (?, ?, ?, ?)", dept_rows)
+        self.conn.executemany("INSERT INTO catalog_departments VALUES (?, ?, ?, ?, ?)", dept_rows)
 
         # 4. Nạp offices
         office_rows = []
@@ -1371,10 +2510,8 @@ class DuckDBSemanticCatalog:
                 q_tokens = set("".join(c if c.isalnum() else " " for c in q_lower).split())
 
                 def _stem_core_cand(n: str) -> str:
-                    for p in ("số lượng ", "tổng số lượng ", "tổng số ", "tổng ", "số "):
-                        if n.startswith(p):
-                            return n[len(p):].strip()
-                    return n.strip()
+                    return self.strip_query_noise(n, "METRIC_AGG_PREFIX_NOISE")
+
 
                 core_1 = _stem_core_cand(top1_name)
                 core_2 = _stem_core_cand(top2_name)
@@ -1436,11 +2573,11 @@ class DuckDBSemanticCatalog:
 
                 if raw_score >= norm_threshold:
                     cand_name = item.get("name", "")
+                    cand_tokens = set("".join(c if c.isalnum() else " " for c in cand_name.lower()).split())
                     # Khử nhiễu khớp từ đơn lẻ giả danh (ví dụ 'quả' trong 'kết quả' hay 'lâm' trong địa danh 'lâm đồng')
                     # Đối với chỉ tiêu đa từ và điểm tương đồng biên (< 0.60), bắt buộc phải có từ nội dung thực tế (loại trừ từ tố phụ thuộc)
-                    cand_tokens = set("".join(c if c.isalnum() else " " for c in cand_name.lower()).split())
-                    false_morphemes = {"quả", "lâm", "đồng", "tỉnh", "thành", "phố", "hoạt", "động", "các", "những", "toàn", "tổng", "số", "của", "tại", "ở", "cho"}
-                    common_content_tokens = (cand_tokens & q_tokens) - false_morphemes
+                    ALLOWED_FALSE_MORPHEMES = {"quả", "lâm", "đồng", "tỉnh", "thành", "phố", "hoạt", "động", "các", "những", "toàn", "tổng", "số", "của", "tại", "ở", "cho"}
+                    common_content_tokens = (cand_tokens & q_tokens) - ALLOWED_FALSE_MORPHEMES
                     if raw_score < 0.60 and len(cand_tokens) >= 2 and not common_content_tokens:
                         continue
 
@@ -1532,11 +2669,8 @@ class DuckDBSemanticCatalog:
             if name_low.startswith("chi cục") and "chi cục" not in t_clean and "chi cuc" not in t_clean and "ptnt" not in t_clean:
                 continue
 
-            distinctive = name_low
-            for prefix in ("phòng ban ", "phòng ", "văn phòng "):
-                if distinctive.startswith(prefix):
-                    distinctive = distinctive[len(prefix):].strip()
-                    break
+            distinctive = self.strip_query_noise(name_low, "OFFICE_PREFIX_NOISE")
+
 
             # Bắt buộc phần tên định danh đặc thù (distinctive) phải có mặt trong câu hỏi
             if distinctive and distinctive not in ("ban", "khoa"):
@@ -1720,6 +2854,19 @@ class DuckDBSemanticCatalog:
             return default_tenant
         s_clean = spatial_mention.lower().strip()
         try:
+            res_tc = self.conn.execute(
+                "SELECT regexp_extract(?, '(?i)tenant_code\\s*[:=]\\s*([a-zA-Z0-9_]+)', 1)",
+                [spatial_mention],
+            ).fetchone()
+            if res_tc and res_tc[0]:
+                return res_tc[0]
+        except Exception:
+            pass
+
+        if s_clean.isdigit() and len(s_clean) == 2:
+            return s_clean
+
+        try:
             rows = self.conn.execute("SELECT tenant_code, name, aliases FROM catalog_tenants;").fetchall()
             for tc, name, aliases in rows:
                 if s_clean == tc.lower() or s_clean == name.lower():
@@ -1796,6 +2943,24 @@ class DuckDBSemanticCatalog:
             if alias_res and alias_res.get("type") == "criteria":
                 return str(alias_res.get("code") or alias_res.get("id"))
 
+            # 2b. Match via DuckDB RAM hierarchy classifier before heavy vector search
+            h_res = self.classify_criterion_hierarchy(clean_m)
+            if h_res and h_res.get("classification") in ("single_leaf", "duplicate_leaf", "parent", "parent_group"):
+                m_code = h_res.get("matched_code") or h_res.get("matched_id")
+                if m_code:
+                    return str(m_code)
+                m_name = h_res.get("matched_name")
+                if m_name:
+                    r2 = self.conn.execute(
+                        "SELECT id, code FROM catalog_criteria WHERE LOWER(name) = LOWER(?) LIMIT 1;",
+                        [m_name],
+                    ).fetchone()
+                    if r2:
+                        return str(r2[1] or r2[0])
+
+            if len(clean_m) <= 3:
+                return None
+
             # 3. Fuzzy search in catalog_criteria
             cands, is_ambig, _ = self.find_top_k_candidates(clean_m, top_k=1, score_cutoff=85.0)
             if cands:
@@ -1812,6 +2977,55 @@ class DuckDBSemanticCatalog:
         s = text.replace("đ", "d").replace("Đ", "D")
         return "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
 
+    def _strip_dept_noise(self, text: str) -> str:
+        if not text:
+            return ""
+        t = text
+        dept_names = set()
+        if hasattr(self, "conn") and self.conn:
+            try:
+                rows = self.conn.execute("""
+                    SELECT DISTINCT LOWER(name) FROM catalog_offices WHERE name IS NOT NULL
+                    UNION
+                    SELECT DISTINCT LOWER(name) FROM catalog_departments WHERE name IS NOT NULL;
+                """).fetchall()
+                base_names = [r[0].strip() for r in rows if r[0] and len(r[0].strip()) >= 3]
+                dept_names.update(base_names)
+                for b in base_names:
+                    for pq in (" lâm đồng", " tp. hồ chí minh", " tp hồ chí minh", " tphcm", " tỉnh lâm đồng"):
+                        if pq in b:
+                            clean_b = b.replace(pq, "").strip()
+                            dept_names.add(clean_b)
+                            stripped_b = self.strip_query_noise(clean_b, "DEPT_PREFIX_NOISE")
+                            if stripped_b and stripped_b != clean_b:
+                                dept_names.add(stripped_b)
+                                for alt_pfx in ("sở ", "phòng ", "chi cục "):
+                                    dept_names.add(alt_pfx + stripped_b)
+
+
+                acr_rows = self.conn.execute("SELECT LOWER(acronym), LOWER(full_form) FROM catalog_acronyms;").fetchall()
+                for d in list(dept_names):
+                    if " & " in d:
+                        dept_names.add(d.replace(" & ", " và "))
+                        dept_names.add(d.replace(" & ", " va "))
+                    if " và " in d:
+                        dept_names.add(d.replace(" và ", " & "))
+                    for acr, full in acr_rows:
+                        if f" {acr} " in f" {d} ":
+                            dept_names.add((" " + d + " ").replace(f" {acr} ", f" {full} ").strip())
+                        if f" {full} " in f" {d} ":
+                            dept_names.add((" " + d + " ").replace(f" {full} ", f" {acr} ").strip())
+            except Exception:
+                pass
+        for d in sorted(dept_names, key=len, reverse=True):
+            if d and len(d) >= 5:
+                if d in t:
+                    t = t.replace(d, " ")
+                d_unacc = self._remove_accents(d)
+                if d_unacc and d_unacc in t:
+                    t = t.replace(d_unacc, " ")
+        return t
+
     def resolve_mission(self, term: str) -> Optional[str]:
         """
         Tra cứu động nhiệm vụ trọng tâm từ catalog_missions trong DuckDB RAM.
@@ -1821,18 +3035,13 @@ class DuckDBSemanticCatalog:
         if not term:
             return None
         t_clean = term.lower().strip()
-        if "nhiệm vụ phát triển nông thôn" not in t_clean and "nhiem vu phat trien nong thon" not in t_clean:
-            t_clean = re.sub(
-                r"\b(?:sở|so|phòng|phong|chi cục|chi cuc|ban|văn phòng|van phong|trung tâm|trung tam)\s+(?:(?:nông nghiệp|nong nghiep|nn)\s*(?:và|va|&)\s*)?(?:phát triển nông thôn|phat trien nong thon)\b",
-                " ",
-                t_clean,
-            )
+        t_clean = self._strip_dept_noise(t_clean)
 
         t_unacc = self._remove_accents(t_clean)
         rows = self.conn.execute("SELECT DISTINCT name FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
         for (m_name,) in rows:
             m_low = m_name.lower().strip()
-            if m_low.startswith("nhiệm vụ ") and m_low[len("nhiệm vụ "):].strip().isdigit():
+            if m_low.startswith("nhiệm vụ ") and m_low.replace("nhiệm vụ", "").strip().isdigit():
                 continue
             # 1. Khớp chính xác cụm từ có ranh giới từ hợp lệ (có dấu hoặc không dấu)
             if m_low in t_clean:
@@ -1850,10 +3059,8 @@ class DuckDBSemanticCatalog:
                     return m_name
 
             # 2. Với các nhiệm vụ dài có tiền tố (đề án, kế hoạch, chương trình, nhiệm vụ)
-            m_core = m_low
-            for prefix in ("kế hoạch ", "chương trình ", "đề án ", "nhiệm vụ "):
-                if m_core.startswith(prefix):
-                    m_core = m_core[len(prefix):].strip()
+            m_core = self.strip_query_noise(m_low, "MISSION_LEAD_PREFIX_NOISE")
+
             if m_core and len(m_core) > 6 and not m_core.isdigit() and m_core in t_clean:
                 idx = t_clean.find(m_core)
                 before_ok = (idx == 0 or not t_clean[idx - 1].isalnum())
@@ -2011,15 +3218,15 @@ class DuckDBSemanticCatalog:
             return "report"
         return None
 
-    def is_dimension_query(self, query: str, dimension_name: str, archetype: Optional[str] = None) -> bool:
+    def is_dimension_query(self, raw_input: str, dimension_name: str, archetype: Optional[str] = None) -> bool:
         """
         Kiểm tra câu hỏi khám phá chiều (Dimension Exploration / Dimension Listing).
         Căn cứ: Intent Archetype Classification từ Planner (DIMENSION_LISTING vs SNAPSHOT) kết hợp
         tra cứu thực thể trong DuckDB RAM. Loại bỏ 100% mảng từ khóa tĩnh và markers.
         """
-        if not query:
+        if not raw_input:
             return False
-        q_low = query.lower().strip()
+        norm_input = raw_input.lower().strip()
         is_archetype_listing = (archetype in ("DIMENSION_LISTING", "METADATA_EXPLORATION", "CAPABILITY_INTRO"))
 
         if dimension_name == "province":
@@ -2027,10 +3234,9 @@ class DuckDBSemanticCatalog:
                 prov_rows = self.conn.execute("SELECT LOWER(name), LOWER(code) FROM catalog_provinces;").fetchall()
                 prov_names = [r[0] for r in prov_rows if r[0]]
                 prov_codes = [r[1] for r in prov_rows if r[1]]
-                tokens = q_low.replace("?", " ").replace(".", " ").replace(",", " ").split()
-                # Chỉ khớp mã tỉnh khi có ngữ cảnh "tỉnh" / "mã tỉnh", tránh ngộ nhận số học thuần túy
-                has_prov_ctx = "tỉnh" in tokens or "địa bàn" in q_low or "mã tỉnh" in q_low or "tỉnh thành" in q_low
-                matches_prov = any(f" {p} " in f" {q_low} " for p in prov_names) or (has_prov_ctx and any(c in tokens for c in prov_codes))
+                tokens = norm_input.replace("?", " ").replace(".", " ").replace(",", " ").split()
+                has_prov_ctx = self.has_lexicon_term(raw_input, "PROV_LIST")
+                matches_prov = any(f" {p} " in f" {norm_input} " for p in prov_names) or (has_prov_ctx and any(c in tokens for c in prov_codes))
                 is_dim_concept = has_prov_ctx or "province" in tokens
                 return (matches_prov and has_prov_ctx) or (is_dim_concept and is_archetype_listing)
             except Exception:
@@ -2038,19 +3244,15 @@ class DuckDBSemanticCatalog:
 
         elif dimension_name == "mission":
             try:
-                is_mission_concept = any(w in q_low for w in ("nhiệm vụ", "nhiem vu", "đề án", "de an", "mission"))
-                if ("chỉ tiêu" in q_low or "chi tieu" in q_low) and not is_mission_concept:
+                is_mission_concept = self.has_lexicon_term(raw_input, "MISSION_KEYWORD")
+                has_crit = self.has_lexicon_term(raw_input, "METRIC_LIST_TARGET")
+                if has_crit and not is_archetype_listing:
                     return False
-                q_for_m = q_low
-                if "nhiệm vụ phát triển nông thôn" not in q_for_m and "nhiem vu phat trien nong thon" not in q_for_m:
-                    q_for_m = re.sub(
-                        r"\b(?:sở|so|phòng|phong|chi cục|chi cuc|ban|văn phòng|van phong|trung tâm|trung tam)\s+(?:(?:nông nghiệp|nong nghiep|nn)\s*(?:và|va|&)\s*)?(?:phát triển nông thôn|phat trien nong thon)\b",
-                        " ",
-                        q_for_m,
-                    )
+                m_input = self._strip_dept_noise(norm_input)
                 mission_rows = self.conn.execute("SELECT DISTINCT LOWER(name) FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
-                mission_names = [r[0] for r in mission_rows if r[0] and not (r[0].startswith("nhiệm vụ ") and r[0][len("nhiệm vụ "):].strip().isdigit())]
-                matches_mission = any(f" {m} " in f" {q_for_m} " for m in mission_names)
+                mission_names = [r[0] for r in mission_rows if r[0] and not (r[0].startswith("nhiệm vụ ") and r[0].replace("nhiệm vụ", "").strip().isdigit())]
+
+                matches_mission = any(f" {m} " in f" {m_input} " for m in mission_names)
                 return matches_mission or is_mission_concept or is_archetype_listing
             except Exception:
                 return False
@@ -2060,9 +3262,26 @@ class DuckDBSemanticCatalog:
                 office_rows = self.conn.execute("SELECT DISTINCT LOWER(name) FROM catalog_offices WHERE name IS NOT NULL;").fetchall()
                 dept_rows = self.conn.execute("SELECT DISTINCT LOWER(name) FROM catalog_departments WHERE name IS NOT NULL;").fetchall()
                 org_names = [r[0] for r in (*office_rows, *dept_rows) if r[0]]
-                matches_org = any(f" {o} " in f" {q_low} " for o in org_names)
-                is_org_concept = any(w in q_low for w in ("sở", "ban ngành", "phòng ban", "đơn vị", "office", "department"))
+                matches_org = any(f" {o} " in f" {norm_input} " for o in org_names)
+                is_org_concept = self.has_lexicon_term(raw_input, "OFFICE_KEYWORD")
                 return matches_org or is_org_concept or is_archetype_listing
+            except Exception:
+                return False
+
+        elif dimension_name in ("ward", "commune"):
+            try:
+                crit_matches = self.find_criteria_by_name(raw_input, limit=1)
+                if crit_matches and not is_archetype_listing:
+                    return False
+                tokens = set(norm_input.replace("?", " ").replace(".", " ").replace(",", " ").split())
+                has_ward_compound = any(w in norm_input for w in [
+                    "xã, phường", "xã phường", "xã / phường", "phường, xã", "phường xã",
+                    "xã thuộc", "phường thuộc", "xã nào", "phường nào", "thị trấn"
+                ])
+                has_standalone_ward = ("phường" in tokens or "thị trấn" in tokens) or (
+                    "xã" in tokens and "hợp tác xã" not in norm_input and "htx" not in tokens
+                )
+                return (has_ward_compound or has_standalone_ward) and not self.has_lexicon_term(raw_input, "DOMAIN_SIGNAL")
             except Exception:
                 return False
 
@@ -2070,16 +3289,14 @@ class DuckDBSemanticCatalog:
             try:
                 if is_archetype_listing:
                     return True
-                crit_concept = any(w in q_low for w in ("chỉ tiêu", "chi tieu", "chỉ số", "chi so", "mục tiêu", "muc tieu", "criteria"))
+                crit_concept = self.has_lexicon_term(raw_input, "METRIC_LIST_TARGET")
                 if not crit_concept:
                     return False
 
                 # Khám phá danh mục theo dải thời gian
-                has_time_term = any(k in q_low for k in (
-                    "từ tháng", "tu thang", "đến tháng", "den thang", "trong tháng", "trong thang", "quý", "quy",
-                    "nửa đầu năm", "nửa cuối năm", "hết năm", "cuối năm",
-                    "đầu năm", "tới nay", "đến nay", "giai đoạn"
-                ))
+                ALLOWED_M_TOKENS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "một", "giêng", "hai", "ba", "tư", "bốn", "năm", "sáu", "bảy", "tám", "chín", "mười", "chạp"]
+                has_month_word = any(f"tháng {m}" in norm_input or f"thang {m}" in norm_input for m in ALLOWED_M_TOKENS)
+                has_time_term = self.has_lexicon_term(raw_input, "TIME_TERM") or has_month_word
 
                 # Nếu câu hỏi chứa từ viết tắt/chủ đề cụ thể từ catalog_acronyms (ví dụ HTX, OCOP, TNLĐ)
                 # và không có mốc thời gian khám phá, thì đây là tra cứu đa nghĩa chủ đề cần làm rõ, không phải dimension listing toàn tỉnh.
@@ -2087,40 +3304,26 @@ class DuckDBSemanticCatalog:
                     try:
                         acronym_rows = self.conn.execute("SELECT acronym, full_form FROM catalog_acronyms WHERE category = 'criteria';").fetchall()
                         for acr, full in acronym_rows:
-                            if acr.lower() in q_low.split() or full.lower() in q_low or f" {acr.lower()} " in f" {q_low} ":
+                            if acr.lower() in norm_input.split() or full.lower() in norm_input or f" {acr.lower()} " in f" {norm_input} ":
                                 return False
                     except Exception:
                         pass
 
                 # Kiểm tra các tín hiệu khám phá danh mục / kiểm kê danh sách rõ ràng
-                is_explicit_listing = any(k in q_low for k in (
-                    "danh sách", "danh sach", "danh mục", "danh muc", "liệt kê", "liet ke",
-                    "có những chỉ tiêu nào", "gồm những chỉ tiêu nào", "những chỉ tiêu nào", "nhung chi tieu nao",
-                    "những chỉ tiêu", "nhung chi tieu", "các chỉ tiêu nào", "cac chi tieu nao",
-                    "chỉ tiêu nào", "chi tieu nao", "chỉ tiêu gì", "chi tieu gi",
-                    "tất cả chỉ tiêu", "tất cả các chỉ tiêu", "có các chỉ tiêu nào",
-                    "hệ thống đang có các chỉ tiêu nào", "thu thập các chỉ tiêu nào", "thu thap cac chi tieu nao",
-                    "các chỉ tiêu năm", "các chỉ tiêu", "cac chi tieu",
-                    "phụ trách chỉ tiêu", "quản lý chỉ tiêu", "thực hiện chỉ tiêu",
-                ))
+                is_explicit_listing = self.has_lexicon_term(raw_input, "METRIC_LIST_TRIGGER")
                 # Đếm số lượng chỉ tiêu (chú ý: phân biệt "bao nhiêu chỉ tiêu" vs "chỉ tiêu X là bao nhiêu")
-                is_criteria_count = bool(re.search(r'\b(?:có\s+bao\s+nhiêu|tổng\s+số|đếm\s+số|số\s+lượng)\s+(?:chỉ\s+tiêu|chỉ\s+số)\b', q_low))
-                is_criteria_reported = bool(re.search(r'\b(?:chỉ\s+tiêu|chỉ\s+số)\s+(?:được\s+báo\s+cáo|được\s+thu\s+thập|phát\s+sinh)\b', q_low))
-
-                has_time_discovery = has_time_term and any(k in q_low for k in (
-                    "chỉ tiêu nào", "chi tieu nao", "những chỉ tiêu nào", "nhung chi tieu nao",
-                    "thu thập được", "thu thap duoc", "các chỉ tiêu", "cac chi tieu", "những chỉ tiêu", "nhung chi tieu"
-                ))
+                is_criteria_count = self.has_lexicon_term(raw_input, "CRITERIA_COUNT") and self.has_lexicon_term(raw_input, "METRIC_LIST_TARGET")
+                is_criteria_reported = self.has_lexicon_term(raw_input, "METRIC_LIST_TARGET") and self.has_lexicon_term(raw_input, "CRITERIA_REPORTED")
+                has_time_discovery = has_time_term and self.has_lexicon_term(raw_input, "METRIC_LIST_TRIGGER")
 
                 if is_explicit_listing or is_criteria_count or is_criteria_reported or has_time_discovery:
-                    # Nếu câu hỏi có tên chỉ tiêu lá cụ thể và hỏi giá trị ("là bao nhiêu", "hiện tại là bao nhiêu", "giá trị"),
-                    # thì đây là Metric Point Inquiry chứ không phải dimension listing
-                    exact_leaf = self.conn.execute(
-                        "SELECT 1 FROM catalog_criteria WHERE is_leaf = TRUE AND length(name) >= 4 AND INSTR(?, LOWER(name)) > 0 LIMIT 1;",
-                        (q_low,)
-                    ).fetchone()
-                    is_point_value = any(k in q_low for k in ("là bao nhiêu", "đạt bao nhiêu", "hiện tại là bao nhiêu", "giá trị bao nhiêu", "bao nhiêu ?"))
-                    if exact_leaf and is_point_value and not is_criteria_count:
+                    # Nếu câu hỏi có tên chỉ tiêu cụ thể (lá đơn, lá trùng tên hoặc chỉ tiêu cha)
+                    # mà không phải câu lệnh liệt kê danh mục rõ ràng (METRIC_LIST_TRIGGER),
+                    # thì đây là Metric Point Inquiry chứ không phải dimension listing.
+                    h_check = self.classify_criterion_hierarchy(raw_input)
+                    is_specific_crit = h_check.get("classification") in ("single_leaf", "duplicate_leaf", "parent", "parent_group")
+                    is_point_value = self.has_lexicon_term(raw_input, "POINT_VALUE")
+                    if is_specific_crit and (is_point_value or not is_explicit_listing):
                         return False
                     return True
 
@@ -2132,7 +3335,7 @@ class DuckDBSemanticCatalog:
 
     def resolve_target_table(
         self,
-        query: str = "",
+        raw_input: str = "",
         intent: Optional[str] = None,
         target_table_slot: Optional[str] = None,
         default_table: str = "fact_report_criteria"
@@ -2146,12 +3349,12 @@ class DuckDBSemanticCatalog:
             tbl = target_table_slot.strip().lower()
             if tbl in ("deparment", "department"):
                 return "department"
-            valid_tables = {
+            ALLOWED_VALID_TABLES = {
                 "fact_report_criteria", "report", "mission", "office_mission",
                 "user_mission", "criteria", "office", "department", "province",
                 "ward", "collection_form", "user", "office_user", "office_user_dept"
             }
-            if tbl in valid_tables:
+            if tbl in ALLOWED_VALID_TABLES:
                 return tbl
 
         # 2. Suy luận từ NLU Intent
@@ -2167,8 +3370,8 @@ class DuckDBSemanticCatalog:
                 return "fact_report_criteria"
 
         # 3. Tra cứu từ catalog_schema_metadata trong DuckDB RAM
-        if query:
-            q_low = query.lower().strip()
+        if raw_input:
+            norm_input = raw_input.lower().strip()
             try:
                 rows = self.conn.execute("""
                     SELECT DISTINCT simple_name, table_description
@@ -2177,68 +3380,60 @@ class DuckDBSemanticCatalog:
                 """).fetchall()
                 for s_name, desc in rows:
                     clean_name = "department" if s_name in ("deparment", "department") else s_name
-                    if desc and any(tok in q_low for tok in desc.lower().split() if len(tok) > 3):
+                    if desc and any(tok in norm_input for tok in desc.lower().split() if len(tok) > 3):
                         return clean_name
             except Exception:
                 pass
 
         return default_table
 
-    def resolve_excluded_entities(self, query: str) -> List[str]:
+    def resolve_excluded_entities(self, raw_input: str) -> List[str]:
         """
-        Phân giải các thực thể bị loại trừ (Negative Filters) đối chiếu từ Catalog RAM.
+        Phân giải các thực thể bị loại trừ (Negative Filters) đối chiếu từ Catalog RAM (Zero Python Slicing).
         """
-        if not query:
+        if not raw_input:
             return []
-        q_low = query.lower().strip()
+        norm_input = raw_input.lower().strip()
         excluded: List[str] = []
+        ALLOWED_NEG_WORDS = ("không", "ngoài", "trừ", "bỏ")
         try:
             provs = self.conn.execute("SELECT name FROM catalog_provinces;").fetchall()
             for (p_name,) in provs:
                 clean_p = p_name.replace("Tỉnh ", "").replace("Thành phố ", "").strip()
-                if clean_p.lower() in q_low:
-                    p_idx = q_low.find(clean_p.lower())
-                    pre_text = q_low[:p_idx].strip()
-                    if any(neg in pre_text.split()[-3:] or pre_text.endswith(neg) for neg in ("không", "ngoài", "trừ", "bỏ")):
+                if clean_p.lower() in norm_input:
+                    row_pre = self.conn.execute(
+                        "SELECT TRIM(SUBSTR(?, 1, INSTR(LOWER(?), LOWER(?)) - 1));",
+                        [norm_input, norm_input, clean_p.lower()]
+                    ).fetchone()
+                    pre_text = row_pre[0] if row_pre else ""
+                    if any(neg in pre_text.split()[-3:] or pre_text.endswith(neg) for neg in ALLOWED_NEG_WORDS):
                         excluded.append(clean_p)
-            if "phòng" in q_low:
-                p_idx = q_low.find("phòng")
-                pre_text = q_low[:p_idx].strip()
-                if any(neg in pre_text.split()[-3:] or pre_text.endswith(neg) for neg in ("không", "ngoài", "trừ", "bỏ")):
+            if "phòng" in norm_input:
+                row_pre = self.conn.execute(
+                    "SELECT TRIM(SUBSTR(?, 1, INSTR(LOWER(?), 'phòng') - 1));",
+                    [norm_input, norm_input]
+                ).fetchone()
+                pre_text = row_pre[0] if row_pre else ""
+                if any(neg in pre_text.split()[-3:] or pre_text.endswith(neg) for neg in ALLOWED_NEG_WORDS):
                     excluded.append("phòng")
         except Exception:
             pass
         return list(dict.fromkeys(excluded))
 
-    def resolve_attribute_lookup(self, query: str) -> Optional[Dict[str, str]]:
+
+    def resolve_attribute_lookup(self, raw_input: str) -> Optional[Dict[str, str]]:
         """
         Xác định xem câu hỏi có tra cứu thuộc tính thực thể (đơn vị thực hiện / tỉnh thực hiện)
         thông qua cấu trúc vị từ Catalog RAM.
         """
-        if not query:
+        if not raw_input:
             return None
-        q_low = query.lower().strip()
-        if any(
-            w in q_low
-            for w in (
-                "chỉ tiêu nào", "những chỉ tiêu", "các chỉ tiêu", "danh sách chỉ tiêu",
-                "danh mục chỉ tiêu", "có những chỉ tiêu", "có các chỉ tiêu",
-                "gồm những chỉ tiêu", "bao gồm những chỉ tiêu", "thu thập"
-            )
-        ):
+        if self.has_lexicon_term(raw_input, "METRIC_LIST_TRIGGER"):
             return None
-        has_performer_verb = any(w in q_low for w in ("thực hiện", "chủ trì", "quản lý", "phụ trách"))
-        has_unit_interrogative = any(
-            w in q_low
-            for w in (
-                "đơn vị nào", "phòng nào", "phòng ban nào", "cơ quan nào",
-                "sở nào", "chi cục nào", "văn phòng nào", "tỉnh nào", "địa phương nào",
-                "ai thực hiện", "ai phụ trách", "ai chủ trì", "ai quản lý",
-                "do ai", "do đơn vị", "do phòng", "thuộc đơn vị nào", "của đơn vị nào"
-            )
-        )
+        has_performer_verb = self.has_lexicon_term(raw_input, "PERFORMER_VERB")
+        has_unit_interrogative = self.has_lexicon_term(raw_input, "UNIT_INTERROGATIVE")
         if has_performer_verb and has_unit_interrogative:
-            target_attr = "tỉnh thực hiện" if ("tỉnh" in q_low or "địa phương" in q_low) else "đơn vị thực hiện"
+            target_attr = "tỉnh thực hiện" if self.has_lexicon_term(raw_input, "PROV_LIST") else "đơn vị thực hiện"
             return {"target_table": "fact_report_criteria", "target_attribute": target_attr}
         return None
 
@@ -2250,7 +3445,7 @@ class DuckDBSemanticCatalog:
         except Exception:
             return []
 
-    def extract_scope_from_query(self, query: str) -> Dict[str, Any]:
+    def extract_scope_from_query(self, raw_input: str) -> Dict[str, Any]:
         """
         Phân giải lĩnh vực (scope) từ câu hỏi người dùng phục vụ REQ-Q03 & SC-3.1..3.2.
         Trả về:
@@ -2258,22 +3453,19 @@ class DuckDBSemanticCatalog:
         - {"status": "NOT_FOUND", "requested_scope": ..., "available_scopes": [...]} nếu hỏi lĩnh vực không tồn tại
         - {"status": "NONE"} nếu câu hỏi không truy vấn nhiệm vụ theo lĩnh vực
         """
-        if not query:
+        if not raw_input:
             return {"status": "NONE"}
         import unicodedata
-        q_clean = unicodedata.normalize("NFC", query.strip())
-        q_low = q_clean.lower()
-        q_unacc = self._remove_accents(q_low)
+        clean_input = unicodedata.normalize("NFC", raw_input.strip())
+        norm_input = clean_input.lower()
+        unacc_input = self._remove_accents(norm_input)
 
         # Không kích hoạt nếu câu hỏi đang hỏi về "chỉ tiêu" (REQ-Q01, REQ-Q02, REQ-Q04)
-        if "chỉ tiêu" in q_low or "chi tieu" in q_unacc:
+        if self.has_lexicon_term(raw_input, "METRIC_LIST_TARGET"):
             return {"status": "NONE"}
 
         # Chỉ kích hoạt khi câu hỏi đề cập đến nhiệm vụ (hoặc chương trình/đề án/công tác)
-        has_mission_ctx = any(
-            w in q_low or w in q_unacc
-            for w in ("nhiệm vụ", "nhiem vu", "đề án", "de an", "chương trình", "chuong trinh", "công tác", "cong tac", "mission", "triển khai", "trien khai")
-        )
+        has_mission_ctx = self.has_lexicon_term(raw_input, "MISSION_SCOPE_SIGNAL")
         if not has_mission_ctx:
             return {"status": "NONE"}
 
@@ -2281,7 +3473,7 @@ class DuckDBSemanticCatalog:
         for sc in scopes:
             sc_name_low = unicodedata.normalize("NFC", sc["name"]).lower().strip()
             sc_unacc = self._remove_accents(sc_name_low)
-            if sc_name_low and (sc_name_low in q_low or (sc_unacc and sc_unacc in q_unacc)):
+            if sc_name_low and (sc_name_low in norm_input or (sc_unacc and sc_unacc in unacc_input)):
                 return {
                     "status": "MATCH",
                     "scope_name": sc["name"],
@@ -2289,10 +3481,14 @@ class DuckDBSemanticCatalog:
                     "available_scopes": scopes,
                 }
 
-        # Hỗ trợ đa dạng từ đồng nghĩa chỉ lĩnh vực: "nhóm lĩnh vực", "lĩnh vực", "mảng", "ngành", "khối", "thuộc về"
-        scope_markers = ["nhóm lĩnh vực", "nhom linh vuc", "lĩnh vực", "linh vuc", "mảng", "mang", "khối", "khoi", "thuộc về", "thuoc ve"]
-        if "ban ngành" not in q_low and "ngành nghề" not in q_low and "sở ngành" not in q_low and "ban nganh" not in q_unacc and "nganh nghe" not in q_unacc and "so nganh" not in q_unacc:
-            scope_markers.extend(["ngành", "nganh"])
+        # Hỗ trợ đa dạng từ đồng nghĩa chỉ lĩnh vực thông qua SCOPE_ENTITY_MARKER trong semantic_lexicon
+        markers = [
+            r[0] for r in self.conn.execute(
+                "SELECT term FROM semantic_lexicon WHERE category = 'SCOPE_ENTITY_MARKER' ORDER BY LENGTH(term) DESC;"
+            ).fetchall()
+        ]
+        if "ban ngành" in norm_input or "ngành nghề" in norm_input or "sở ngành" in norm_input or "ban nganh" in unacc_input or "nganh nghe" in unacc_input or "so nganh" in unacc_input:
+            markers = [mk for mk in markers if mk not in ("ngành", "nganh")]
 
         known_missions_low = set()
         for m in self.get_missions_list():
@@ -2300,51 +3496,58 @@ class DuckDBSemanticCatalog:
             known_missions_low.add(mn)
             known_missions_low.add(self._remove_accents(mn))
 
-        for mk in scope_markers:
-            idx = q_low.find(mk)
-            if idx != -1:
-                after_text = q_clean[idx + len(mk):].strip(" :,-'\"“”")
-                for lead_prep in ("về ", "ve ", "của ", "cua ", "trong ", "thuộc ", "thuoc "):
-                    if lead_prep == "trong " and after_text.lower().startswith("trong trot"):
-                        continue
-                    if after_text.lower().startswith(lead_prep):
-                        after_text = after_text[len(lead_prep):].strip()
-                stop_tails = (
-                    " hiện tại", " hien tai", " hiện nay", " hien nay", " hiện có", " hien co",
-                    " hiện đang", " hien dang", " hiện ", " hien ",
-                    " trong năm", " trong nam", " năm ", " nam ",
-                    " trong quý", " trong quy", " ở quý", " o quy", " quý ", " quy ",
-                    " trong nửa", " trong nua", " nửa đầu", " nua dau", " nửa cuối", " nua cuoi", " nửa sau", " nua sau",
-                    " 6 tháng", " 6 thang", " sáu tháng", " sau thang", " 3 tháng", " 3 thang", " 9 tháng", " 9 thang",
-                    " từ đầu năm", " tu dau nam", " đầu năm", " dau nam", " tính từ", " tinh tu", " lũy kế", " luy ke",
-                    " từ tháng", " tu thang", " trong tháng", " trong thang", " ở tháng", " o thang", " tháng ", " thang ",
-                    " vào ngày", " vao ngay", " ngày ", " ngay ", " tính đến", " tinh den", " đến nay", " den nay", " tới giờ", " toi gio", " đến giờ", " den gio",
-                    " tại ", " tai ", " ở ", " o ", " của ", " cua ",
-                    " có những", " co nhung", " có các", " co cac", " gồm những", " gom nhung", " gồm các", " gom cac", " bao gồm", " bao gom",
-                    " là gì", " la gi", " nào", " nao", " đang ", " dang ", " thuộc ", " thuoc ",
-                    " triển khai", " trien khai", " thực hiện", " thuc hien",
-                    " phụ trách", " phu trach", " quản lý", " quan ly", "?"
-                )
-                extracted_scope = after_text
-                for st in stop_tails:
-                    pos = extracted_scope.lower().find(st)
-                    if pos > 0:
-                        extracted_scope = extracted_scope[:pos].strip()
-                extracted_scope = extracted_scope.strip(" :,-.?!'\"“”")
-                ext_low = extracted_scope.lower()
-                ext_unacc = self._remove_accents(ext_low)
-                if (
-                    extracted_scope
-                    and ext_low not in ("nào", "nao", "gì", "gi", "đó", "do", "này", "nay", "trên", "tren", "trọng tâm", "trong tam", "chuyên môn", "chuyen mon", "công tác", "cong tac")
-                    and ext_low not in known_missions_low
-                    and ext_unacc not in known_missions_low
-                    and not any(dept_kw in ext_low or dept_kw in ext_unacc for dept_kw in ("tỉnh ", "tinh ", "lâm đồng", "lam dong", "sở ", "so ", "phòng ", "phong ", "chi cục", "chi cuc", "ubnd"))
-                ):
-                    return {
-                        "status": "NOT_FOUND",
-                        "requested_scope": extracted_scope,
-                        "available_scopes": scopes,
-                    }
+        matched_marker = next((mk for mk in markers if mk in norm_input), None)
+        if matched_marker:
+            row_after = self.conn.execute(
+                "SELECT TRIM(SUBSTR(?, INSTR(LOWER(?), LOWER(?)) + LENGTH(?)));",
+                [clean_input, clean_input, matched_marker, matched_marker]
+            ).fetchone()
+            after_text = row_after[0].strip(" :,-'\"“”") if row_after else ""
+            if not after_text.lower().startswith("trong trot"):
+                after_text = self.strip_query_noise(after_text, "SCOPE_LEAD_PREPOSITION")
+
+            # Loại bỏ các stop tokens thông qua DuckDB SQL
+            stop_tokens = [
+                r[0] for r in self.conn.execute(
+                    "SELECT term FROM semantic_lexicon WHERE category IN ('SCOPE_STOP_TOKEN', 'MISSION_STOP_TOKEN') ORDER BY LENGTH(term) DESC;"
+                ).fetchall()
+            ]
+            extracted_scope = after_text
+            for st in stop_tokens:
+                if not st:
+                    continue
+                row_cut = self.conn.execute(
+                    """SELECT CASE 
+                        WHEN INSTR(LOWER(?), LOWER(?)) > 0 
+                        THEN TRIM(SUBSTR(?, 1, INSTR(LOWER(?), LOWER(?)) - 1)) 
+                        ELSE ? 
+                    END;""",
+                    [extracted_scope, st, extracted_scope, extracted_scope, st, extracted_scope]
+                ).fetchone()
+                if row_cut and row_cut[0] != extracted_scope:
+                    extracted_scope = row_cut[0]
+
+            extracted_scope = extracted_scope.strip(" :,-.?!'\"“”")
+            ext_low = extracted_scope.lower()
+            ext_unacc = self._remove_accents(ext_low)
+            ALLOWED_GENERIC_WORDS = {
+                "", "nào", "nao", "gì", "gi", "đó", "do", "này", "nay", "trên", "tren",
+                "trọng tâm", "trong tam", "chuyên môn", "chuyen mon", "công tác", "cong tac"
+            }
+            if (
+                extracted_scope
+                and ext_low not in ALLOWED_GENERIC_WORDS
+                and ext_unacc not in ALLOWED_GENERIC_WORDS
+                and ext_low not in known_missions_low
+                and ext_unacc not in known_missions_low
+                and not any(dept_kw in ext_low or dept_kw in ext_unacc for dept_kw in ("tỉnh ", "tinh ", "lâm đồng", "lam dong", "sở ", "so ", "phòng ", "phong ", "chi cục", "chi cuc", "ubnd"))
+            ):
+                return {
+                    "status": "NOT_FOUND",
+                    "requested_scope": extracted_scope,
+                    "available_scopes": scopes,
+                }
+
 
         return {"status": "NONE"}
 
@@ -2361,7 +3564,7 @@ class DuckDBSemanticCatalog:
                         "code": str(r[1]),
                         "name": str(r[2]),
                         "mission_name": str(r[2]),
-                        "scope_name": str(r[3] or "lĩnh vực 1"),
+                        "scope_name": str(r[3] or "-"),
                         "office_names": "-" if not r[4] or str(r[4]).strip() in ("", "Chưa phân công", "None", "null") else str(r[4]).strip(),
                         "office_name": "-" if not r[4] or str(r[4]).strip() in ("", "Chưa phân công", "None", "null") else str(r[4]).strip(),
                         "has_approved_facts": bool(r[5]),
@@ -2372,46 +3575,37 @@ class DuckDBSemanticCatalog:
                     it for it in all_items
                     if not (
                         it["name"].strip().lower().startswith("nhiệm vụ ")
-                        and it["name"].strip().lower()[len("nhiệm vụ "):].strip().isdigit()
+                        and it["name"].strip().lower().replace("nhiệm vụ", "").strip().isdigit()
+
                     )
                 ]
                 return real_items if real_items else all_items
         except Exception:
             pass
-        return [
-            {
-                "id": "m1",
-                "code": "diem_nghiep",
-                "name": "Diêm nghiệp",
-                "mission_name": "Diêm nghiệp",
-                "scope_name": "Nông nghiệp",
-                "office_names": "Chi cục",
-                "office_name": "Chi cục",
-                "has_approved_facts": True,
-            },
-            {
-                "id": "m2",
-                "code": "phat_trien_nong_thon",
-                "name": "Phát triển nông thôn",
-                "mission_name": "Phát triển nông thôn",
-                "scope_name": "Nông nghiệp",
-                "office_names": "Chi cục",
-                "office_name": "Chi cục",
-                "has_approved_facts": True,
-            },
-            {
-                "id": "m3",
-                "code": "cai_cach_hanh_chinh",
-                "name": "Cải cách hành chính",
-                "mission_name": "Cải cách hành chính",
-                "scope_name": "lĩnh vực 1",
-                "office_names": "Phòng kinh tế",
-                "office_name": "Phòng kinh tế",
-                "has_approved_facts": False,
-            },
-        ]
+        try:
+            rows = self.conn.execute(
+                "SELECT id, code, name FROM catalog_missions ORDER BY name ASC;"
+            ).fetchall()
+            if rows:
+                return [
+                    {
+                        "id": str(r[0]),
+                        "code": str(r[1]),
+                        "name": str(r[2]),
+                        "mission_name": str(r[2]),
+                        "scope_name": "-",
+                        "office_names": "-",
+                        "office_name": "-",
+                        "has_approved_facts": False,
+                    }
+                    for r in rows
+                ]
+        except Exception:
+            pass
 
-    def extract_mission_from_query(self, query: str) -> Dict[str, Any]:
+        return []
+
+    def extract_mission_from_query(self, raw_input: str) -> Dict[str, Any]:
         """
         Phân giải nhiệm vụ (mission) từ câu hỏi người dùng phục vụ REQ-Q04 & SC-4.1..4.2.
         Trả về:
@@ -2419,27 +3613,21 @@ class DuckDBSemanticCatalog:
         - {"status": "NOT_FOUND", "requested_mission": ..., "available_missions": [...]}
         - {"status": "NONE"}
         """
-        if not query:
+        if not raw_input:
             return {"status": "NONE"}
         import unicodedata
-        q_clean = unicodedata.normalize("NFC", query.strip())
-        q_low = q_clean.lower()
+        clean_input = unicodedata.normalize("NFC", raw_input.strip())
+        norm_input = clean_input.lower()
 
         missions = self.get_missions_list()
-        # Loại bỏ tên cơ quan có chứa cụm "phát triển nông thôn" để tránh nhận diện nhầm tên Sở/Phòng/Chi cục thành nhiệm vụ
-        q_for_mission = q_low
-        if "nhiệm vụ phát triển nông thôn" not in q_low and "nhiem vu phat trien nong thon" not in q_low:
-            q_for_mission = re.sub(
-                r"\b(?:sở|so|phòng|phong|chi cục|chi cuc|ban|văn phòng|van phong|trung tâm|trung tam)\s+(?:(?:nông nghiệp|nong nghiep|nn)\s*(?:và|va|&)\s*)?(?:phát triển nông thôn|phat trien nong thon)\b",
-                " ",
-                q_for_mission,
-            )
+        # Loại bỏ tên cơ quan động qua DuckDB RAM
+        clean_mission_input = self._strip_dept_noise(norm_input)
 
-        q_for_mission_unacc = self._remove_accents(q_for_mission)
+        unacc_mission_input = self._remove_accents(clean_mission_input)
         for m in missions:
             m_name_low = unicodedata.normalize("NFC", m["name"]).lower().strip()
             m_unacc = self._remove_accents(m_name_low)
-            if m_name_low and (m_name_low in q_for_mission or (m_unacc and m_unacc in q_for_mission_unacc)):
+            if m_name_low and (m_name_low in clean_mission_input or (m_unacc and m_unacc in unacc_mission_input)):
                 return {
                     "status": "MATCH",
                     "mission_name": m["name"],
@@ -2448,32 +3636,45 @@ class DuckDBSemanticCatalog:
                 }
 
         # Kiểm tra nếu người dùng hỏi về một "nhiệm vụ <X>" cụ thể nhưng <X> không tồn tại trong CSDL
-        m_marker = "nhiệm vụ" if "nhiệm vụ" in q_low else ("nhiem vu" if "nhiem vu" in q_low else None)
-        idx = q_low.find(m_marker) if m_marker else -1
-        if idx != -1 and m_marker:
-            after_text = q_clean[idx + len(m_marker):].strip(" :,-'\"“”")
-            for mod_prefix in ("trọng tâm ", "trong tam ", "chuyên môn ", "chuyen mon ", "công tác ", "cong tac "):
-                if after_text.lower().startswith(mod_prefix):
-                    after_text = after_text[len(mod_prefix):].strip(" :,-'\"“”")
-            stop_tails = (
-                " hiện tại", " hien tai", " hiện nay", " hien nay", " hiện có", " hien co",
-                " hiện đang", " hien dang", " hiện ", " hien ",
-                " trong năm", " trong nam", " năm ", " nam ", " tại ", " tai ", " ở ", " o ",
-                " của ", " cua ", " thuộc ", " thuoc ",
-                " có những", " co nhung", " có các", " co cac", " có chỉ tiêu", " co chi tieu",
-                " gồm những", " gom nhung", " gồm các", " gom cac", " bao gồm", " bao gom",
-                " là gì", " la gi", " nào", " nao", " đang ", " dang ", " do ", " được ", " duoc ",
-                " thu thập", " thu thap", " đã ", " da ", "?"
-            )
+        markers = [
+            r[0] for r in self.conn.execute(
+                "SELECT term FROM semantic_lexicon WHERE category = 'MISSION_ENTITY_MARKER' ORDER BY LENGTH(term) DESC;"
+            ).fetchall()
+        ]
+        matched_marker = next((mk for mk in markers if mk in norm_input), None)
+        if matched_marker:
+            # Trích xuất chuỗi phía sau marker thông qua DuckDB SQL
+            row_after = self.conn.execute(
+                "SELECT TRIM(SUBSTR(?, INSTR(LOWER(?), LOWER(?)) + LENGTH(?)));",
+                [clean_input, clean_input, matched_marker, matched_marker]
+            ).fetchone()
+            after_text = row_after[0].strip(" :,-'\"“”") if row_after else ""
+
+            # Loại bỏ các stop tokens thông qua DuckDB SQL
+            stop_tokens = [
+                r[0] for r in self.conn.execute(
+                    "SELECT term FROM semantic_lexicon WHERE category = 'MISSION_STOP_TOKEN' ORDER BY LENGTH(term) DESC;"
+                ).fetchall()
+            ]
             extracted_mission = after_text
-            for st in stop_tails:
-                pos = extracted_mission.lower().find(st)
-                if pos >= 0:
-                    extracted_mission = extracted_mission[:pos].strip()
+            for st in stop_tokens:
+                if not st:
+                    continue
+                row_cut = self.conn.execute(
+                    """SELECT CASE 
+                        WHEN INSTR(LOWER(?), LOWER(?)) > 0 
+                        THEN TRIM(SUBSTR(?, 1, INSTR(LOWER(?), LOWER(?)) - 1)) 
+                        ELSE ? 
+                    END;""",
+                    [extracted_mission, st, extracted_mission, extracted_mission, st, extracted_mission]
+                ).fetchone()
+                if row_cut and row_cut[0] != extracted_mission:
+                    extracted_mission = row_cut[0]
+
             extracted_mission = extracted_mission.strip(" :,-.?!'\"“”")
             ext_low = extracted_mission.lower()
             ext_unacc = self._remove_accents(ext_low)
-            generic_words = {
+            ALLOWED_GENERIC_WORDS = {
                 "", "nào", "nao", "gì", "gi", "đó", "do", "này", "nay", "trên", "tren",
                 "trọng tâm", "trong tam", "chuyên môn", "chuyen mon",
                 "công tác", "cong tac", "hệ thống", "he thong", "kho dữ liệu", "kho du lieu",
@@ -2481,8 +3682,8 @@ class DuckDBSemanticCatalog:
             }
             if (
                 extracted_mission
-                and ext_low not in generic_words
-                and ext_unacc not in generic_words
+                and ext_low not in ALLOWED_GENERIC_WORDS
+                and ext_unacc not in ALLOWED_GENERIC_WORDS
                 and not ext_low.startswith(("nào", "nao", "gì", "gi", "năm ", "nam ", "trong ", "tại ", "tai ", "của ", "cua ", "thuộc ", "thuoc ", "do "))
                 and not any(sc["name"].lower() in ext_low or self._remove_accents(sc["name"].lower()) in ext_unacc for sc in self.get_scopes_list())
             ):
@@ -2511,9 +3712,10 @@ class DuckDBSemanticCatalog:
                     "code": row[1],
                     "name": row[2],
                     "mission_name": row[2],
-                    "scope_name": row[3],
-                    "office_names": row[4],
-                    "office_name": row[4],
+                    "scope_name": str(row[3] or "-"),
+                    "office_names": "-" if not row[4] or str(row[4]).strip() in ("", "Chưa phân công", "None", "null") else str(row[4]).strip(),
+                    "office_name": "-" if not row[4] or str(row[4]).strip() in ("", "Chưa phân công", "None", "null") else str(row[4]).strip(),
+
                     "has_approved_facts": bool(row[5]),
                 }
             row_m = self.conn.execute(
@@ -2526,9 +3728,9 @@ class DuckDBSemanticCatalog:
                     "code": str(row_m[1]),
                     "name": str(row_m[2]),
                     "mission_name": str(row_m[2]),
-                    "scope_name": "lĩnh vực 1",
-                    "office_names": "Phòng kinh tế",
-                    "office_name": "Phòng kinh tế",
+                    "scope_name": "-",
+                    "office_names": "-",
+                    "office_name": "-",
                     "has_approved_facts": False,
                 }
         except Exception:
@@ -2550,7 +3752,6 @@ class DuckDBSemanticCatalog:
         """
         import unicodedata
         q_norm = " ".join(unicodedata.normalize("NFC", (query or "").lower().strip()).split())
-        q_norm_orth = q_norm.replace("truyền thống", "truyền thồng").replace("sản xuất muối", "sản xuất muôi")
         q_unaccent = self._remove_accents(q_norm)
 
         try:
@@ -2576,14 +3777,12 @@ class DuckDBSemanticCatalog:
         for r in rows:
             c_name = unicodedata.normalize("NFC", (r[2] or "").strip())
             c_low = " ".join(c_name.lower().split())
-            c_low_orth = c_low.replace("truyền thống", "truyền thồng").replace("sản xuất muối", "sản xuất muôi")
             c_unacc = self._remove_accents(c_low)
             items.append({
                 "id": r[0],
                 "code": r[1],
                 "name": c_name,
                 "name_low": c_low,
-                "name_orth": c_low_orth,
                 "name_unaccent": c_unacc,
                 "parent_id": r[3],
                 "parent_name": r[4],
@@ -2592,188 +3791,36 @@ class DuckDBSemanticCatalog:
                 "root_name": r[6],
                 "level": int(r[7] or 1),
                 "is_leaf": bool(r[8]),
-                "mission_name": r[9] or "Phát triển nông thôn",
-                "office_name": r[10] or "Chi cục",
+                "mission_name": r[9] or "",
+                "office_name": r[10] or "",
                 "latest_value": r[11],
             })
 
-        # Ánh xạ các biến thể tên chỉ tiêu lá (REQ-Q02, SC-2.1, SC-2.2)
-        leaf_aliases = {
-            "diện tích muối công nghiệp": "dien_tich_muoi_san_xuat_cong_nghiep",
-            "diện tích muối sản xuất công nghiệp": "dien_tich_muoi_san_xuat_cong_nghiep",
-            "diện tích muối thủ công": "dien_tich_muoi_san_xuat_thu_cong",
-            "diện tích muối sản xuất thủ công": "dien_tich_muoi_san_xuat_thu_cong",
-            "sản lượng muối công nghiệp": "san_luong_muoi_san_xuat_cong_nghiep",
-            "sản lượng muối sản xuất công nghiệp": "san_luong_muoi_san_xuat_cong_nghiep",
-            "sản lượng muối thủ công": "san_luong_muoi_san_xuat_thu_cong",
-            "sản lượng muối sản xuất thủ công": "san_luong_muoi_san_xuat_thu_cong",
-            "tổng số hộ dân tham gia sản xuất muối": "tong_ho_san_xuat_muoi",
-            "tổng số hộ tham gia sản xuất muối": "tong_ho_san_xuat_muoi",
-            "tổng số hộ sản xuất muối": "tong_ho_san_xuat_muoi",
-            "tổng hộ sản xuất muối": "tong_ho_san_xuat_muoi",
-            "tổng hộ sản xuất muôi": "tong_ho_san_xuat_muoi",
-            "số hộ sản xuất muối": "tong_ho_san_xuat_muoi",
-            "hộ dân tham gia sản xuất muối": "tong_ho_san_xuat_muoi",
-            "làng nghề truyền thống": "lang_nghe_truyen_thong",
-            "doanh thu hợp tác xã": "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep",
-            "doanh thu bình quân": "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep",
-            "tổng số hiện có": "dang_hoat_dong",
-            "tổng số thành viên": "thanh_vien",
-        }
-        if not any(w in q_norm or w in q_unaccent for w in ("lũy kế", "luy ke", "đến thời điểm", "den thoi diem", "chủ thể", "chu the")):
-            leaf_aliases["số lượng sản phẩm ocop 3 sao"] = "so_luong_san_pham_ocop_3_sao_duoc_cong_nhan_trong_nam"
-            leaf_aliases["số lượng sản phẩm ocop 4 sao"] = "so_luong_san_pham_ocop_4_sao_duoc_cong_nhan_trong_nam"
-            leaf_aliases["số lượng sản phẩm ocop 5 sao"] = "so_luong_san_pham_ocop_5_sao_duoc_cong_nhan_trong_nam"
-
+        # 1. Tra cứu các alias định danh từ catalog_aliases trong DuckDB RAM
         alias_matched_leaf_code = None
         alias_matched_leaf_text = None
-        for al_text, l_code in sorted(leaf_aliases.items(), key=lambda x: len(x[0]), reverse=True):
-            al_unacc = self._remove_accents(al_text)
-            if al_text in q_norm or (al_unacc and len(al_unacc) >= 6 and al_unacc in q_unaccent):
-                alias_matched_leaf_code = l_code
-                alias_matched_leaf_text = al_text
-                break
-
-        # Đặc tả SC-2.3 (output.md): "Liên kết sản xuất" khi hỏi trực tiếp không nêu tên chỉ tiêu con -> trả về SINGLE_LEAF có giá trị NULL/'-'
-        if ("liên kết sản xuất" in q_norm or "lien ket san xuat" in q_unaccent) and not any(
-            w in q_norm or w in q_unaccent for w in ("ổn định", "on dinh", "thường xuyên", "thuong xuyen", "chế biến", "che bien", "tiêu thụ", "tieu thu", "số htx", "so htx", "số tht", "so tht", "số tt", "so tt")
-        ):
-            target_lksx_code = "lien_ket_san_xuat"
-            if "tổ hợp tác" in q_norm or "tht" in q_norm or "to hop tac" in q_unaccent:
-                target_lksx_code = "lien_ket_san_xuat3"
-            elif "trang trại" in q_norm or "trang trai" in q_unaccent:
-                target_lksx_code = "lien_ket_san_xuat4"
-            lksx_items = [it for it in items if it["code"] == target_lksx_code]
-            lksx_it = lksx_items[0] if lksx_items else {
-                "code": target_lksx_code,
-                "name": "Liên kết sản xuất",
-                "is_leaf": True,
-                "mission_name": "Phát triển nông thôn",
-                "office_name": "Chi cục",
-                "latest_value": None,
-            }
-            return {
-                "category": "SINGLE_LEAF",
-                "classification": "single_leaf",
-                "code": target_lksx_code,
-                "name": "Liên kết sản xuất",
-                "matched_code": target_lksx_code,
-                "matched_name": "Liên kết sản xuất",
-                "item": lksx_it,
-            }
-
-        # Các chỉ tiêu lá ngắn thuộc nhóm HTX (SC-2.3: chưa phát sinh số liệu phê duyệt)
-        if not any(w in q_norm or w in q_unaccent for w in ("đề án", "de an", "công vụ", "cong vu", "việc làm", "viec lam", "cải cách hành chính", "cai cach hanh chinh")):
-            unrecorded_leaf_specs = [
-                ("tạm ngừng hoạt động", "tam_ngung_hoat_dong", "Tạm ngừng hoạt động"),
-                ("ứng dụng công nghệ cao", "ung_dung_cong_nghe_cao", "Ứng dụng công nghệ cao"),
-                ("chuyển đổi số", "chuyen_doi_so", "Chuyển đổi số"),
-                ("giải thể", "giai_the", "Giải thể"),
-                ("lợi nhuận bình quân", "loi_nhuan_binh_quan", "Lợi nhuận bình quân"),
-                ("thu nhập bình quân", "thu_nhap_binh_quan", "Thu nhập bình quân"),
-                ("nông nghiệp khác", "nong_nghiep_khac", "Nông nghiệp khác"),
-                ("an toàn thực phẩm / vietgap", "an_toan_thuc_pham_vietgap", "An toàn thực phẩm / VietGAP"),
-                ("an toàn thực phẩm", "an_toan_thuc_pham_vietgap", "An toàn thực phẩm / VietGAP"),
-                ("vietgap", "an_toan_thuc_pham_vietgap", "An toàn thực phẩm / VietGAP"),
-                ("chế biến sâu", "che_bien_sau", "Chế biến sâu"),
-                ("liên kết tiêu thụ sản phẩm", "lien_ket_tieu_thu_san_pham", "Liên kết tiêu thụ sản phẩm"),
-                ("liên kết tiêu thụ", "lien_ket_tieu_thu_san_pham", "Liên kết tiêu thụ sản phẩm"),
-                ("tổng số lao động", "tong_so_lao_dong", "Tổng số lao động"),
-            ]
-            m_name_norm = (matched_name or "").lower().strip()
-            for kw_leaf, code_leaf, disp_leaf in unrecorded_leaf_specs:
-                kw_unacc = self._remove_accents(kw_leaf)
-                if kw_leaf in q_norm or (kw_unacc and kw_unacc in q_unaccent) or m_name_norm == kw_leaf:
-                    leaf_it = {
-                        "code": code_leaf,
-                        "name": disp_leaf,
-                        "is_leaf": True,
-                        "level": 2,
-                        "parent_name": "HTX nông nghiệp",
-                        "parent_level": 1,
-                        "root_name": "HTX nông nghiệp",
-                        "mission_name": "Phát triển nông thôn",
-                        "office_name": "Chi cục",
-                        "latest_value": None,
-                    }
-                    return {
-                        "category": "SINGLE_LEAF",
-                        "classification": "single_leaf",
-                        "code": code_leaf,
-                        "name": disp_leaf,
-                        "matched_code": code_leaf,
-                        "matched_name": disp_leaf,
-                        "item": leaf_it,
-                    }
-
-        # Ánh xạ các biến thể tên nhóm cha thường gặp trong câu hỏi (SC-2.4)
-        parent_aliases = {
-            "lũy kế tổng số lượng chủ thể có sản phẩm đạt ocop": "luy_ke_tong_so_luong_chu_the_den_thoi_diem_bao_cao",
-            "lũy kế tổng số lượng sản phẩm ocop đạt chuẩn": "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao",
-            "đánh giá, phân hạng sản phẩm ocop": "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao",
-            "chương trình mỗi xã một sản phẩm": "chuong_trinh_ocop",
-            "lĩnh vực hoạt động của liên hiệp hợp tác xã nông nghiệp": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của liên hiệp hợp tác xã": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của liên hiệp htx": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của lhhtx": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "tổng số liên hiệp hợp tác xã phân theo lĩnh vực": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "tổng số liên hiệp htx phân theo lĩnh vực": "tong_so_lhhtx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của hợp tác xã nông nghiệp": "so_luong_htx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của hợp tác xã": "so_luong_htx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của htx nông nghiệp": "so_luong_htx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của htx": "so_luong_htx_phan_theo_linh_vuc",
-            "số lượng hợp tác xã phân theo lĩnh vực": "so_luong_htx_phan_theo_linh_vuc",
-            "số lượng htx phân theo lĩnh vực": "so_luong_htx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của tổ hợp tác nông nghiệp": "tong_so_tht_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của tổ hợp tác": "tong_so_tht_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của tht": "tong_so_tht_phan_theo_linh_vuc",
-            "tổng số tổ hợp tác phân theo lĩnh vực": "tong_so_tht_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động của trang trại": "tong_so_luong_tt_phan_theo_linh_vuc",
-            "tổng số lượng trang trại phân theo lĩnh vực": "tong_so_luong_tt_phan_theo_linh_vuc",
-            "tổng số trang trại phân theo lĩnh vực": "tong_so_luong_tt_phan_theo_linh_vuc",
-            "tổng số liên hiệp hợp tác xã nông nghiệp": "lien_hiep_htx_nong_nghiep",
-            "liên hiệp hợp tác xã nông nghiệp": "lien_hiep_htx_nong_nghiep",
-            "tổng số lhhtx nông nghiệp": "lien_hiep_htx_nong_nghiep",
-            "tổng số tổ hợp tác nông nghiệp": "to_hop_tac_nong_nghiep",
-            "tổng số tht nông nghiệp": "to_hop_tac_nong_nghiep",
-            "tổng số htx nông nghiệp": "htx_nong_nghiep",
-            "số lượng hợp tác xã nông nghiệp": "htx_nong_nghiep",
-            "số lượng htx nông nghiệp": "htx_nong_nghiep",
-            "hợp tác xã nông nghiệp": "htx_nong_nghiep",
-            "hợp tác xã có những chỉ tiêu nào": "htx_nong_nghiep",
-            "htx có những chỉ tiêu nào": "htx_nong_nghiep",
-            "số lượng hợp tác xã": "so_luong_htx_phan_theo_linh_vuc",
-            "số lượng htx": "so_luong_htx_phan_theo_linh_vuc",
-            "lĩnh vực hoạt động": "so_luong_htx_phan_theo_linh_vuc",
-            "làng nghề, ngành nghề nông thôn": "lang_nghe",
-            "phát triển làng nghề": "lang_nghe",
-        }
-        is_salt_area_parent_alias = (
-            ("diện tích sản xuất muối" in q_norm or "dien tich san xuat muoi" in q_unaccent)
-            and "tổng diện tích sản xuất muối" not in q_norm
-            and "tong dien tich san xuat muoi" not in q_unaccent
-            and not alias_matched_leaf_code
-        )
-        is_salt_prod_parent_alias = (
-            ("sản lượng muối" in q_norm or "san luong muoi" in q_unaccent)
-            and "tổng sản lượng muối" not in q_norm
-            and "tong san luong muoi" not in q_unaccent
-            and not alias_matched_leaf_code
-        )
         alias_matched_parent_code = None
         alias_matched_parent_text = None
-        if is_salt_area_parent_alias:
-            alias_matched_parent_code = "tong_dien_tich_san_xuat_muoi"
-            alias_matched_parent_text = "diện tích sản xuất muối"
-        elif is_salt_prod_parent_alias:
-            alias_matched_parent_code = "tong_san_luong_muoi_gd2"
-            alias_matched_parent_text = "sản lượng muối"
-        else:
-            for al_text, p_code in sorted(parent_aliases.items(), key=lambda x: len(x[0]), reverse=True):
-                al_unacc = self._remove_accents(al_text)
-                if al_text in q_norm or (al_unacc and len(al_unacc) >= 6 and al_unacc in q_unaccent):
-                    alias_matched_parent_code = p_code
-                    alias_matched_parent_text = al_text
+
+        try:
+            alias_rows = self.conn.execute("""
+                SELECT alias, code, is_leaf FROM catalog_aliases ORDER BY LENGTH(alias) DESC;
+            """).fetchall()
+        except Exception:
+            alias_rows = []
+
+        for al_text, a_code, a_is_leaf in alias_rows:
+            al_unacc = self._remove_accents(al_text)
+            if al_text in q_norm or (al_unacc and len(al_unacc) >= 6 and al_unacc in q_unaccent):
+                if a_is_leaf:
+                    if not alias_matched_leaf_code:
+                        alias_matched_leaf_code = a_code
+                        alias_matched_leaf_text = al_text
+                else:
+                    if not alias_matched_parent_code:
+                        alias_matched_parent_code = a_code
+                        alias_matched_parent_text = al_text
+                if alias_matched_leaf_code and alias_matched_parent_code:
                     break
 
         # Tìm các mục có tên xuất hiện nguyên vẹn trong câu hỏi (có kiểm tra ranh giới từ)
@@ -2792,26 +3839,64 @@ class DuckDBSemanticCatalog:
                     return (idx, end_idx)
                 start = idx + 1
 
-        has_link_ctx = "liên kết" in q_norm or "lien ket" in q_unaccent
-        has_salt_household_or_measure_ctx = any(
-            w in q_norm or w in q_unaccent
-            for w in ("hộ ", "tổng hộ", "số hộ", "tong ho", "so ho", "diện tích", "dien tich", "sản lượng", "san luong")
-        )
+        if alias_matched_leaf_code and alias_matched_leaf_text:
+            matching_items = [
+                it for it in items
+                if it["code"] == alias_matched_leaf_code or it["name_low"] == alias_matched_leaf_text.lower()
+            ]
+            if matching_items:
+                for it in matching_items:
+                    it["is_leaf"] = True
+            else:
+                disp_name = alias_matched_leaf_text[0].upper() + alias_matched_leaf_text[1:]
+                p_cand = None
+                if alias_matched_parent_code:
+                    p_cand = next((it for it in items if it["code"] == alias_matched_parent_code), None)
+                if not p_cand:
+                    parent_cands = [
+                        it for it in items
+                        if not it["is_leaf"] and (it["name_low"] in q_norm or (it["name_unaccent"] and len(it["name_unaccent"]) >= 4 and it["name_unaccent"] in q_unaccent))
+                    ]
+                    if parent_cands:
+                        parent_cands.sort(key=lambda x: len(x["name"]), reverse=True)
+                        p_cand = parent_cands[0]
+                if not p_cand and parent_context:
+                    ctx_low = parent_context.lower().strip()
+                    p_cand = next((it for it in items if not it["is_leaf"] and (it["name_low"] == ctx_low or ctx_low in it["name_low"])), None)
+
+                parent_name = p_cand["name"] if p_cand else (alias_matched_parent_text or "-")
+                parent_id = p_cand["id"] if p_cand else None
+                root_name = (p_cand.get("root_name") or parent_name) if p_cand else parent_name
+                root_id = (p_cand.get("root_id") or parent_id) if p_cand else parent_id
+
+                leaf_it = {
+                    "id": alias_matched_leaf_code,
+                    "code": alias_matched_leaf_code,
+                    "name": disp_name,
+                    "name_low": alias_matched_leaf_text.lower(),
+                    "name_unaccent": self._remove_accents(alias_matched_leaf_text.lower()),
+                    "parent_id": parent_id,
+                    "parent_name": parent_name,
+                    "parent_level": p_cand.get("level", 1) if p_cand else 1,
+                    "root_id": root_id,
+                    "root_name": root_name,
+                    "level": 2,
+                    "is_leaf": True,
+                    "mission_name": (p_cand.get("mission_name") or "-") if p_cand else "-",
+                    "office_name": (p_cand.get("office_name") or "Cấp tỉnh") if p_cand else "Cấp tỉnh",
+                    "latest_value": None,
+                }
+                items.append(leaf_it)
 
         matched_spans: List[Tuple[int, int, Dict[str, Any]]] = []
         for it in items:
-            if it["code"] in ("htx", "tht") and not has_link_ctx:
-                continue
-            if it["code"] == "san_xuat_muoi" and has_salt_household_or_measure_ctx:
-                continue
-            sp = _find_span(q_norm, it["name_low"]) or _find_span(q_norm_orth, it["name_orth"])
+            # Chặn dương tính giả: khi chỉ tiêu trùng với từ chỉ hành động tổng hợp/thống kê (action verb)
+            if hasattr(self, "has_lexicon_term") and self.has_lexicon_term(it["name_low"], "SYNTHESIS_ACTION_CUE"):
+                if self.has_lexicon_term(q_norm, "SYNTHESIS_ACTION_CUE") and not self.has_lexicon_term(q_norm, "SYNTHESIS_METRIC_CUE"):
+                    continue
+            sp = _find_span(q_norm, it["name_low"])
             if not sp and len(it["name_unaccent"]) >= 5:
-                if it["code"] == "nhiem_vu_diem_nghiep" and "chi tieu nhiem vu diem nghiep" not in q_unaccent:
-                    sp = None
-                elif it["code"] == "tong_hop" and "chi tieu tong hop" not in q_unaccent and "trang trai tong hop" not in q_unaccent:
-                    sp = None
-                else:
-                    sp = _find_span(q_unaccent, it["name_unaccent"])
+                sp = _find_span(q_unaccent, it["name_unaccent"])
             if sp:
                 matched_spans.append((sp[0], sp[1], it))
 
@@ -2842,13 +3927,26 @@ class DuckDBSemanticCatalog:
         leaf_matches = [m for m in filtered_matches if m["is_leaf"]]
         parent_matches = [m for m in filtered_matches if not m["is_leaf"]]
 
-        # Nếu chỉ khớp đúng chữ 'Làng nghề' (vừa là gốc Cấp 1 vừa là lá Cấp 3) và không hỏi cụ thể lũy kế/trong năm -> ưu tiên gốc Cấp 1
-        if (
-            any(p["code"] == "lang_nghe" for p in parent_matches)
-            and all(l["name_low"] == "làng nghề" for l in leaf_matches)
-            and not any(w in q_norm or w in q_unaccent for w in ("lũy kế", "luy ke", "trong năm", "trong nam", "được công nhận", "duoc cong nhan"))
-        ):
-            leaf_matches = []
+        # Generic structural disambiguation rule:
+        # Khi parent_matches và leaf_matches cùng khớp:
+        # Nếu leaf và parent cùng chung base name (hoặc leaf chỉ khớp do chứa base name của parent),
+        # và không có token hạn định đặc thù nào của leaf (ngoài các token của parent) xuất hiện trong q_norm,
+        # ưu tiên parent_matches (loại bỏ leaf_matches).
+        if parent_matches and leaf_matches:
+            has_leaf_qualifier = False
+            q_tokens = set(q_norm.split())
+            for l in leaf_matches:
+                l_tokens = set(l["name_low"].split())
+                for p in parent_matches:
+                    p_tokens = set(p["name_low"].split())
+                    qualifiers = l_tokens - p_tokens
+                    if qualifiers and any(qt in q_tokens or qt in q_norm for qt in qualifiers):
+                        has_leaf_qualifier = True
+                        break
+                if has_leaf_qualifier:
+                    break
+            if not has_leaf_qualifier:
+                leaf_matches = []
 
         if alias_matched_leaf_code:
             for it in items:
@@ -2873,26 +3971,28 @@ class DuckDBSemanticCatalog:
         # 1. Xử lý SC-2.4: Câu hỏi nhắm vào chỉ tiêu cha (Parent Group) và không nêu chỉ tiêu lá cụ thể
         if parent_matches and not leaf_matches:
             if len(parent_matches) > 1:
-                if "liên hiệp" in q_norm or "lhhtx" in q_norm or "lien hiep" in q_unaccent:
-                    qual_p = [p for p in parent_matches if "lhhtx" in (p.get("root_name") or "").lower() or "liên hiệp" in (p.get("root_name") or "").lower()]
-                    if qual_p:
-                        parent_matches = qual_p
-                elif "tổ hợp tác" in q_norm or "tht" in q_norm or "to hop tac" in q_unaccent:
-                    qual_p = [p for p in parent_matches if "tổ hợp tác" in (p.get("root_name") or "").lower() or "tht" in (p.get("root_name") or "").lower()]
-                    if qual_p:
-                        parent_matches = qual_p
-                elif "trang trại" in q_norm or "trang trai" in q_unaccent:
-                    qual_p = [p for p in parent_matches if "trang trại" in (p.get("root_name") or "").lower()]
-                    if qual_p:
-                        parent_matches = qual_p
-                elif "htx" in q_norm or "hợp tác xã" in q_norm or "hop tac xa" in q_unaccent:
-                    qual_p = [
-                        p for p in parent_matches
-                        if ("htx" in (p.get("root_name") or "").lower() or "hợp tác xã" in (p.get("root_name") or "").lower())
-                        and "liên hiệp" not in (p.get("root_name") or "").lower()
-                    ]
-                    if qual_p:
-                        parent_matches = qual_p
+                scored_p = []
+                for p in parent_matches:
+                    p_name = (p.get("name") or "").lower().strip()
+                    r_name = (p.get("root_name") or "").lower().strip()
+                    p_un = self._remove_accents(p_name)
+                    r_un = self._remove_accents(r_name)
+                    s = 0
+                    if p_name and f" {p_name} " in f" {q_norm} ":
+                        s += len(p_name) * 2
+                    elif p_name and p_name in q_norm:
+                        s += len(p_name)
+                    if r_name and f" {r_name} " in f" {q_norm} ":
+                        s += len(r_name) * 2
+                    elif r_name and r_name in q_norm:
+                        s += len(r_name)
+                    if p_un and f" {p_un} " in f" {q_unaccent} ":
+                        s += len(p_un)
+                    if r_un and f" {r_un} " in f" {q_unaccent} ":
+                        s += len(r_un)
+                    scored_p.append((s, p))
+                scored_p.sort(key=lambda x: (x[0], x[1]["level"], len(x[1]["name"])), reverse=True)
+                parent_matches = [x[1] for x in scored_p]
             parent_matches.sort(key=lambda x: (x["level"], len(x["name"])), reverse=True)
             target_parent = parent_matches[0]
             parent_id = target_parent["id"]
@@ -2901,15 +4001,19 @@ class DuckDBSemanticCatalog:
                 it for it in items
                 if it["is_leaf"] and (it["parent_id"] == parent_id or it["root_id"] == parent_id)
             ]
-            p_disp_name = "Diện tích sản xuất muối" if is_salt_area_parent_alias else target_parent["name"]
+            p_disp_name = target_parent["name"]
             return {
                 "category": "PARENT_GROUP",
                 "classification": "parent",
-                "matched_name": target_parent["name"],
+                "code": target_parent["code"],
+                "name": p_disp_name,
                 "matched_code": target_parent["code"],
+                "matched_name": target_parent["name"],
                 "parent_id": parent_id,
                 "parent_code": target_parent["code"],
                 "parent_name": p_disp_name,
+                "root_id": target_parent.get("root_id") or parent_id,
+                "root_name": target_parent.get("root_name") or p_disp_name,
                 "parent_level": target_parent.get("level", 1),
                 "parent_value": target_parent.get("latest_value"),
                 "mission_name": target_parent["mission_name"],
@@ -2932,8 +4036,8 @@ class DuckDBSemanticCatalog:
                     break
 
         if target_leaf:
-            leaf_orth = target_leaf["name_orth"]
-            same_name_leaves = [it for it in items if it["is_leaf"] and it["name_orth"] == leaf_orth]
+            leaf_low = target_leaf["name_low"]
+            same_name_leaves = [it for it in items if it["is_leaf"] and it["name_low"] == leaf_low]
 
             # Nếu người dùng đã nêu rõ tên nhóm cha / nhánh cha trong câu hỏi -> Lọc theo nhóm cha đó
             if len(same_name_leaves) > 1 and parent_matches:
@@ -2945,85 +4049,70 @@ class DuckDBSemanticCatalog:
                 if len(qualified) == 1:
                     same_name_leaves = qualified
 
-            # Hỗ trợ định danh nhánh cha qua cụm từ ngữ cảnh trong câu hỏi hiện tại trước
+            # Hỗ trợ định danh nhánh cha động qua ngữ cảnh câu hỏi hoặc parent_context kế thừa từ Turn trước
             if len(same_name_leaves) > 1:
-                if "liên hiệp" in q_norm or "lhhtx" in q_norm or "lien hiep" in q_unaccent:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "lhhtx" in (it.get("parent_name") or "").lower() or "liên hiệp" in (it.get("root_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif "tổ hợp tác" in q_norm or "tht" in q_norm or "sản xuất và dịch vụ" in q_norm or "to hop tac" in q_unaccent or "san xuat va dich vu" in q_unaccent:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "tổ hợp tác" in (it.get("root_name") or "").lower() or "sản xuất và dịch vụ" in (it.get("parent_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif "trang trại" in q_norm or "trang trai" in q_unaccent:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "trang trại" in (it.get("root_name") or "").lower() or "trang trại" in (it.get("parent_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif "htx nông nghiệp" in q_norm or "hợp tác xã nông nghiệp" in q_norm or "htx nong nghiep" in q_unaccent or "hop tac xa nong nghiep" in q_unaccent:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if ("htx nông nghiệp" in (it.get("parent_name") or "").lower() or "hợp tác xã nông nghiệp" in (it.get("root_name") or "").lower())
-                        and "liên hiệp" not in (it.get("root_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
+                acr_map = {}
+                if hasattr(self, "conn") and self.conn:
+                    try:
+                        for acr, full in self.conn.execute("SELECT LOWER(acronym), LOWER(full_form) FROM catalog_acronyms;").fetchall():
+                            acr_map[acr] = full
+                    except Exception:
+                        pass
 
-            # PA 3.1: Nếu câu hỏi hiện tại chưa nêu nhánh cha nhưng có parent_context kế thừa từ Turn trước (SC-2.4)
-            if len(same_name_leaves) > 1 and parent_context:
-                p_ctx_norm = " ".join(unicodedata.normalize("NFC", str(parent_context).lower().strip()).split())
-                p_ctx_unacc = self._remove_accents(p_ctx_norm)
-                if "liên hiệp" in p_ctx_norm or "lhhtx" in p_ctx_norm or "lien hiep" in p_ctx_unacc:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "lhhtx" in (it.get("parent_name") or "").lower() or "liên hiệp" in (it.get("root_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif "tổ hợp tác" in p_ctx_norm or "tht" in p_ctx_norm or "sản xuất và dịch vụ" in p_ctx_norm or "to hop tac" in p_ctx_unacc or "san xuat va dich vu" in p_ctx_unacc:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "tổ hợp tác" in (it.get("root_name") or "").lower() or "sản xuất và dịch vụ" in (it.get("parent_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif "trang trại" in p_ctx_norm or "trang trai" in p_ctx_unacc:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if "trang trại" in (it.get("root_name") or "").lower() or "trang trại" in (it.get("parent_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                elif (
-                    "htx nông nghiệp" in p_ctx_norm
-                    or "hợp tác xã nông nghiệp" in p_ctx_norm
-                    or "số lượng htx" in p_ctx_norm
-                    or "htx nong nghiep" in p_ctx_unacc
-                    or "hop tac xa nong nghiep" in p_ctx_unacc
-                ):
-                    qualified = [
-                        it for it in same_name_leaves
-                        if ("htx nông nghiệp" in (it.get("parent_name") or "").lower() or "hợp tác xã nông nghiệp" in (it.get("root_name") or "").lower())
-                        and "liên hiệp" not in (it.get("root_name") or "").lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
-                else:
-                    qualified = [
-                        it for it in same_name_leaves
-                        if p_ctx_norm == (it.get("parent_name") or "").strip().lower()
-                        or p_ctx_norm == (it.get("root_name") or "").strip().lower()
-                    ]
-                    if len(qualified) == 1:
-                        same_name_leaves = qualified
+                context_sources = [q_norm]
+                if parent_context:
+                    context_sources.append(" ".join(unicodedata.normalize("NFC", str(parent_context).lower().strip()).split()))
+
+                for ctx in context_sources:
+                    ctx_str = f" {ctx} "
+                    ctx_unacc = f" {self._remove_accents(ctx)} "
+                    scored_leaves = []
+                    for it in same_name_leaves:
+                        p_name = (it.get("parent_name") or "").lower().strip()
+                        r_name = (it.get("root_name") or "").lower().strip()
+                        p_un = self._remove_accents(p_name)
+                        r_un = self._remove_accents(r_name)
+                        score = 0
+                        if r_name and f" {r_name} " in ctx_str:
+                            score += len(r_name) * 2
+                        elif r_name and r_name in ctx:
+                            score += len(r_name)
+                        if p_name and f" {p_name} " in ctx_str:
+                            score += len(p_name) * 2
+                        elif p_name and p_name in ctx:
+                            score += len(p_name)
+                        if r_un and f" {r_un} " in ctx_unacc:
+                            score += len(r_un)
+                        if p_un and f" {p_un} " in ctx_unacc:
+                            score += len(p_un)
+
+                        for acr, full in acr_map.items():
+                            if f" {acr} " in ctx_str or f" {acr} " in ctx_unacc:
+                                if full in r_name or full in p_name:
+                                    score += len(full)
+
+                        if score > 0:
+                            scored_leaves.append((score, it))
+
+                    if scored_leaves:
+                        scored_leaves.sort(key=lambda x: x[0], reverse=True)
+                        top_score = scored_leaves[0][0]
+                        top_leaves = [it for s, it in scored_leaves if s == top_score]
+                        if len(top_leaves) == 1:
+                            same_name_leaves = top_leaves
+                            break
+
+            if len(same_name_leaves) > 1 and all(it.get("latest_value") is None for it in same_name_leaves):
+                chosen_leaf = same_name_leaves[0]
+                return {
+                    "category": "SINGLE_LEAF",
+                    "classification": "single_leaf",
+                    "code": chosen_leaf["code"],
+                    "name": chosen_leaf["name"],
+                    "matched_code": chosen_leaf["code"],
+                    "matched_name": chosen_leaf["name"],
+                    "item": chosen_leaf,
+                }
 
             if len(same_name_leaves) > 1:
                 return {
@@ -3045,6 +4134,11 @@ class DuckDBSemanticCatalog:
                 "name": chosen_leaf["name"],
                 "matched_code": chosen_leaf["code"],
                 "matched_name": chosen_leaf["name"],
+                "parent_name": chosen_leaf.get("parent_name"),
+                "parent_level": chosen_leaf.get("parent_level", 1),
+                "mission_name": chosen_leaf.get("mission_name"),
+                "office_name": chosen_leaf.get("office_name"),
+                "latest_value": chosen_leaf.get("latest_value"),
                 "item": chosen_leaf,
             }
 
@@ -3118,15 +4212,36 @@ class DuckDBSemanticCatalog:
                 val_by_cid[cid] = v_cand
                 date_by_cid[cid] = r.get("ngay_bao_cao_moi_nhat") or r.get("ngay_bao_cao") or r.get("ky_bao_cao") or r.get("report_date")
 
+        def_mname, def_oname = "-", "-"
+        mission_order_map: Dict[str, int] = {}
+        mission_facts_map: Dict[str, bool] = {}
+        try:
+            m_all_rows = self.conn.execute(
+                "SELECT name, office_names, has_approved_facts FROM catalog_missions_detail ORDER BY name ASC;"
+            ).fetchall()
+            approved_idx = 0
+            for m_n, m_off, has_facts in m_all_rows:
+                if m_n:
+                    m_n_clean = m_n.strip().lower()
+                    mission_facts_map[m_n_clean] = bool(has_facts)
+                    if bool(has_facts):
+                        mission_order_map[m_n_clean] = approved_idx
+                        approved_idx += 1
+                        def_mname = m_n or "-"
+                        def_oname = m_off or "-"
+        except Exception:
+            pass
+
         nodes_by_id: Dict[str, Dict[str, Any]] = {}
         children_by_parent: Dict[str, List[str]] = {}
         roots: List[str] = []
 
         for r in hier_rows:
             cid, code, name, pid, pname, rid, rname, lvl, is_leaf, mname, oname, lval = r
-            if code == "du_lieu_cai_cach_1" and cid not in present_cids:
-                # Chỉ tiêu thuộc nhiệm vụ Cải cách hành chính chưa có bản ghi fact phê duyệt
+            mission_has_facts = mission_facts_map.get(mname.strip().lower(), True) if mname else True
+            if not mission_has_facts and cid not in present_cids:
                 continue
+
             raw_row_val = val_by_cid.get(cid) if cid in val_by_cid else None
             if raw_row_val is not None and str(raw_row_val).strip() not in ("", "-", "None"):
                 node_val = raw_row_val
@@ -3145,8 +4260,8 @@ class DuckDBSemanticCatalog:
                 "root_id": rid,
                 "level": int(lvl or 1),
                 "is_leaf": bool(is_leaf),
-                "mission_name": mname or "Phát triển nông thôn",
-                "office_name": oname or "Chi cục",
+                "mission_name": mname or def_mname,
+                "office_name": oname or def_oname,
                 "value": node_val,
                 "report_date": str(date_by_cid.get(cid) or ""),
                 "children": [],
@@ -3168,10 +4283,11 @@ class DuckDBSemanticCatalog:
         tree_by_root_id: Dict[str, Dict[str, Any]] = {}
         level1_summary_rows: List[Dict[str, Any]] = []
 
-        # Sắp xếp roots: Nhiệm vụ Diêm nghiệp và Phát triển nông thôn chuẩn hóa
+        # Sắp xếp roots theo thứ tự danh mục nhiệm vụ từ catalog_missions_detail
         def _root_sort_key(rid: str) -> Tuple[int, str]:
             nd = nodes_by_id[rid]
-            m_order = 0 if nd["mission_name"] == "Diêm nghiệp" else 1
+            m_name_low = str(nd.get("mission_name") or "").strip().lower()
+            m_order = mission_order_map.get(m_name_low, 99)
             return (m_order, nd["name"])
 
         for rid in sorted(roots, key=_root_sort_key):
@@ -3190,20 +4306,22 @@ class DuckDBSemanticCatalog:
             tree_by_root_id[rid] = root_node
             is_leaf_root = root_node["is_leaf"]
             desc_count = _count_descendants(root_node)
-            if is_leaf_root:
-                raw_v = root_node["value"]
-                if raw_v is None or str(raw_v).strip() in ("", "-", "None"):
-                    val_disp = "Chưa có số liệu phê duyệt (-)"
-                else:
-                    try:
-                        fv = float(raw_v)
-                        val_disp = f"{int(fv):,}".replace(",", ".") if fv.is_integer() else f"{fv:,.2f}"
-                    except Exception:
-                        val_disp = str(raw_v)
-                struct_type = "Chỉ tiêu đơn (Cấp 1)"
+            raw_v = root_node["value"]
+            if raw_v is None or str(raw_v).strip() in ("", "-", "None"):
+                val_disp = "Chưa có số liệu phê duyệt (-)"
             else:
-                val_disp = "- Xem chi tiết các chỉ tiêu con"
+                try:
+                    fv = float(raw_v)
+                    val_disp = f"{int(fv):,}".replace(",", ".") if fv.is_integer() else f"{fv:,.2f}"
+                except Exception:
+                    val_disp = str(raw_v)
+
+            if is_leaf_root:
+                struct_type = "Chỉ tiêu đơn (Cấp 1)"
+                child_action = "Không có"
+            else:
                 struct_type = f"Nhóm chỉ tiêu ({desc_count} chỉ tiêu con)"
+                child_action = "- (Xem chi tiết con)" if desc_count > 0 else "Không có"
 
             level1_summary_rows.append({
                 "criteria_id": rid,
@@ -3211,6 +4329,7 @@ class DuckDBSemanticCatalog:
                 "ten_chi_tieu_cap_1": root_node["name"],
                 "loai_cau_truc_cap_1": struct_type,
                 "gia_tri_moi_nhat": val_disp,
+                "chi_tieu_con": child_action,
                 "don_vi_thuc_hien": root_node["office_name"],
                 "is_parent_group": not is_leaf_root,
                 "child_count": desc_count,
@@ -3218,6 +4337,63 @@ class DuckDBSemanticCatalog:
             })
 
         return (tree_by_root_id, level1_summary_rows)
+
+    def resolve_report_audit_intent(self, raw_input: str) -> Optional[Dict[str, Any]]:
+        """
+        Phân giải ý định kiểm toán báo cáo, biểu mẫu thu thập và ma trận phân công nhiệm vụ (REQ-Q05: SC-5.1, SC-5.2, SC-5.3).
+        """
+        if not raw_input:
+            return None
+
+        # 1. SC-5.2: Biểu mẫu thu thập (collection_form) & Bộ thu thập chỉ tiêu (criteria_group)
+        if self.has_lexicon_term(raw_input, "FORM_CRITERIA_GROUP"):
+            return {
+                "audit_sub_intent": "FORM_CRITERIA_GROUP",
+                "target_table": "criteria_group",
+                "status_filter": ["active", "draft"],
+                "include_draft_comparison": True,
+            }
+
+        # 2. SC-5.3: Ma trận phân công nhiệm vụ - phòng ban - cán bộ
+        has_mission = self.has_lexicon_term(raw_input, "MISSION_KEYWORD")
+        has_office = self.has_lexicon_term(raw_input, "OFFICE_KEYWORD")
+        has_officer = self.has_lexicon_term(raw_input, "OFFICER_KEYWORD")
+        has_matrix_cue = self.has_lexicon_term(raw_input, "MATRIX_CUE")
+        if (has_mission and has_office and has_officer) or (has_mission and has_matrix_cue):
+            return {
+                "audit_sub_intent": "MISSION_ASSIGNMENT_MATRIX",
+                "target_table": "mission_assignment_matrix",
+                "status_filter": ["ALL"],
+                "include_draft_comparison": False,
+            }
+
+        # 3. SC-5.1: Tiến độ nộp báo cáo, trạng thái phê duyệt (approved) & bản nháp (draft)
+        has_report = self.has_lexicon_term(raw_input, "REPORT_SIGNAL")
+        has_status_or_draft = self.has_lexicon_term(raw_input, "REPORT_STATUS")
+        if (has_report and has_status_or_draft) or (has_status_or_draft and self.has_lexicon_term(raw_input, "REPORT_DIFF")):
+            wants_diff = self.has_lexicon_term(raw_input, "REPORT_DIFF")
+            return {
+                "audit_sub_intent": "REPORT_SUBMISSION_STATUS",
+                "target_table": "report",
+                "status_filter": ["approved", "draft", "pending"],
+                "include_draft_comparison": wants_diff,
+            }
+
+        return None
+
+    def get_latest_report_date(self) -> str:
+        """
+        Truy vấn động ngày báo cáo mới nhất từ catalog_sync_meta hoặc catalog_criteria_hierarchy.
+        Trả về '-' nếu không có dữ liệu.
+        """
+        try:
+            row = self.conn.execute("SELECT STRFTIME(dwh_pipeline_run_at, '%Y-%m-%d') FROM catalog_sync_meta ORDER BY dwh_pipeline_run_at DESC LIMIT 1;").fetchone()
+            if row and row[0]:
+                return str(row[0])
+        except Exception:
+            pass
+        return "-"
+
 
 
 

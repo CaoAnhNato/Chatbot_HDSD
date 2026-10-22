@@ -4,17 +4,25 @@ const SESSIONS_STORAGE_KEY = 'hdsd_chat_sessions_v1';
 const ACTIVE_SESSION_STORAGE_KEY = 'hdsd_active_session_id_v1';
 const MAX_SAVED_SESSIONS = 50;
 
-const CONTEXT_PREFIX_RE = /^\[\s*tenant_code\s*[=:]\s*[^,\]]+\s*,\s*level\s*[=:]\s*\d+\s*\]\s*/i;
+const CONTEXT_PREFIX_RE = /^\[\s*tenant_code\s*[=:][^\]]+\]\s*/i;
+
+export const stripTenantContextPrefix = (text: string): string => {
+  return (text || '').replace(CONTEXT_PREFIX_RE, '').trim();
+};
 
 export const cleanSessionTitle = (rawTitle: string): string => {
-  const cleaned = (rawTitle || '').replace(CONTEXT_PREFIX_RE, '').trim();
+  const cleaned = stripTenantContextPrefix(rawTitle);
   if (!cleaned) return 'Cuộc hội thoại mới';
   return cleaned.length > 42 ? `${cleaned.slice(0, 42)}...` : cleaned;
 };
 
 const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
-  if (!msg.tabular_data) return msg;
-  const td: any = { ...msg.tabular_data };
+  const cleanMsg =
+    msg.role === 'user' && msg.content
+      ? { ...msg, content: stripTenantContextPrefix(msg.content) }
+      : msg;
+  if (!cleanMsg.tabular_data) return cleanMsg;
+  const td: any = { ...cleanMsg.tabular_data };
   // Tránh lưu nhân đôi cả tree_modal lẫn trees_by_root_id và level1_rows trùng lặp trong localStorage
   if (td.tree_modal && td.trees_by_root_id) {
     delete td.trees_by_root_id;
@@ -23,7 +31,7 @@ const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
     delete td.level1_rows;
   }
   return {
-    ...msg,
+    ...cleanMsg,
     tabular_data: td,
   };
 };
@@ -83,7 +91,17 @@ export const loadSessions = (): ChatSession[] => {
     const sessions: ChatSession[] = JSON.parse(raw);
     return Array.isArray(sessions)
       ? sessions
-          .map((s) => ({ ...s, title: cleanSessionTitle(s.title) }))
+          .map((s) => ({
+            ...s,
+            title: cleanSessionTitle(s.title),
+            messages: Array.isArray(s.messages)
+              ? s.messages.map((m) =>
+                  m.role === 'user' && m.content
+                    ? { ...m, content: stripTenantContextPrefix(m.content) }
+                    : m
+                )
+              : [],
+          }))
           .sort(
             (a, b) =>
               new Date(b.updatedAt || b.createdAt).getTime() -

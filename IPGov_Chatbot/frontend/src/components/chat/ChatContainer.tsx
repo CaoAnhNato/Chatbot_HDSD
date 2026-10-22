@@ -300,13 +300,15 @@ export const ChatContainer: React.FC = () => {
     const userMsgId = `user-${Date.now()}`;
     const botMsgId = `bot-${Date.now()}`;
 
-    // Chuỗi prompt kèm định danh tenant_code và level trực tiếp như yêu cầu
-    const promptWithContext = `[tenant_code=${selectedRole.tenant_code}, level=${selectedRole.role_level}] ${queryText}`;
+    const cleanQueryText = queryText.replace(/^\[tenant_code=[^\]]+\]\s*/i, '').trim();
+
+    // Chuỗi prompt kèm định danh tenant_code và level trực tiếp gửi xuống backend API
+    const promptWithContext = `[tenant_code=${selectedRole.tenant_code}, level=${selectedRole.role_level}] ${cleanQueryText}`;
 
     const userMsg: ChatMessage = {
       id: userMsgId,
       role: 'user',
-      content: promptWithContext,
+      content: cleanQueryText,
       timestamp: new Date().toISOString(),
     };
 

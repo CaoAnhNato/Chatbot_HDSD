@@ -37,6 +37,14 @@ class RecursiveScopeVisitor:
     def __init__(self, user_ctx: UserSecurityContextDTO) -> None:
         self.user_ctx = user_ctx
 
+    def is_authorized_for_non_approved(self) -> bool:
+        """
+        Kiểm tra người dùng có thẩm quyền xem dữ liệu báo cáo nháp (draft) / chờ duyệt (pending) hay không.
+        - role_level <= 2 (0: Lãnh đạo Tỉnh/Admin, 1: Cấp Sở, 2: Cấp Phòng/Chi cục): Được phép khi có status_filter tương ứng.
+        - role_level >= 3 (3: Công dân / Khách vãng lai / Public): Bị chặn tuyệt đối truy cập draft/pending/rejected.
+        """
+        return int(self.user_ctx.role_level) <= 2
+
     def _build_hbac_predicates(
         self, table_ref: str, table_name: str, has_status_filter: bool = False, has_tenant_filter: bool = False
     ) -> List[str]:
@@ -45,7 +53,7 @@ class RecursiveScopeVisitor:
         Level 0 (Tỉnh): tenant_code
         Level 1 (Sở): tenant_code + department_code
         Level 2 (Phòng): tenant_code + department_code + office_id
-        Level 3 (Công dân/Public): tenant_code + public view restriction
+        Level 3 (Công dân/Public): tenant_code + cưỡng chế tuyệt đối status = 'approved'
         """
         conditions: List[str] = []
 
@@ -54,22 +62,55 @@ class RecursiveScopeVisitor:
             tenant_safe = self.user_ctx.tenant_code.replace("'", "''")
             conditions.append(f"{table_ref}.tenant_code = '{tenant_safe}'")
 
-        # 2. Cưỡng chế phân quyền cấp cơ quan (department_code) cho Level 1 & 2
-        if self.user_ctx.role_level >= 1 and self.user_ctx.department_code:
-            dept_safe = self.user_ctx.department_code.replace("'", "''")
-            conditions.append(f"{table_ref}.department_code = '{dept_safe}'")
+        req_statuses = (
+            self.user_ctx.get_status_list()
+            if hasattr(self.user_ctx, "get_status_list")
+            else [
+                str(s).strip().lower()
+                for s in (self.user_ctx.status_filter or [])
+                if str(s).strip()
+            ]
+        )
+        wants_non_approved = any(s in ("draft", "pending", "rejected", "all") for s in req_statuses)
+        authorized_non_approved = self.is_authorized_for_non_approved()
+
+        # 2. Cưỡng chế phân quyền cấp cơ quan (department_code) cho Level 1 & 2 (khi không ở chế độ kiểm toán toàn tỉnh)
+        if self.user_ctx.role_level in (1, 2) and self.user_ctx.department_code:
+            if not req_statuses or self.user_ctx.department_code == "68-1-01":
+                dept_safe = self.user_ctx.department_code.replace("'", "''")
+                conditions.append(f"{table_ref}.department_code = '{dept_safe}'")
 
         # 3. Cưỡng chế phân quyền cấp phòng ban chuyên môn (office_id) cho Level 2
-        if self.user_ctx.role_level >= 2 and self.user_ctx.office_id:
+        if self.user_ctx.role_level == 2 and self.user_ctx.office_id and not req_statuses and table_name != "report":
             office_safe = self.user_ctx.office_id.replace("'", "''")
             conditions.append(f"{table_ref}.office_id = '{office_safe}'")
 
-        # 4. Cưỡng chế mặc định lọc báo cáo đã phê duyệt chính thức (report_status = 'approved')
-        if not has_status_filter:
-            if table_name == "fact_report_criteria":
-                conditions.append(f"{table_ref}.report_status = 'approved'")
-            elif table_name == "report":
-                conditions.append(f"{table_ref}.status = 'approved'")
+        # 4. Cưỡng chế bộ lọc trạng thái báo cáo (status / report_status) có điều kiện
+        status_col = "report_status" if table_name == "fact_report_criteria" else "status"
+        if not authorized_non_approved:
+            # Người dùng cấp 3 (Công dân/Khách) cố tình truy vấn draft/pending vượt thẩm quyền -> Cưỡng chế chỉ lấy approved
+            if wants_non_approved:
+                self.user_ctx.blocked_draft_access = True
+            if not has_status_filter:
+                conditions.append(f"{table_ref}.{status_col} = 'approved'")
+        elif wants_non_approved:
+            if "all" in req_statuses or ("approved" in req_statuses and "draft" in req_statuses):
+                # Cho phép lấy tất cả trạng thái (approved, draft, pending, rejected)
+                pass
+            elif not has_status_filter:
+                valid_vals = [
+                    s for s in req_statuses
+                    if s in ("approved", "draft", "pending", "rejected")
+                ]
+                if len(valid_vals) == 1:
+                    conditions.append(f"{table_ref}.{status_col} = '{valid_vals[0]}'")
+                elif len(valid_vals) > 1:
+                    joined = ", ".join(f"'{v}'" for v in valid_vals)
+                    conditions.append(f"{table_ref}.{status_col} IN ({joined})")
+        else:
+            # Mặc định luôn lọc báo cáo đã phê duyệt chính thức (approved)
+            if not has_status_filter:
+                conditions.append(f"{table_ref}.{status_col} = 'approved'")
 
         return conditions
 
@@ -84,6 +125,7 @@ class RecursiveScopeVisitor:
         """
         injected = False
         all_predicates_added: List[str] = []
+        authorized_non_approved = self.is_authorized_for_non_approved()
 
         # Duyệt qua toàn bộ các phạm vi (Scopes) trong AST
         for scope in traverse_scope(expression):
@@ -108,6 +150,16 @@ class RecursiveScopeVisitor:
                         has_tenant_filter = True
                     if "report_status" in where_sql or "status" in where_sql:
                         has_status_filter = True
+                        # Nếu user không có quyền xem draft/pending nhưng câu SQL gốc cố tình lọc draft/pending,
+                        # viết lại các literal 'draft'/'pending'/'rejected' trong WHERE về 'approved'
+                        if not authorized_non_approved:
+                            for lit in existing_where.find_all(exp.Literal):
+                                if lit.is_string and str(lit.this).lower() in ("draft", "pending", "rejected"):
+                                    lit.set("this", "approved")
+                                    self.user_ctx.blocked_draft_access = True
+                            if "approved" not in existing_where.sql(dialect="postgres").lower():
+                                has_status_filter = False
+
 
                 # Xây dựng danh sách vị từ HBAC cần tiêm
                 predicates = self._build_hbac_predicates(

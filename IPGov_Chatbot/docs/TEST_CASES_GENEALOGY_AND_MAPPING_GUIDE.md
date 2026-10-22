@@ -72,7 +72,7 @@ flowchart TD
     subgraph MODULE_DISTRIBUTION["TẦNG 3: MA TRẬN TEST CASE SỬ DỤNG CHO TỪNG MODULE"]
         M1["MODULE 01: GATEWAY & HBAC\n(31 Synthetic Cases: MOD01_HBAC_001 -> 031)"]:::synth
         M2["MODULE 02: SECURITY GUARDRAILS\n(50 Synthetic Cases SEC_MOD02_001 -> 050\n+ 7 Golden HITL Gate: test_ci_sec_guardrails.py)"]:::module
-        M3["MODULE 03: ROUTER & REDIS H-DFT\n(123 Routing Cases: evaluations/module_03_route_*.json\n+ 8 Adversarial Quests bẻ gãy Regex\n+ 5 Chuỗi Multi-turn Redis Memory)"]:::module
+        M3["MODULE 03: ROUTER & SQLITE H-DFT\n(123 Routing Cases: evaluations/module_03_route_*.json\n+ 8 Adversarial Quests bẻ gãy Regex\n+ 5 Chuỗi Multi-turn SQLite & RAM Focus Stack Memory)"]:::module
         M4["MODULE 04: DUCKDB CATALOG & DISCOVERY\n(18 Golden HITL Cases: 10 DISC + 8 GOLDEN Dimension\n+ 5 Steiner Tree Bridge Graph Assertions\n+ 4 DuckDB In-Memory Unit Tests)"]:::module
     end
 
@@ -151,7 +151,7 @@ Các ca này được **trích xuất trực tiếp từ tập Golden đã đư�
   - [`IPGov_Chatbot/tests/test_module_03_route_suites.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_module_03_route_suites.py) (Kiểm thử độ phủ 123 cases).
   - [`IPGov_Chatbot/tests/test_ci_multiturn_hdft.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_ci_multiturn_hdft.py) (Xác thực Slot Repair, Decay Memory).
   - [`IPGov_Chatbot/tests/test_mod03_hdft_multiturn.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_mod03_hdft_multiturn.py) (Kiểm thử 5 chuỗi đàm thoại `MT_THREAD_01` đến `05` qua 16 turns).
-  - [`IPGov_Chatbot/tests/test_redis_session_manager.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_redis_session_manager.py) (Kiểm thử tích hợp Redis phân tán `ipgov-redis`).
+  - [`IPGov_Chatbot/tests/test_audit_fixes_subagent2.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_audit_fixes_subagent2.py) (Kiểm thử bộ nhớ phiên SQLite `agent_memory.db` và RAM Focus Stack).
 
 #### Lịch Sử Tiến Hóa Test Case & Cuộc Cách Mạng Khắc Phục Lỗi (Từ 2 Hội Thoại Cốt Lõi):
 Trong cuộc hội thoại `ca2ce925-2440-41d9-8896-c73eb29defdf` ("Tìm Lỗi Routing Module 3"), cố vấn phản biện đã chỉ ra hiện tượng **"The Green-Test Fallacy"**: Module 3 ban đầu pass 100% test case thuần túy do các câu hỏi được gọt giũa để khớp với Regex cứng. 
@@ -167,10 +167,10 @@ Trong cuộc hội thoại `ca2ce925-2440-41d9-8896-c73eb29defdf` ("Tìm Lỗi R
 | **Nhóm 5: Ad-hoc ngoài "NULL/Rác"** | *"Liệt kê danh sách các chỉ tiêu có giá trị tăng liên tục 3 kỳ?"* | Regex không thể bao quát các logic phân tích thời gian đa kỳ. | Định tuyến an toàn sang `SINGLE_SQL` hoặc DAG chuyên sâu. |
 | **Nhóm 6: Mơ hồ ngoài 9 mục** | *"Tình hình thực hiện các chỉ tiêu thế nào?"* | Câu hỏi quá cụt nhưng không chứa từ khóa mơ hồ $\to$ Regex đoán mò. | Phân tuyến chính xác `CLARIFICATION` kèm Active Clarification Chips. |
 | **Nhóm 7: Lời chào có đại từ nhân xưng** | *"Em chào chatbot, cho em xem số liệu việc làm 2026"* | Regex chitchat neo đầu câu `^xin chào` bị trượt do từ *"Em"* đứng đầu. | LLM Structured Outputs tách thành phần chào hỏi và bóc tách slot `2026`. |
-| **Nhóm 8: Đa lượt thời gian tương đối** | Turn 1: *"Xem 2025"*, Turn 2: *"Thế còn năm ngoái?"* | Regex không tính toán được $2025 - 1 = 2024$. | Redis State Machine H-DFT tự động trừ lùi mốc thời gian. |
+| **Nhóm 8: Đa lượt thời gian tương đối** | Turn 1: *"Xem 2025"*, Turn 2: *"Thế còn năm ngoái?"* | Regex không tính toán được $2025 - 1 = 2024$. | SQLite Session Store (`agent_memory.db`) & RAM Focus Stack H-DFT tự động trừ lùi mốc thời gian. |
 
 > **Bước Ngoặt Tại Hội Thoại `1257c048-dc1d-4abe-9fac-d2d394b7377c` ("Improving Module 3 Routing"):**  
-> Dưới sự đồng thuận của bạn, toàn bộ tầng Regex giải nghĩa câu hỏi đã bị **xóa bỏ hoàn toàn**, thay thế bằng **SSOT LLM Structured Outputs (Alibaba DashScope / DeepSeek)** kết hợp **Redis Session Memory (`ipgov-redis`, localhost:6379)**. Hệ thống đã vượt qua toàn bộ 47/47 test cases phức tạp, thiết lập kỷ lục phản hồi Semantic Cache Lượt 1 trong $< 50\text{ms}$ (0 token LLM).
+> Dưới sự đồng thuận của bạn, toàn bộ tầng Regex giải nghĩa câu hỏi đã bị **xóa bỏ hoàn toàn**, thay thế bằng **OpenRouter Structured Outputs (`gemini-2.5-flash-lite` / `gemini-3.8-flash`)** kết hợp **SQLite Session Store (`agent_memory.db`) & RAM Focus Stack**. Hệ thống đã vượt qua toàn bộ 47/47 test cases phức tạp, thiết lập kỷ lục phản hồi Semantic Cache Lượt 1 trong $< 50\text{ms}$ (0 token LLM).
 
 ---
 
@@ -225,7 +225,7 @@ Bảng tổng hợp dưới đây cung cấp câu trả lời toàn diện nhấ
 | :---: | :--- | :--- | :--- | :---: | :---: | :--- |
 | **MOD-01** | API Gateway & HBAC Context | `evaluations/module_01_gateway_test_cases.json` | `tests/test_mod01_gateway.py`<br>`tests/test_enterprise_modules_suites.py` | **31** | 🟣 **100% Tự tạo mới (Synthetic)** | Xác thực JWT HS256, trích xuất Role Level 0-3, Time-To-First-Event $< 2\text{ms}$, chống làm giả Token. |
 | **MOD-02** | Security Guardrails | `evaluations/module_02_guardrails_test_cases.json`<br>`data/golden_full_suite.json` | `tests/test_mod02_guardrails.py`<br>`tests/test_ci_sec_guardrails.py` | **57** | 🔵 **Hybrid**<br>(50 Synthetic + 7 Golden HITL) | Chặn DDL/DML injection, bảo vệ PII theo NĐ 13/2023, chặn hỏi chéo địa bàn, chặn bẫy thực thể hoang đường. |
-| **MOD-03** | Query Router & Redis H-DFT | `evaluations/module_03_route_*.json`<br>(7 tập tin phân tuyến) | `tests/test_module_03_route_suites.py`<br>`tests/test_ci_multiturn_hdft.py`<br>`tests/test_mod03_hdft_multiturn.py`<br>`tests/test_redis_session_manager.py` | **123**<br>*(+ 8 Adversarial Quests)* | 🔵 **Hybrid**<br>(113 Golden + 10 Chitchat tự tạo) | Phân tuyến 7 tracks bằng LLM Structured Outputs, quản lý phiên hội thoại đa lượt trên Redis, sửa slot sai, lưu trữ ngữ cảnh. |
+| **MOD-03** | Query Router & SQLite H-DFT | `evaluations/module_03_route_*.json`<br>(7 tập tin phân tuyến) | `tests/test_module_03_route_suites.py`<br>`tests/test_ci_multiturn_hdft.py`<br>`tests/test_mod03_hdft_multiturn.py` | **123**<br>*(+ 8 Adversarial Quests)* | 🔵 **Hybrid**<br>(113 Golden + 10 Chitchat tự tạo) | Phân tuyến 7 tracks bằng LLM Structured Outputs, quản lý phiên hội thoại đa lượt trên SQLite Session Store (`agent_memory.db`) & RAM Focus Stack, sửa slot sai, lưu trữ ngữ cảnh. |
 | **MOD-04** | DuckDB Catalog & Discovery | `data/golden_full_suite.json`<br>`data/catalog_seed_metadata.json` | `tests/test_ci_catalog_discovery.py`<br>`tests/test_mod04_catalog.py` | **28** | 🔵 **Hybrid**<br>(18 Golden HITL + 5 Steiner Tree + 4 Unit Tests + 1 Snapshot) | Phản hồi siêu tốc $< 50\text{ms}$ câu hỏi khám phá DWH, tìm kiếm FTS BM25 + RapidFuzz, tự động bắc cầu bảng qua Steiner Tree. |
 | **DOCS** | Doc Graph Integrity | Hệ thống tài liệu `blueprints/` và `docs/` | `tests/test_doc_graph_integrity.py` | **2** | 🟣 **Tự tạo mới (Tooling)** | Kiểm tra không đứt gãy liên kết Markdown, xác thực chuẩn YAML Frontmatter theo `.agents/rules/context_rule.md`. |
 | **MEMORY**| Project Memory & Traps | `.agents/PROJECT_MEMORY.md`<br>`TRAPS.md` | `tests/test_memory_and_traps.py` | **5** | 🟣 **Tự tạo mới (Tooling)** | Cưỡng chế quy tắc ghi nhận bẫy lập trình, bảo vệ nhận thức dự án theo skill `project-memory-and-traps`. |
@@ -241,7 +241,7 @@ Bộ kiểm thử được xây dựng theo chuẩn `/bonsai-test` và `/tdd` (R
 - **`test_fail_006_fact_query_with_chi_tieu_not_swallowed_as_dimension_only`:** Bảo vệ bảng Fact không bị nuốt khi câu hỏi có từ "chỉ tiêu".
 - **`test_fail_007_steiner_tree_fact_to_deparment_preserves_null_office_fact_rows`:** Kiểm chứng cạnh trực tiếp Fact $\leftrightarrow$ Department bảo toàn 34 dòng `office_id IS NULL`.
 - **`test_fail_005_pipeline_logs_query_does_not_request_nonexistent_row_count`:** Ngăn chặn câu truy vấn cột ảo `row_count` làm liệt đồng bộ Live PostgreSQL.
-- **`test_fail_004_decision_cache_hit_preserves_active_quest_in_redis_session`:** Đảm bảo khi trúng Decision Cache vẫn lưu `active_quest` vào Redis cho Turn 2.
+- **`test_fail_004_decision_cache_hit_preserves_active_quest_in_session`:** Đảm bảo khi trúng Decision Cache vẫn lưu `active_quest` vào Session Store cho Turn 2.
 - **`test_fail_003_router_dimension_query_golden_021_not_swallowed_as_chitchat`:** Giữ nguyên route danh mục Dimension, không ép sang chitchat bypass tĩnh.
 - **`test_fail_002_gateway_stream_forwards_to_schema_pruner`:** Chống đứt gãy đường ống Gateway SSE, gọi qua Module 4 `SchemaPruner`.
 
@@ -259,9 +259,9 @@ Tất cả các ca kiểm thử trên đều được tự động hóa và có 
    ```powershell
    .\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_ci_catalog_discovery.py -v
    ```
-3. **Chạy kiểm thử bộ nhớ phiên Redis và hội thoại đa lượt (Module 03):**
+3. **Chạy kiểm thử bộ nhớ phiên SQLite và hội thoại đa lượt (Module 03):**
    ```powershell
-   .\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_ci_multiturn_hdft.py IPGov_Chatbot/tests/test_redis_session_manager.py -v
+   .\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/test_ci_multiturn_hdft.py IPGov_Chatbot/tests/test_mod03_hdft_multiturn.py -v
    ```
 4. **Chạy kiểm thử cổng chặn bảo mật 7 ca Golden HITL (Module 02):**
    ```powershell

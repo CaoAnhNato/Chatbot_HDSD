@@ -270,3 +270,84 @@ def test_ast_enforcer_scatter_gather_tasks(ast_service: ASTEnforcerService, prov
     assert len(result.subquery_tasks) == 2
     assert "tenant_code = '68'" in result.subquery_tasks[0].sql
     assert "tenant_code = '68'" in result.subquery_tasks[1].sql
+
+
+# ---------------------------------------------------------------------------
+# TẦNG 6: PHÂN QUYỀN HBAC TRẠNG THÁI BÁO CÁO (REQ-Q05 SC-5.1)
+# ---------------------------------------------------------------------------
+
+def test_ast_enforcer_req_q05_citizen_role3_blocks_draft(ast_service: ASTEnforcerService):
+    citizen_ctx = UserSecurityContextDTO(
+        user_id="u_pub_999",
+        username="congdan_tra_cuu",
+        tenant_code="68",
+        role_level=3,
+        status_filter="draft",
+    )
+    raw_sql = "SELECT r.report_date, r.status FROM dwh_internal.report r WHERE r.year_code = '2026'"
+    dto = GeneratedSQLDTO(
+        raw_sql=raw_sql,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    result = ast_service.enforce_sql_sync(dto, citizen_ctx)
+    assert citizen_ctx.blocked_draft_access is True
+    assert result.blocked_draft_access is True
+    assert "r.status = 'approved'" in result.sanitized_sql
+    assert "draft" not in result.sanitized_sql.lower()
+
+
+def test_ast_enforcer_req_q05_citizen_role3_rewrites_raw_draft_sql(ast_service: ASTEnforcerService):
+    citizen_ctx = UserSecurityContextDTO(
+        user_id="u_pub_999",
+        username="congdan_tra_cuu",
+        tenant_code="68",
+        role_level=3,
+    )
+    raw_sql = "SELECT f.name, f.value FROM dwh_internal.fact_report_criteria f WHERE f.report_status = 'draft'"
+    dto = GeneratedSQLDTO(
+        raw_sql=raw_sql,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    result = ast_service.enforce_sql_sync(dto, citizen_ctx)
+    assert citizen_ctx.blocked_draft_access is True
+    assert result.blocked_draft_access is True
+    assert "'approved'" in result.sanitized_sql.lower()
+    assert "'draft'" not in result.sanitized_sql.lower()
+
+
+@pytest.mark.parametrize("role_lvl", [0, 1, 2])
+def test_ast_enforcer_req_q05_internal_roles_allow_draft_and_all_statuses(
+    ast_service: ASTEnforcerService, role_lvl: int
+):
+    draft_ctx = UserSecurityContextDTO(
+        user_id=f"u_internal_{role_lvl}",
+        username=f"canbo_level_{role_lvl}",
+        tenant_code="68",
+        role_level=role_lvl,
+        status_filter="draft",
+    )
+    raw_sql = "SELECT r.report_date, r.status FROM dwh_internal.report r WHERE r.year_code = '2026'"
+    dto = GeneratedSQLDTO(
+        raw_sql=raw_sql,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    res_draft = ast_service.enforce_sql_sync(dto, draft_ctx)
+    assert draft_ctx.blocked_draft_access is False
+    assert res_draft.blocked_draft_access is False
+    assert "r.status = 'draft'" in res_draft.sanitized_sql
+
+    all_ctx = UserSecurityContextDTO(
+        user_id=f"u_internal_{role_lvl}",
+        username=f"canbo_level_{role_lvl}",
+        tenant_code="68",
+        role_level=role_lvl,
+        status_filter="ALL_STATUSES",
+    )
+    res_all = ast_service.enforce_sql_sync(dto, all_ctx)
+    assert all_ctx.blocked_draft_access is False
+    assert res_all.blocked_draft_access is False
+    assert "r.status = 'approved'" not in res_all.sanitized_sql
+

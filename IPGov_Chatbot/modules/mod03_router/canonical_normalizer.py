@@ -17,7 +17,6 @@ import asyncio
 import calendar
 import json
 import logging
-import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,64 +33,31 @@ from IPGov_Chatbot.schemas.canonical_query_frame import (
 logger = logging.getLogger("ipgov.mod03.canonical_normalizer")
 
 
-def _strip_bracketed_tags(text: str) -> str:
+def _strip_bracketed_tags(raw_content: str) -> str:
     """
     Loại bỏ các thẻ dạng [tenant_code=..., level=...] thuần túy bằng thao tác chuỗi.
     Không sử dụng regex.
     """
-    while "[" in text and "]" in text:
-        start = text.find("[")
-        end = text.find("]", start)
+    while "[" in raw_content and "]" in raw_content:
+        start = raw_content.find("[")
+        end = raw_content.find("]", start)
         if end != -1:
-            tag_content = text[start + 1:end]
+            tag_content = raw_content[start + 1:end]
             if "tenant_code=" in tag_content or "level=" in tag_content:
-                text = text[:start] + text[end + 1:]
+                raw_content = raw_content[:start] + raw_content[end + 1:]
             else:
                 break
         else:
             break
-    return text.strip()
+    return raw_content.strip()
 
 
-def _extract_ward_name(text: str) -> Optional[str]:
-    """Trích xuất tên xã/phường/thị trấn từ câu hỏi mà không dùng regex phức tạp."""
-    prefixes = ["phường ", "xã ", "thị trấn "]
-    low = text.lower()
-    masked_low = low
-    for non_ward in ("liên hiệp hợp tác xã", "hợp tác xã", "kinh tế - xã hội", "kinh tế xã hội", "xã hội", "mỗi xã", "thị xã", "cấp xã"):
-        masked_low = masked_low.replace(non_ward, " " * len(non_ward))
-
-    start_idx = -1
-    matched_prefix = ""
-    for p in prefixes:
-        idx = masked_low.find(p)
-        if idx != -1:
-            start_idx = idx
-            matched_prefix = p
-            break
-    if start_idx == -1:
-        return None
-
-    rest = text[start_idx + len(matched_prefix):]
-    delimiters = [
-        " thuộc", " trên", " kèm", "?", ".", ",", " đang", " được", " có",
-        " năm", " đạt", " là", " trong", " bao nhiêu", " phân theo"
-    ]
-    rest_low = rest.lower()
-    end_idx = len(rest)
-    for d in delimiters:
-        d_idx = rest_low.find(d)
-        if d_idx != -1 and d_idx < end_idx:
-            end_idx = d_idx
-    ward_core = rest[:end_idx].strip()
-    wc_low = ward_core.lower()
-    if (
-        ward_core
-        and not wc_low.startswith(("năm", "đạt", "là", "nông nghiệp", "phân theo", "hiện", "bao nhiêu"))
-        and "bao nhiêu" not in wc_low
-    ):
-        return f"{matched_prefix.strip()} {ward_core}".strip()
-    return None
+def _remove_accents(raw_str: str) -> str:
+    """Loại bỏ dấu tiếng Việt để xử lý nhiễu chính tả không dấu (Dr.Spider NL-level)."""
+    if not raw_str:
+        return ""
+    nfkd = unicodedata.normalize("NFKD", raw_str)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).replace("đ", "d").replace("Đ", "D")
 
 
 def _parse_to_date(val: Any):
@@ -491,56 +457,45 @@ class CanonicalSemanticNormalizer:
             q_norm = q_norm.replace(ch, " ")
         cleaned = " ".join(q_norm.split()).strip()
 
-        # 4. Cắt tiền tố / hậu tố câu hỏi dẫn nhập phổ biến để giữ lại tên chỉ tiêu sạch
-        lead_phrases = (
-            "cho tôi biết ", "cho tôi xem ", "vui lòng cho biết ", "hãy cho biết ",
-            "thông tin số liệu ", "số liệu chỉ tiêu ", "số liệu ",
-            "kết quả chỉ tiêu ", "giá trị chỉ tiêu ", "nhóm chỉ tiêu ",
-            "chỉ tiêu ", "tiêu chí ",
-        )
-        changed = True
-        while changed:
-            changed = False
-            for lp in lead_phrases:
-                if cleaned.startswith(lp):
-                    cleaned = cleaned[len(lp):].strip()
-                    changed = True
-
-        tail_phrases = (
-            " hiện tại là bao nhiêu", " hiện nay là bao nhiêu", " hiện đạt bao nhiêu",
-            " có giá trị là bao nhiêu", " có giá trị bao nhiêu", " đạt bao nhiêu",
-            " là bao nhiêu", " bao nhiêu", " hiện tại", " hiện nay", " trong năm", " năm",
-        )
-        changed = True
-        while changed:
-            changed = False
-            for tp in tail_phrases:
-                if cleaned.endswith(tp):
-                    cleaned = cleaned[:-len(tp)].strip()
-                    changed = True
+        # 4. Loại bỏ tiền tố / hậu tố câu hỏi dẫn nhập phổ biến qua DuckDB Catalog để giữ lại tên chỉ tiêu sạch
+        if hasattr(self.catalog, "strip_query_noise"):
+            cleaned = self.catalog.strip_query_noise(cleaned, "QUERY_LEAD_NOISE")
+            cleaned = self.catalog.strip_query_noise(cleaned, "QUERY_TAIL_NOISE")
 
         return cleaned
 
-    def _is_officer_query(self, query: str) -> bool:
+    def _is_officer_query(self, raw_input: str) -> bool:
         """
         Xác định xem câu hỏi có thuộc miền tra cứu cán bộ / phân công nhiệm vụ (OFFICER_ASSIGNMENT)
         hoàn toàn động qua DuckDB Catalog RAM.
         """
-        q_low = query.lower()
-        if "chỉ tiêu" in q_low and any(w in q_low for w in ["nào", "các chỉ tiêu", "những chỉ tiêu", "danh mục", "thu thập"]):
+        norm_val = raw_input.lower()
+        has_negative_officer = (
+            hasattr(self.catalog, "has_lexicon_term")
+            and self.catalog.has_lexicon_term(norm_val, "OFFICER_QUERY_NEGATIVE")
+        )
+        has_positive_officer = (
+            hasattr(self.catalog, "has_lexicon_term")
+            and self.catalog.has_lexicon_term(norm_val, "OFFICER_QUERY_POSITIVE")
+        )
+
+        has_metric_concept = (
+            hasattr(self.catalog, "has_lexicon_term")
+            and self.catalog.has_lexicon_term(raw_input, "METRIC_LIST_TARGET")
+        ) or any(w in norm_val for w in ("chỉ tiêu", "tiêu chí", "số liệu"))
+
+        if ("chỉ tiêu" in norm_val or "tiêu chí" in norm_val) and has_negative_officer:
             return False
-        if any(w in q_low for w in ["chỉ tiêu", "số liệu", "diện tích", "sản lượng", "doanh thu", "kinh phí"]) and not any(
-            p in q_low for p in ["cán bộ", "nhân sự", "nhân viên", "chuyên viên", "chức vụ", "ai phụ trách", "tài khoản"]
-        ):
+        if has_metric_concept and not has_positive_officer:
             return False
 
-        if hasattr(self.catalog, "resolve_user_name") and self.catalog.resolve_user_name(query):
+        if hasattr(self.catalog, "resolve_user_name") and self.catalog.resolve_user_name(raw_input):
             return True
-        if hasattr(self.catalog, "resolve_user_position") and self.catalog.resolve_user_position(query):
+        if hasattr(self.catalog, "resolve_user_position") and self.catalog.resolve_user_position(raw_input):
             return True
         if hasattr(self.catalog, "conn") and self.catalog.conn:
             try:
-                row = self.catalog.conn.execute("SELECT 1 FROM catalog_users WHERE INSTR(?, LOWER(name)) > 0 LIMIT 1;", (q_low,)).fetchone()
+                row = self.catalog.conn.execute("SELECT 1 FROM catalog_users WHERE INSTR(?, LOWER(name)) > 0 LIMIT 1;", (norm_val,)).fetchone()
                 if row:
                     return True
             except Exception:
@@ -571,7 +526,7 @@ class CanonicalSemanticNormalizer:
     # --------------------------------------------------------------------------
     def _extract_stream_a_deterministic(
         self,
-        query: str,
+        raw_input: str,
         stream_b: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
@@ -580,35 +535,35 @@ class CanonicalSemanticNormalizer:
         1. Dimension Plane (Metadata Exploration / Dimension Listing): province, criteria, deparment, office, collection_form, mission.
         2. Fact Plane (Quantitative Metrics / Aggregations): fact_report_criteria, report, user_mission.
         """
-        q_low = query.lower().strip()
+        norm_input = raw_input.lower().strip()
 
-        # -1. Tra cứu Chào hỏi & Tạm biệt (GREETING_FAREWELL)
-        # Sử dụng so khớp tiền tố chuỗi cơ bản không dùng regex
-        greet_prefixes = (
-            "xin chào chatbot", "chào chatbot", "xin chào bot", "chào bot",
-            "xin chào đồng chí", "chào đồng chí", "xin chào bạn", "chào bạn",
-            "xin chào anh", "chào anh", "xin chào chị", "chào chị",
-            "xin chào em", "chào em", "xin chào", "good morning", "chào", "hello", "hi"
-        )
-        farewell_prefixes = ("hẹn gặp lại", "thank you", "tạm biệt", "cảm ơn", "thanks")
-        combined_salutations = sorted((*greet_prefixes, *farewell_prefixes), key=len, reverse=True)
-        m_greet = any(q_low.startswith(p) for p in greet_prefixes)
-        m_farewell = any(q_low.startswith(p) for p in farewell_prefixes)
+        # -1. Tra cứu Chào hỏi & Tạm biệt (GREETING_FAREWELL) ủy thác qua Catalog RAM
+        has_greet_signal = False
+        if hasattr(self, "catalog") and hasattr(self.catalog, "has_lexicon_term"):
+            has_greet_signal = self.catalog.has_lexicon_term(norm_input, "GREETING_LEAD_NOISE")
+        else:
+            has_greet_signal = norm_input.startswith(("xin chào", "chào", "hello", "hi", "tạm biệt", "cảm ơn"))
 
         is_pure_greeting = False
-        for p in combined_salutations:
-            if q_low == p or q_low.startswith(p + " ") or q_low.startswith(p + ","):
-                rem = q_low[len(p):].strip(" ,:.-!?")
-                if not rem:
+        if has_greet_signal:
+            if hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+                rem = self.catalog.strip_query_noise(norm_input, "GREETING_LEAD_NOISE")
+                if not rem or not rem.strip(" ,:.-!?"):
                     is_pure_greeting = True
-                    break
+            elif norm_input in ("xin chào", "chào", "hello", "hi", "tạm biệt", "cảm ơn"):
+                is_pure_greeting = True
 
         if is_pure_greeting:
-            is_farewell = bool(m_farewell)
+            is_farewell = False
+            if hasattr(self, "catalog") and hasattr(self.catalog, "has_lexicon_term"):
+                is_farewell = self.catalog.has_lexicon_term(norm_input, "FAREWELL_SIGNAL")
+            else:
+                is_farewell = any(w in norm_input for w in ("tạm biệt", "cảm ơn", "thank", "hẹn gặp lại"))
+            prov_name = getattr(settings, "PROVINCE_NAME", "cấp tỉnh")
             direct_ans = (
-                "Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH tỉnh Lâm Đồng. Chúc đồng chí một ngày làm việc hiệu quả!"
+                f"Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH {prov_name}. Chúc đồng chí một ngày làm việc hiệu quả!"
                 if is_farewell else
-                "Xin chào đồng chí! Tôi là Trợ lý Ảo Kho Dữ Liệu DWH tỉnh Lâm Đồng. Tôi có thể hỗ trợ đồng chí tra cứu: "
+                f"Xin chào đồng chí! Tôi là Trợ lý Ảo Kho Dữ Liệu DWH {prov_name}. Tôi có thể hỗ trợ đồng chí tra cứu: "
                 "1. Chỉ tiêu kinh tế - xã hội; "
                 "2. Tình hình phê duyệt báo cáo; "
                 "3. Danh mục nhiệm vụ trọng tâm; "
@@ -626,17 +581,12 @@ class CanonicalSemanticNormalizer:
                 "sort_direction": "NONE",
                 "limit": 0,
             }
-        elif m_greet or m_farewell:
-            for p in combined_salutations:
-                if q_low.startswith(p):
-                    query = query[len(p):].lstrip(" ,:-.!?")
-                    q_low = query.lower().strip()
-                    break
+        elif has_greet_signal and hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+            raw_input = self.catalog.strip_query_noise(raw_input, "GREETING_LEAD_NOISE").lstrip(" ,:-.!?")
+            norm_input = raw_input.lower().strip()
 
-        if any(kw in q_low for kw in (
-            "giúp gì", "làm được gì", "chức năng gì", "những chức năng", "hỗ trợ những gì",
-            "hỗ trợ gì", "bạn là ai", "giới thiệu về bạn", "khả năng của bạn"
-        )):
+
+        if hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "CAPABILITY_META"):
             return {
                 "intent": CanonicalIntentEnum.CAPABILITY_INTRO,
                 "target_table": "none",
@@ -649,11 +599,34 @@ class CanonicalSemanticNormalizer:
                 "sort_direction": "NONE",
                 "limit": 0,
             }
-
-
+        audit_info = (
+            self.catalog.resolve_report_audit_intent(raw_input)
+            if hasattr(self.catalog, "resolve_report_audit_intent")
+            else None
+        )
+        if audit_info:
+            resolved_mis = (stream_b.get("target_mission") if stream_b else None) or (
+                self.catalog.resolve_mission(raw_input) if hasattr(self.catalog, "resolve_mission") else None
+            )
+            return {
+                "intent": CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
+                "target_table": audit_info.get("target_table", "report"),
+                "audit_sub_intent": audit_info.get("audit_sub_intent"),
+                "status_filter": audit_info.get("status_filter"),
+                "include_draft_comparison": bool(audit_info.get("include_draft_comparison", False)),
+                "target_office": None,
+                "target_mission": resolved_mis,
+                "target_scope": stream_b.get("target_scope") if stream_b else None,
+                "exclude_entities": [],
+                "search_keyword": None,
+                "raw_metric_mentions": [],
+                "aggregation_function": "NONE",
+                "sort_direction": "DESC_NULLS_LAST",
+                "limit": None,
+            }
 
         # 0. Tra cứu cán bộ / phân công nhiệm vụ (OFFICER_ASSIGNMENT)
-        if self._is_officer_query(query):
+        if self._is_officer_query(raw_input):
             target_mission = None
             target_office = None
             exclude_offices = []
@@ -662,24 +635,24 @@ class CanonicalSemanticNormalizer:
 
             # Phân giải nhiệm vụ động qua DuckDB Catalog
             if hasattr(self.catalog, "resolve_mission"):
-                target_mission = self.catalog.resolve_mission(query)
+                target_mission = self.catalog.resolve_mission(raw_input)
 
             # Phân giải đơn vị / phòng ban qua DuckDB Catalog động
-            admin_scope = self.catalog.resolve_administrative_scope(query) if hasattr(self.catalog, "resolve_administrative_scope") else {}
+            admin_scope = self.catalog.resolve_administrative_scope(raw_input) if hasattr(self.catalog, "resolve_administrative_scope") else {}
             if admin_scope and admin_scope.get("type") == "office":
                 target_office = admin_scope.get("office_name") or admin_scope.get("name")
 
             # Phân giải loại trừ đơn vị (Directional Negative Filter - TC-REM-09) qua DuckDB Catalog RAM
             if hasattr(self.catalog, "resolve_excluded_entities"):
-                exclude_offices = self.catalog.resolve_excluded_entities(query)
+                exclude_offices = self.catalog.resolve_excluded_entities(raw_input)
 
             # Phân giải chức vụ động qua DuckDB Catalog
             if hasattr(self.catalog, "resolve_user_position"):
-                target_pos = self.catalog.resolve_user_position(query)
+                target_pos = self.catalog.resolve_user_position(raw_input)
 
             # Phân giải tên cán bộ động qua DuckDB Catalog
             if hasattr(self.catalog, "resolve_user_name"):
-                target_name = self.catalog.resolve_user_name(query)
+                target_name = self.catalog.resolve_user_name(raw_input)
 
             return {
                 "intent": CanonicalIntentEnum.OFFICER_ASSIGNMENT,
@@ -698,13 +671,13 @@ class CanonicalSemanticNormalizer:
 
         # 1. Tra cứu thuộc tính thực thể: đơn vị hoặc tỉnh thực hiện của chỉ tiêu (ENTITY_ATTRIBUTE_LOOKUP) qua DuckDB Catalog RAM
         attr_lookup = (
-            self.catalog.resolve_attribute_lookup(query)
+            self.catalog.resolve_attribute_lookup(raw_input)
             if hasattr(self.catalog, "resolve_attribute_lookup")
             else None
         )
         if attr_lookup:
             target_attr = attr_lookup.get("target_attribute", "đơn vị thực hiện")
-            subject = self._extract_core_metric_phrase(query) or query.strip()
+            subject = self._extract_core_metric_phrase(raw_input) or raw_input.strip()
             return {
                 "intent": CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
                 "target_table": "fact_report_criteria",
@@ -718,69 +691,36 @@ class CanonicalSemanticNormalizer:
                 "limit": None,
             }
 
-        is_metric_listing = ("chỉ tiêu" in q_low or "chi tieu" in q_low) and any(
-            w in q_low for w in [
-                "chỉ tiêu nào", "chi tieu nao", "chỉ tiêu gì", "chi tieu gi",
-                "các chỉ tiêu", "cac chi tieu", "những chỉ tiêu", "nhung chi tieu",
-                "danh sách", "danh sach", "danh mục", "danh muc", "thu thập", "thu thap",
-                "bao gồm", "bao gom", "gồm những", "gom nhung", "có những", "co nhung"
-            ]
-        )
+        norm_tokens = set(norm_input.replace("?", " ").replace(",", " ").replace(".", " ").replace(";", " ").replace(":", " ").replace("!", " ").split())
 
-        # 1.8 Khám phá quan hệ liên bảng: Xã/phường với nhiệm vụ và lĩnh vực (Dimension: ward_mission_scope)
-        q_low_no_htx = (
-            q_low.replace("liên hiệp hợp tác xã", " ")
-            .replace("hợp tác xã", " ")
-            .replace("kinh tế - xã hội", " ")
-            .replace("kinh tế xã hội", " ")
-            .replace("xã hội", " ")
-        )
-        if (
-            any(w in q_low_no_htx for w in ["xã ", "phường ", "thị trấn "])
-            and any(w in q_low for w in ["nhiệm vụ", "lĩnh vực"])
-            and not any(w in q_low for w in ["chỉ tiêu", "số liệu", "kết quả"])
-        ):
-            w_name = _extract_ward_name(query)
-            if w_name:
-                agg_fn = "COUNT" if any(w in q_low for w in ["thống kê", "bao nhiêu", "có mấy", "số lượng"]) or "thống kê các lĩnh vực" in q_low else "NONE"
-                return {
-                    "intent": CanonicalIntentEnum.RELATIONAL_EXPLORATION,
-                    "target_table": "ward_mission_scope",
-                    "target_ward": w_name,
-                    "subject_entity": w_name,
-                    "exclude_entities": [],
-                    "search_keyword": None,
-                    "raw_metric_mentions": [],
-                    "aggregation_function": agg_fn,
-                    "sort_direction": "ASC",
-                    "limit": None,
-                }
+        has_lex_target = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "METRIC_LIST_TARGET")
+        has_lex_trigger = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "METRIC_LIST_TRIGGER")
+        has_lex_l1 = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "LEVEL1_CRITERIA_SIGNAL")
 
+        is_metric_listing = bool(has_lex_target and has_lex_trigger)
 
         # 1.9 REQ-Q04 / SC-4.1 / SC-4.2: Hiển thị các chỉ tiêu cấp 1 của nhiệm vụ / các nhiệm vụ
-        is_level1_criteria_query = any(w in q_low for w in [
-            "chỉ tiêu cấp 1", "chi tieu cap 1", "chỉ tiêu cấp một", "chi tieu cap mot",
-            "chỉ tiêu gốc", "chi tieu goc", "chỉ tiêu đầu mục", "nhóm chỉ tiêu cấp 1"
-        ]) or (
-            ("chỉ tiêu" in q_low or "chi tieu" in q_low)
-            and ("nhiệm vụ" in q_low or "nhiem vu" in q_low)
-            and any(w in q_low for w in [
-                "những chỉ tiêu", "nhung chi tieu", "các chỉ tiêu", "cac chi tieu",
-                "chỉ tiêu nào", "chi tieu nao", "danh sách chỉ tiêu", "danh sach chi tieu",
-                "hiển thị", "hien thi", "liệt kê", "liet ke", "cấp 1", "cap 1",
-                "gồm những", "gom nhung", "có những", "co nhung"
-            ])
-            and not any(w in q_low for w in ["trạng thái", "vòng đời", "report_status", "office", "văn phòng"])
+        mis_info = self.catalog.extract_mission_from_query(raw_input) if hasattr(self.catalog, "extract_mission_from_query") else {"status": "NONE"}
+        has_mission = bool(mis_info and mis_info.get("status") in ("MATCH", "FOUND", "NOT_FOUND")) or (
+            hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "MISSION_KEYWORD")
+        )
+
+        has_explicit_level1 = bool(has_lex_l1)
+
+        is_report_status = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "REPORT_STATUS_SIGNAL")
+        has_prov_scope = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "PROVINCE_SCOPE_SIGNAL")
+        is_level1_criteria_query = (
+            (has_mission and (has_explicit_level1 or is_metric_listing) and not is_report_status)
+            or (has_explicit_level1 and has_prov_scope)
         )
         if is_level1_criteria_query:
-            mis_info = self.catalog.extract_mission_from_query(query) if hasattr(self.catalog, "extract_mission_from_query") else {"status": "NONE"}
             if mis_info and mis_info.get("status") == "NOT_FOUND":
                 resolved_mis = f"__NOT_FOUND__:{mis_info.get('requested_mission', '')}"
             else:
                 resolved_mis = (
                     (mis_info.get("mission_name") if mis_info and mis_info.get("status") in ("FOUND", "MATCH") else None)
                     or (stream_b.get("target_mission") if stream_b else None)
-                    or (self.catalog.resolve_mission(query) if hasattr(self.catalog, "resolve_mission") else None)
+                    or (self.catalog.resolve_mission(raw_input) if hasattr(self.catalog, "resolve_mission") else None)
                 )
             return {
                 "intent": CanonicalIntentEnum.DIMENSION_LISTING,
@@ -797,16 +737,19 @@ class CanonicalSemanticNormalizer:
             }
 
         # 2. Khám phá quan hệ liên bảng / nhiệm vụ trọng tâm (Dimension: mission) qua DuckDB Catalog RAM
-        scope_info = self.catalog.extract_scope_from_query(query) if hasattr(self.catalog, "extract_scope_from_query") else None
+        scope_info = self.catalog.extract_scope_from_query(raw_input) if hasattr(self.catalog, "extract_scope_from_query") else None
+        has_mission_kw = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_KEYWORD")
+        has_mission_scope = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_SCOPE_CUE")
+        has_off_or_ward = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "OFFICE_OR_WARD_CUE")
         is_mission_scope_query = (
-            ("nhiệm vụ" in q_low or "nhiem vu" in q_low)
+            has_mission_kw
             and (
-                any(w in q_low for w in ["nhóm lĩnh vực", "nhom linh vuc", "lĩnh vực", "linh vuc", "mảng", "ngành", "khối", "thuộc về", "thuoc ve"])
+                has_mission_scope
                 or (scope_info and scope_info.get("status") in ("FOUND", "MATCH", "NOT_FOUND"))
             )
-            and not self._is_officer_query(query)
+            and not self._is_officer_query(raw_input)
             and not is_metric_listing
-            and not any(w in q_low for w in ["văn phòng", "từng văn phòng", "quản lý nhà nước nào", "xã ", "phường "])
+            and not has_off_or_ward
         )
         if is_mission_scope_query:
             target_scope_name = (scope_info.get("scope_name") or scope_info.get("requested_scope")) if scope_info else None
@@ -823,17 +766,19 @@ class CanonicalSemanticNormalizer:
                     "limit": None,
                 }
 
-        if hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(query, "mission") and not self._is_officer_query(query) and not is_metric_listing:
-            admin_scope = self.catalog.resolve_administrative_scope(query) if hasattr(self.catalog, "resolve_administrative_scope") else {}
+        if hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(raw_input, "mission") and not self._is_officer_query(raw_input) and not is_metric_listing:
+            admin_scope = self.catalog.resolve_administrative_scope(raw_input) if hasattr(self.catalog, "resolve_administrative_scope") else {}
             target_off = None
             if admin_scope and admin_scope.get("type") == "office":
                 target_off = admin_scope.get("office_name") or admin_scope.get("name")
             elif hasattr(self.catalog, "conn") and self.catalog.conn:
-                off_match = self.catalog.conn.execute("SELECT name FROM catalog_offices WHERE INSTR(?, LOWER(name)) > 0 LIMIT 1;", (q_low,)).fetchone()
+                off_match = self.catalog.conn.execute("SELECT name FROM catalog_offices WHERE INSTR(?, LOWER(name)) > 0 LIMIT 1;", (norm_input,)).fetchone()
                 if off_match:
                     target_off = off_match[0]
 
-            has_office_or_scope = (target_off is not None) or any(w in q_low for w in ["văn phòng", "từng văn phòng", "lĩnh vực", "quản lý nhà nước"])
+            has_office_or_scope = (target_off is not None) or (
+                hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "OFFICE_SCOPE_CUE")
+            )
             if has_office_or_scope:
                 return {
                     "intent": CanonicalIntentEnum.RELATIONAL_EXPLORATION,
@@ -860,7 +805,7 @@ class CanonicalSemanticNormalizer:
 
         # 3. Dynamic Collective Noun & Inventory Resolution qua DuckDB Catalog RAM
         has_collective_noun = bool(
-            getattr(self.catalog, "is_dimension_query", lambda q, d: False)(q_low, "criteria")
+            getattr(self.catalog, "is_dimension_query", lambda q, d: False)(norm_input, "criteria")
         )
 
         extracted_office = None
@@ -870,7 +815,7 @@ class CanonicalSemanticNormalizer:
         if stream_b and stream_b.get("department_code"):
             extracted_dept = stream_b.get("department_code")
 
-        scope_res = self.catalog.resolve_administrative_scope(query) if hasattr(self.catalog, "resolve_administrative_scope") else {}
+        scope_res = self.catalog.resolve_administrative_scope(raw_input) if hasattr(self.catalog, "resolve_administrative_scope") else {}
         if not extracted_office and not extracted_dept and scope_res:
             if scope_res.get("type") == "office":
                 extracted_office = scope_res.get("office_name") or scope_res.get("name")
@@ -885,24 +830,24 @@ class CanonicalSemanticNormalizer:
             )
         )
 
-        core_phrase = self._extract_core_metric_phrase(query)
+        core_phrase = self._extract_core_metric_phrase(raw_input)
         has_specific_catalog_metric = False
         matched_catalog_mention = None
-        if not is_metric_listing and core_phrase and len(core_phrase) > 2:
-            if hasattr(self.catalog, "resolve_metric_id"):
-                c_id = self.catalog.resolve_metric_id(core_phrase)
-                if c_id:
+        if hasattr(self.catalog, "classify_criterion_hierarchy"):
+            try:
+                h_det = self.catalog.classify_criterion_hierarchy(raw_input)
+                allowed_classes = ("single_leaf", "duplicate_leaf", "parent", "parent_group")
+                if h_det and h_det.get("classification") in allowed_classes and h_det.get("matched_name"):
                     has_specific_catalog_metric = True
-            if not has_specific_catalog_metric and hasattr(self.catalog, "find_top_k_candidates"):
-                cands, is_amb, _ = self.catalog.find_top_k_candidates(core_phrase, top_k=1, score_cutoff=75.0)
-                if cands and not is_amb and float(cands[0].get("score", 0.0)) >= 75.0:
-                    has_specific_catalog_metric = True
+                    matched_catalog_mention = h_det["matched_name"]
+            except Exception:
+                pass
 
-        if not is_metric_listing:
+        if not is_metric_listing and not matched_catalog_mention:
             if hasattr(self.catalog, "_criteria_cache_names"):
                 for crit_name in sorted(self.catalog._criteria_cache_names, key=len, reverse=True):
                     cn_low = crit_name.lower().strip()
-                    if cn_low and len(cn_low) > 3 and cn_low in q_low:
+                    if cn_low and len(cn_low) > 3 and cn_low in norm_input:
                         has_specific_catalog_metric = True
                         matched_catalog_mention = crit_name
                         break
@@ -910,20 +855,24 @@ class CanonicalSemanticNormalizer:
                 for entry in sorted(self.catalog._alias_registry, key=lambda x: len(x.get("alias", "")), reverse=True):
                     if entry.get("type") == "criteria" or entry.get("target_table") == "dwh_internal.criteria":
                         al_low = (entry.get("alias") or "").lower().strip()
-                        if al_low and len(al_low) > 6 and al_low in q_low:
+                        if al_low and len(al_low) > 6 and al_low in norm_input:
                             has_specific_catalog_metric = True
                             matched_catalog_mention = entry.get("name") or al_low
                             break
 
-        if not matched_catalog_mention and hasattr(self.catalog, "classify_criterion_hierarchy"):
-            try:
-                h_det = self.catalog.classify_criterion_hierarchy(query)
-                allowed_classes = ("parent", "parent_group") if is_metric_listing else ("single_leaf", "duplicate_leaf", "parent", "parent_group")
-                if h_det and h_det.get("classification") in allowed_classes and h_det.get("matched_name"):
+        is_inventory = bool(getattr(self.catalog, "is_inventory_query", lambda q: False)(raw_input))
+
+        if (
+            not has_specific_catalog_metric
+            and not is_metric_listing
+            and not is_inventory
+            and core_phrase
+            and len(core_phrase) > 3
+        ):
+            if hasattr(self.catalog, "resolve_metric_id"):
+                c_id = self.catalog.resolve_metric_id(core_phrase)
+                if c_id:
                     has_specific_catalog_metric = True
-                    matched_catalog_mention = h_det["matched_name"]
-            except Exception:
-                pass
 
         has_temporal_discovery = bool(
             stream_b and (
@@ -932,7 +881,6 @@ class CanonicalSemanticNormalizer:
                 or stream_b.get("start_date") is not None
             )
         )
-        is_inventory = bool(getattr(self.catalog, "is_inventory_query", lambda q: False)(query))
 
         is_dimension_discovery = (
             (has_temporal_discovery and not has_specific_catalog_metric)
@@ -959,25 +907,27 @@ class CanonicalSemanticNormalizer:
         if not is_fact_calc and hasattr(self.catalog, "_criteria_cache_names"):
             for crit_name in self.catalog._criteria_cache_names:
                 cn_low = crit_name.lower().strip()
-                if cn_low and len(cn_low) > 3 and cn_low in q_low:
+                if cn_low and len(cn_low) > 3 and cn_low in norm_input:
                     is_fact_calc = True
                     break
 
-        # ----------------------------------------------------------------------
-        # DIMENSION PLANE: KHÁM PHÁ DANH MỤC & ĐƠN VỊ HÀNH CHÍNH
-        # ----------------------------------------------------------------------
-        has_business_topic = any(w in q_low for w in ["sản lượng", "chỉ tiêu", "kinh phí", "báo cáo", "nhiệm vụ", "số liệu", "diêm nghiệp", "muối", "phát triển", "doanh thu", "diện tích", "hợp tác xã", "htx"])
-        q_no_htx = q_low.replace("hợp tác xã", "").replace("htx", "").strip()
-
+        has_business_topic = (
+            is_fact_calc
+            or is_metric_listing
+            or has_mission
+            or (hasattr(self.catalog, "resolve_report_audit_intent") and bool(self.catalog.resolve_report_audit_intent(raw_input)))
+            or (hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "DOMAIN_SIGNAL"))
+        )
         # 2a. Khám phá địa bàn cấp xã/phường (Dimension: ward) qua DuckDB Catalog RAM
         is_ward_dimension = (
-            any(w in q_no_htx for w in ["xã, phường", "xã phường", "xã / phường", "phường, xã", "phường xã", "xã thuộc", "phường thuộc", "xã nào", "phường nào"])
-            or (any(w in q_no_htx for w in ["xã", "phường", "thị trấn"]) and not has_business_topic)
+            not has_business_topic
+            and hasattr(self.catalog, "is_dimension_query")
+            and self.catalog.is_dimension_query(raw_input, "ward")
         )
-        if is_ward_dimension and not has_business_topic:
-            agg_fn = "COUNT" if any(w in q_no_htx for w in ["bao nhiêu", "tổng số", "có mấy", "số lượng"]) else "NONE"
-            limit_val = 1 if agg_fn == "COUNT" else (10 if "10" in q_no_htx else None)
-            search_kw = "code" if any(w in q_no_htx for w in ["mã", "đầu tiên"]) else None
+        if is_ward_dimension:
+            agg_fn = "COUNT" if (hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "CRITERIA_COUNT")) else "NONE"
+            limit_val = 1 if agg_fn == "COUNT" else next((int(t) for t in norm_input.split() if t.isdigit()), None)
+            search_kw = "code" if (hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "CODE_SEARCH_KEYWORD")) else None
             return {
                 "intent": CanonicalIntentEnum.RELATIONAL_EXPLORATION,
                 "target_table": "ward",
@@ -990,9 +940,10 @@ class CanonicalSemanticNormalizer:
             }
 
         # 2b. Khám phá địa bàn / Tỉnh thành (Dimension: province) qua DuckDB Catalog RAM
-        is_prov_list = any(w in q_low for w in ["các tỉnh", "danh sách tỉnh", "những tỉnh nào", "tỉnh thành nào", "danh mục tỉnh", "danh sách các tỉnh"])
-        if not has_business_topic and (is_prov_list or (hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(query, "province") and not any(w in q_low for w in ["lâm đồng", "văn phòng", "sở", "phòng", "xã", "phường"]))):
-            exclude_entities = self.catalog.resolve_excluded_entities(query) if hasattr(self.catalog, "resolve_excluded_entities") else []
+        is_prov_list = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "PROVINCE_LIST_QUERY")
+        has_local_cue = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "LOCAL_OFFICE_OR_WARD_CUE")
+        if not has_business_topic and (is_prov_list or (hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(raw_input, "province") and not has_local_cue)):
+            exclude_entities = self.catalog.resolve_excluded_entities(raw_input) if hasattr(self.catalog, "resolve_excluded_entities") else []
             return {
                 "intent": CanonicalIntentEnum.METADATA_EXPLORATION,
                 "target_table": "province",
@@ -1005,9 +956,9 @@ class CanonicalSemanticNormalizer:
             }
 
         # 3. Khám phá danh mục chỉ tiêu (Dimension: criteria)
-        if not has_specific_catalog_metric and (has_collective_noun or getattr(self.catalog, "is_dimension_query", lambda q, d: False)(q_low, "criteria")) and not is_dimension_discovery:
+        if not has_specific_catalog_metric and (has_collective_noun or getattr(self.catalog, "is_dimension_query", lambda q, d: False)(norm_input, "criteria")) and not is_dimension_discovery:
             kw = None
-            core_kw = self._extract_core_metric_phrase(query)
+            core_kw = self._extract_core_metric_phrase(raw_input)
             if core_kw and len(core_kw) > 2:
                 kw = core_kw
             return {
@@ -1022,8 +973,8 @@ class CanonicalSemanticNormalizer:
             }
 
         # 4. Tra cứu danh mục sở ban ngành / phòng ban (Dimension: deparment, office) qua DuckDB Catalog RAM
-        if hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(query, "office_or_department"):
-            target_tbl = self.catalog.resolve_target_table(query, default_table="office")
+        if not has_specific_catalog_metric and not is_fact_calc and hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(raw_input, "office_or_department"):
+            target_tbl = self.catalog.resolve_target_table(raw_input, default_table="office")
             return {
                 "intent": CanonicalIntentEnum.DIMENSION_LISTING,
                 "target_table": target_tbl,
@@ -1037,11 +988,11 @@ class CanonicalSemanticNormalizer:
 
 
         # 10. Mặc định Fact Plane: Tra cứu chỉ tiêu KTXH (METRIC_POINT_INQUIRY)
-        core_phrase = self._extract_core_metric_phrase(query)
+        core_phrase = self._extract_core_metric_phrase(raw_input)
         if matched_catalog_mention and (not core_phrase or len(core_phrase) > len(matched_catalog_mention) + 6):
             raw_mentions = [matched_catalog_mention]
         else:
-            raw_mentions = [core_phrase] if core_phrase else [query.strip()]
+            raw_mentions = [core_phrase] if core_phrase else [raw_input.strip()]
         return {
             "intent": CanonicalIntentEnum.METRIC_POINT_INQUIRY,
             "target_table": "fact_report_criteria",
@@ -1057,30 +1008,40 @@ class CanonicalSemanticNormalizer:
     # --------------------------------------------------------------------------
     # STREAM B: TRÍCH XUẤT THỜI GIAN VÀ ĐỊA BÀN (TEMPORAL & SPATIAL DETECTOR)
     # --------------------------------------------------------------------------
-    def _extract_stream_b_deterministic(self, query: str) -> Dict[str, Any]:
+    def _extract_stream_b_deterministic(self, raw_input: str) -> Dict[str, Any]:
         """
         Stream B Deterministic Fallback: Phân tích mốc thời gian, kỳ báo cáo,
         và thực thể địa danh (khử bẫy đa nghĩa polysemy LĐ = Lao động vs Lâm Đồng).
         Không sử dụng thư viện regex.
         """
-        q_low = query.lower().strip()
+        norm_input = raw_input.lower().strip()
 
         # 1. Trích xuất năm (year_code)
         year_code = None
-        for tok in query.replace(",", " ").replace(".", " ").replace("?", " ").split():
+        for tok in raw_input.replace(",", " ").replace(".", " ").replace("?", " ").split():
             clean_tok = tok.strip()
-            if len(clean_tok) == 4 and clean_tok.startswith("202") and clean_tok[3].isdigit():
+            if len(clean_tok) == 4 and clean_tok.isdigit() and 1900 <= int(clean_tok) <= 2100:
                 year_code = clean_tok
                 break
-        if not year_code and "năm nay" in q_low:
+        if not year_code and "năm nay" in norm_input:
             year_code = "2026"
 
         spatial_mention = None
+        if hasattr(self, "catalog") and hasattr(self.catalog, "conn"):
+            try:
+                res_t = self.catalog.conn.execute(
+                    "SELECT regexp_extract(?, '(?i)tenant_code\\s*[:=]\\s*([a-zA-Z0-9_]+)', 1)",
+                    [raw_input],
+                ).fetchone()
+                if res_t and res_t[0]:
+                    spatial_mention = res_t[0]
+            except Exception:
+                pass
 
         # 3. Trích xuất chuỗi thời gian (time series periods) sắp xếp tuần tự động
         periods = []
         y_int = int(year_code or "2026")
-        for tok in query.replace(",", " ").replace("?", " ").split():
+        for tok in raw_input.replace(",", " ").replace("?", " ").split():
             sep = "/" if "/" in tok else ("-" if "-" in tok else ("." if "." in tok else None))
             if sep:
                 parts = tok.split(sep)
@@ -1090,17 +1051,20 @@ class CanonicalSemanticNormalizer:
                         periods.append(f"{y_val}-{m_val:02d}-{d_val:02d}")
 
         for m_val in range(1, 13):
-            if f"{m_val} tháng" in q_low or f"{m_val:02d} tháng" in q_low:
+            if f"{m_val} tháng" in norm_input or f"{m_val:02d} tháng" in norm_input:
                 last_d = calendar.monthrange(y_int, m_val)[1]
                 p_date = f"{y_int}-{m_val:02d}-{last_d:02d}"
                 if p_date not in periods:
                     periods.append(p_date)
 
-
-
-        VN_Q_MAP = {"một": 1, "1": 1, "i": 1, "hai": 2, "2": 2, "ii": 2, "ba": 3, "3": 3, "iii": 3, "bốn": 4, "tư": 4, "4": 4, "iv": 4}
-        for q_word, q_num in VN_Q_MAP.items():
-            if f"quý {q_word}" in q_low or f"q{q_word}" in q_low:
+        VN_Q_WORDS = {
+            "1": 1, "01": 1, "i": 1, "mot": 1, "một": 1,
+            "2": 2, "02": 2, "ii": 2, "hai": 2,
+            "3": 3, "03": 3, "iii": 3, "ba": 3,
+            "4": 4, "04": 4, "iv": 4, "bon": 4, "bốn": 4, "tu": 4, "tư": 4,
+        }
+        for q_word, q_num in VN_Q_WORDS.items():
+            if f"quý {q_word}" in norm_input or f"q{q_word}" in norm_input:
                 em = q_num * 3
                 last_d = calendar.monthrange(y_int, em)[1]
                 p_date = f"{y_int}-{em:02d}-{last_d:02d}"
@@ -1122,261 +1086,297 @@ class CanonicalSemanticNormalizer:
             return f"{year_val}-{sm:02d}-01", f"{year_val}-{em:02d}-{last_d:02d}"
 
         VN_MONTH_WORDS = {
-            "mười một": 11, "mười hai": 12, "mười": 10,
-            "một": 1, "giêng": 1, "hai": 2, "ba": 3, "tư": 4, "bốn": 4, "năm": 5,
-            "sáu": 6, "bảy": 7, "tám": 8, "chín": 9, "chạp": 12
+            "mười một": 11, "muoi mot": 11, "mười hai": 12, "muoi hai": 12, "mười": 10, "muoi": 10,
+            "một": 1, "mot": 1, "giêng": 1, "gieng": 1, "hai": 2, "ba": 3,
+            "tư": 4, "tu": 4, "bốn": 4, "bon": 4, "năm": 5, "nam": 5,
+            "sáu": 6, "sau": 6, "bảy": 7, "bay": 7, "tám": 8, "tam": 8,
+            "chín": 9, "chin": 9, "chạp": 12, "chap": 12,
         }
 
-        # BƯỚC 4A: KIỂM TRA QUÝ (bao gồm N quý đầu/cuối năm và dải quý La Mã / Ả Rập / chữ)
-        found_q = False
-        q_quant_first = re.search(r'\b(1|2|3|4|một|hai|ba|bốn)\s+quý\s+đầu(?:\s+năm)?\b', q_low)
-        q_quant_last = re.search(r'\b(1|2|3|4|một|hai|ba|bốn)\s+quý\s+cuối(?:\s+năm)?\b', q_low)
-        if q_quant_first:
-            q_cnt = VN_Q_MAP.get(q_quant_first.group(1), 1)
-            date_from = f"{y}-01-01"
-            _, date_to = _calc_quarter_bounds(int(y), min(4, max(1, q_cnt)))
-            found_q = True
-            month_filter = None
-        elif q_quant_last:
-            q_cnt = VN_Q_MAP.get(q_quant_last.group(1), 1)
-            start_q = max(1, 5 - q_cnt)
-            date_from, _ = _calc_quarter_bounds(int(y), start_q)
-            date_to = f"{y}-12-31"
-            found_q = True
-            month_filter = None
+        q_unacc = _remove_accents(norm_input)
+        clean_unacc = q_unacc.replace("?", " ").replace("!", " ").replace(";", " ").replace(":", " ").replace("(", " ").replace(")", " ").replace(",", " ")
+        tokens = clean_unacc.split()
 
-        if not found_q:
-            q_range_match = re.search(
-                r'\b(?:quý\s+|q)(một|hai|ba|bốn|tư|iii|ii|iv|i|1|2|3|4)\s*(?:đến|tới|cho đến|sang|qua|-|và|,|&)\s*(?:hết\s+|cuối\s+)?(?:quý\s+|q)?(một|hai|ba|bốn|tư|iii|ii|iv|i|1|2|3|4)\b',
-                q_low
-            )
-            if q_range_match:
-                q1_v = VN_Q_MAP.get(q_range_match.group(1))
-                q2_v = VN_Q_MAP.get(q_range_match.group(2))
-                if q1_v and q2_v:
-                    date_from, _ = _calc_quarter_bounds(int(y), min(q1_v, q2_v))
-                    _, date_to = _calc_quarter_bounds(int(y), max(q1_v, q2_v))
-                    found_q = True
-                    month_filter = None
+        # BƯỚC 4A: KIỂM TRA QUÝ (bao gồm N quý đầu/cuối năm, dải quý và quý đơn lẻ)
+        found_q = False
+        for i, tok in enumerate(tokens):
+            if i + 1 < len(tokens) and tokens[i + 1] == "quy":
+                if i + 2 < len(tokens) and tokens[i + 2] == "dau":
+                    q_cnt = VN_Q_WORDS.get(tok)
+                    if q_cnt:
+                        date_from = f"{y}-01-01"
+                        _, date_to = _calc_quarter_bounds(int(y), min(4, max(1, q_cnt)))
+                        found_q = True
+                        month_filter = None
+                        break
+                elif i + 2 < len(tokens) and tokens[i + 2] == "cuoi":
+                    q_cnt = VN_Q_WORDS.get(tok)
+                    if q_cnt:
+                        start_q = max(1, 5 - q_cnt)
+                        date_from, _ = _calc_quarter_bounds(int(y), start_q)
+                        date_to = f"{y}-12-31"
+                        found_q = True
+                        month_filter = None
+                        break
 
         if not found_q:
             matched_qs = []
-            for q_k, q_v in VN_Q_MAP.items():
-                if re.search(rf'\b(?:quý\s+{re.escape(q_k)}|q{re.escape(q_k)})\b', q_low):
-                    matched_qs.append(q_v)
+            i = 0
+            while i < len(tokens):
+                tok = tokens[i]
+                slash_parts = tok.split("/") if "/" in tok else (tok.split("-") if "-" in tok else None)
+                if slash_parts and len(slash_parts) == 2 and slash_parts[1].isdigit() and len(slash_parts[1]) == 4:
+                    sub_q = slash_parts[0]
+                    if (sub_q.startswith("q") and len(sub_q) > 1 and sub_q[1:] in VN_Q_WORDS) or (sub_q.startswith("quy") and len(sub_q) > 3 and sub_q[3:] in VN_Q_WORDS):
+                        q_key = sub_q[1:] if sub_q.startswith("q") and not sub_q.startswith("quy") else sub_q[3:]
+                        matched_qs.append(VN_Q_WORDS[q_key])
+                        year_code = slash_parts[1]
+                        y = slash_parts[1]
+                    elif sub_q in VN_Q_WORDS and i > 0 and tokens[i - 1] in ("quy", "q"):
+                        matched_qs.append(VN_Q_WORDS[sub_q])
+                        year_code = slash_parts[1]
+                        y = slash_parts[1]
+                elif (tok.startswith("q") and len(tok) > 1 and tok[1:] in VN_Q_WORDS) or (tok.startswith("quy") and len(tok) > 3 and tok[3:] in VN_Q_WORDS):
+                    sub = tok[1:] if tok.startswith("q") and not tok.startswith("quy") else tok[3:]
+                    matched_qs.append(VN_Q_WORDS[sub])
+                elif tok in ("quy", "q") and i + 1 < len(tokens):
+                    nxt = tokens[i + 1]
+                    nxt_slash = nxt.split("/") if "/" in nxt else (nxt.split("-") if "-" in nxt else None)
+                    if nxt_slash and len(nxt_slash) == 2 and nxt_slash[0] in VN_Q_WORDS and nxt_slash[1].isdigit() and len(nxt_slash[1]) == 4:
+                        matched_qs.append(VN_Q_WORDS[nxt_slash[0]])
+                        year_code = nxt_slash[1]
+                        y = nxt_slash[1]
+                        i += 1
+                    elif nxt in VN_Q_WORDS:
+                        matched_qs.append(VN_Q_WORDS[nxt])
+                        i += 1
+                        while i + 1 < len(tokens):
+                            nxt_w = tokens[i + 1]
+                            if nxt_w in VN_Q_WORDS:
+                                matched_qs.append(VN_Q_WORDS[nxt_w])
+                                i += 1
+                            elif nxt_w in ("va", "den", "toi", "-", "va/hoac") and i + 2 < len(tokens) and tokens[i + 2] in VN_Q_WORDS:
+                                matched_qs.append(VN_Q_WORDS[tokens[i + 2]])
+                                i += 2
+                            else:
+                                break
+                i += 1
+
             if matched_qs:
-                min_q, max_q = min(matched_qs), max(matched_qs)
+                min_q = min(matched_qs)
+                max_q = max(matched_qs)
                 date_from, _ = _calc_quarter_bounds(int(y), min_q)
-                _, date_to = _calc_quarter_bounds(int(y), max(matched_qs))
+                _, date_to = _calc_quarter_bounds(int(y), max_q)
                 found_q = True
                 month_filter = None
 
+        # BƯỚC 4B: NỬA ĐẦU/CUỐI NĂM, N THÁNG ĐẦU/CUỐI NĂM, YTD
         if not found_q:
-            VN_M_PAT = r'(?:\d+|mười một|mười hai|mười|một|giêng|hai|ba|tư|bốn|năm|sáu|bảy|tám|chín|chạp)'
-            # BƯỚC 4B: ĐẦU NĂM ĐẾN THÁNG X / ĐẦU NĂM TỚI NAY (YTD) / NỬA ĐẦU NĂM / NỬA CUỐI NĂM / ĐẾN HẾT NĂM
-            m_from_start_match = re.search(
-                r'(?:từ\s+)?đầu\s+năm\s+(?:\d{4}\s+)?(?:đến|tới|-)\s*(?:hết\s+|cuối\s+)?tháng\s+(' + VN_M_PAT + r')',
-                q_low
-            )
-            if m_from_start_match:
-                raw_em = m_from_start_match.group(1).strip()
-                em = VN_MONTH_WORDS.get(raw_em) or (int(raw_em) if raw_em.isdigit() else None)
-                if em and 1 <= em <= 12:
-                    last_day = calendar.monthrange(int(y), em)[1]
-                    date_from = f"{y}-01-01"
-                    date_to = f"{y}-{em:02d}-{last_day:02d}"
-                    month_filter = None
-            elif any(w in q_low for w in ["nửa đầu năm", "nửa đầu", "6 tháng đầu năm", "6 tháng đầu", "06 tháng đầu", "sáu tháng đầu năm", "sáu tháng đầu", "bán niên đầu"]):
+            if any(w in clean_unacc for w in ["nua dau nam", "nua dau", "6 thang dau nam", "6 thang dau", "06 thang dau", "sau thang dau nam", "sau thang dau", "ban nien dau"]):
                 date_from = f"{y}-01-01"
                 date_to = f"{y}-06-30"
                 month_filter = None
-            elif any(w in q_low for w in ["nửa cuối năm", "nửa cuối", "nửa sau năm", "nửa sau", "6 tháng cuối năm", "6 tháng cuối", "06 tháng cuối", "sáu tháng cuối năm", "sáu tháng cuối", "bán niên cuối"]):
+            elif any(w in clean_unacc for w in ["nua cuoi nam", "nua cuoi", "nua sau nam", "nua sau", "6 thang cuoi nam", "6 thang cuoi", "06 thang cuoi", "sau thang cuoi nam", "sau thang cuoi", "ban nien cuoi"]):
                 date_from = f"{y}-07-01"
                 date_to = f"{y}-12-31"
                 month_filter = None
-            elif re.search(r'\b(' + VN_M_PAT + r')\s+tháng\s+đầu(?:\s+năm)?\b', q_low):
-                m_first_match = re.search(r'\b(' + VN_M_PAT + r')\s+tháng\s+đầu(?:\s+năm)?\b', q_low)
-                raw_n = m_first_match.group(1).strip()
-                n_m = VN_MONTH_WORDS.get(raw_n) or (int(raw_n) if raw_n.isdigit() else None)
-                if n_m and 1 <= n_m <= 12:
-                    last_day = calendar.monthrange(int(y), n_m)[1]
-                    date_from = f"{y}-01-01"
-                    date_to = f"{y}-{n_m:02d}-{last_day:02d}"
-                    month_filter = None
-            elif re.search(r'\b(' + VN_M_PAT + r')\s+tháng\s+cuối(?:\s+năm)?\b', q_low):
-                m_last_match = re.search(r'\b(' + VN_M_PAT + r')\s+tháng\s+cuối(?:\s+năm)?\b', q_low)
-                raw_n = m_last_match.group(1).strip()
-                n_m = VN_MONTH_WORDS.get(raw_n) or (int(raw_n) if raw_n.isdigit() else None)
-                if n_m and 1 <= n_m <= 12:
-                    start_m = max(1, 13 - n_m)
-                    date_from = f"{y}-{start_m:02d}-01"
-                    date_to = f"{y}-12-31"
-                    month_filter = None
-            elif any(w in q_low for w in [
-                "từ đầu năm tới nay", "từ đầu năm đến nay",
-                "từ đầu năm tới giờ", "từ đầu năm đến giờ",
-                "đầu năm tới nay", "đầu năm đến nay",
-                "đầu năm đến giờ", "đầu năm tới giờ",
-                "từ đầu năm đến thời điểm hiện tại", "từ đầu năm tới thời điểm hiện tại",
-                "đầu năm đến thời điểm hiện tại", "đầu năm tới thời điểm hiện tại",
-                "từ đầu năm đến hiện tại", "từ đầu năm tới hiện tại",
-                "lũy kế từ đầu năm", "tính từ đầu năm", "từ đầu năm"
+            elif any(w in clean_unacc for w in ["thang dau nam", "thang dau"]):
+                for i, tok in enumerate(tokens):
+                    if tok == "thang" and i + 1 < len(tokens) and tokens[i + 1] == "dau":
+                        if i > 0 and (tokens[i - 1] in VN_MONTH_WORDS or tokens[i - 1].isdigit()):
+                            n_m = VN_MONTH_WORDS.get(tokens[i - 1]) or (int(tokens[i - 1]) if tokens[i - 1].isdigit() else None)
+                            if n_m and 1 <= n_m <= 12:
+                                last_day = calendar.monthrange(int(y), n_m)[1]
+                                date_from = f"{y}-01-01"
+                                date_to = f"{y}-{n_m:02d}-{last_day:02d}"
+                                month_filter = None
+                                break
+            elif any(w in clean_unacc for w in ["thang cuoi nam", "thang cuoi"]):
+                for i, tok in enumerate(tokens):
+                    if tok == "thang" and i + 1 < len(tokens) and tokens[i + 1] == "cuoi":
+                        if i > 0 and (tokens[i - 1] in VN_MONTH_WORDS or tokens[i - 1].isdigit()):
+                            n_m = VN_MONTH_WORDS.get(tokens[i - 1]) or (int(tokens[i - 1]) if tokens[i - 1].isdigit() else None)
+                            if n_m and 1 <= n_m <= 12:
+                                start_m = max(1, 13 - n_m)
+                                date_from = f"{y}-{start_m:02d}-01"
+                                date_to = f"{y}-12-31"
+                                month_filter = None
+                                break
+            elif any(w in clean_unacc for w in [
+                "tu dau nam toi nay", "tu dau nam den nay", "tu dau nam toi gio", "tu dau nam den gio",
+                "dau nam toi nay", "dau nam den nay", "dau nam den gio", "dau nam toi gio",
+                "tu dau nam den thoi diem hien tai", "tu dau nam toi thoi diem hien tai",
+                "dau nam den thoi diem hien tai", "dau nam toi thoi diem hien tai",
+                "tu dau nam den hien tai", "tu dau nam toi hien tai",
+                "luy ke tu dau nam", "tinh tu dau nam", "tu dau nam"
             ]):
                 date_from = f"{y}-01-01"
                 date_to = f"{y}-12-31"
                 month_filter = None
-            elif any(w in q_low for w in ["hết năm", "cuối năm"]) and "tháng" in q_low:
-                m_end_match = re.search(
-                    r'(?:(?:từ\s+)?tháng\s+(' + VN_M_PAT + r')\s*(?:đến|tới|-)\s*(?:hết\s+năm|cuối\s+năm)|'
-                    r'(?:đến\s+)?(?:hết\s+năm|cuối\s+năm)\s*(?:từ\s+|đến\s+|tới\s+)?tháng\s+(' + VN_M_PAT + r'))',
-                    q_low
-                )
-                if m_end_match:
-                    raw_sm = (m_end_match.group(1) or m_end_match.group(2)).strip()
-                    sm = VN_MONTH_WORDS.get(raw_sm) or (int(raw_sm) if raw_sm.isdigit() else None)
-                    if sm and 1 <= sm <= 12:
-                        date_from = f"{y}-{sm:02d}-01"
-                        date_to = f"{y}-12-31"
-                        month_filter = None
-
-            # BƯỚC 4C: DẢI THÁNG TỔNG QUÁT (tháng 1 đến 7, tháng 1 đến tháng 7, từ tháng 1 đến 7, tháng 1 - 7...)
-            if not date_from:
-                range_to_now = re.search(
-                    r'(?:từ\s+)?tháng\s+(' + VN_M_PAT + r')\s*(?:đến|tới|-)\s*(?:thời\s+điểm\s+)?(?:hiện\s+tại|nay|giờ)',
-                    q_low
-                )
-                if range_to_now:
-                    raw_s = range_to_now.group(1).strip()
-                    sm = VN_MONTH_WORDS.get(raw_s) or (int(raw_s) if raw_s.isdigit() else None)
-                    if sm and 1 <= sm <= 12:
-                        date_from = f"{y}-{sm:02d}-01"
-                        date_to = f"{y}-09-30"
-                        month_filter = None
-                else:
-                    range_match = re.search(
-                        r'(?:từ\s+)?tháng\s+(' + VN_M_PAT + r')(?:\s+năm\s+(202\d))?\s*(?:đến|tới|cho đến|-)\s*(?:hết\s+|cuối\s+)?(?:tháng\s+)?(' + VN_M_PAT + r')(?:\s+năm\s+(202\d))?',
-                        q_low
-                    )
-                    if range_match:
-                        raw_s = range_match.group(1).strip()
-                        sy = range_match.group(2) or y
-                        raw_e = range_match.group(3).strip()
-                        ey = range_match.group(4) or y
-                        sm = VN_MONTH_WORDS.get(raw_s) or (int(raw_s) if raw_s.isdigit() else None)
-                        em = VN_MONTH_WORDS.get(raw_e) or (int(raw_e) if raw_e.isdigit() else None)
-                        if sm and em and 1 <= sm <= 12 and 1 <= em <= 12:
-                            date_from = f"{sy}-{sm:02d}-01"
-                            last_day = calendar.monthrange(int(ey), em)[1]
-                            date_to = f"{ey}-{em:02d}-{last_day:02d}"
-                            if range_match.group(4):
-                                year_code = ey
-                                y = ey
+            elif any(w in clean_unacc for w in ["het nam", "cuoi nam"]) and "thang" in clean_unacc:
+                for i, tok in enumerate(tokens):
+                    if tok == "thang" and i + 1 < len(tokens):
+                        sm = VN_MONTH_WORDS.get(tokens[i + 1]) or (int(tokens[i + 1]) if tokens[i + 1].isdigit() else None)
+                        if sm and 1 <= sm <= 12:
+                            date_from = f"{y}-{sm:02d}-01"
+                            date_to = f"{y}-12-31"
                             month_filter = None
+                            break
 
-            # BƯỚC 4D: DẢI NGÀY ĐẦY ĐỦ (dd/mm/yyyy - dd/mm/yyyy) HOẶC NGÀY ĐƠN LẺ (SC-2.2)
-            if not date_from:
-                full_dates = []
-                for tok in query.replace(",", " ").replace("?", " ").split():
-                    sep = "/" if "/" in tok else ("-" if "-" in tok else ("." if "." in tok else None))
-                    if sep:
-                        parts = tok.split(sep)
-                        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit():
-                            d_val, m_val, y_val = int(parts[0]), int(parts[1]), int(parts[2])
-                            if 1 <= d_val <= 31 and 1 <= m_val <= 12 and 2020 <= y_val <= 2030:
-                                full_dates.append(f"{y_val}-{m_val:02d}-{d_val:02d}")
-                if len(full_dates) >= 2:
-                    date_from = full_dates[0]
-                    date_to = full_dates[1]
-                    month_filter = None
-                elif len(full_dates) == 1:
-                    specific_date = full_dates[0]
+        # BƯỚC 4C: DẢI THÁNG TỔNG QUÁT (tháng X đến tháng Y, từ tháng X đến thời điểm hiện tại...)
+        if not date_from:
+            found_months = []
+            i = 0
+            while i < len(tokens):
+                if tokens[i] == "thang" and i + 1 < len(tokens):
+                    cand_m = None
+                    adv = 1
+                    if i + 2 < len(tokens) and f"{tokens[i + 1]} {tokens[i + 2]}" in VN_MONTH_WORDS:
+                        cand_m = VN_MONTH_WORDS[f"{tokens[i + 1]} {tokens[i + 2]}"]
+                        adv = 2
+                    elif tokens[i + 1] in VN_MONTH_WORDS:
+                        cand_m = VN_MONTH_WORDS[tokens[i + 1]]
+                    elif tokens[i + 1].isdigit():
+                        cand_m = int(tokens[i + 1])
+                    if cand_m and 1 <= cand_m <= 12:
+                        tok_y = y
+                        if i + adv + 2 < len(tokens) and tokens[i + adv + 1] == "nam" and tokens[i + adv + 2].isdigit() and len(tokens[i + adv + 2]) == 4:
+                            tok_y = tokens[i + adv + 2]
+                        found_months.append((i, cand_m, tok_y))
+                        i += adv
+                i += 1
 
-            if not specific_date and not date_from:
-                dm_match = re.search(
-                    r'(?:ngày|mốc|hôm|vào)\s+(\d{1,2})[/-](\d{1,2})(?:[/-](\d{4}))?\b',
-                    q_low
-                )
-                if dm_match:
-                    d_v = int(dm_match.group(1))
-                    m_v = int(dm_match.group(2))
-                    y_v = int(dm_match.group(3)) if dm_match.group(3) else int(y)
-                    if 1 <= m_v <= 12:
-                        max_d = calendar.monthrange(y_v, m_v)[1]
-                        d_v = min(max(1, d_v), max_d)
-                        specific_date = f"{y_v}-{m_v:02d}-{d_v:02d}"
-                        year_code = str(y_v)
-                        y = str(y_v)
-
-            if not specific_date and not date_from:
-                vn_dm_match = re.search(
-                    r'(?:ngày|mốc|hôm|vào)\s+(\d{1,2})\s+tháng\s+(' + VN_M_PAT + r')(?:\s+năm\s+(\d{4}))?\b',
-                    q_low
-                )
-                if vn_dm_match:
-                    d_v = int(vn_dm_match.group(1))
-                    raw_m = vn_dm_match.group(2).strip()
-                    m_v = VN_MONTH_WORDS.get(raw_m) or (int(raw_m) if raw_m.isdigit() else None)
-                    y_v = int(vn_dm_match.group(3)) if vn_dm_match.group(3) else int(y)
-                    if m_v and 1 <= m_v <= 12:
-                        max_d = calendar.monthrange(y_v, m_v)[1]
-                        d_v = min(max(1, d_v), max_d)
-                        specific_date = f"{y_v}-{m_v:02d}-{d_v:02d}"
-                        year_code = str(y_v)
-                        y = str(y_v)
-
-            # BƯỚC 4E: DẢI THÁNG/NĂM DẠNG mm/yyyy - mm/yyyy (VD: 3/2026 - 06/2026) HOẶC THÁNG ĐƠN LẺ mm/yyyy / tháng X
-            if not date_from and not specific_date:
-                slash_month_years = []
-                for tok in q_low.replace(",", " ").replace("?", " ").split():
-                    if "/" in tok or "." in tok:
-                        s = "/" if "/" in tok else "."
-                        parts = tok.split(s)
-                        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit() and len(parts[1]) == 4:
-                            m_num = int(parts[0])
-                            y_num = int(parts[1])
-                            if 1 <= m_num <= 12 and 2020 <= y_num <= 2030:
-                                slash_month_years.append((m_num, str(y_num)))
-                if len(slash_month_years) >= 2:
-                    sm, sy = slash_month_years[0]
-                    em, ey = slash_month_years[1]
-                    last_day = calendar.monthrange(int(ey), em)[1]
-                    date_from = f"{sy}-{sm:02d}-01"
-                    date_to = f"{ey}-{em:02d}-{last_day:02d}"
+            if len(found_months) == 1 and any(w in clean_unacc for w in ["den nay", "toi nay", "den gio", "hien tai"]):
+                _, sm, sy = found_months[0]
+                date_from = f"{sy}-{sm:02d}-01"
+                date_to = f"{y}-09-30"
+                month_filter = None
+            elif len(found_months) >= 2:
+                _, sm, sy = found_months[0]
+                _, em, ey = found_months[-1]
+                last_day = calendar.monthrange(int(ey), em)[1]
+                date_from = f"{sy}-{sm:02d}-01"
+                date_to = f"{ey}-{em:02d}-{last_day:02d}"
+                if ey != y:
                     year_code = ey
                     y = ey
-                    month_filter = None
-                elif len(slash_month_years) == 1:
-                    m_num, sy = slash_month_years[0]
-                    month_filter = m_num
-                    year_code = sy
-                    y = sy
+                month_filter = None
+
+        # BƯỚC 4D: DẢI NGÀY ĐẦY ĐỦ (dd/mm/yyyy - dd/mm/yyyy) HOẶC NGÀY ĐƠN LẺ
+        if not date_from:
+            full_dates = []
+            for tok in raw_input.replace(",", " ").replace("?", " ").split():
+                sep = "/" if "/" in tok else ("-" if "-" in tok else ("." if "." in tok else None))
+                if sep:
+                    parts = tok.split(sep)
+                    if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit():
+                        d_val, m_val, y_val = int(parts[0]), int(parts[1]), int(parts[2])
+                        if 1 <= d_val <= 31 and 1 <= m_val <= 12 and 2020 <= y_val <= 2030:
+                            full_dates.append(f"{y_val}-{m_val:02d}-{d_val:02d}")
+            if len(full_dates) >= 2:
+                date_from = full_dates[0]
+                date_to = full_dates[1]
+                month_filter = None
+            elif len(full_dates) == 1:
+                specific_date = full_dates[0]
+
+        if not specific_date and not date_from:
+            for i, tok in enumerate(tokens):
+                if ("/" in tok or "-" in tok) and not tok.startswith("-"):
+                    s = "/" if "/" in tok else "-"
+                    parts = tok.split(s)
+                    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+                        d_v, m_v = int(parts[0]), int(parts[1])
+                        if 1 <= m_v <= 12 and 1 <= d_v <= 31:
+                            prev_tok = tokens[i - 1] if i > 0 else ""
+                            if prev_tok in ("ngay", "moc", "hom", "vao") or d_v > 12:
+                                max_d = calendar.monthrange(int(y), m_v)[1]
+                                d_v = min(max(1, d_v), max_d)
+                                specific_date = f"{y}-{m_v:02d}-{d_v:02d}"
+                                break
+                if tok in ("ngay", "moc", "hom", "vao") and i + 3 < len(tokens):
+                    if tokens[i + 1].isdigit() and tokens[i + 2] == "thang":
+                        d_v = int(tokens[i + 1])
+                        cand_m_str = tokens[i + 3]
+                        if i + 4 < len(tokens) and f"{tokens[i + 3]} {tokens[i + 4]}" in VN_MONTH_WORDS:
+                            m_v = VN_MONTH_WORDS[f"{tokens[i + 3]} {tokens[i + 4]}"]
+                        else:
+                            m_v = VN_MONTH_WORDS.get(cand_m_str) or (int(cand_m_str) if cand_m_str.isdigit() else None)
+                        if m_v and 1 <= m_v <= 12:
+                            y_v = int(y)
+                            if i + 5 < len(tokens) and tokens[i + 4] == "nam" and tokens[i + 5].isdigit():
+                                y_v = int(tokens[i + 5])
+                            max_d = calendar.monthrange(y_v, m_v)[1]
+                            d_v = min(max(1, d_v), max_d)
+                            specific_date = f"{y_v}-{m_v:02d}-{d_v:02d}"
+                            year_code = str(y_v)
+                            y = str(y_v)
+                            break
+
+        # BƯỚC 4E: DẢI THÁNG/NĂM DẠNG mm/yyyy HOẶC THÁNG ĐƠN LẺ
+        if not date_from and not specific_date and not found_q:
+            slash_month_years = []
+            for tok in norm_input.replace(",", " ").replace("?", " ").split():
+                if "/" in tok or "." in tok:
+                    s = "/" if "/" in tok else "."
+                    parts = tok.split(s)
+                    if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit() and len(parts[1]) == 4:
+                        m_num = int(parts[0])
+                        y_num = int(parts[1])
+                        if 1 <= m_num <= 12 and 2020 <= y_num <= 2030:
+                            slash_month_years.append((m_num, str(y_num)))
+            if len(slash_month_years) >= 2:
+                sm, sy = slash_month_years[0]
+                em, ey = slash_month_years[1]
+                last_day = calendar.monthrange(int(ey), em)[1]
+                date_from = f"{sy}-{sm:02d}-01"
+                date_to = f"{ey}-{em:02d}-{last_day:02d}"
+                year_code = ey
+                y = ey
+                month_filter = None
+            elif len(slash_month_years) == 1:
+                m_num, sy = slash_month_years[0]
+                month_filter = m_num
+                year_code = sy
+                y = sy
+                last_day = calendar.monthrange(int(y), month_filter)[1]
+                date_from = f"{y}-{month_filter:02d}-01"
+                date_to = f"{y}-{month_filter:02d}-{last_day:02d}"
+            else:
+                matched_months = []
+                i = 0
+                while i < len(tokens):
+                    if tokens[i] == "thang" and i + 1 < len(tokens):
+                        cand_m = None
+                        adv = 1
+                        if i + 2 < len(tokens) and f"{tokens[i + 1]} {tokens[i + 2]}" in VN_MONTH_WORDS:
+                            cand_m = VN_MONTH_WORDS[f"{tokens[i + 1]} {tokens[i + 2]}"]
+                            adv = 2
+                        elif tokens[i + 1] in VN_MONTH_WORDS:
+                            cand_m = VN_MONTH_WORDS[tokens[i + 1]]
+                        elif tokens[i + 1].isdigit():
+                            cand_m = int(tokens[i + 1])
+                        if cand_m and 1 <= cand_m <= 12:
+                            matched_months.append(cand_m)
+                            i += adv
+                    i += 1
+                matched_months = sorted(set(matched_months))
+                if len(matched_months) == 1:
+                    month_filter = matched_months[0]
                     last_day = calendar.monthrange(int(y), month_filter)[1]
                     date_from = f"{y}-{month_filter:02d}-01"
                     date_to = f"{y}-{month_filter:02d}-{last_day:02d}"
-                else:
-                    matched_months = []
-                    for m_it in re.finditer(r'\btháng\s+(' + VN_M_PAT + r')\b', q_low):
-                        raw_m_tok = m_it.group(1).strip()
-                        mn = VN_MONTH_WORDS.get(raw_m_tok) or (int(raw_m_tok) if raw_m_tok.isdigit() else None)
-                        if mn and 1 <= mn <= 12:
-                            matched_months.append(mn)
-                    matched_months = sorted(set(matched_months))
-                    if len(matched_months) == 1:
-                        month_filter = matched_months[0]
-                        last_day = calendar.monthrange(int(y), month_filter)[1]
-                        date_from = f"{y}-{month_filter:02d}-01"
-                        date_to = f"{y}-{month_filter:02d}-{last_day:02d}"
-                    elif len(matched_months) >= 2:
-                        sm, em = matched_months[0], matched_months[-1]
-                        last_day = calendar.monthrange(int(y), em)[1]
-                        date_from = f"{y}-{sm:02d}-01"
-                        date_to = f"{y}-{em:02d}-{last_day:02d}"
-                        month_filter = None
+                elif len(matched_months) >= 2:
+                    sm, em = matched_months[0], matched_months[-1]
+                    last_day = calendar.monthrange(int(y), em)[1]
+                    date_from = f"{y}-{sm:02d}-01"
+                    date_to = f"{y}-{em:02d}-{last_day:02d}"
+                    month_filter = None
 
 
         # 5. Trích xuất phòng ban / sở ngành qua DuckDB Catalog động
         dept_code = None
-        admin_scope = self.catalog.resolve_administrative_scope(query)
+        admin_scope = self.catalog.resolve_administrative_scope(raw_input)
         if admin_scope and admin_scope.get("type") == "department":
             dept_code = admin_scope.get("department_code")
 
@@ -1387,11 +1387,11 @@ class CanonicalSemanticNormalizer:
             target_office = admin_scope.get("office_name") or admin_scope.get("name")
 
         if hasattr(self.catalog, "resolve_mission"):
-            target_mission = self.catalog.resolve_mission(query)
+            target_mission = self.catalog.resolve_mission(raw_input)
 
         target_scope = None
-        if ("nhiệm vụ" in q_low or "nhiem vu" in q_low) and hasattr(self.catalog, "extract_scope_from_query"):
-            sc_info = self.catalog.extract_scope_from_query(query)
+        if ("nhiệm vụ" in norm_input or "nhiem vu" in norm_input) and hasattr(self.catalog, "extract_scope_from_query"):
+            sc_info = self.catalog.extract_scope_from_query(raw_input)
             if sc_info and sc_info.get("status") != "NONE":
                 target_scope = sc_info.get("scope_name") or sc_info.get("requested_scope")
 
@@ -1459,10 +1459,10 @@ class CanonicalSemanticNormalizer:
         if candidates:
             # Lọc bỏ các ứng viên trùng tên hiển thị và biến thể đồng nghĩa (ADR-002)
             def _stem_core_local(n: str) -> str:
-                for p in ("số lượng ", "tổng số lượng ", "tổng số ", "tổng ", "số "):
-                    if n.startswith(p):
-                        return n[len(p):].strip()
+                if hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+                    return self.catalog.strip_query_noise(n, "METRIC_AGG_PREFIX_NOISE")
                 return n.strip()
+
 
             unique_candidates = []
             seen_cand_names = set()
@@ -1519,32 +1519,34 @@ class CanonicalSemanticNormalizer:
         """
         clean_query = _strip_bracketed_tags(query)
 
-        # Bóc tách tiền tố chào hỏi nếu là câu ghép để tránh làm nhiễu pipeline ngữ nghĩa
-        greet_prefixes = (
-            "xin chào chatbot", "chào chatbot", "xin chào bot", "chào bot",
-            "xin chào đồng chí", "chào đồng chí", "xin chào bạn", "chào bạn",
-            "xin chào anh", "chào anh", "xin chào chị", "chào chị",
-            "xin chào em", "chào em", "xin chào", "good morning", "chào", "hello", "hi"
-        )
-        farewell_prefixes = ("hẹn gặp lại", "thank you", "tạm biệt", "cảm ơn", "thanks")
-        all_prefixes = sorted((*greet_prefixes, *farewell_prefixes), key=len, reverse=True)
-        q_low_check = clean_query.lower().strip()
+        # Bóc tách tiền tố chào hỏi ủy thác qua Catalog RAM
+        norm_check = clean_query.lower().strip()
+        has_greet_signal = False
+        if hasattr(self, "catalog") and hasattr(self.catalog, "has_lexicon_term"):
+            has_greet_signal = self.catalog.has_lexicon_term(norm_check, "GREETING_LEAD_NOISE")
+        else:
+            has_greet_signal = norm_check.startswith(("xin chào", "chào", "hello", "hi", "tạm biệt", "cảm ơn"))
 
-        # Kiểm tra lời chào hỏi / tạm biệt thuần túy (không truy vấn DWH, không gọi Clarification)
         is_pure_greeting = False
-        for p in all_prefixes:
-            if q_low_check == p or q_low_check.startswith(p + " ") or q_low_check.startswith(p + ","):
-                rem = q_low_check[len(p):].strip(" ,:.-!?")
-                if not rem:
+        if has_greet_signal:
+            if hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+                rem = self.catalog.strip_query_noise(norm_check, "GREETING_LEAD_NOISE")
+                if not rem or not rem.strip(" ,:.-!?"):
                     is_pure_greeting = True
-                    break
+            elif norm_check in ("xin chào", "chào", "hello", "hi", "tạm biệt", "cảm ơn"):
+                is_pure_greeting = True
 
         if is_pure_greeting:
-            is_farewell = any(q_low_check.startswith(p) for p in farewell_prefixes)
+            prov_name = getattr(settings, "PROVINCE_NAME", "cấp tỉnh")
+            is_farewell = False
+            if hasattr(self, "catalog") and hasattr(self.catalog, "has_lexicon_term"):
+                is_farewell = self.catalog.has_lexicon_term(norm_check, "FAREWELL_SIGNAL")
+            else:
+                is_farewell = any(w in norm_check for w in ("tạm biệt", "cảm ơn", "thank", "hẹn gặp lại"))
             direct_ans = (
-                "Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH tỉnh Lâm Đồng. Chúc đồng chí một ngày làm việc hiệu quả!"
+                f"Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH {prov_name}. Chúc đồng chí một ngày làm việc hiệu quả!"
                 if is_farewell else
-                "Xin chào đồng chí! Tôi là Trợ lý Ảo Kho Dữ Liệu DWH tỉnh Lâm Đồng. Tôi có thể hỗ trợ đồng chí tra cứu: "
+                f"Xin chào đồng chí! Tôi là Trợ lý Ảo Kho Dữ Liệu DWH {prov_name}. Tôi có thể hỗ trợ đồng chí tra cứu: "
                 "1. Chỉ tiêu kinh tế - xã hội; "
                 "2. Tình hình phê duyệt báo cáo; "
                 "3. Danh mục nhiệm vụ trọng tâm; "
@@ -1561,10 +1563,9 @@ class CanonicalSemanticNormalizer:
                 year_code=session_year or "2026",
             )
 
-        for p in all_prefixes:
-            if q_low_check.startswith(p + " ") or q_low_check.startswith(p + ","):
-                clean_query = clean_query[len(p):].lstrip(" ,:-.!?")
-                break
+        if has_greet_signal and hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
+            clean_query = self.catalog.strip_query_noise(clean_query, "GREETING_LEAD_NOISE").lstrip(" ,:-.!?")
+
 
         # 0. Kiểm tra Động cơ Làm Rõ Chủ Động (Active Clarification Gate - P-05, P-06, Turn 1 Temporal)
         if hasattr(self, "clarification_engine") and self.clarification_engine:
@@ -1611,79 +1612,116 @@ class CanonicalSemanticNormalizer:
                     clean_query, top_k=3, score_threshold=0.40, tenant_code=session_tenant or "68"
                 )
             nlu = self._parse_query_nlu_llm(clean_query, candidate_metrics=cand_metrics)
-            if nlu:
-                if nlu.intent == "CAPABILITY_INTRO":
-                    stream_a["intent"] = CanonicalIntentEnum.CAPABILITY_INTRO
-                    stream_a["is_out_of_scope"] = False
-                    stream_a["direct_answer"] = None
-                    stream_a["target_table"] = "none"
-                elif nlu.intent == "GREETING_FAREWELL" or getattr(nlu, "is_conversational_only", False):
-                    stream_a["intent"] = CanonicalIntentEnum.GREETING_FAREWELL
-                    stream_a["is_out_of_scope"] = False
-                    stream_a["direct_answer"] = nlu.direct_answer
-                    stream_a["target_table"] = "none"
-                elif nlu.is_out_of_scope:
-                    stream_a["is_out_of_scope"] = True
-                    stream_a["direct_answer"] = nlu.direct_answer
-                    stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
-                elif nlu.intent == "DIMENSION_LISTING":
-                    stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
-                    stream_a["target_table"] = "fact_report_criteria"
-                    stream_a["raw_metric_mentions"] = []
-                    stream_a["subject_entity"] = None
-                    stream_a["target_attribute"] = None
-                    stream_a["aggregation_function"] = "NONE"
-                    stream_a["limit"] = None
-                    if getattr(nlu, "is_inventory_query", False):
-                        stream_a["is_inventory_query"] = True
-                elif nlu.intent == "ENTITY_ATTRIBUTE_LOOKUP":
-                    subj_cand = nlu.subject_entity or stream_a.get("subject_entity")
-                    if subj_cand and getattr(self.catalog, "is_dimension_query", lambda q, d: False)(subj_cand, "criteria"):
-                        stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
-                        stream_a["target_table"] = "fact_report_criteria"
-                        stream_a["raw_metric_mentions"] = []
-                        stream_a["subject_entity"] = None
-                        stream_a["aggregation_function"] = "NONE"
-                        stream_a["limit"] = None
-                    else:
-                        stream_a["intent"] = CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP
-                        stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "fact_report_criteria")
-                        stream_a["subject_entity"] = subj_cand
-                        stream_a["target_attribute"] = nlu.target_attribute or stream_a.get("target_attribute")
-                        if stream_a["subject_entity"]:
-                            stream_a["raw_metric_mentions"] = [stream_a["subject_entity"]]
-                elif nlu.intent == "RELATIONAL_EXPLORATION":
+            self._apply_nlu_to_streams(clean_query, nlu, stream_a, stream_b)
+
+        return self._build_canonical_frame(
+            clean_query=clean_query,
+            stream_a=stream_a,
+            stream_b=stream_b,
+            session_tenant=session_tenant,
+            session_year=session_year,
+            session_dept=session_dept,
+            parent_context=parent_context,
+        )
+
+    def _apply_nlu_to_streams(
+        self,
+        clean_query: str,
+        nlu: Any,
+        stream_a: Dict[str, Any],
+        stream_b: Dict[str, Any],
+    ) -> None:
+        if not nlu:
+            return
+        if nlu.intent == "CAPABILITY_INTRO":
+            stream_a["intent"] = CanonicalIntentEnum.CAPABILITY_INTRO
+            stream_a["is_out_of_scope"] = False
+            stream_a["direct_answer"] = None
+            stream_a["target_table"] = "none"
+        elif nlu.intent == "GREETING_FAREWELL" or getattr(nlu, "is_conversational_only", False):
+            stream_a["intent"] = CanonicalIntentEnum.GREETING_FAREWELL
+            stream_a["is_out_of_scope"] = False
+            stream_a["direct_answer"] = nlu.direct_answer
+            stream_a["target_table"] = "none"
+        elif nlu.is_out_of_scope:
+            stream_a["is_out_of_scope"] = True
+            stream_a["direct_answer"] = nlu.direct_answer
+            stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
+        elif nlu.intent == "DIMENSION_LISTING":
+            stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
+            stream_a["target_table"] = "fact_report_criteria"
+            stream_a["raw_metric_mentions"] = []
+            stream_a["subject_entity"] = None
+            stream_a["target_attribute"] = None
+            stream_a["aggregation_function"] = "NONE"
+            stream_a["limit"] = None
+            if getattr(nlu, "is_inventory_query", False):
+                stream_a["is_inventory_query"] = True
+        elif nlu.intent == "ENTITY_ATTRIBUTE_LOOKUP":
+            subj_cand = nlu.subject_entity or stream_a.get("subject_entity")
+            if subj_cand and getattr(self.catalog, "is_dimension_query", lambda q, d: False)(subj_cand, "criteria"):
+                stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
+                stream_a["target_table"] = "fact_report_criteria"
+                stream_a["raw_metric_mentions"] = []
+                stream_a["subject_entity"] = None
+                stream_a["aggregation_function"] = "NONE"
+                stream_a["limit"] = None
+            else:
+                is_office_mission = (nlu.target_table == "office_mission") or (hasattr(self.catalog, "resolve_target_table") and self.catalog.resolve_target_table(clean_query) == "office_mission")
+                if is_office_mission:
                     stream_a["intent"] = CanonicalIntentEnum.RELATIONAL_EXPLORATION
-                    stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "ward")
-                    stream_a["subject_entity"] = nlu.subject_entity or stream_a.get("subject_entity")
+                    stream_a["target_table"] = "office_mission"
+                    stream_a["subject_entity"] = subj_cand or "Chi cục"
+                    stream_a["target_attribute"] = "nhiệm vụ phụ trách"
+                else:
+                    stream_a["intent"] = CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP
+                    stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "fact_report_criteria")
+                    stream_a["subject_entity"] = subj_cand
                     stream_a["target_attribute"] = nlu.target_attribute or stream_a.get("target_attribute")
-                elif nlu.intent in ("METRIC_POINT_INQUIRY", "METRIC_NUMERIC_CALCULATION"):
-                    if nlu.is_out_of_scope:
-                        stream_a["is_out_of_scope"] = True
-                        stream_a["direct_answer"] = nlu.direct_answer
-                        stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
-                    else:
-                        stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
-                        if nlu.subject_entity:
-                            stream_a["subject_entity"] = nlu.subject_entity
-                            stream_a["raw_metric_mentions"] = [nlu.subject_entity]
-                elif nlu.intent == "METADATA_EXPLORATION":
-                    stream_a["intent"] = CanonicalIntentEnum.METADATA_EXPLORATION
-                    stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "criteria")
+                    if stream_a["subject_entity"]:
+                        stream_a["raw_metric_mentions"] = [stream_a["subject_entity"]]
+        elif nlu.intent == "RELATIONAL_EXPLORATION":
+            stream_a["intent"] = CanonicalIntentEnum.RELATIONAL_EXPLORATION
+            stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "ward")
+            stream_a["subject_entity"] = nlu.subject_entity or stream_a.get("subject_entity")
+            stream_a["target_attribute"] = nlu.target_attribute or stream_a.get("target_attribute")
+        elif nlu.intent in ("METRIC_POINT_INQUIRY", "METRIC_NUMERIC_CALCULATION"):
+            if nlu.is_out_of_scope:
+                stream_a["is_out_of_scope"] = True
+                stream_a["direct_answer"] = nlu.direct_answer
+                stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
+            else:
+                stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
+                if nlu.subject_entity:
+                    stream_a["subject_entity"] = nlu.subject_entity
+                    stream_a["raw_metric_mentions"] = [nlu.subject_entity]
+        elif nlu.intent == "METADATA_EXPLORATION":
+            stream_a["intent"] = CanonicalIntentEnum.METADATA_EXPLORATION
+            stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "criteria")
 
-                if getattr(nlu, "temporal_slot", None) and isinstance(nlu.temporal_slot, dict):
-                    try:
-                        ts_spec = TemporalSlotSpec(**nlu.temporal_slot)
-                        cal_bounds = ts_spec.to_calendar_bounds()
-                        for k, v in cal_bounds.items():
-                            if v and not stream_b.get(k):
-                                stream_b[k] = v
-                    except Exception:
-                        pass
-                    for k, v in nlu.temporal_slot.items():
-                        if v and not stream_b.get(k):
-                            stream_b[k] = v
+        if getattr(nlu, "temporal_slot", None) and isinstance(nlu.temporal_slot, dict):
+            try:
+                ts_spec = TemporalSlotSpec(**nlu.temporal_slot)
+                cal_bounds = ts_spec.to_calendar_bounds()
+                for k, v in cal_bounds.items():
+                    if v and not stream_b.get(k):
+                        stream_b[k] = v
+            except Exception:
+                pass
+            for k, v in nlu.temporal_slot.items():
+                if v and not stream_b.get(k):
+                    stream_b[k] = v
 
+    def _build_canonical_frame(
+        self,
+        clean_query: str,
+        stream_a: Dict[str, Any],
+        stream_b: Dict[str, Any],
+        session_tenant: str = "68",
+        session_year: str = "2026",
+        session_dept: Optional[str] = None,
+        parent_context: Optional[str] = None,
+    ) -> CanonicalQueryFrameDTO:
         # 1. Phân giải địa bàn động (Schema-Driven Dynamic Spatial Resolution)
         spatial_mention = stream_b.get("spatial_mention")
         resolved_tenant = self.catalog.resolve_spatial_tenant(spatial_mention, default_tenant=session_tenant or "68")
@@ -1693,9 +1731,7 @@ class CanonicalSemanticNormalizer:
         is_empty_year = resolved_year in ("2024", "2025")
 
         # 3. Phân giải đơn vị
-        if stream_a.get("target_table") == "office_user_dept":
-            resolved_dept = stream_a.get("department_code")
-        elif stream_a.get("is_inventory_query"):
+        if stream_a.get("is_inventory_query"):
             resolved_dept = stream_a.get("department_code") or stream_b.get("department_code")
         else:
             resolved_dept = stream_a.get("department_code") or stream_b.get("department_code") or session_dept
@@ -1712,6 +1748,7 @@ class CanonicalSemanticNormalizer:
                 CanonicalIntentEnum.OUT_OF_SCOPE,
                 CanonicalIntentEnum.GREETING_FAREWELL,
                 CanonicalIntentEnum.CAPABILITY_INTRO,
+                CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
             )
         ):
             try:
@@ -1724,7 +1761,7 @@ class CanonicalSemanticNormalizer:
                     stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
                     clarif_triggered = True
             except Exception as e:
-                logger.debug("Lỗi check_clarification_needed trong normalize_query: %s", e)
+                logger.debug("Lỗi check_clarification_needed trong _build_canonical_frame: %s", e)
 
         if not clarif_triggered:
             if stream_a["intent"] in (
@@ -1735,6 +1772,7 @@ class CanonicalSemanticNormalizer:
                 CanonicalIntentEnum.RELATIONAL_EXPLORATION,
                 CanonicalIntentEnum.OFFICER_ASSIGNMENT,
                 CanonicalIntentEnum.GREETING_FAREWELL,
+                CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
             ):
                 canonical_names = []
                 canonical_ids = []
@@ -1752,87 +1790,59 @@ class CanonicalSemanticNormalizer:
                 ambig_status = "RESOLVED"
                 clarification_cands = []
             else:
-                canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
-                    query=clean_query,
-                    raw_mentions=stream_a.get("raw_metric_mentions", []),
-                    tenant_code=resolved_tenant,
-                )
+                h_info = None
                 if hasattr(self.catalog, "classify_criterion_hierarchy"):
-                    q_low_c = clean_query.lower()
-                    h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+                    try:
+                        h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+                    except TypeError:
+                        h_info = self.catalog.classify_criterion_hierarchy(clean_query)
+
+                if (
+                    h_info
+                    and h_info.get("matched_name")
+                    and h_info.get("classification") in ("parent", "parent_group", "duplicate_leaf", "single_leaf")
+                    and (h_info.get("parent_code") or h_info.get("codes") or h_info.get("item"))
+                ):
+                    m_name_h = h_info["matched_name"]
+                    m_code_h = h_info.get("matched_code")
+                    canonical_names = [m_name_h]
+                    if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
+                        canonical_ids = list(h_info.get("codes"))
+                    else:
+                        canonical_ids = [m_code_h] if m_code_h else []
+                    ambig_status = "RESOLVED"
+                    clarification_cands = []
+                else:
+                    canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
+                        query=clean_query,
+                        raw_mentions=stream_a.get("raw_metric_mentions", []),
+                        tenant_code=resolved_tenant,
+                    )
                     if h_info and h_info.get("matched_name"):
                         m_name_h = h_info["matched_name"]
                         m_code_h = h_info.get("matched_code")
-                        alias_leaf_codes = (
-                            "dien_tich_muoi_san_xuat_cong_nghiep",
-                            "dien_tich_muoi_san_xuat_thu_cong",
-                            "san_luong_muoi_san_xuat_cong_nghiep",
-                            "san_luong_muoi_san_xuat_thu_cong",
-                            "lien_ket_san_xuat",
-                            "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep",
-                            "dang_hoat_dong",
-                            "chuyen_doi_so",
-                            "tam_ngung_hoat_dong",
-                            "giai_the",
-                            "ung_dung_cong_nghe_cao",
-                            "lang_nghe_truyen_thong",
-                            "thanh_lap_moi_trong_nam",
-                            "tong_so_hien_co",
-                            "thanh_vien",
-                            "tong_ho_san_xuat_muoi",
-                            "loi_nhuan_binh_quan",
-                            "thu_nhap_binh_quan",
-                            "nong_nghiep_khac",
-                            "an_toan_thuc_pham_vietgap",
-                            "che_bien_sau",
-                            "lien_ket_tieu_thu_san_pham",
-                            "tong_so_lao_dong",
-                            "so_luong_san_pham_ocop_3_sao_duoc_cong_nhan_trong_nam",
-                            "so_luong_san_pham_ocop_4_sao_duoc_cong_nhan_trong_nam",
-                            "so_luong_san_pham_ocop_5_sao_duoc_cong_nhan_trong_nam",
-                        )
-                        q_norm_c = " ".join(q_low_c.split())
-                        m_norm_h = " ".join(m_name_h.lower().split())
-                        if h_info.get("classification") in ("parent", "parent_group") and (
-                            len(m_name_h) >= 12
-                            or "chỉ tiêu" in q_low_c
-                            or "chi tieu" in q_low_c
-                            or "làng nghề, ngành nghề" in q_low_c
-                            or "diện tích sản xuất muối" in q_low_c
-                            or "sản lượng muối" in q_low_c
-                            or "sản phẩm ocop" in q_low_c
-                            or "số lượng htx" in q_low_c
-                            or "số lượng hợp tác xã" in q_low_c
-                        ):
+                        q_norm_c = " ".join(clean_query.lower().split())
+                        if h_info.get("classification") in ("parent", "parent_group"):
                             canonical_names = [m_name_h]
                             canonical_ids = [m_code_h] if m_code_h else []
                             ambig_status = "RESOLVED"
                             clarification_cands = []
-                        elif (
-                            h_info.get("classification") in ("duplicate_leaf", "single_leaf")
-                            and (
-                                m_norm_h in q_norm_c
-                                or m_norm_h.replace("truyền thồng", "truyền thống").replace("sản xuất muôi", "sản xuất muối") in q_norm_c
-                                or m_code_h in alias_leaf_codes
-                                or bool(h_info.get("item"))
-                            )
-                            and (
+                        elif h_info.get("classification") in ("duplicate_leaf", "single_leaf"):
+                            if (
                                 not canonical_names
                                 or " ".join(canonical_names[0].lower().split()) not in q_norm_c
                                 or len(m_name_h) >= len(canonical_names[0])
                                 or ambig_status == "AMBIGUOUS"
                                 or h_info.get("classification") == "duplicate_leaf"
-                                or m_code_h in alias_leaf_codes
                                 or bool(h_info.get("item"))
-                            )
-                        ):
-                            canonical_names = [m_name_h]
-                            if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
-                                canonical_ids = list(h_info.get("codes"))
-                            else:
-                                canonical_ids = [m_code_h] if m_code_h else []
-                            ambig_status = "RESOLVED"
-                            clarification_cands = []
+                            ):
+                                canonical_names = [m_name_h]
+                                if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
+                                    canonical_ids = list(h_info.get("codes"))
+                                else:
+                                    canonical_ids = [m_code_h] if m_code_h else []
+                                ambig_status = "RESOLVED"
+                                clarification_cands = []
 
         return CanonicalQueryFrameDTO(
             user_query=clean_query,
@@ -1863,360 +1873,20 @@ class CanonicalSemanticNormalizer:
             date_to=stream_b.get("date_to"),
             month_filter=stream_b.get("month_filter"),
             specific_date=stream_b.get("specific_date"),
-            target_office=stream_a.get("target_office") or stream_b.get("target_office"),
+            target_office=None if stream_a["intent"] == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT else (stream_a.get("target_office") or stream_b.get("target_office")),
             target_mission=stream_a.get("target_mission") or stream_b.get("target_mission"),
             target_scope=stream_a.get("target_scope") or stream_b.get("target_scope"),
             target_position=stream_a.get("target_position"),
             target_user_name=stream_a.get("target_user_name"),
-            is_inventory_query=stream_a.get("is_inventory_query", False) and stream_b.get("month_filter") is None and stream_b.get("date_from") is None,
+            is_inventory_query=stream_a.get("is_inventory_query", False) and stream_b.get("month_filter") is None and stream_b.get("date_from") is None and stream_b.get("date_to") is None and stream_b.get("specific_date") is None,
             is_level1_hierarchy_view=stream_a.get("is_level1_hierarchy_view", False),
             clarification_message=stream_a.get("clarification_message"),
             parent_criterion_context=parent_context,
+            status_filter=stream_a.get("status_filter"),
+            audit_sub_intent=stream_a.get("audit_sub_intent"),
+            include_draft_comparison=stream_a.get("include_draft_comparison", False),
         )
 
-    async def _extract_streams_llm(self, query: str) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """
-        Dual-Stream Ingestion: Chạy Stream B (Temporal & Spatial Delta) trước để cấp context
-        thời gian/địa bàn cho Stream A (Intent & Metric).
-        """
-        try:
-            loop = asyncio.get_running_loop()
-            stream_b = await loop.run_in_executor(None, self._extract_stream_b_deterministic, query)
-            stream_a = await loop.run_in_executor(None, self._extract_stream_a_deterministic, query, stream_b)
-            return stream_a, stream_b
-        except Exception as e:
-            logger.warning("Lỗi Dual-Stream Ingestion: %s. Fallback deterministic.", e)
-            stream_b = self._extract_stream_b_deterministic(query)
-            return self._extract_stream_a_deterministic(query, stream_b=stream_b), stream_b
-
-    async def normalize_query_async(
-        self,
-        query: str,
-        session_tenant: str = "68",
-        session_year: str = "2026",
-        session_dept: Optional[str] = None,
-        parent_context: Optional[str] = None,
-    ) -> CanonicalQueryFrameDTO:
-        """
-        Phiên bản bất đồng bộ của normalize_query với Dual-Stream song song qua asyncio.gather().
-        """
-        clean_query = _strip_bracketed_tags(query)
-
-        # 0. Kiểm tra Động cơ Làm Rõ Chủ Động (Active Clarification Gate - P-05, P-06, Turn 1 Temporal)
-        if hasattr(self, "clarification_engine") and self.clarification_engine:
-            if not self._is_officer_query(clean_query):
-                is_needed, slots, options, labels = self.clarification_engine.check_clarification_needed(clean_query)
-                if is_needed and options:
-                    if "metric_code" in slots or "metric" in slots:
-                        return CanonicalQueryFrameDTO(
-                            user_query=clean_query,
-                            intent=CanonicalIntentEnum.METRIC_POINT_INQUIRY,
-                            target_table="fact_report_criteria",
-                            ambiguity_status="AMBIGUOUS",
-                            clarification_candidates=[opt.label for opt in options],
-                            canonical_metric_names=[opt.label for opt in options],
-                            canonical_metric_ids=[opt.value for opt in options],
-                            tenant_code=session_tenant or "68",
-                            year_code=session_year or "2026",
-                        )
-                    else:
-                        return CanonicalQueryFrameDTO(
-                            user_query=clean_query,
-                            intent=CanonicalIntentEnum.METRIC_POINT_INQUIRY,
-                            target_table="fact_report_criteria",
-                            ambiguity_status="AMBIGUOUS",
-                            clarification_candidates=[opt.label for opt in options],
-                            canonical_metric_names=[],
-                            canonical_metric_ids=[],
-                            tenant_code=session_tenant or "68",
-                            year_code=session_year or "2026",
-                        )
-
-        stream_a, stream_b = await self._extract_streams_llm(clean_query)
-
-        # PA 4.1: Neuro-Symbolic Calendar Contract & Bounded CoT Invariant Gate
-        try:
-            if stream_b.get("specific_date"):
-                parts_d = str(stream_b["specific_date"]).split("-")
-                if len(parts_d) == 3:
-                    t_spec = TemporalSlotSpec(
-                        granularity="EXACT_DATE",
-                        year=int(parts_d[0]),
-                        month_start=int(parts_d[1]),
-                        day=int(parts_d[2]),
-                    )
-                    _, _, norm_spec = t_spec.to_calendar_bounds()
-                    if norm_spec:
-                        stream_b["specific_date"] = norm_spec
-        except Exception as e:
-            logger.debug("TemporalSlotSpec validation fallback (async): %s", e)
-
-        # NLU Model-Driven Parser
-        # Tra cứu dynamic từ Catalog metadata
-        is_fact_calc = stream_a.get("is_fact_calc", False)
-
-        if stream_a["intent"] != CanonicalIntentEnum.METRIC_POINT_INQUIRY or is_fact_calc:
-            pass
-        else:
-            cand_metrics = []
-            if hasattr(self.catalog, "retrieve_candidate_metrics"):
-                cand_metrics = self.catalog.retrieve_candidate_metrics(
-                    clean_query, top_k=3, score_threshold=0.40, tenant_code=session_tenant or "68"
-                )
-            loop = asyncio.get_running_loop()
-            nlu = await loop.run_in_executor(None, self._parse_query_nlu_llm, clean_query, cand_metrics)
-            if nlu:
-                if nlu.intent == "CAPABILITY_INTRO":
-                    stream_a["intent"] = CanonicalIntentEnum.CAPABILITY_INTRO
-                    stream_a["is_out_of_scope"] = False
-                    stream_a["direct_answer"] = None
-                    stream_a["target_table"] = "none"
-                elif nlu.intent == "GREETING_FAREWELL" or getattr(nlu, "is_conversational_only", False):
-                    stream_a["intent"] = CanonicalIntentEnum.GREETING_FAREWELL
-                    stream_a["is_out_of_scope"] = False
-                    stream_a["direct_answer"] = nlu.direct_answer
-                    stream_a["target_table"] = "none"
-                elif nlu.is_out_of_scope:
-                    stream_a["is_out_of_scope"] = True
-                    stream_a["direct_answer"] = nlu.direct_answer
-                    stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
-                elif nlu.intent == "DIMENSION_LISTING":
-                    stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
-                    stream_a["target_table"] = "fact_report_criteria"
-                    stream_a["raw_metric_mentions"] = []
-                    stream_a["subject_entity"] = None
-                    stream_a["target_attribute"] = None
-                    stream_a["aggregation_function"] = "NONE"
-                    stream_a["limit"] = None
-                    if getattr(nlu, "is_inventory_query", False):
-                        stream_a["is_inventory_query"] = True
-                elif nlu.intent == "ENTITY_ATTRIBUTE_LOOKUP":
-                    subj_cand = nlu.subject_entity or stream_a.get("subject_entity")
-                    if subj_cand and getattr(self.catalog, "is_dimension_query", lambda q, d: False)(subj_cand, "criteria"):
-                        stream_a["intent"] = CanonicalIntentEnum.DIMENSION_LISTING
-                        stream_a["target_table"] = "fact_report_criteria"
-                        stream_a["raw_metric_mentions"] = []
-                        stream_a["subject_entity"] = None
-                        stream_a["aggregation_function"] = "NONE"
-                        stream_a["limit"] = None
-                    else:
-                        is_office_mission = (nlu.target_table == "office_mission") or (hasattr(self.catalog, "resolve_target_table") and self.catalog.resolve_target_table(clean_query) == "office_mission")
-                        if is_office_mission:
-                            stream_a["intent"] = CanonicalIntentEnum.RELATIONAL_EXPLORATION
-                            stream_a["target_table"] = "office_mission"
-                            stream_a["subject_entity"] = subj_cand or "Chi cục"
-                            stream_a["target_attribute"] = "nhiệm vụ phụ trách"
-                        else:
-                            stream_a["intent"] = CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP
-                            stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "fact_report_criteria")
-                            stream_a["subject_entity"] = subj_cand
-                            stream_a["target_attribute"] = nlu.target_attribute or stream_a.get("target_attribute")
-                            if stream_a["subject_entity"]:
-                                stream_a["raw_metric_mentions"] = [stream_a["subject_entity"]]
-                elif nlu.intent == "RELATIONAL_EXPLORATION":
-                    stream_a["intent"] = CanonicalIntentEnum.RELATIONAL_EXPLORATION
-                    stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "ward")
-                    stream_a["subject_entity"] = nlu.subject_entity or stream_a.get("subject_entity")
-                    stream_a["target_attribute"] = nlu.target_attribute or stream_a.get("target_attribute")
-                elif nlu.intent in ("METRIC_POINT_INQUIRY", "METRIC_NUMERIC_CALCULATION"):
-                    if nlu.is_out_of_scope:
-                        stream_a["is_out_of_scope"] = True
-                        stream_a["direct_answer"] = nlu.direct_answer
-                        stream_a["intent"] = CanonicalIntentEnum.OUT_OF_SCOPE
-                    else:
-                        stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
-                        if nlu.subject_entity:
-                            stream_a["subject_entity"] = nlu.subject_entity
-                            stream_a["raw_metric_mentions"] = [nlu.subject_entity]
-                elif nlu.intent == "METADATA_EXPLORATION":
-                    stream_a["intent"] = CanonicalIntentEnum.METADATA_EXPLORATION
-                    stream_a["target_table"] = nlu.target_table or (self.catalog.resolve_target_table(clean_query) if hasattr(self.catalog, "resolve_target_table") else "criteria")
-
-        spatial_mention = stream_b.get("spatial_mention")
-        resolved_tenant = self.catalog.resolve_spatial_tenant(spatial_mention, default_tenant=session_tenant or "68")
-        resolved_year = stream_b.get("year_code") or session_year or "2026"
-        is_empty_year = resolved_year in ("2024", "2025")
-        if stream_a.get("target_table") == "office_user_dept":
-            resolved_dept = stream_a.get("department_code")
-        elif stream_a.get("is_inventory_query"):
-            resolved_dept = stream_a.get("department_code") or stream_b.get("department_code")
-        else:
-            resolved_dept = stream_a.get("department_code") or stream_b.get("department_code") or session_dept
-
-        # 4. Phân giải chỉ tiêu (Two-Stage Hybrid Selection + Ambiguity Gate)
-        clarif_triggered = False
-        if (
-            hasattr(self, "clarification_engine")
-            and self.clarification_engine
-            and stream_b.get("date_from") is None
-            and stream_b.get("month_filter") is None
-            and stream_b.get("specific_date") is None
-            and stream_a["intent"] not in (
-                CanonicalIntentEnum.OUT_OF_SCOPE,
-                CanonicalIntentEnum.GREETING_FAREWELL,
-                CanonicalIntentEnum.CAPABILITY_INTRO,
-            )
-        ):
-            try:
-                is_needed, slots, options, labels = self.clarification_engine.check_clarification_needed(clean_query)
-                if is_needed and options and "metric_code" in slots:
-                    canonical_names = [opt.label for opt in options]
-                    canonical_ids = [str(opt.value) for opt in options]
-                    ambig_status = "AMBIGUOUS"
-                    clarification_cands = [opt.label for opt in options]
-                    stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
-                    clarif_triggered = True
-            except Exception as e:
-                logger.debug("Lỗi check_clarification_needed trong normalize_query_async: %s", e)
-
-        if not clarif_triggered:
-            if stream_a["intent"] in (
-                CanonicalIntentEnum.METADATA_EXPLORATION,
-                CanonicalIntentEnum.DIMENSION_LISTING,
-                CanonicalIntentEnum.CAPABILITY_INTRO,
-                CanonicalIntentEnum.OUT_OF_SCOPE,
-                CanonicalIntentEnum.RELATIONAL_EXPLORATION,
-                CanonicalIntentEnum.OFFICER_ASSIGNMENT,
-                CanonicalIntentEnum.GREETING_FAREWELL,
-            ):
-                canonical_names = []
-                canonical_ids = []
-                ambig_status = "RESOLVED"
-                clarification_cands = []
-            elif stream_a["intent"] == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
-                subj = stream_a.get("subject_entity") or (stream_a.get("raw_metric_mentions", [""])[0] if stream_a.get("raw_metric_mentions") else "")
-                cands, _, _ = self.catalog.find_top_k_candidates(subj, top_k=1, tenant_code=resolved_tenant)
-                if cands:
-                    canonical_names = [cands[0]["name"]]
-                    canonical_ids = [cands[0].get("id") or cands[0].get("code") or ""]
-                else:
-                    canonical_names = [subj] if subj else []
-                    canonical_ids = []
-                ambig_status = "RESOLVED"
-                clarification_cands = []
-            else:
-                canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
-                    query=clean_query,
-                    raw_mentions=stream_a.get("raw_metric_mentions", []),
-                    tenant_code=resolved_tenant,
-                )
-                if hasattr(self.catalog, "classify_criterion_hierarchy"):
-                    q_low_c = clean_query.lower()
-                    try:
-                        h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
-                    except TypeError:
-                        h_info = self.catalog.classify_criterion_hierarchy(clean_query)
-                    if h_info and h_info.get("matched_name"):
-                        m_name_h = h_info["matched_name"]
-                        m_code_h = h_info.get("matched_code")
-                        alias_leaf_codes = (
-                            "dien_tich_muoi_san_xuat_cong_nghiep",
-                            "dien_tich_muoi_san_xuat_thu_cong",
-                            "san_luong_muoi_san_xuat_cong_nghiep",
-                            "san_luong_muoi_san_xuat_thu_cong",
-                            "lien_ket_san_xuat",
-                            "doanh_thu_binh_quan_trong_nam_cua_mot_hop_tac_xa_nong_nghiep",
-                            "dang_hoat_dong",
-                            "chuyen_doi_so",
-                            "tam_ngung_hoat_dong",
-                            "giai_the",
-                            "ung_dung_cong_nghe_cao",
-                            "lang_nghe_truyen_thong",
-                            "thanh_lap_moi_trong_nam",
-                            "tong_so_hien_co",
-                            "thanh_vien",
-                            "tong_ho_san_xuat_muoi",
-                            "loi_nhuan_binh_quan",
-                            "thu_nhap_binh_quan",
-                            "nong_nghiep_khac",
-                            "an_toan_thuc_pham_vietgap",
-                            "che_bien_sau",
-                            "lien_ket_tieu_thu_san_pham",
-                            "tong_so_lao_dong",
-                            "so_luong_san_pham_ocop_3_sao_duoc_cong_nhan_trong_nam",
-                            "so_luong_san_pham_ocop_4_sao_duoc_cong_nhan_trong_nam",
-                            "so_luong_san_pham_ocop_5_sao_duoc_cong_nhan_trong_nam",
-                        )
-                        if h_info.get("classification") in ("parent", "parent_group") and (
-                            len(m_name_h) >= 12
-                            or "chỉ tiêu" in q_low_c
-                            or "chi tieu" in q_low_c
-                            or "làng nghề, ngành nghề" in q_low_c
-                            or "diện tích sản xuất muối" in q_low_c
-                            or "sản lượng muối" in q_low_c
-                            or "sản phẩm ocop" in q_low_c
-                            or "số lượng htx" in q_low_c
-                            or "số lượng hợp tác xã" in q_low_c
-                        ):
-                            canonical_names = [m_name_h]
-                            canonical_ids = [m_code_h] if m_code_h else []
-                            ambig_status = "RESOLVED"
-                            clarification_cands = []
-                        elif (
-                            h_info.get("classification") in ("duplicate_leaf", "single_leaf")
-                            and (
-                                m_name_h.lower() in q_low_c
-                                or m_name_h.lower().replace("truyền thồng", "truyền thống").replace("sản xuất muôi", "sản xuất muối") in q_low_c
-                                or m_code_h in alias_leaf_codes
-                                or bool(h_info.get("item"))
-                            )
-                            and (
-                                not canonical_names
-                                or canonical_names[0].lower() not in q_low_c
-                                or len(m_name_h) >= len(canonical_names[0])
-                                or ambig_status == "AMBIGUOUS"
-                                or h_info.get("classification") == "duplicate_leaf"
-                                or m_code_h in alias_leaf_codes
-                                or bool(h_info.get("item"))
-                            )
-                        ):
-                            canonical_names = [m_name_h]
-                            if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
-                                canonical_ids = list(h_info.get("codes"))
-                            else:
-                                canonical_ids = [m_code_h] if m_code_h else []
-                            ambig_status = "RESOLVED"
-                            clarification_cands = []
-
-        return CanonicalQueryFrameDTO(
-            user_query=clean_query,
-            intent=stream_a["intent"],
-            target_table=stream_a["target_table"],
-            is_out_of_scope=stream_a.get("is_out_of_scope", False),
-            direct_answer=stream_a.get("direct_answer"),
-            subject_entity=None if stream_a["intent"] == CanonicalIntentEnum.DIMENSION_LISTING else stream_a.get("subject_entity"),
-            target_attribute=stream_a.get("target_attribute"),
-            exclude_entities=stream_a.get("exclude_entities", []),
-            search_keyword=stream_a.get("search_keyword"),
-            canonical_metric_names=canonical_names,
-            canonical_metric_ids=canonical_ids,
-            raw_metric_mentions=[] if stream_a["intent"] == CanonicalIntentEnum.DIMENSION_LISTING else stream_a.get("raw_metric_mentions", []),
-            spatial_mention=spatial_mention,
-            tenant_code=resolved_tenant,
-            year_code=resolved_year,
-            department_code=resolved_dept,
-            aggregation_function=stream_a["aggregation_function"],
-            ambiguity_status=ambig_status,
-            clarification_candidates=clarification_cands,
-            is_snapshot_dedup_needed=stream_a["intent"] in (CanonicalIntentEnum.METRIC_TOP_K, CanonicalIntentEnum.METRIC_GROWTH_YOY),
-            sort_direction=stream_a["sort_direction"],
-            limit=stream_a["limit"],
-            is_empty_year=is_empty_year,
-            time_series_periods=stream_b.get("time_series_periods", []),
-            date_from=stream_b.get("date_from"),
-            date_to=stream_b.get("date_to"),
-            month_filter=stream_b.get("month_filter"),
-            specific_date=stream_b.get("specific_date"),
-            target_office=stream_a.get("target_office") or stream_b.get("target_office"),
-            target_mission=stream_a.get("target_mission") or stream_b.get("target_mission"),
-            target_scope=stream_a.get("target_scope") or stream_b.get("target_scope"),
-            target_position=stream_a.get("target_position"),
-            target_user_name=stream_a.get("target_user_name"),
-            is_inventory_query=stream_a.get("is_inventory_query", False) and stream_b.get("month_filter") is None and stream_b.get("date_from") is None,
-            is_level1_hierarchy_view=stream_a.get("is_level1_hierarchy_view", False),
-            clarification_message=stream_a.get("clarification_message"),
-            parent_criterion_context=parent_context,
-        )
 
     # --------------------------------------------------------------------------
     # DETERMINISTIC SQL SYNTHESIS (TẦNG 2: BIÊN DỊCH AST TẤT ĐỊNH)
@@ -2231,6 +1901,209 @@ class CanonicalSemanticNormalizer:
             return ""
 
         limit_clause = f"\nLIMIT {frame.limit};" if frame.limit else ";"
+
+        # 0.1. REPORT_FORM_MISSION_AUDIT (REQ-Q05: SC-5.1, SC-5.2, SC-5.3)
+        if frame.intent == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT:
+            t_code = (frame.tenant_code or "68").replace("'", "''")
+            y_code = (frame.year_code or "2026").replace("'", "''")
+            sub_intent = frame.audit_sub_intent or "REPORT_SUBMISSION_STATUS"
+
+            if sub_intent == "MISSION_ASSIGNMENT_MATRIX" or frame.target_table == "mission_assignment_matrix":
+                scope_cond = ""
+                if frame.target_scope:
+                    sc_esc = frame.target_scope.replace("'", "''")
+                    scope_cond = f"\n  AND sl.scope_name ILIKE '%{sc_esc}%'"
+                mis_cond = ""
+                if frame.target_mission:
+                    m_esc = frame.target_mission.replace("'", "''")
+                    mis_cond = f"\n  AND m.mission_name ILIKE '%{m_esc}%'"
+                return (
+                    f"WITH office_agg AS (\n"
+                    f"    SELECT om.mission_id,\n"
+                    f"           COUNT(DISTINCT o.id) AS office_count,\n"
+                    f"           STRING_AGG(DISTINCT o.office_name, ', ' ORDER BY o.office_name) AS assigned_offices\n"
+                    f"    FROM dwh_internal.office_mission om\n"
+                    f"    JOIN dwh_internal.office o ON om.office_id = o.id\n"
+                    f"    WHERE om.tenant_code = '{t_code}'\n"
+                    f"      AND om.deleted_date IS NULL\n"
+                    f"      AND o.deleted_at IS NULL\n"
+                    f"    GROUP BY om.mission_id\n"
+                    f"),\n"
+                    f"user_role_lookup AS (\n"
+                    f"    SELECT ou.user_id, ou.office_id, ou.role\n"
+                    f"    FROM dwh_internal.office_user ou\n"
+                    f"    WHERE ou.is_active = true\n"
+                    f"),\n"
+                    f"user_agg AS (\n"
+                    f"    SELECT um.mission_id,\n"
+                    f"           COUNT(DISTINCT u.id) AS officer_count,\n"
+                    f"           STRING_AGG(DISTINCT um.office_name, ', ' ORDER BY um.office_name) AS officer_offices,\n"
+                    f"           STRING_AGG(\n"
+                    f"               DISTINCT (\n"
+                    f"                   u.name || ' (' || COALESCE(u.username, '-') || ')'\n"
+                    f"                   || ' - Chức vụ: ' || COALESCE(u.position, '-')\n"
+                    f"                   || ' - Vai trò: ' || COALESCE(url.role, '-')\n"
+                    f"                   || ' (' || COALESCE(um.office_name, '-') || ')'\n"
+                    f"               ),\n"
+                    f"               '; '\n"
+                    f"           ) AS assigned_officers\n"
+                    f"    FROM dwh_internal.user_mission um\n"
+                    f"    JOIN dwh_internal.\"user\" u ON um.user_id = u.id\n"
+                    f"    LEFT JOIN user_role_lookup url ON url.user_id = u.id AND url.office_id = um.office_id\n"
+                    f"    WHERE um.tenant_code = '{t_code}'\n"
+                    f"      AND um.deleted_date IS NULL\n"
+                    f"      AND u.deleted_at IS NULL\n"
+                    f"    GROUP BY um.mission_id\n"
+                    f"),\n"
+                    f"scope_lookup AS (\n"
+                    f"    SELECT s.id, s.scope_name\n"
+                    f"    FROM dwh_internal.scope s\n"
+                    f"    WHERE s.tenant_code = '{t_code}'\n"
+                    f"      AND s.deleted_date IS NULL\n"
+                    f")\n"
+                    f"SELECT m.mission_code,\n"
+                    f"       m.mission_name,\n"
+                    f"       COALESCE(sl.scope_name, 'Chưa phân loại') AS scope_name,\n"
+                    f"       COALESCE(oa.office_count, 0) AS office_count,\n"
+                    f"       COALESCE(oa.assigned_offices, 'Chưa phân công phòng ban') AS assigned_offices,\n"
+                    f"       COALESCE(ua.officer_count, 0) AS officer_count,\n"
+                    f"       COALESCE(ua.officer_offices, '') AS officer_offices,\n"
+                    f"       COALESCE(ua.assigned_officers, 'Chưa phân công cán bộ') AS assigned_officers\n"
+                    f"FROM dwh_internal.mission m\n"
+                    f"LEFT JOIN scope_lookup sl ON m.scope_id = sl.id\n"
+                    f"LEFT JOIN office_agg oa ON m.id = oa.mission_id\n"
+                    f"LEFT JOIN user_agg ua ON m.id = ua.mission_id\n"
+                    f"WHERE m.tenant_code = '{t_code}'\n"
+                    f"  AND m.year_code = '{y_code}'{scope_cond}{mis_cond}\n"
+                    f"ORDER BY m.mission_code ASC;"
+                )
+
+            if sub_intent == "FORM_CRITERIA_GROUP" or frame.target_table == "criteria_group":
+                cg_status_cond = ""
+                if frame.blocked_draft_access or frame.status_filter == ["approved"]:
+                    cg_status_cond = "\n  AND cg.status = 'active'"
+                return (
+                    f"WITH crit_agg AS (\n"
+                    f"    SELECT cg.id AS group_id,\n"
+                    f"           COUNT(DISTINCT CASE WHEN c.parent_id IS NULL THEN c.id END) AS root_criteria_count,\n"
+                    f"           COUNT(DISTINCT c.id) AS total_criteria_count,\n"
+                    f"           STRING_AGG(\n"
+                    f"               DISTINCT CASE WHEN c.parent_id IS NULL THEN c.name END,\n"
+                    f"               '; '\n"
+                    f"               ORDER BY CASE WHEN c.parent_id IS NULL THEN c.name END\n"
+                    f"           ) AS root_criteria_names,\n"
+                    f"           STRING_AGG(DISTINCT m.mission_name, ', ' ORDER BY m.mission_name) AS mission_names,\n"
+                    f"           STRING_AGG(DISTINCT s.scope_name, ', ' ORDER BY s.scope_name) AS scope_names\n"
+                    f"    FROM dwh_internal.criteria_group cg\n"
+                    f"    LEFT JOIN dwh_internal.mission m\n"
+                    f"      ON m.id = ANY(cg.mission_ids) AND m.deleted_date IS NULL\n"
+                    f"    LEFT JOIN dwh_internal.scope s\n"
+                    f"      ON s.id = ANY(cg.scope_ids) AND s.deleted_date IS NULL\n"
+                    f"    LEFT JOIN dwh_internal.criteria c\n"
+                    f"      ON c.mission_id::text = ANY(string_to_array(trim(both '{{}}' from cg.mission_ids::text), ','))\n"
+                    f"     AND c.deleted_date IS NULL\n"
+                    f"    WHERE cg.tenant_code = '{t_code}'\n"
+                    f"      AND cg.year_code = '{y_code}'\n"
+                    f"      AND cg.deleted_date IS NULL\n"
+                    f"    GROUP BY cg.id\n"
+                    f"),\n"
+                    f"fact_group_agg AS (\n"
+                    f"    SELECT f.criteria_group_id AS group_id,\n"
+                    f"           COUNT(f.fact_sk) AS tong_ban_ghi,\n"
+                    f"           COUNT(DISTINCT f.criteria_id) AS so_chi_tieu\n"
+                    f"    FROM dwh_internal.fact_report_criteria f\n"
+                    f"    WHERE f.tenant_code = '{t_code}'\n"
+                    f"      AND f.year_code = '{y_code}'\n"
+                    f"      AND f.report_status IN ('approved', 'draft')\n"
+                    f"    GROUP BY f.criteria_group_id\n"
+                    f"),\n"
+                    f"form_stats AS (\n"
+                    f"    SELECT COUNT(*) AS collection_form_count\n"
+                    f"    FROM dwh_internal.collection_form cf\n"
+                    f"    WHERE cf.tenant_code = '{t_code}'\n"
+                    f"      AND cf.deleted_date IS NULL\n"
+                    f")\n"
+                    f"SELECT cg.id::text AS group_id,\n"
+                    f"       cg.name AS group_name,\n"
+                    f"       cg.status AS group_status,\n"
+                    f"       cg.year_code,\n"
+                    f"       cg.department_code,\n"
+                    f"       COALESCE(cg.created_by, '-') AS created_by,\n"
+                    f"       COALESCE(ca.mission_names, '-') AS mission_names,\n"
+                    f"       COALESCE(ca.scope_names, '-') AS scope_names,\n"
+                    f"       COALESCE(ca.root_criteria_count, 0) AS root_criteria_count,\n"
+                    f"       COALESCE(ca.total_criteria_count, fga.so_chi_tieu, 0) AS total_criteria_count,\n"
+                    f"       COALESCE(ca.total_criteria_count, fga.so_chi_tieu, 0) AS so_chi_tieu,\n"
+                    f"       COALESCE(fga.tong_ban_ghi, 0) AS tong_ban_ghi,\n"
+                    f"       COALESCE(ca.root_criteria_names, '-') AS root_criteria_names,\n"
+                    f"       COALESCE((SELECT collection_form_count FROM form_stats), 0) AS collection_form_total\n"
+                    f"FROM dwh_internal.criteria_group cg\n"
+                    f"LEFT JOIN crit_agg ca ON cg.id = ca.group_id\n"
+                    f"LEFT JOIN fact_group_agg fga ON cg.id = fga.group_id\n"
+                    f"WHERE cg.tenant_code = '{t_code}'\n"
+                    f"  AND cg.year_code = '{y_code}'\n"
+                    f"  AND cg.deleted_date IS NULL{cg_status_cond}\n"
+                    f"ORDER BY CASE WHEN cg.status = 'active' THEN 1 ELSE 2 END,\n"
+                    f"         cg.name ASC,\n"
+                    f"         cg.created_date DESC NULLS LAST;"
+                )
+
+            # Default sub-intent: REPORT_SUBMISSION_STATUS (SC-5.1)
+            eff_statuses = [str(s).strip().lower() for s in (frame.status_filter or ["approved", "draft", "pending"]) if str(s).strip()]
+            if frame.blocked_draft_access or eff_statuses == ["approved"]:
+                f_status_clause = "AND f.report_status = 'approved'"
+                r_status_clause = "AND r.status = 'approved'"
+            elif "all" in eff_statuses:
+                f_status_clause = ""
+                r_status_clause = ""
+            else:
+                quoted_st = ", ".join(f"'{s}'" for s in eff_statuses)
+                f_status_clause = f"AND f.report_status IN ({quoted_st})"
+                r_status_clause = f"AND r.status IN ({quoted_st})"
+
+            return (
+                f"WITH fact_agg AS (\n"
+                f"    SELECT f.report_id,\n"
+                f"           MAX(f.office_id::text)::uuid AS office_id,\n"
+                f"           STRING_AGG(DISTINCT f.mission_name, ', ' ORDER BY f.mission_name) AS mission_name,\n"
+                f"           COUNT(f.fact_sk) AS fact_row_count,\n"
+                f"           COUNT(DISTINCT f.criteria_id) AS criteria_count,\n"
+                f"           COUNT(DISTINCT CASE WHEN NULLIF(TRIM(f.value), '') IS NOT NULL AND TRIM(value) != '-' THEN f.criteria_id END) AS recorded_criteria_count\n"
+                f"    FROM dwh_internal.fact_report_criteria f\n"
+                f"    WHERE f.tenant_code = '{t_code}'\n"
+                f"      AND f.year_code = '{y_code}'\n"
+                f"      {f_status_clause}\n"
+                f"    GROUP BY f.report_id\n"
+                f"),\n"
+                f"office_lookup AS (\n"
+                f"    SELECT o.id, o.office_name\n"
+                f"    FROM dwh_internal.office o\n"
+                f"    WHERE o.tenant_code = '{t_code}'\n"
+                f"      AND o.deleted_at IS NULL\n"
+                f")\n"
+                f"SELECT r.id::text AS report_id,\n"
+                f"       r.report_date::date::text AS report_date,\n"
+                f"       r.submitted_date::date::text AS submitted_date,\n"
+                f"       r.status AS report_status,\n"
+                f"       r.year_code,\n"
+                f"       r.department_code,\n"
+                f"       COALESCE(r.created_by, '-') AS created_by,\n"
+                f"       COALESCE(ol.office_name, 'Chi cục') AS office_name,\n"
+                f"       COALESCE(fa.mission_name, '-') AS mission_name,\n"
+                f"       COALESCE(fa.fact_row_count, 0) AS fact_row_count,\n"
+                f"       COALESCE(fa.criteria_count, 0) AS criteria_count,\n"
+                f"       COALESCE(fa.recorded_criteria_count, 0) AS recorded_criteria_count\n"
+                f"FROM dwh_internal.report r\n"
+                f"LEFT JOIN fact_agg fa ON r.id = fa.report_id\n"
+                f"LEFT JOIN office_lookup ol ON fa.office_id = ol.id\n"
+                f"WHERE r.tenant_code = '{t_code}'\n"
+                f"  AND r.year_code = '{y_code}'\n"
+                f"  AND r.deleted_date IS NULL\n"
+                f"  {r_status_clause}\n"
+                f"ORDER BY CASE WHEN r.status = 'approved' THEN 1 WHEN r.status = 'draft' THEN 2 ELSE 3 END,\n"
+                f"         r.report_date DESC NULLS LAST,\n"
+                f"         r.submitted_date DESC NULLS LAST;"
+            )
 
         # ENTITY_ATTRIBUTE_LOOKUP: Tra cứu đơn vị / tỉnh thực hiện của chỉ tiêu KTXH
         if frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
@@ -2289,264 +2162,6 @@ class CanonicalSemanticNormalizer:
                     f"WHERE {where_clause}\n"
                     f"ORDER BY {order_by}{limit_clause}"
                 )
-            if frame.target_table == "ward_mission_scope":
-                w_name = frame.target_ward or frame.subject_entity or ""
-                w_esc = w_name.replace("'", "''")
-                w_cond = f"(w.name ILIKE '%{w_esc}%')"
-                if any(k in w_esc.lower() for k in ["d''ran", "đ''ran", "dran", "đran", "ran"]):
-                    w_cond = "(w.name ILIKE '%D''Ran%' OR w.name ILIKE '%Đ''Ran%' OR w.name ILIKE '%Dran%')"
-                elif "phường 1" in w_esc.lower():
-                    w_cond = "(w.name ILIKE '%Phường 1 Bảo Lộc%' OR w.code = '70303006')"
-                elif "phường 2" in w_esc.lower():
-                    w_cond = "(w.name ILIKE '%Phường 2 Bảo Lộc%')"
-
-                if frame.aggregation_function == "COUNT":
-                    return (
-                        f"SELECT DISTINCT w.name AS ten_xa, s.scope_name, COUNT(DISTINCT m.id) AS so_nhiem_vu\n"
-                        f"FROM dwh_internal.ward w\n"
-                        f"JOIN dwh_internal.office o ON w.province_code = o.tenant_code\n"
-                        f"JOIN dwh_internal.office_mission om ON o.id = om.office_id\n"
-                        f"JOIN dwh_internal.mission m ON om.mission_id = m.id\n"
-                        f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
-                        f"WHERE w.province_code = '{frame.tenant_code}'\n"
-                        f"  AND {w_cond}\n"
-                        f"GROUP BY w.name, s.scope_name\n"
-                        f"ORDER BY so_nhiem_vu DESC;"
-                    )
-                else:
-                    return (
-                        f"SELECT w.name AS ten_xa, o.office_name, m.mission_name, s.scope_name\n"
-                        f"FROM dwh_internal.ward w\n"
-                        f"JOIN dwh_internal.office o ON w.province_code = o.tenant_code\n"
-                        f"JOIN dwh_internal.office_mission om ON o.id = om.office_id\n"
-                        f"JOIN dwh_internal.mission m ON om.mission_id = m.id\n"
-                        f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
-                        f"WHERE w.province_code = '{frame.tenant_code}'\n"
-                        f"  AND {w_cond}\n"
-                        f"ORDER BY m.mission_name{limit_clause}"
-                    )
-            if frame.target_table == "office_user_dept":
-                if frame.subject_entity:
-                    dept_esc = frame.subject_entity.replace("'", "''")
-                    return (
-                        f"SELECT u.department_name, o.department_code, COUNT(DISTINCT o.id) AS tong_so_office, string_agg(DISTINCT o.office_name, ', ') AS danh_sach_office\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.\"user\" u ON o.department_code = u.department_code\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND u.department_name ILIKE '%{dept_esc}%'\n"
-                        f"GROUP BY u.department_name, o.department_code;"
-                    )
-                elif frame.department_code:
-                    return (
-                        f"SELECT DISTINCT o.office_name, o.department_code, u.department_name\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.\"user\" u ON o.department_code = u.department_code\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND o.department_code = '{frame.department_code}'\n"
-                        f"ORDER BY o.office_name;"
-                    )
-                else:
-                    return (
-                        f"SELECT u.department_name, o.department_code, COUNT(DISTINCT o.id) AS tong_so_office, string_agg(DISTINCT o.office_name, ', ') AS danh_sach_office\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.\"user\" u ON o.department_code = u.department_code\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY u.department_name, o.department_code\n"
-                        f"ORDER BY tong_so_office DESC;"
-                    )
-
-            if frame.target_table == "office_user":
-                if frame.target_office:
-                    off_esc = frame.target_office.replace("'", "''")
-                    return (
-                        f"SELECT o.office_name, u.name AS ten_can_bo, ou.role AS vai_tro, u.position, u.department_name\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.office_user ou ON o.id = ou.office_id\n"
-                        f"JOIN dwh_internal.\"user\" u ON ou.user_id = u.id\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND o.office_name = '{off_esc}'\n"
-                        f"ORDER BY u.name;"
-                    )
-                elif frame.target_position:
-                    role_esc = frame.target_position.replace("'", "''")
-                    return (
-                        f"SELECT o.office_name, u.name AS ten_can_bo, ou.role AS vai_tro, u.department_name\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.office_user ou ON o.id = ou.office_id\n"
-                        f"JOIN dwh_internal.\"user\" u ON ou.user_id = u.id\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND ou.role = '{role_esc}'\n"
-                        f"ORDER BY o.office_name, u.name;"
-                    )
-                else:
-                    return (
-                        f"SELECT o.office_name, u.name AS ten_can_bo, ou.role AS vai_tro, u.department_name\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.office_user ou ON o.id = ou.office_id\n"
-                        f"JOIN dwh_internal.\"user\" u ON ou.user_id = u.id\n"
-                        f"WHERE o.tenant_code = '{frame.tenant_code}'\n"
-                        f"ORDER BY o.office_name, u.name;"
-                    )
-
-            if frame.target_table == "mission_user_scope":
-                if frame.target_mission:
-                    m_esc = frame.target_mission.replace("'", "''")
-                    if frame.search_keyword == "with_office":
-                        return (
-                            f"SELECT m.mission_name, s.scope_name, um.office_name, COUNT(DISTINCT um.user_id) AS so_can_bo\n"
-                            f"FROM dwh_internal.mission m\n"
-                            f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
-                            f"JOIN dwh_internal.user_mission um ON m.id = um.mission_id\n"
-                            f"WHERE m.tenant_code = '{frame.tenant_code}'\n"
-                            f"  AND m.mission_name = '{m_esc}'\n"
-                            f"GROUP BY m.mission_name, s.scope_name, um.office_name;"
-                        )
-                    else:
-                        return (
-                            f"SELECT m.mission_name, s.scope_name, COUNT(DISTINCT um.user_id) AS so_can_bo_phu_trach\n"
-                            f"FROM dwh_internal.mission m\n"
-                            f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
-                            f"JOIN dwh_internal.user_mission um ON m.id = um.mission_id\n"
-                            f"WHERE m.tenant_code = '{frame.tenant_code}'\n"
-                            f"  AND m.mission_name = '{m_esc}'\n"
-                            f"GROUP BY m.mission_name, s.scope_name;"
-                        )
-                else:
-                    return (
-                        f"SELECT m.mission_name, s.scope_name, COUNT(DISTINCT um.user_id) AS so_can_bo_phu_trach\n"
-                        f"FROM dwh_internal.mission m\n"
-                        f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
-                        f"JOIN dwh_internal.user_mission um ON m.id = um.mission_id\n"
-                        f"WHERE m.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY m.mission_name, s.scope_name\n"
-                        f"ORDER BY so_can_bo_phu_trach DESC;"
-                    )
-
-            if frame.target_table == "fact_report_scope":
-                q_raw = (frame.search_keyword or "").lower()
-                if frame.aggregation_function == "COUNT":
-                    return (
-                        f"SELECT f.report_status, r.status AS report_lifecycle_status, s.scope_name, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu\n"
-                        f"FROM dwh_internal.fact_report_criteria f\n"
-                        f"JOIN dwh_internal.report r ON f.report_id = r.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY f.report_status, r.status, s.scope_name\n"
-                        f"ORDER BY so_chi_tieu DESC;"
-                    )
-                elif frame.subject_entity and "nông nghiệp" in frame.subject_entity.lower():
-                    return (
-                        f"SELECT DISTINCT f.name AS ten_chi_tieu, f.report_status, r.status AS report_status_life, s.scope_name\n"
-                        f"FROM dwh_internal.fact_report_criteria f\n"
-                        f"JOIN dwh_internal.report r ON f.report_id = r.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND s.scope_name = 'Nông nghiệp'\n"
-                        f"ORDER BY f.name\n"
-                        f"LIMIT 10;"
-                    )
-                else:
-                    crit_filter = ""
-                    crit_name = frame.search_keyword or (frame.canonical_metric_names[0] if frame.canonical_metric_names else None)
-                    if crit_name:
-                        c_esc = crit_name.replace("'", "''")
-                        crit_filter = f"  AND (f.code = '{c_esc}' OR f.name ILIKE '%{c_esc}%')\n"
-                    return (
-                        f"SELECT f.name AS ten_chi_tieu, f.report_status, r.status AS report_lifecycle_status, s.scope_name, r.report_date\n"
-                        f"FROM dwh_internal.fact_report_criteria f\n"
-                        f"JOIN dwh_internal.report r ON f.report_id = r.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"{crit_filter}"
-                        f"ORDER BY r.report_date DESC\n"
-                        f"LIMIT 5;"
-                    )
-
-            if frame.target_table == "fact_office_scope":
-                if frame.search_keyword == "pct":
-                    return (
-                        f"SELECT o.office_name, s.scope_name, COUNT(DISTINCT f.criteria_id) AS tong_chi_tieu, COUNT(DISTINCT CASE WHEN f.report_status = 'approved' THEN f.criteria_id END) AS chi_tieu_approved, ROUND(COUNT(DISTINCT CASE WHEN f.report_status = 'approved' THEN f.criteria_id END)::numeric / NULLIF(COUNT(DISTINCT f.criteria_id), 0) * 100, 2) AS ty_le_approved_pct\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON o.id = f.office_id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY o.office_name, s.scope_name;"
-                    )
-                elif frame.search_keyword == "fact_records":
-                    return (
-                        f"SELECT o.office_name, s.scope_name, f.year_code, COUNT(f.fact_sk) AS tong_ban_ghi_fact\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON o.id = f.office_id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY o.office_name, s.scope_name, f.year_code\n"
-                        f"ORDER BY tong_ban_ghi_fact DESC;"
-                    )
-                elif frame.target_office:
-                    off_esc = frame.target_office.replace("'", "''")
-                    return (
-                        f"SELECT o.office_name, s.scope_name, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_approved\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON o.id = f.office_id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.report_status = 'approved'\n"
-                        f"  AND f.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND o.office_name = '{off_esc}'\n"
-                        f"GROUP BY o.office_name, s.scope_name;"
-                    )
-                else:
-                    return (
-                        f"SELECT o.office_name, s.scope_name, COUNT(DISTINCT f.criteria_id) AS so_chi_tieu_approved\n"
-                        f"FROM dwh_internal.office o\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON o.id = f.office_id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.report_status = 'approved'\n"
-                        f"  AND f.tenant_code = '{frame.tenant_code}'\n"
-                        f"GROUP BY o.office_name, s.scope_name\n"
-                        f"ORDER BY so_chi_tieu_approved DESC;"
-                    )
-
-            if frame.target_table == "criteria_fact_office_scope":
-                if frame.search_keyword == "approved_year":
-                    return (
-                        f"SELECT DISTINCT c.name AS ten_chi_tieu, o.office_name, s.scope_name, f.year_code\n"
-                        f"FROM dwh_internal.criteria c\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON c.id = f.criteria_id\n"
-                        f"JOIN dwh_internal.office o ON f.office_id = o.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND f.report_status = 'approved'\n"
-                        f"ORDER BY c.name\n"
-                        f"LIMIT 10;"
-                    )
-                elif frame.target_office:
-                    off_esc = frame.target_office.replace("'", "''")
-                    return (
-                        f"SELECT DISTINCT c.name AS ten_chi_tieu, o.office_name, s.scope_name\n"
-                        f"FROM dwh_internal.criteria c\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON c.id = f.criteria_id\n"
-                        f"JOIN dwh_internal.office o ON f.office_id = o.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"  AND o.office_name = '{off_esc}'\n"
-                        f"ORDER BY c.name\n"
-                        f"LIMIT 10;"
-                    )
-                else:
-                    crit_filter = ""
-                    crit_name = frame.search_keyword or (frame.canonical_metric_names[0] if frame.canonical_metric_names else None)
-                    if crit_name:
-                        c_esc = crit_name.replace("'", "''")
-                        crit_filter = f"  AND (c.code = '{c_esc}' OR c.name ILIKE '%{c_esc}%')"
-                    return (
-                        f"SELECT DISTINCT c.name AS ten_chi_tieu, o.office_name, s.scope_name\n"
-                        f"FROM dwh_internal.criteria c\n"
-                        f"JOIN dwh_internal.fact_report_criteria f ON c.id = f.criteria_id\n"
-                        f"JOIN dwh_internal.office o ON f.office_id = o.id\n"
-                        f"JOIN dwh_internal.scope s ON f.scope_id = s.id\n"
-                        f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
-                        f"{crit_filter};"
-                    )
 
         # OFFICER_ASSIGNMENT: Tra cứu cán bộ phụ trách nhiệm vụ
         if frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT:
@@ -2566,16 +2181,12 @@ class CanonicalSemanticNormalizer:
                 conds.append(f"u.position ILIKE '%{p_esc}%'")
             if frame.target_user_name:
                 u_esc = frame.target_user_name.replace("'", "''")
-                u_search = u_esc
-                for pref in ("cán bộ ", "chuyên viên ", "đồng chí "):
-                    if u_search.lower().startswith(pref):
-                        u_search = u_search[len(pref):].strip()
+                u_search = self.catalog.strip_query_noise(u_esc, "OFFICER_PREFIX_NOISE") if hasattr(self.catalog, "strip_query_noise") else u_esc
                 u_esc_clean = u_search.replace("'", "''")
                 conds.append(f"u.name ILIKE '%{u_esc_clean}%'")
             where_clause = " AND ".join(conds)
 
-            is_position_needed = bool(frame.target_position) or (frame.target_user_name and "lành" in frame.target_user_name.lower())
-            cols = "u.name AS ten_can_bo, u.position, m.mission_name, s.scope_name, um.office_name" if is_position_needed else "u.name AS ten_can_bo, m.mission_name, s.scope_name, um.office_name"
+            cols = "u.name AS ten_can_bo, u.position, m.mission_name, s.scope_name, um.office_name"
             order_clause = "m.mission_name ASC" if frame.target_user_name else "u.name, m.mission_name"
 
             return (
@@ -2588,15 +2199,18 @@ class CanonicalSemanticNormalizer:
                 f"ORDER BY {order_clause}{limit_clause}"
             )
 
-        if frame.department_code == "68-1-07":
-            dept_clause = "AND f.department_code IN ('68-1-07', '68-1-01')"
-        elif frame.department_code:
-            dept_clause = f"AND f.department_code = '{frame.department_code}'"
+        if frame.department_code:
+            dept_codes = self.catalog.get_associated_department_codes(frame.department_code) if hasattr(self.catalog, "get_associated_department_codes") else [frame.department_code]
+            if len(dept_codes) > 1:
+                in_list = ", ".join(f"'{c}'" for c in dept_codes)
+                dept_clause = f"AND f.department_code IN ({in_list})"
+            else:
+                dept_clause = f"AND f.department_code = '{dept_codes[0]}'"
         else:
             dept_clause = ""
         metric_name = frame.canonical_metric_names[0] if frame.canonical_metric_names else ""
-        if metric_name.lower().startswith("chỉ tiêu "):
-            metric_name = metric_name[len("chỉ tiêu "):].strip()
+        if hasattr(self.catalog, "strip_query_noise"):
+            metric_name = self.catalog.strip_query_noise(metric_name, "METRIC_PREFIX_NOISE")
         metric_escaped = metric_name.replace("'", "''")
 
         # 0. DIMENSION_LISTING: Liệt kê danh mục chỉ tiêu theo chuỗi thời gian, đơn vị hoặc kiểm kê hệ thống
@@ -2610,6 +2224,12 @@ class CanonicalSemanticNormalizer:
                 temporal_clause = f"  AND f.report_date >= '{frame.date_from}'\n"
                 if frame.date_to:
                     temporal_clause += f"  AND f.report_date::date <= '{frame.date_to}'\n"
+                if frame.year_code:
+                    temporal_clause += f"  AND f.year_code = '{frame.year_code}'\n"
+            elif frame.specific_date is not None:
+                temporal_clause = f"  AND f.report_date::date <= '{frame.specific_date}'::date\n"
+                if frame.year_code:
+                    temporal_clause += f"  AND f.year_code = '{frame.year_code}'\n"
             elif frame.year_code:
                 temporal_clause = f"  AND f.year_code = '{frame.year_code}'\n"
 
@@ -2643,10 +2263,13 @@ class CanonicalSemanticNormalizer:
                 mis_esc = raw_mis.replace("'", "''")
                 mission_filter_clause = f"  AND f.mission_name ILIKE '%{mis_esc}%'\n"
 
-            if frame.department_code == "68-1-07":
-                dept_clause_dl = "  AND f.department_code IN ('68-1-07', '68-1-01')\n"
-            elif frame.department_code:
-                dept_clause_dl = f"  AND f.department_code = '{frame.department_code}'\n"
+            if frame.department_code:
+                dept_codes_dl = self.catalog.get_associated_department_codes(frame.department_code) if hasattr(self.catalog, "get_associated_department_codes") else [frame.department_code]
+                if len(dept_codes_dl) > 1:
+                    in_list_dl = ", ".join(f"'{c}'" for c in dept_codes_dl)
+                    dept_clause_dl = f"  AND f.department_code IN ({in_list_dl})\n"
+                else:
+                    dept_clause_dl = f"  AND f.department_code = '{dept_codes_dl[0]}'\n"
             else:
                 dept_clause_dl = ""
 
@@ -2708,6 +2331,8 @@ class CanonicalSemanticNormalizer:
 
             if (is_dup_name and not is_multi_branch and cand_id_esc) or cand_id_esc in ("lang_nghe_truyen_thong", "san_xuat_muoi"):
                 cand_cond = f"f.code = '{cand_id_esc}'"
+            elif metric_name and cand_id_esc and not is_dup_name:
+                cand_cond = f"(TRIM(f.name) ILIKE '{metric_escaped}' OR f.code = '{cand_id_esc}')"
             elif metric_name:
                 cand_cond = f"TRIM(f.name) ILIKE '{metric_escaped}'"
             elif cand_id_esc:
@@ -2773,6 +2398,7 @@ class CanonicalSemanticNormalizer:
                     f"{where_block}\n"
                     f")\n"
                     f"SELECT\n"
+                    f"    lf.criteria_id,\n"
                     f"    lf.ten_chi_tieu,\n"
                     f"    lf.gia_tri_moi_nhat,\n"
                     f"    lf.ten_nhiem_vu,\n"
@@ -2810,6 +2436,7 @@ class CanonicalSemanticNormalizer:
                     f"{where_block}\n"
                     f")\n"
                     f"SELECT\n"
+                    f"    lf.criteria_id,\n"
                     f"    lf.ten_chi_tieu,\n"
                     f"    lf.gia_tri_moi_nhat,\n"
                     f"    lf.ten_nhiem_vu,\n"

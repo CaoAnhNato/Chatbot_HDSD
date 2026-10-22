@@ -79,5 +79,7 @@ class SanitizedSQLDTO(BaseModel):
     )
     is_safe: bool = Field(default=True, description="Cờ xác nhận an toàn tuyệt đối (Security Violation Rate = 0.0%)")
     ast_valid: bool = Field(default=True, description="Đạt chuẩn cú pháp PostgreSQL 16")
+    blocked_draft_access: bool = Field(default=False, description="True nếu người dùng cấp 3 bị chặn truy cập dữ liệu draft/pending")
     latency_ms: float = Field(default=0.0, description="Thời gian xử lý của Module 06 trong RAM (ms)")
     trace_id: str = Field(default="", description="Trace ID phân tán")
+

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from rapidfuzz import fuzz
 
 logger = logging.getLogger("ipgov.mod03.discourse_state_tracker")
@@ -41,6 +41,30 @@ class DialogueStateFrame(BaseModel):
     raw_query: str = ""
     keywords: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("topic_entity", mode="before")
+    @classmethod
+    def _coerce_topic_entity(cls, v: Any) -> str:
+        if v is None:
+            return ""
+        if isinstance(v, (list, tuple, set)):
+            return " | ".join(str(x).strip() for x in v if x)
+        return str(v)
+
+    @field_validator("keywords", mode="before")
+    @classmethod
+    def _coerce_keywords(cls, v: Any) -> List[str]:
+        if not v:
+            return []
+        if isinstance(v, str):
+            return [v]
+        flat: List[str] = []
+        for item in v:
+            if isinstance(item, (list, tuple, set)):
+                flat.extend(str(x).strip() for x in item if x)
+            elif item:
+                flat.append(str(item).strip())
+        return flat
 
 
 class HierarchicalFocusStack:
@@ -169,13 +193,19 @@ class DiscourseStateTracker:
         Trích xuất thực thể chủ đề từ câu hỏi động qua DuckDB Catalog RAM.
         Không sử dụng topic_map tĩnh.
         """
+        res_val = None
         if catalog and hasattr(catalog, "resolve_topic_entity"):
-            return catalog.resolve_topic_entity(text)
-        if catalog and hasattr(catalog, "find_criteria_by_name"):
-            res = catalog.find_criteria_by_name(text, limit=1)
-            if res:
-                return res[0].get("name")
-        return None
+            res_val = catalog.resolve_topic_entity(text)
+        if not res_val and catalog and hasattr(catalog, "classify_criterion_hierarchy"):
+            try:
+                h = catalog.classify_criterion_hierarchy(text)
+                if h and h.get("matched_name"):
+                    res_val = h.get("matched_name")
+            except Exception:
+                res_val = None
+        if isinstance(res_val, (list, tuple, set)):
+            return ", ".join(str(x) for x in res_val if x is not None)
+        return str(res_val) if res_val is not None else None
 
     def is_attribute_followup(self, text: str, catalog: Any = None) -> bool:
         """
@@ -186,11 +216,13 @@ class DiscourseStateTracker:
         """
         if not text:
             return False
+        attr = self.extract_metric_attribute(text, catalog=catalog)
+        if not attr:
+            return False
         if catalog and hasattr(catalog, "resolve_metric_id"):
             if catalog.resolve_metric_id(text.strip()):
                 return False
-        attr = self.extract_metric_attribute(text, catalog=catalog)
-        return bool(attr)
+        return True
 
     def process_turn(
         self,
@@ -221,6 +253,11 @@ class DiscourseStateTracker:
         # Nạp trực tiếp từ Cognitive Planner JSON output nếu có
         p_slots = planner_slots or {}
         topic_from_planner = p_slots.get("topic_entity")
+        if isinstance(topic_from_planner, (list, tuple, set)):
+            topic_from_planner = ", ".join(str(x) for x in topic_from_planner if x is not None)
+        elif topic_from_planner is not None:
+            topic_from_planner = str(topic_from_planner)
+
         metric_from_planner = p_slots.get("metric_attribute")
         year_from_planner = p_slots.get("temporal_slot")
         spatial_from_planner = p_slots.get("spatial_slot")
@@ -231,6 +268,11 @@ class DiscourseStateTracker:
 
         metric_attr = metric_from_planner or self.extract_metric_attribute(q_clean, catalog=catalog)
         explicit_topic = topic_from_planner or self.extract_topic_entity(q_clean, catalog=catalog)
+        if isinstance(explicit_topic, (list, tuple, set)):
+            explicit_topic = ", ".join(str(x) for x in explicit_topic if x is not None)
+        elif explicit_topic is not None:
+            explicit_topic = str(explicit_topic)
+
         is_attr_query = self.is_attribute_followup(q_clean, catalog=catalog) if not metric_from_planner else bool(metric_from_planner and not explicit_topic)
 
         effective_year = year_from_planner or explicit_year

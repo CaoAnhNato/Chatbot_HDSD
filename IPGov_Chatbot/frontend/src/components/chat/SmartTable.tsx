@@ -19,21 +19,30 @@ import {
 interface SmartTableProps {
   tabularData?: TabularData;
   children?: React.ReactNode;
+  onSelectChip?: (chip: string) => void;
 }
 
 // Hàm trích xuất text thuần từ cây React Nodes
-function extractTextFromReactNode(node: any): string {
-  if (node === null || node === undefined) return '';
+export function extractTextFromReactNode(node: any): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(extractTextFromReactNode).join('');
-  if (React.isValidElement(node) && node.props && (node.props as any).children) {
+  if (
+    React.isValidElement(node) &&
+    node.props &&
+    (node.props as any).children !== undefined &&
+    (node.props as any).children !== null
+  ) {
     return extractTextFromReactNode((node.props as any).children);
   }
   return '';
 }
 
-// Phân tích thẻ <table> HTML/ReactNode do ReactMarkdown sinh ra khi không có tabularData
-function parseTableFromChildren(children: React.ReactNode): { columns: TableColumn[]; rows: Record<string, any>[] } {
+// Phân tích thẻ <table> HTML/ReactNode do ReactMarkdown sinh ra
+export function parseTableFromChildren(children: React.ReactNode): {
+  columns: TableColumn[];
+  rows: Record<string, any>[];
+} {
   const columns: TableColumn[] = [];
   const rows: Record<string, any>[] = [];
 
@@ -50,23 +59,32 @@ function parseTableFromChildren(children: React.ReactNode): { columns: TableColu
         React.Children.forEach(theadChildren, (tr) => {
           if (!React.isValidElement(tr)) return;
           const trChildren = (tr.props as any)?.children;
-          React.Children.forEach(trChildren, (th, idx) => {
+          let hIdx = 0;
+          React.Children.forEach(trChildren, (th) => {
             if (!React.isValidElement(th)) return;
             const text = extractTextFromReactNode(th).trim();
             const alignAttr = (th.props as any)?.align || 'left';
-            const align = alignAttr === 'center' ? 'center' : alignAttr === 'right' ? 'right' : 'left';
+            const align =
+              alignAttr === 'center' ? 'center' : alignAttr === 'right' ? 'right' : 'left';
             const isBadge = ['trạng thái', 'tình trạng', 'status', 'phê duyệt'].some((k) =>
               text.toLowerCase().includes(k)
             );
-            const isNum = ['stt', 'số lượng', 'kinh phí', 'tổng', 'giá trị', 'mục'].some((k) =>
-              text.toLowerCase().includes(k)
-            );
+            const isNum = [
+              'stt',
+              'số lượng',
+              'kinh phí',
+              'tổng',
+              'giá trị',
+              'chênh lệch',
+              'số chỉ tiêu',
+            ].some((k) => text.toLowerCase().includes(k));
             columns.push({
-              key: `col_${idx}`,
-              label: text || `Cột ${idx + 1}`,
+              key: `col_${hIdx}`,
+              label: text || `Cột ${hIdx + 1}`,
               align: isNum && !text.toLowerCase().includes('stt') ? 'right' : align,
               data_type: isBadge ? 'badge' : isNum ? 'number' : 'text',
             });
+            hIdx++;
           });
         });
       }
@@ -74,7 +92,7 @@ function parseTableFromChildren(children: React.ReactNode): { columns: TableColu
       // Xử lý tbody
       if (typeName === 'tbody' || typeName.includes('tbody')) {
         const tbodyChildren = (child.props as any)?.children;
-        React.Children.forEach(tbodyChildren, (tr, rIdx) => {
+        React.Children.forEach(tbodyChildren, (tr) => {
           if (!React.isValidElement(tr)) return;
           const trChildren = (tr.props as any)?.children;
           const rowData: Record<string, any> = {};
@@ -96,15 +114,17 @@ function parseTableFromChildren(children: React.ReactNode): { columns: TableColu
         const trChildren = (child.props as any)?.children;
         if (columns.length === 0) {
           // Coi dòng tr đầu tiên là header
-          React.Children.forEach(trChildren, (cell, idx) => {
+          let hIdx = 0;
+          React.Children.forEach(trChildren, (cell) => {
             if (!React.isValidElement(cell)) return;
             const text = extractTextFromReactNode(cell).trim();
             columns.push({
-              key: `col_${idx}`,
-              label: text || `Cột ${idx + 1}`,
+              key: `col_${hIdx}`,
+              label: text || `Cột ${hIdx + 1}`,
               align: 'left',
               data_type: 'text',
             });
+            hIdx++;
           });
         } else {
           // Các dòng tr tiếp theo là dữ liệu
@@ -129,27 +149,178 @@ function parseTableFromChildren(children: React.ReactNode): { columns: TableColu
   return { columns, rows };
 }
 
+export function normalizeHeaderLabel(label: string): string {
+  return String(label || '')
+    .toLowerCase()
+    .replace(/[`*_~]/g, '')
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+export function doHeadersMatch(mdCols: TableColumn[], tdCols: TableColumn[]): boolean {
+  if (mdCols.length === 0 || mdCols.length !== tdCols.length) return false;
+  let matchCount = 0;
+  for (let i = 0; i < mdCols.length; i++) {
+    const mdNorm = normalizeHeaderLabel(mdCols[i].label);
+    const tdNorm = normalizeHeaderLabel(tdCols[i].label);
+    const tdKey = String(tdCols[i].key || '').toLowerCase().trim();
+    if (
+      mdNorm === tdNorm ||
+      mdNorm === tdKey ||
+      (mdNorm.length >= 4 && tdNorm.length >= 4 && (mdNorm.includes(tdNorm) || tdNorm.includes(mdNorm)))
+    ) {
+      matchCount++;
+    } else if (
+      (mdNorm.includes('chỉ tiêu') &&
+        tdNorm.includes('chỉ tiêu') &&
+        mdNorm.includes('số liệu') &&
+        tdNorm.includes('số liệu')) ||
+      (mdNorm.includes('chỉ tiêu gốc') && tdNorm.includes('chỉ tiêu gốc'))
+    ) {
+      matchCount++;
+    }
+  }
+  return matchCount === mdCols.length;
+}
+
+export function doFirstRowMatch(
+  mdRows: Record<string, any>[],
+  mdCols: TableColumn[],
+  tdRows: Record<string, any>[],
+  tdCols: TableColumn[]
+): boolean {
+  if (mdRows.length === 0 || tdRows.length === 0) return true;
+  const mdRow0 = mdRows[0] || {};
+  const tdRow0 = tdRows[0] || {};
+  let nonSttCount = 0;
+  let matchedCount = 0;
+
+  for (let i = 0; i < mdCols.length; i++) {
+    const labelNorm = normalizeHeaderLabel(mdCols[i].label);
+    const keyNorm = String(tdCols[i]?.key || '').toLowerCase().trim();
+    if (labelNorm === 'stt' || keyNorm === 'stt') continue;
+    nonSttCount++;
+
+    const mdVal = cleanDisplayString(mdRow0[mdCols[i].key]).toLowerCase();
+    const tdVal = cleanDisplayString(tdRow0[tdCols[i]?.key ?? mdCols[i].key]).toLowerCase();
+    if (
+      mdVal === tdVal ||
+      (mdVal.length > 0 && tdVal.length > 0 && (mdVal.includes(tdVal) || tdVal.includes(mdVal)))
+    ) {
+      matchedCount++;
+    }
+  }
+
+  if (nonSttCount === 0) return true;
+  return matchedCount >= Math.ceil(nonSttCount / 2);
+}
+
+export function resolveSmartTableData(
+  tabularData?: TabularData,
+  children?: React.ReactNode
+): {
+  columns: TableColumn[];
+  rows: Record<string, any>[];
+  title?: string;
+  treeModal: Record<string, any>;
+} {
+  const parsed = parseTableFromChildren(children);
+  const mdColumns = parsed.columns;
+  const mdRows = parsed.rows;
+
+  const tdColumns: TableColumn[] = Array.isArray(tabularData?.columns)
+    ? tabularData!.columns
+    : Array.isArray(tabularData) && (tabularData as any[]).length > 0 && typeof (tabularData as any[])[0] === 'object'
+    ? Object.keys((tabularData as any[])[0]).map((k) => ({
+        key: k,
+        label: k,
+        align: 'left',
+        data_type: 'text',
+      }))
+    : [];
+
+  const tdRows: Record<string, any>[] = Array.isArray(tabularData?.rows)
+    ? tabularData!.rows
+    : Array.isArray(tabularData)
+    ? (tabularData as any[])
+    : [];
+
+  const hasTabularData = tdColumns.length > 0;
+  const rawTreeModal =
+    (tabularData as any)?.tree_modal || (tabularData as any)?.trees_by_root_id || {};
+
+  // (a) Không có mdRows được phân tích từ children -> dùng trực tiếp tabularData nếu có
+  if (mdRows.length === 0 && mdColumns.length === 0 && hasTabularData) {
+    return {
+      columns: tdColumns,
+      rows: tdRows,
+      title: (tabularData as any)?.title,
+      treeModal: rawTreeModal,
+    };
+  }
+
+  // (b) Bảng Markdown có số cột, tên header, số dòng và dòng đầu khớp với tabularData -> làm giàu dữ liệu từ tabularData
+  if (
+    hasTabularData &&
+    mdColumns.length === tdColumns.length &&
+    mdRows.length === tdRows.length &&
+    doHeadersMatch(mdColumns, tdColumns) &&
+    doFirstRowMatch(mdRows, mdColumns, tdRows, tdColumns)
+  ) {
+    const enrichedColumns: TableColumn[] = mdColumns.map((mdCol, idx) => {
+      const tdCol = tdColumns[idx];
+      return {
+        key: tdCol?.key || mdCol.key,
+        label: mdCol.label || tdCol?.label || `Cột ${idx + 1}`,
+        align: tdCol?.align || mdCol.align,
+        data_type: tdCol?.data_type || mdCol.data_type,
+      };
+    });
+
+    const enrichedRows: Record<string, any>[] = mdRows.map((mdRow, rIdx) => {
+      const tdRow = tdRows[rIdx] || {};
+      const merged: Record<string, any> = { ...tdRow, ...mdRow };
+      mdColumns.forEach((mdCol, cIdx) => {
+        const targetKey = tdColumns[cIdx]?.key || mdCol.key;
+        if (mdRow[mdCol.key] !== undefined && mdRow[mdCol.key] !== '') {
+          merged[targetKey] = mdRow[mdCol.key];
+        } else if (tdRow[targetKey] !== undefined) {
+          merged[targetKey] = tdRow[targetKey];
+        }
+      });
+      return merged;
+    });
+
+    return {
+      columns: enrichedColumns,
+      rows: enrichedRows,
+      title: (tabularData as any)?.title,
+      treeModal: rawTreeModal,
+    };
+  }
+
+  // Các bảng Markdown thứ 2, thứ 3 (khác header hoặc khác số dòng) render đúng mdColumns và mdRows của chính nó
+  return {
+    columns: mdColumns,
+    rows: mdRows,
+    title: undefined,
+    treeModal: {},
+  };
+}
+
 // Render Badge trạng thái tự động hoặc format văn bản
 function renderCellContent(value: any, column: TableColumn) {
   if (value === null || value === undefined) return '-';
   const rawStr = String(value).trim();
-  const clean = rawStr.replace(/^\*\*|\*\*$/g, '').trim();
+  const clean = rawStr.replace(/^\*\*|\*\*$/g, '').replace(/^`|`$/g, '').trim();
   const lower = clean.toLowerCase();
 
-  // Nhận diện Badge trạng thái công vụ
   if (
-    column.data_type === 'badge' ||
-    ['approved', 'đã phê duyệt', 'hoàn thành', 'thành công', 'active', 'đang kích hoạt'].includes(lower)
+    ['draft', 'bản nháp', 'dự thảo', 'đang thực hiện', 'cần rà soát'].some(
+      (k) => lower === k || lower.includes(`(${k})`) || lower.startsWith(k)
+    )
   ) {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
-        {clean}
-      </span>
-    );
-  }
-
-  if (['draft', 'bản nháp', 'dự thảo', 'đang thực hiện', 'cần rà soát'].includes(lower)) {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
@@ -158,7 +329,11 @@ function renderCellContent(value: any, column: TableColumn) {
     );
   }
 
-  if (['rejected', 'bị từ chối', 'thất bại', 'inactive', 'tạm dừng'].includes(lower)) {
+  if (
+    ['rejected', 'bị từ chối', 'thất bại', 'inactive', 'tạm dừng', 'chưa kích hoạt'].some(
+      (k) => lower === k || lower.includes(`(${k})`) || lower.startsWith(k)
+    )
+  ) {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
         <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span>
@@ -167,10 +342,29 @@ function renderCellContent(value: any, column: TableColumn) {
     );
   }
 
-  if (['pending', 'chờ phê duyệt', 'chờ duyệt'].includes(lower)) {
+  if (
+    ['pending', 'chờ phê duyệt', 'chờ duyệt'].some(
+      (k) => lower === k || lower.includes(`(${k})`) || lower.startsWith(k)
+    )
+  ) {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 shadow-sm">
         <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+        {clean}
+      </span>
+    );
+  }
+
+  // Nhận diện Badge trạng thái công vụ (approved / active / mặc định cột badge)
+  if (
+    column.data_type === 'badge' ||
+    ['approved', 'đã phê duyệt', 'hoàn thành', 'thành công', 'active', 'đang kích hoạt'].some(
+      (k) => lower === k || lower.includes(`(${k})`) || lower.startsWith(k)
+    )
+  ) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
         {clean}
       </span>
     );
@@ -200,8 +394,14 @@ interface NormalizedTreeNode {
   children: NormalizedTreeNode[];
 }
 
+function cleanDisplayString(val: any, fallback = ''): string {
+  if (val === null || val === undefined) return fallback;
+  return String(val).replace(/^\*\*|\*\*$/g, '').replace(/^`|`$/g, '').trim() || fallback;
+}
+
 function normalizeTreeData(rawRoot: any): NormalizedTreeNode {
-  const rootUid = String(rawRoot?.id || rawRoot?.code || `l1-${rawRoot?.name || 'root'}`);
+  const rootName = cleanDisplayString(rawRoot?.name, 'Nhóm chỉ tiêu Cấp 1');
+  const rootUid = String(rawRoot?.id || rawRoot?.code || `l1-${rootName || 'root'}`);
   const rawL2: any[] = Array.isArray(rawRoot?.children) ? rawRoot.children : [];
 
   const l2Nodes: NormalizedTreeNode[] = rawL2.map((c2: any, idx2: number) => {
@@ -211,20 +411,26 @@ function normalizeTreeData(rawRoot: any): NormalizedTreeNode {
       uid: String(c3?.id || c3?.code || `${l2Uid}-l3-${idx3}`),
       parentId: l2Uid,
       level: 3,
-      name: String(c3?.name || 'Chỉ tiêu Cấp 3'),
+      name: cleanDisplayString(c3?.name, 'Chỉ tiêu Cấp 3'),
       value: c3?.value,
-      office_name: String(c3?.office_name || c2?.office_name || rawRoot?.office_name || 'Cấp tỉnh'),
-      mission_name: String(c3?.mission_name || c2?.mission_name || rawRoot?.mission_name || ''),
+      office_name: cleanDisplayString(
+        c3?.office_name || c2?.office_name || rawRoot?.office_name,
+        'Cấp tỉnh'
+      ),
+      mission_name: cleanDisplayString(
+        c3?.mission_name || c2?.mission_name || rawRoot?.mission_name,
+        ''
+      ),
       children: [],
     }));
     return {
       uid: l2Uid,
       parentId: rootUid,
       level: 2,
-      name: String(c2?.name || 'Chỉ tiêu Cấp 2'),
+      name: cleanDisplayString(c2?.name, 'Chỉ tiêu Cấp 2'),
       value: c2?.value,
-      office_name: String(c2?.office_name || rawRoot?.office_name || 'Cấp tỉnh'),
-      mission_name: String(c2?.mission_name || rawRoot?.mission_name || ''),
+      office_name: cleanDisplayString(c2?.office_name || rawRoot?.office_name, 'Cấp tỉnh'),
+      mission_name: cleanDisplayString(c2?.mission_name || rawRoot?.mission_name, ''),
       children: l3Nodes,
     };
   });
@@ -233,10 +439,10 @@ function normalizeTreeData(rawRoot: any): NormalizedTreeNode {
     uid: rootUid,
     parentId: null,
     level: 1,
-    name: String(rawRoot?.name || 'Nhóm chỉ tiêu Cấp 1'),
+    name: rootName,
     value: rawRoot?.value,
-    office_name: String(rawRoot?.office_name || 'Cấp tỉnh'),
-    mission_name: String(rawRoot?.mission_name || ''),
+    office_name: cleanDisplayString(rawRoot?.office_name, 'Cấp tỉnh'),
+    mission_name: cleanDisplayString(rawRoot?.mission_name, ''),
     children: l2Nodes,
   };
 }
@@ -244,11 +450,25 @@ function normalizeTreeData(rawRoot: any): NormalizedTreeNode {
 const InteractiveCriteriaTreeCanvas: React.FC<{
   rawRoot: any;
   globalExpandSignal?: number;
-}> = ({ rawRoot, globalExpandSignal }) => {
+  onSelectChip?: (chip: string) => void;
+  onClose?: () => void;
+}> = ({ rawRoot, globalExpandSignal, onSelectChip, onClose }) => {
   const tree = useMemo(() => normalizeTreeData(rawRoot), [rawRoot]);
   const [collapsedIds, setCollapsedIds] = useState<Record<string, boolean>>({});
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const selectedNode = useMemo(() => {
+    if (!selectedId) return null;
+    if (tree.uid === selectedId) return tree;
+    for (const l2 of tree.children) {
+      if (l2.uid === selectedId) return l2;
+      for (const l3 of l2.children) {
+        if (l3.uid === selectedId) return l3;
+      }
+    }
+    return null;
+  }, [selectedId, tree]);
   const [edges, setEdges] = useState<
     Array<{
       id: string;
@@ -485,6 +705,28 @@ const InteractiveCriteriaTreeCanvas: React.FC<{
         <div className="text-[11px] text-slate-500 mt-1">
           Đơn vị: <span className="font-medium text-slate-700">{node.office_name}</span>
         </div>
+
+        {/* Nút 1-Click Drill-Down: Tra cứu số liệu chi tiết của chỉ tiêu lá (REQ-Q04/Q01 -> REQ-Q02) */}
+        {!hasChildren && node.level > 1 && (
+          <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-end">
+            <button
+              type="button"
+              data-testid={`drilldown-leaf-${node.level}`}
+              title={`Tra cứu số liệu chỉ tiêu ${node.name} thuộc nhóm ${tree.name}`}
+              aria-label={`Tra cứu số liệu chỉ tiêu ${node.name} thuộc nhóm ${tree.name}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose?.();
+                onSelectChip?.(
+                  `Cho tôi biết số liệu chỉ tiêu ${node.name} thuộc nhóm ${tree.name} năm 2026?`
+                );
+              }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-600 text-indigo-700 hover:text-white border border-indigo-200 hover:border-indigo-600 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs"
+            >
+              <span>🔍 Tra cứu số liệu</span>
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -634,11 +876,134 @@ const InteractiveCriteriaTreeCanvas: React.FC<{
           </div>
         )}
       </div>
+
+      {/* Thanh Inspector Panel Footer cố định dưới đáy Canvas */}
+      <div
+        data-testid="tree-inspector-footer"
+        className="sticky bottom-0 z-20 mt-4 pt-3 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 bg-slate-50/95 backdrop-blur-xs px-3.5 py-2.5 rounded-xl shadow-xs"
+      >
+        {selectedNode ? (
+          <>
+            <div className="text-xs text-slate-700 flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-mono text-[11px] font-semibold">
+                Cấp {selectedNode.level}
+              </span>
+              <span className="font-bold text-slate-900">{selectedNode.name}</span>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-600">
+                Nhóm gốc: <strong className="text-slate-800">{tree.name}</strong>
+              </span>
+              <span className="text-slate-400">•</span>
+              <span className="text-slate-600">
+                Đơn vị: <strong className="text-slate-800">{selectedNode.office_name}</strong>
+              </span>
+            </div>
+            {selectedNode.children.length === 0 && selectedNode.level > 1 && (
+              <button
+                type="button"
+                data-testid="inspector-drilldown-leaf"
+                title={`Tra cứu số liệu chỉ tiêu ${selectedNode.name} thuộc nhóm ${tree.name}`}
+                aria-label={`Tra cứu số liệu chỉ tiêu ${selectedNode.name} thuộc nhóm ${tree.name}`}
+                onClick={() => {
+                  onClose?.();
+                  onSelectChip?.(
+                    `Cho tôi biết số liệu chỉ tiêu ${selectedNode.name} thuộc nhóm ${tree.name} năm 2026?`
+                  );
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer"
+              >
+                <span>🔍 Tra cứu số liệu</span>
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="text-[11px] text-slate-500">
+            💡 Bấm trực tiếp <strong>🔍 Tra cứu số liệu</strong> trên từng chỉ tiêu lá hoặc bấm chọn một ô chỉ tiêu để xem chi tiết tại thanh Inspector này.
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children }) => {
+interface InteractiveCriteriaTreeModalProps {
+  activeTreeNodes: any[];
+  expandAllCounter: number;
+  onExpandAll: () => void;
+  onClose: () => void;
+  onSelectChip?: (chip: string) => void;
+}
+
+const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> = ({
+  activeTreeNodes,
+  expandAllCounter,
+  onExpandAll,
+  onClose,
+  onSelectChip,
+}) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4"
+    >
+      <div className="bg-white border border-slate-200 rounded-2xl max-w-6xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3.5 bg-white border-b border-slate-200 shrink-0">
+          <div>
+            <h3 className="text-sm font-bold text-slate-800">
+              Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)
+            </h3>
+            <p className="text-[11px] text-slate-500">
+              Di chuột hoặc bấm vào nhánh để làm nổi bật đường dẫn • Bấm nút thu gọn/mở rộng trên từng nhánh cha
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onExpandAll}
+              className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition"
+            >
+              Mở rộng tất cả
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              title="Đóng cửa sổ (X)"
+              aria-label="Đóng cửa sổ"
+              className="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center font-bold text-sm transition"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        <div className="p-5 overflow-y-auto overflow-x-auto space-y-4 bg-white flex-1">
+          {activeTreeNodes.map((rootNode: any, idx: number) => (
+            <InteractiveCriteriaTreeCanvas
+              key={rootNode.id || idx}
+              rawRoot={rootNode}
+              globalExpandSignal={expandAllCounter}
+              onSelectChip={onSelectChip}
+              onClose={onClose}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children, onSelectChip }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -647,23 +1012,112 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
   const [expandAllCounter, setExpandAllCounter] = useState(0);
 
   // Xác định cấu trúc cột và dòng
-  const { columns, rows, title, treeModal } = useMemo(() => {
-    if (tabularData && tabularData.columns && tabularData.columns.length > 0) {
-      return {
-        columns: tabularData.columns,
-        rows: tabularData.rows || [],
-        title: tabularData.title,
-        treeModal: (tabularData as any).tree_modal || {},
-      };
-    }
-    const parsed = parseTableFromChildren(children);
-    return {
-      columns: parsed.columns,
-      rows: parsed.rows,
-      title: undefined,
-      treeModal: {},
-    };
-  }, [tabularData, children]);
+  const { columns, rows, title, treeModal } = useMemo(
+    () => resolveSmartTableData(tabularData, children),
+    [tabularData, children]
+  );
+
+  // Kiểm tra xem bảng hiện tại có phải là Bảng Danh Sách Nhiệm Vụ (REQ-Q03) hay không
+  const isMissionListingTable = useMemo(() => {
+    if (!columns || columns.length === 0) return false;
+    const hasTreeModalData = Boolean(treeModal && Object.keys(treeModal).length > 0);
+    if (hasTreeModalData) return false;
+
+    const colKeys = columns.map((c) => String(c.key || '').toLowerCase().trim());
+    const colLabels = columns.map((c) => String(c.label || '').toLowerCase().trim());
+
+    // Loại trừ bảng chỉ tiêu số liệu (Fact) hoặc bảng cây chỉ tiêu Cấp 1 (REQ-Q01 / REQ-Q02 / REQ-Q04)
+    const isFactOrCriteriaTable =
+      colKeys.some((k) =>
+        [
+          'ten_chi_tieu',
+          'criteria_name',
+          'criteria_code',
+          'gia_tri',
+          'gia_tri_moi_nhat',
+          'structure_type',
+          'loai_cau_truc',
+          'nhom_chi_tieu',
+        ].includes(k)
+      ) ||
+      colLabels.some(
+        (l) =>
+          l.includes('tên chỉ tiêu') ||
+          l.includes('chỉ tiêu /') ||
+          l.includes('giá trị mới nhất') ||
+          l === 'giá trị' ||
+          l.includes('loại cấu trúc') ||
+          l.includes('nhóm chỉ tiêu')
+      );
+    if (isFactOrCriteriaTable) return false;
+
+    // Loại trừ bảng tiến độ phê duyệt báo cáo (SC-5.1) hoặc bảng cán bộ phụ trách (SC-5.3 user_mission)
+    const isReportOrPersonnelTable =
+      colKeys.some((k) =>
+        [
+          'report_code',
+          'ma_bao_cao',
+          'report_name',
+          'ten_bao_cao',
+          'report_status',
+          'trang_thai_bao_cao',
+          'report_date',
+          'submitted_date',
+          'full_name',
+          'user_name',
+          'ho_ten',
+          'ten_can_bo',
+          'chuc_vu',
+          'position',
+        ].includes(k)
+      ) ||
+      colLabels.some(
+        (l) =>
+          l.includes('mã báo cáo') ||
+          l.includes('tên báo cáo') ||
+          l.includes('trạng thái phê duyệt') ||
+          l.includes('kỳ báo cáo') ||
+          l.includes('ngày nộp') ||
+          l.includes('họ và tên') ||
+          l.includes('cán bộ') ||
+          l.includes('chức vụ')
+      );
+    if (isReportOrPersonnelTable) return false;
+
+    const hasMissionNameCol =
+      colKeys.some((k) => ['mission_name', 'ten_nhiem_vu', 'nhiem_vu', 'mission'].includes(k)) ||
+      colLabels.some(
+        (l) =>
+          l.includes('tên nhiệm vụ') ||
+          l === 'nhiệm vụ' ||
+          l === 'nhiệm vụ trọng tâm' ||
+          l === 'nhiệm vụ phụ trách'
+      );
+
+    const hasMissionMetaCol =
+      colKeys.some((k) =>
+        [
+          'mission_code',
+          'ma_nhiem_vu',
+          'code',
+          'total_criteria_count',
+          'level1_group_count',
+          'scope',
+          'scope_name',
+          'linh_vuc',
+        ].includes(k)
+      ) ||
+      colLabels.some(
+        (l) =>
+          l.includes('mã nhiệm vụ') ||
+          l.includes('lĩnh vực') ||
+          l.includes('tổng số chỉ tiêu') ||
+          l.includes('nhóm cấp 1') ||
+          l.includes('đơn vị phụ trách')
+      );
+
+    return hasMissionNameCol && hasMissionMetaCol;
+  }, [columns, treeModal]);
 
   // Lọc dữ liệu theo từ khóa tìm kiếm
   const filteredRows = useMemo(() => {
@@ -680,6 +1134,15 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
     const colConfig = columns.find((c) => c.key === sortKey);
     const isNum = colConfig?.data_type === 'number';
 
+    const parseVnNum = (v: any): number => {
+      const cleaned = cleanDisplayString(v).replace(/\s*\([^)]*\)\s*/g, '').trim();
+      // Nếu định dạng phân tách hàng nghìn bằng dấu chấm kiểu Việt Nam (VD: 1.000, 12.500.000)
+      if (/^[+-]?\d{1,3}(\.\d{3})+(,\d+)?$/.test(cleaned)) {
+        return parseFloat(cleaned.replace(/\./g, '').replace(',', '.')) || 0;
+      }
+      return parseFloat(cleaned.replace(/,/g, '')) || 0;
+    };
+
     return [...filteredRows].sort((a, b) => {
       const valA = a[sortKey];
       const valB = b[sortKey];
@@ -688,8 +1151,8 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
       if (valB === undefined || valB === null) return -1;
 
       if (isNum) {
-        const numA = parseFloat(String(valA).replace(/,/g, '')) || 0;
-        const numB = parseFloat(String(valB).replace(/,/g, '')) || 0;
+        const numA = parseVnNum(valA);
+        const numB = parseVnNum(valB);
         return sortOrder === 'asc' ? numA - numB : numB - numA;
       }
 
@@ -747,24 +1210,22 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
 
   const activeTreeNodes = useMemo(() => {
     if (!activeTreeRootId) return [];
-    const mapObj =
-      treeModal && Object.keys(treeModal).length > 0
-        ? treeModal
-        : (tabularData as any)?.trees_by_root_id || {};
+    const mapObj = treeModal || {};
     if (mapObj && mapObj[activeTreeRootId]) {
       return [mapObj[activeTreeRootId]];
     }
     const vals: any[] = Object.values(mapObj || {});
-    const byName = vals.filter(
-      (n) =>
-        n &&
-        String(n.name || '')
-          .trim()
-          .toLowerCase() === String(activeTreeRootId).trim().toLowerCase()
-    );
-    if (byName.length > 0) return byName;
+    const targetClean = cleanDisplayString(activeTreeRootId).toLowerCase();
+    const byIdOrName = vals.filter((n) => {
+      if (!n) return false;
+      const nId = cleanDisplayString(n.id).toLowerCase();
+      const nCode = cleanDisplayString(n.code).toLowerCase();
+      const nName = cleanDisplayString(n.name).toLowerCase();
+      return nId === targetClean || nCode === targetClean || nName === targetClean;
+    });
+    if (byIdOrName.length > 0) return byIdOrName;
     return vals.length > 0 ? vals : [];
-  }, [activeTreeRootId, treeModal, tabularData]);
+  }, [activeTreeRootId, treeModal]);
 
   // Nếu không phân tích được cột nào, render fallback có viền và style đầy đủ
   if (columns.length === 0) {
@@ -875,44 +1336,107 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
           </thead>
           <tbody className="divide-y divide-slate-100">
             {sortedRows.length > 0 ? (
-              sortedRows.map((row, rIdx) => (
-                <tr
-                  key={`r-${rIdx}`}
-                  className="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/40 transition-colors duration-150 divide-x divide-slate-100"
-                >
-                  {columns.map((col) => {
-                    const cellVal = row[col.key];
-                    const cleanVal = String(cellVal ?? '').replace(/^\*\*|\*\*$/g, '').trim();
-                    const isTreeTrigger =
-                      cleanVal.includes('Xem chi tiết các chỉ tiêu con') ||
-                      cleanVal.includes('Xem chi tiết con');
-                    const isStt = col.key === 'stt' || col.label.toUpperCase() === 'STT';
-                    return (
-                      <td
-                        key={`c-${col.key}`}
-                        className={`py-2 px-3 align-middle ${
-                          isStt
-                            ? 'text-center w-12 whitespace-nowrap'
-                            : 'text-left max-w-[280px] break-words'
-                        }`}
-                      >
-                        {isTreeTrigger ? (
-                          <button
-                            type="button"
-                            onClick={() => setActiveTreeRootId(row.tree_root_id || 'ALL')}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
-                            title="Bấm để mở sơ đồ cây phân cấp chỉ tiêu con"
-                          >
-                            <span>🌳 - Xem chi tiết các chỉ tiêu con</span>
-                          </button>
-                        ) : (
-                          renderCellContent(cellVal, col)
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
+              sortedRows.map((row, rIdx) => {
+                const criteriaNameCol = columns.find((c) => {
+                  const k = String(c.key || '').toLowerCase().trim();
+                  const l = String(c.label || '').toLowerCase().trim();
+                  return (
+                    k === 'item' ||
+                    k === 'ten_chi_tieu' ||
+                    k === 'criteria_name' ||
+                    l.includes('tên chỉ tiêu')
+                  );
+                });
+                const fallbackCriterionName = criteriaNameCol
+                  ? cleanDisplayString(row[criteriaNameCol.key])
+                  : '';
+                const resolvedTreeRootId =
+                  row.tree_root_id ||
+                  row.criteria_id ||
+                  row.root_id ||
+                  fallbackCriterionName ||
+                  'ALL';
+
+                return (
+                  <tr
+                    key={`r-${rIdx}`}
+                    className="odd:bg-white even:bg-slate-50/50 hover:bg-indigo-50/40 transition-colors duration-150 divide-x divide-slate-100"
+                  >
+                    {columns.map((col) => {
+                      const cellVal = row[col.key];
+                      const cleanVal = cleanDisplayString(cellVal);
+                      const isTreeTrigger =
+                        cleanVal.includes('Xem chi tiết các chỉ tiêu con') ||
+                        cleanVal.includes('Xem chi tiết con') ||
+                        cleanVal.includes('chi tiết chỉ tiêu con');
+                      const isStt = col.key === 'stt' || col.label.toUpperCase() === 'STT';
+                      const colKeyLower = String(col.key || '').toLowerCase().trim();
+                      const colLabelLower = String(col.label || '').toLowerCase().trim();
+                      const isMissionNameCell =
+                        isMissionListingTable &&
+                        !colLabelLower.includes('mã') &&
+                        !colKeyLower.includes('code') &&
+                        !colKeyLower.includes('id') &&
+                        (colKeyLower === 'mission_name' ||
+                          colKeyLower === 'ten_nhiem_vu' ||
+                          colKeyLower === 'nhiem_vu' ||
+                          colKeyLower === 'mission' ||
+                          colLabelLower.includes('tên nhiệm vụ') ||
+                          colLabelLower === 'nhiệm vụ' ||
+                          colLabelLower === 'nhiệm vụ trọng tâm' ||
+                          colLabelLower === 'nhiệm vụ phụ trách') &&
+                        Boolean(cleanVal) &&
+                        cleanVal !== '-';
+
+                      return (
+                        <td
+                          key={`c-${col.key}`}
+                          className={`py-2 px-3 align-middle ${
+                            isStt
+                              ? 'text-center w-12 whitespace-nowrap'
+                              : 'text-left max-w-[320px] break-words'
+                          }`}
+                        >
+                          {isTreeTrigger ? (
+                            <button
+                              type="button"
+                              data-testid={`open-tree-modal-${rIdx}`}
+                              onClick={() => setActiveTreeRootId(resolvedTreeRootId)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold transition cursor-pointer whitespace-nowrap"
+                              title="Bấm để mở sơ đồ cây phân cấp chỉ tiêu con"
+                            >
+                              <span>🌳 - Xem chi tiết các chỉ tiêu con</span>
+                            </button>
+                          ) : isMissionNameCell ? (
+                            <button
+                              type="button"
+                              data-testid={`drilldown-mission-${rIdx}`}
+                              data-mission-name={cleanVal}
+                              onClick={() =>
+                                onSelectChip?.(
+                                  `Hiển thị các chỉ tiêu cấp 1 của nhiệm vụ ${cleanVal} năm 2026?`
+                                )
+                              }
+                              title={`Xem các chỉ tiêu Cấp 1 của nhiệm vụ ${cleanVal}`}
+                              aria-label={`Xem chỉ tiêu Cấp 1 của nhiệm vụ ${cleanVal}`}
+                              className="group inline-flex flex-wrap items-center gap-2 text-left py-0.5 px-1.5 -mx-1.5 rounded-lg hover:bg-indigo-50/80 transition cursor-pointer"
+                            >
+                              <span className="font-semibold text-slate-900 group-hover:text-indigo-700 underline decoration-indigo-300 underline-offset-2 transition-colors">
+                                {cleanVal}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-50 group-hover:bg-indigo-600 text-indigo-700 group-hover:text-white border border-indigo-200 group-hover:border-indigo-600 text-[11px] font-semibold transition-all shadow-2xs whitespace-nowrap">
+                                🔍 Xem chỉ tiêu Cấp 1
+                              </span>
+                            </button>
+                          ) : (
+                            renderCellContent(cellVal, col)
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan={columns.length} className="text-center py-6 text-slate-400 text-xs italic">
@@ -926,51 +1450,13 @@ export const SmartTable: React.FC<SmartTableProps> = ({ tabularData, children })
 
       {/* 3. Pop-up Tree Modal Nền Trắng Tối Giản Tương Tác (PA 2.1: REQ-Q01 / SC-1.1 / REQ-Q04 / SC-4.1) */}
       {activeTreeRootId && (
-        <div
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setActiveTreeRootId(null);
-          }}
-          className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4"
-        >
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-6xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 bg-white border-b border-slate-200 shrink-0">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">
-                  Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)
-                </h3>
-                <p className="text-[11px] text-slate-500">
-                  Di chuột hoặc bấm vào nhánh để làm nổi bật đường dẫn • Bấm nút thu gọn/mở rộng trên từng nhánh cha
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setExpandAllCounter((c) => c + 1)}
-                  className="px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition"
-                >
-                  Mở rộng tất cả
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTreeRootId(null)}
-                  title="Đóng cửa sổ (X)"
-                  className="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center font-bold text-sm transition"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-            <div className="p-5 overflow-y-auto overflow-x-auto space-y-4 bg-white flex-1">
-              {activeTreeNodes.map((rootNode: any, idx: number) => (
-                <InteractiveCriteriaTreeCanvas
-                  key={rootNode.id || idx}
-                  rawRoot={rootNode}
-                  globalExpandSignal={expandAllCounter}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+        <InteractiveCriteriaTreeModal
+          activeTreeNodes={activeTreeNodes}
+          expandAllCounter={expandAllCounter}
+          onExpandAll={() => setExpandAllCounter((c) => c + 1)}
+          onClose={() => setActiveTreeRootId(null)}
+          onSelectChip={onSelectChip}
+        />
       )}
     </div>
   );

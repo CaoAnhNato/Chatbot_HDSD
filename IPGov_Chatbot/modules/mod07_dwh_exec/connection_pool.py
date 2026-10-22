@@ -34,7 +34,8 @@ class DWHConnectionPool:
     _lock = asyncio.Lock()
 
     def __init__(self) -> None:
-        self.host = settings.DWH_HOST
+        raw_host = str(settings.DWH_HOST).strip()
+        self.host = "127.0.0.1" if raw_host.lower() == "localhost" else raw_host
         self.port = int(settings.DWH_PORT)
         self.dbname = settings.DWH_DB
         self.user = settings.DWH_USER
@@ -132,29 +133,51 @@ class DWHConnectionPool:
     ) -> list[dict[str, Any]]:
         """
         Bộ chuyển đổi đồng bộ (Sync Fallback) dùng psycopg2 cho các kịch bản chạy đồng bộ.
-        Cưỡng chế phiên READ ONLY.
+        Cưỡng chế phiên READ ONLY và tái sử dụng kết nối TCP (Keep-Alive).
         """
         import psycopg2
         import psycopg2.extras
+        import threading
 
-        conn = psycopg2.connect(
-            host=self.host,
-            port=self.port,
-            dbname=self.dbname,
-            user=self.user,
-            password=self.password,
-            connect_timeout=2,
-            options="-c default_transaction_read_only=on -c statement_timeout=5000",
-        )
-        try:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                if parameters:
-                    cur.execute(sql, parameters)
-                else:
-                    cur.execute(sql)
-                if cur.description is not None:
-                    rows = cur.fetchall()
-                    return [dict(r) for r in rows]
-                return []
-        finally:
-            conn.close()
+        if not hasattr(self, "_sync_lock"):
+            self._sync_lock = threading.Lock()
+            self._sync_conn = None
+
+        def _get_or_create_conn():
+            if self._sync_conn is None or getattr(self._sync_conn, "closed", 1) != 0:
+                conn = psycopg2.connect(
+                    host=self.host,
+                    port=self.port,
+                    dbname=self.dbname,
+                    user=self.user,
+                    password=self.password,
+                    connect_timeout=2,
+                    options="-c default_transaction_read_only=on -c statement_timeout=5000",
+                )
+                conn.autocommit = True
+                self._sync_conn = conn
+            return self._sync_conn
+
+        with self._sync_lock:
+            for attempt in range(2):
+                conn = _get_or_create_conn()
+                try:
+                    with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                        if parameters:
+                            cur.execute(sql, parameters)
+                        else:
+                            cur.execute(sql)
+                        if cur.description is not None:
+                            rows = cur.fetchall()
+                            return [dict(r) for r in rows]
+                        return []
+                except (psycopg2.OperationalError, psycopg2.InterfaceError):
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                    self._sync_conn = None
+                    if attempt == 1:
+                        raise
+                except Exception:
+                    raise

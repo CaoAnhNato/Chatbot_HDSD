@@ -279,3 +279,589 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
 - **Quy tắc dứt điểm:**
   * ❌ **NEVER:** Không bao giờ deploy backend lên Cloud mà không đồng bộ đầy đủ các API keys và thông số cấu hình từ `.env` local.
   * ✅ **ALWAYS:** Luôn cấu hình đầy đủ biến môi trường thông qua Render API / Dashboard. Đồng thời, thiết kế tầng Fallback Deterministic SQL nhận diện linh hoạt 5 bảng nghiệp vụ DWH (`mission`, `collection_form`, `user_mission`, `report`, `fact_report_criteria`) để hệ thống luôn trả về dữ liệu chính xác ngay cả khi LLM gặp sự cố gián đoạn mạng.
+
+---
+
+### [TRAP-047] Bẫy Mặc Định Phụ Thuộc Dịch Vụ Ngoài (Remote Cloud) Khi Chạy Môi Trường Local & Fallback Bất Đối Xứng
+- **Môi trường & Công nghệ:** Hugging Face Space ZeroGPU / SentenceTransformer / ModelRegistry / Uvicorn Server Runner / FastAPI Lifespan
+- **Triệu chứng:** Khi chạy server backend ở môi trường cục bộ bằng lệnh `.\.venv\Scripts\python.exe -m IPGov_Chatbot.run_server`, terminal in ra hàng loạt lỗi retry mạng:
+  `⚠️ [RemoteHFEmbedding] Lỗi kết nối HF Space (thử lần 1/3): Gradio Space trả về error event: event: error data: null`
+  `⚠️ [Warmup 2/5] Embedding model cảnh báo: Không thể kết nối HF Space sau 3 lần thử`
+  Quá trình khởi động bị nghẽn 10-15s và tầng Embedding không sẵn sàng.
+- **Nguyên nhân gốc rễ:**
+  1. **Sensible Defaults Violation:** Biến cấu hình `USE_REMOTE_EMBEDDING` trong `backend/config.py` được gán giá trị mặc định là `"true"` (vốn được tối ưu tạm thời cho Render Free Tier 512MB RAM). Khi lập trình viên chạy local mà không khai báo biến này trong file `.env`, hệ thống tự động gán `True`, ép buộc kết nối ra Hugging Face Space bên ngoài dù ổ cứng máy trạm đã có sẵn 2.27 GB model cache.
+  2. **Asymmetric Fallback Trap:** `ModelRegistry` chỉ thiết kế 1 chiều fallback (Local lỗi $\to$ Remote), nhưng khi người dùng chọn Remote mà dịch vụ bên ngoài bị ngủ (ZeroGPU Sleeping), tạm ngưng hoặc lỗi mạng thì hệ thống không có cơ chế tự động chuyển đổi ngược về Local In-Memory `SentenceTransformer`.
+  3. **Thiếu cờ dòng lệnh CLI:** `run_server.py` thiếu các tùy chọn tường minh (`--local-embedding`, `--remote-embedding`), khiến lập trình viên không thể điều khiển chế độ nạp model qua CLI.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không để cấu hình mặc định (default fallback) của môi trường development phụ thuộc vào dịch vụ mạng bên ngoài (vi phạm nguyên tắc Offline-First & Locality Principle). Không thiết kế cơ chế fallback 1 chiều khi tích hợp dịch vụ Cloud.
+  * ✅ **ALWAYS:**
+    - Cấu hình mặc định trong code (`config.py`) và `.env` cho `USE_REMOTE_EMBEDDING` phải luôn là `False` (Local In-Memory). Chỉ kích hoạt Remote khi có cờ tường minh hoặc biến môi trường trên Cloud Render.
+    - Cung cấp cờ CLI `--local-embedding` và `--remote-embedding` trong script runner `run_server.py` và in rõ ràng trạng thái lên banner khởi động.
+    - Xây dựng cơ chế **Bi-directional Graceful Fallback**: Bất kể chọn Local hay Remote, nếu tầng được chỉ định gặp sự cố runtime, hệ thống phải tự động bắt lỗi và chuyển giao sang tầng còn lại để đảm bảo tính sẵn sàng 100%.
+
+---
+
+### [TRAP-048] Bẫy Nuốt Trường Trạng Thái (Key Drop) Trong LangGraph Do Thiếu Khai Báo Trong AgentState TypedDict
+- **Môi trường & Công nghệ:** LangGraph 0.1+ / Python `typing.TypedDict` / FastAPI SSE Streaming
+- **Triệu chứng:** Node thực thi (ví dụ `node_synthesize_response`) trả về dictionary chứa `{"tabular_data": {...}}`, nhưng kết quả đầu ra của đồ thị `graph.invoke()` hoặc `graph.stream()` hoàn toàn bị mất trường này, trả về `None` hoặc giá trị khởi tạo.
+- **Nguyên nhân gốc rễ:** `AgentState` được kế thừa từ `typing.TypedDict` với danh sách thuộc tính tường minh. LangGraph lọc bỏ tất cả các key không được định nghĩa trong schema của `AgentState` khi hợp nhất (merge) output của node vào state chung.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không tự ý bổ sung key mới trong return dict của bất kỳ node LangGraph nào mà không cập nhật TypedDict `AgentState`.
+  * ✅ **ALWAYS:** Bắt buộc khai báo đầy đủ mọi trường trạng thái mới trong `AgentState(TypedDict)` (ví dụ `tabular_data: Optional[Dict[str, Any]]`) đồng thời trong cả `run()` và `run_stream()` payload mapping.
+
+---
+
+### [TRAP-049] Bẫy Mã Hóa Ký Tự Tiếng Việt cp1252 Trên Windows Terminal / PowerShell CLI
+- **Môi trường & Công nghệ:** Windows 10/11 / PowerShell 5.1/7 / Python 3.10+ `sys.stdout`
+- **Triệu chứng:** `UnicodeEncodeError: 'charmap' codec can't encode character '\u1ed1' in position X: character maps to <undefined>`.
+- **Nguyên nhân gốc rễ:** Mặc định `sys.stdout.encoding` trên Windows shell kế thừa mã trang OEM/ANSI cục bộ (`cp1252`), không thể encode toàn bộ bảng mã Unicode tiếng Việt khi in chuỗi hoặc serialize JSON `ensure_ascii=False` ra terminal.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không chạy script Python in dữ liệu tiếng Việt trực tiếp ra terminal Windows mà không cấu hình lại mã hóa stdout/stderr.
+  * ✅ **ALWAYS:** Luôn đặt `if hasattr(sys.stdout, "reconfigure"): sys.stdout.reconfigure(encoding="utf-8")` ở đầu tất cả script CLI và test runners, hoặc khởi chạy với biến môi trường `PYTHONIOENCODING=utf-8`.
+
+---
+
+### [TRAP-050] Bẫy Ternary Unmount Component Streaming Khi Tín Hiệu Mạng Kết Thúc (Abrupt Streaming Snap)
+- **Môi trường & Công nghệ:** React 18+ / Next.js App Router / SSE Streaming Text / requestAnimationFrame Animation Loop
+- **Triệu chứng:** Người dùng chỉ kịp nhìn thấy 1-2 chữ đầu tiên xuất hiện dạng streaming, sau đó toàn bộ đoạn văn bản ập ra đột ngột trên màn hình mà không có hiệu ứng xả mượt mà theo nhịp đọc tự nhiên.
+- **Nguyên nhân gốc rễ:**
+  1. Component cha kiểm tra cờ mạng trực tiếp: `message.isStreaming ? <StreamingComponent /> : <SettledComponent />`. Khi backend gửi sự kiện `onDone`, `isStreaming` lập tức chuyển thành `false`.
+  2. Việc này làm React unmount ngay lập tức `<StreamingComponent />`, hủy bỏ vòng lặp `requestAnimationFrame` và toàn bộ cơ chế Graceful Queue Drain Pacing bên trong hook `useSmoothStream`.
+  3. `<SettledComponent />` được render lập tức với 100% nội dung `doneData.full_answer`.
+  4. Ngoài ra, việc gán lại `lastTickRef.current = performance.now()` trên mỗi render của `rawContent` gây hiện tượng Clock Starvation, làm đóng băng đồng hồ đếm nhịp xả khi các token mạng đến dồn dập.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không điều kiện hóa việc unmount component streaming trực tiếp bằng cờ mạng `message.isStreaming`. Không hủy/reset đồng hồ RAF trên mỗi token mới đến.
+  * ✅ **ALWAYS:**
+    - Quản lý trạng thái chuyển giao riêng biệt `isAnimationSettled` trong component message. Component streaming tiếp tục duy trì và xả hết hàng đợi backlog theo nhịp đọc ổn định (~35-40ms) ngay cả khi `isStreaming === false`.
+    - Chỉ chuyển giao sang view tĩnh khi component streaming phát tín hiệu callback `onSettled()`.
+    - Bổ sung phím tắt `Escape` và sự kiện click để người dùng có thể chủ động bỏ qua animation khi muốn đọc toàn bộ nội dung ngay lập tức.
+
+---
+
+### [TRAP-051] Bẫy Ép Kiểu Numeric Mù Quáng Trong AST Enforcer Gây Lỗi function trim(numeric) does not exist
+- **Môi trường & Công nghệ:** SQLGlot AST Transformation / PostgreSQL 16 Dialect / Text-to-SQL Dynamic Enforcer
+- **Triệu chứng:** `ERROR: function trim(numeric) does not exist` khi câu truy vấn SQL chứa điều kiện kiểm tra chuỗi trên fact value (ví dụ: `WHERE TRIM(f.value) != '-'`).
+- **Nguyên nhân gốc rễ:** Bộ duyệt AST (Visitor) thay thế mù quáng mọi node cột có tên `value` thành biểu thức `CAST(NULLIF(TRIM(value), '') AS DECIMAL)`. Nếu biểu thức gốc đã là `TRIM(f.value) != '-'`, việc thay thế tạo ra `TRIM(CAST(NULLIF(TRIM(value), '') AS DECIMAL)) <> '-'`. PostgreSQL không hỗ trợ hàm `trim()` trên kiểu dữ liệu số `numeric`/`decimal`, dẫn tới văng lỗi runtime 500.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ thay thế ép kiểu số cho cột chuỗi mà không kiểm tra ngữ cảnh nút cha (parent node) trong cây AST.
+  * ✅ **ALWAYS:** Chỉ bọc ép kiểu `NULLIF(TRIM(value), '')::numeric` khi node cột nằm trong ngữ cảnh tính toán số học (`exp.Add`, `exp.Sub`, `exp.Mul`, `exp.Div`), hàm tổng hợp (`exp.Sum`, `exp.Avg`), hoặc phép so sánh số. Bắt buộc bỏ qua khi node cột nằm trực tiếp dưới các hàm chuỗi (`Trim`, `Substring`, `Like`, `ILike`) hoặc phép kiểm tra rỗng (`IS NOT NULL`, `<> '-'`).
+
+---
+
+### [TRAP-052] Bẫy Nhầm Lẫn Giữa Dimension Plane và Fact Plane Gây Fallthrough Báo Thiếu Số Liệu Ảo
+- **Môi trường & Công nghệ:** DWH Semantic Router / Canonical Normalizer / LangGraph Text-to-SQL / PostgreSQL 16
+- **Triệu chứng:** Người dùng hỏi câu hỏi khám phá danh mục địa phương hoặc siêu dữ liệu (ví dụ: *"Ngoài tỉnh Lâm Đồng ra thì còn tỉnh nào khác không?"*, *"Hệ thống có những tỉnh nào?"*, *"Kho dữ liệu có những chỉ tiêu nào?"*), chatbot lại tổng hợp câu trả lời ngô nghê: *"Chỉ tiêu 'ngoài tỉnh lâm đồng ra thì còn tỉnh nào khác không' hiện chưa có bản ghi số liệu được phê duyệt trong kho DWH năm 2026"*.
+- **Nguyên nhân gốc rễ:**
+  1. **Thiếu Two-Plane Architecture:** Router mặc định coi mọi câu hỏi chưa khớp bảng nghiệp vụ cố định (`report`, `mission`, `collection_form`) là truy vấn số liệu trên bảng Fact (`fact_report_criteria`).
+  2. Bảng `dwh_internal.province` không được cấp phép trong `ALLOWED_TABLES` của AST Enforcer và không được khai báo trong DuckDB Semantic Catalog.
+  3. LLM Router hoặc Stream A Fallback cố ép toàn bộ câu hỏi vào việc tìm kiếm tên chỉ tiêu (Metric Disambiguation), dẫn đến so khớp mờ câu hỏi vào các chỉ tiêu không liên quan và trả về 0 dòng từ Fact Plane.
+  4. **LangGraph Checkpointer Concurrency Trap:** `SqliteSaver` dựa trên module chuẩn `sqlite3` của Python chỉ hỗ trợ thực thi đồng bộ (`invoke()`) và văng lỗi `NotImplementedError` nếu gọi bất đồng bộ (`ainvoke()`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ để các câu hỏi siêu dữ liệu, danh mục địa bàn hành chính (`province`, `deparment`, `office`, `ward`) rơi vào luồng Metric Disambiguation của bảng Fact. Không gọi `ainvoke()` trên LangGraph agent khi checkpointer là `SqliteSaver` đồng bộ.
+  * ✅ **ALWAYS:**
+    - Triển khai kiến trúc 2 mặt phẳng (**Two-Plane Architecture**): Dimension Plane (`province`, `criteria` metadata, `deparment`, `office`) và Fact Plane (`fact_report_criteria`, `report`, `user_mission`).
+    - Bổ sung `METADATA_EXPLORATION` vào `CanonicalIntentEnum`, trích xuất `exclude_entities` (ví dụ `Lâm Đồng`) và `search_keyword`.
+    - Biên dịch câu lệnh SQL trực tiếp sang bảng Dimension tương ứng (ví dụ: `SELECT code, name, is_activated FROM dwh_internal.province WHERE is_activated = true AND name NOT ILIKE '%Lâm Đồng%' ORDER BY name ASC`).
+    - Định dạng câu trả lời rõ ràng dưới dạng Markdown table, giải thích rành mạch dữ liệu danh mục DWH đi kèm lưu ý về phạm vi số liệu thực tế hiện hành.
+
+---
+
+### [TRAP-053] Bẫy Regex Phép Tính Số Học Bắt Nhầm Chuỗi Ngày Tháng dd/mm/yyyy Thành Phép Chia Số Học
+- **Môi trường & Công nghệ:** Python `re` / Canonical Semantic Normalizer / Stream A Deterministic Fallback
+- **Triệu chứng:** Câu hỏi so sánh tăng trưởng hoặc tra cứu chỉ tiêu chứa mốc ngày tháng định dạng ngày/tháng/năm (ví dụ: *"Doanh thu bình quân 1 HTX nông nghiệp đợt 30/06/2026 vs 30/09/2026 tăng trưởng bao nhiêu %?"*) bị phân loại nhầm thành `OUT_OF_SCOPE` và trả về kết quả phép tính chia ngô nghê: `Kết quả phép tính: 30 / 6 = 5`.
+- **Nguyên nhân gốc rễ:** Regex kiểm tra phép tính số học `\b(\d+)\s*([-+*/x]|cộng|trừ|nhân|chia)\s*(\d+)\b` khớp với chuỗi `30/06` trong `30/06/2026` và xem dấu gạch chéo `/` phân tách ngày tháng là toán tử chia số học.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không kiểm tra biểu thức số học trên chuỗi câu hỏi thô khi chưa lọc bỏ các mốc ngày tháng.
+  * ✅ **ALWAYS:** Bắt buộc khử / mask các chuỗi ngày tháng trước khi chạy regex số học: `q_math = re.sub(r"\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b", " ", q_low)`.
+
+---
+
+### [TRAP-054] Bẫy Test Leakage & Hardcoding Câu Hỏi Test Case Vào Guardrail Thay Vì Sử Dụng NLU Model-Driven Dynamic Parser
+- **Môi trường & Công nghệ:** Pre-Router Guardrails (`ScopePrechecker`) / Model-Driven NLU (`CanonicalSemanticNormalizer`) / Pytest Evaluation
+- **Triệu chứng:** Câu hỏi toán học trong test case (như `"3 mũ 2 là nhiêu ?"`) pass test kiểm tra chữ số `"9"`, nhưng mọi câu hỏi toán học khác trong thực tế (như `"7 mũ 2"`, `"15 + 25"`, `"căn bậc 2 của 16"`) đều trả về thông báo ngoài phạm vi rỗng không có kết quả tính toán.
+- **Nguyên nhân gốc rễ:** Lập trình viên/Agent sử dụng thang kiểm tra hardcode `if "3 mũ 2" in text: hint = "..."` bên trong tầng Guardrail để "hack điểm kiểm thử". Tầng guardrail này chặn đứng câu hỏi trước khi nó kịp chuyển giao cho NLU Model-Driven parser và bộ tính toán động, vi phạm nghiêm trọng Nguyên Tắc Chống Khớp Quá Mức Heuristic & Rò Rỉ Kiểm Thử (Rule 9).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không hardcode câu hỏi hay đáp án mẫu của test case vào logic guardrail hay mã nguồn cốt lõi.
+
+---
+
+### [TRAP-055] Bẫy Cưỡng Bức Ghi Đè Ngữ Cảnh Đa Lượt (CQR Context Hijacking) Khi Dùng Heuristic Fallback Cho Câu Hỏi Độc Lập
+- **Môi trường & Công nghệ:** LangGraph Conversational Agent / NeuralCQREngine / DiscourseStateTracker / Multi-turn Dialogue State Management
+- **Triệu chứng:** Câu hỏi độc lập ở lượt sau (Turn 3) trong phiên hội thoại đa lượt bị cưỡng bức ghi đè thành câu hỏi của lượt trước (Turn 1). Ví dụ: Turn 1 hỏi toán học *"3 mũ 2 là nhiêu ?"*, Turn 2 hỏi quan hệ *"Chi cục phụ trách những nhiệm vụ nào ?"*, sang Turn 3 hỏi số liệu độc lập *"Số liệu chỉ tiêu liên kết sản xuất năm 2026 là bao nhiêu ?"* nhưng chatbot lại trả về kết quả toán học *"3 mũ 2 bằng 9"*.
+- **Nguyên nhân gốc rễ:** `standalone_hint` được `DiscourseStateTracker` tạo ra cho mục đích gợi ý hòa mạng khi câu hỏi khuyết thực thể. Tuy nhiên, tại `warehouse_langgraph_agent.py`, logic điều phối được viết theo dạng:
+  ```python
+  if cqr_res.is_dependent and cqr_res.standalone_query:
+      effective_query = cqr_res.standalone_query
+  elif standalone_hint:
+      effective_query = standalone_hint
+  ```
+  Khi câu hỏi của Turn 3 là độc lập (`cqr_res.is_dependent == False`), nhánh `if` bị bỏ qua và rơi vào `elif standalone_hint:`, dẫn tới việc `effective_query` bị cưỡng ép ghi đè bằng `standalone_hint` của chủ đề cũ, chiếm đoạt toàn bộ ngữ cảnh xử lý (Context Hijacking).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không áp dụng `standalone_hint` ngoài phạm vi khi CQR đã phân định câu hỏi là độc lập (`is_dependent == False`).
+  * ✅ **ALWAYS:** Chỉ cho phép sử dụng `standalone_hint` làm phương án dự phòng bên trong nhánh phụ thuộc:
+
+---
+
+### [TRAP-057] Bẫy Đảo Thứ Tự Ưu Tiên Giữa Khoảng Thời Gian (`date_from`) và Tháng Đơn Lẻ (`month_filter`) Trong Bộ Biên Dịch SQL
+- **Môi trường & Công nghệ:** CanonicalSemanticNormalizer / SQL Synthesis / PostgreSQL 16
+- **Triệu chứng:** Câu hỏi truy vấn tháng đơn lẻ (ví dụ: *"Trong tháng 9/2026 có những chỉ tiêu nào đã thu thập ?"*) bị sinh mệnh đề `f.report_date >= '2026-09-01' AND f.report_date::date <= '2026-09-30'` thay vì `EXTRACT(MONTH FROM f.report_date) = 9`.
+- **Nguyên nhân gốc rễ:** Trong Stream B của bộ chuẩn hóa cú pháp, khi phát hiện tháng đơn lẻ, cả hai biến `month_filter` và cặp `(date_from, date_to)` đều được tính toán để dự phòng. Khi biên dịch SQL ở `compile_canonical_sql`, nhánh `if frame.date_from is not None` được đặt trước nhánh `elif frame.month_filter is not None`, làm nuốt mất điều kiện lọc tháng chuyên biệt.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không đặt nhánh khoảng ngày chung (`date_from`) lên trước bộ lọc tháng đơn lẻ (`month_filter`) khi cả hai có thể cùng tồn tại trong frame DTO.
+  * ✅ **ALWAYS:** Luôn ưu tiên `if frame.month_filter is not None:` trước `elif frame.date_from is not None:` trong các bộ biên dịch SQL phục vụ Dimension Listing.
+
+---
+
+### [TRAP-058] Bẫy Bỏ Sót Tiền Tố Ngắn ("thông tin") Trong Regex Chuẩn Hóa Chủ Đề Làm Rõ (Clarification Engine)
+- **Môi trường & Công nghệ:** ClarificationEngine / DuckDB Semantic Catalog / Ambiguous Metric Disambiguation
+- **Triệu chứng:** Câu hỏi *"thông tin ocop"* không kích hoạt được Action Chips làm rõ đa nghĩa (AMBIGUOUS), trong khi *"ocop"* hoặc *"chỉ tiêu ocop"* kích hoạt bình thường.
+- **Nguyên nhân gốc rễ:** Regex tiền tố chỉ loại bỏ `"thông tin về\s+"` mà không có nhánh cho `"thông tin\s+"` đơn lẻ. Do đó, chuỗi truyền vào DuckDB Catalog là `"thông tin ocop"` thay vì `"ocop"`, khiến bộ lọc BM25 / Fuzzy không vượt qua ngưỡng nhận diện đa nghĩa.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không giả định người dùng luôn dùng đầy đủ giới từ ("thông tin về", "dữ liệu về").
+  * ✅ **ALWAYS:** Luôn đưa cả dạng đầy đủ và dạng rút gọn vào regex tiền tố: `r"^(?:cho tôi xem|cho xem|xem|tra cứu|thống kê|chỉ tiêu|tình hình|dữ liệu về|thông tin về|thông tin)\s+"`.
+
+---
+
+### [TRAP-059] Bẫy Bỏ Sót Chữ Số 0 Đứng Trước (Leading Zero) Trong Regex Bóc Tách Tháng / Năm Định Dạng Tiếng Việt
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer` (`_extract_stream_b_deterministic`) / Regex Temporal Extraction / Python
+- **Triệu chứng:** Câu hỏi `"Tháng 01/2024 có chỉ tiêu nào được thu thập ?"` chỉ trích xuất được `year_code = '2024'`, trong khi `month_filter` bị rỗng (`None`). Do đó, câu lệnh SQL sinh ra bị thiếu điều kiện lọc tháng và Agent trả về thông báo rỗng cấp năm (`"trong năm 2024"`) thay vì cấp tháng (`"trong tháng 01/2024"`).
+- **Nguyên nhân gốc rễ:** Regex trích xuất tháng dạng số dùng `[1-9]|1[0-2]`, chỉ khớp tháng 1 chữ số (`1` đến `9`) hoặc `10, 11, 12`, hoàn toàn không khớp các tháng có số 0 đệm đầu (`01` đến `09`). Tương tự, regex dải tháng (`m_range_num`, `m_end_num`) và regex gạch chéo (`m_month_slash`) cũng thiếu `0?` hoặc `0[1-9]`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không sử dụng `[1-9]|1[0-2]` khi trích xuất tháng số trong ngôn ngữ tự nhiên.
+  * ✅ **ALWAYS:** Bắt buộc sử dụng `(0?[1-9]|1[0-2])` để bao hàm cả dạng có số 0 đệm (`01` đến `09`) và không có số 0 đệm (`1` đến `9`). Đồng thời chấp nhận các ký tự phân tách ngày tháng linh hoạt `[/.-]`.
+
+---
+
+### [TRAP-060] Bẫy Lời Chào Ghép Nuốt Câu Hỏi Nghiệp Vụ & Lỗi Phân Vùng CTE Window Function Thiếu COALESCE(office_id)
+- **Môi trường & Công nghệ:** Intent Router / Cognitive Planner / PostgreSQL 16 DWH / Kimball CTE Window Functions
+- **Triệu chứng:**
+  1. Câu hỏi lịch sự chứa lời chào (ví dụ: *"Chào bạn, cho tôi biết tình hình sản lượng muối năm 2026?"*) bị router nuốt thành `GREETING_FAREWELL`, trả về lời chào giới thiệu hệ thống thay vì truy vấn kho DWH. Ngược lại, câu chào đa âm tiết lịch sự (*"Cảm ơn bạn, tạm biệt nhé"*) có > 3 từ lại bị văng SQL rác.
+  2. Câu lệnh tổng hợp Additive metrics đa phòng ban bị tính sai hoặc nhân dòng do `PARTITION BY TRIM(LOWER(f.name))` không kèm `office_id`, hoặc nếu kèm `office_id` thô thì các bản ghi cấp tỉnh có `office_id IS NULL` bị tách lẻ không kiểm soát.
+- **Nguyên nhân gốc rễ:**
+  1. Router dùng điều kiện kiểm tra tiền tố naive `q_low.startswith(...)` mà không kiểm tra độ dài nội dung thực tế phía sau hoặc không bóc tách tiền tố/đại từ công vụ (`chatbot`, `đồng chí`, `bạn`).
+  2. Phân vùng Window Function thiếu `COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)` khiến 34 bản ghi cấp tỉnh không được gom nhóm tất định.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `q_low.startswith(p)` để kết luận câu hỏi là greeting nếu chưa kiểm tra phần nội dung còn lại (`is_pure_courtesy`). Không dùng `PARTITION BY TRIM(LOWER(f.name))` trần trụi cho Additive multi-office metrics.
+  * ✅ **ALWAYS:** Sử dụng Dual-Gate (`is_pure_courtesy` + vocative stripping) để bóc tách đại từ/tiền tố chào hỏi và truyền câu hỏi nghiệp vụ sạch vào DWH. Luôn cưỡng chế `PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)` trên toàn bộ 5 Kimball Archetypes.
+
+---
+
+### [TRAP-061] Bẫy Bất Đồng Nhất Tên CTE (ranked_facts vs ranked_fact), Lỗi Ghi Đè Hàm (Method Shadowing) trong DuckDB Catalog & Lỗi Bỏ Sót Dải Lũy Kế Stream B
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer` / `WarehouseLangGraphAgent` / `DuckDBRAMCatalog` / Full Pipeline Integration
+- **Triệu chứng:**
+  1. Thay đổi tên CTE từ `ranked_facts` sang `ranked_fact` làm gãy các bộ test hồi quy cũ assert chuỗi CTE chuẩn.
+  2. Khai báo 2 lần hàm `resolve_metric_id` trong cùng 1 file `duckdb_semantic_catalog.py` (dòng 1502 và dòng 1668), hàm thứ hai ghi đè hàm thứ nhất làm mất kiểm tra `is_dimension_query`, dẫn tới câu hỏi danh mục bị nhận diện nhầm thành tra cứu điểm chỉ tiêu đơn lẻ (`METRIC_POINT_INQUIRY`).
+  3. Stream B trích xuất thời gian bỏ sót mẫu câu lũy kế "từ tháng X đến hiện tại / đến nay", khiến câu hỏi bị rơi vào tháng đơn lẻ hoặc năm rỗng.
+- **Nguyên nhân gốc rễ:**
+  1. Không chuẩn hóa tên CTE thống nhất dạng số nhiều `ranked_facts` trên toàn bộ pipeline (cả trong `canonical_normalizer.py` và `warehouse_langgraph_agent.py`).
+  2. Trùng tên hàm trong codebase Python không qua static type check linter, dẫn tới hàm sau đè hàm trước làm mất logic kiểm tra Dimension Query.
+  3. Regex Stream B chỉ có dải 2 đầu số cố định ("từ tháng X đến tháng Y") mà thiếu nhánh cho thời điểm hiện tại ("đến nay", "đến hiện tại").
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không đổi tên CTE chuẩn `ranked_facts` sang số ít; Không định nghĩa trùng tên phương thức trong class Catalog; Không hardcode dải thời gian hay từ khóa viết tắt.
+  * ✅ **ALWAYS:** Chuẩn hóa `WITH ranked_facts AS (` trên toàn bộ pipeline; Kiểm tra AST định kỳ để chống method shadowing; Bổ sung regex lũy kế `(?:từ\s+)?tháng\s+(X)\s*(?:đến|tới|-)\s*(?:thời\s+điểm\s+)?(?:hiện\s+tại|nay)` và map sang `date_from` đầu tháng X đến ngày chốt sổ gần nhất (`2026-09-30`).
+
+---
+
+### [TRAP-062] Bẫy Va Chạm Thuộc Tính Đồng Âm Trong Cây Phân Cấp Kimball Khi Thiếu Cột Nhóm Cha (Multi-Category Disambiguation)
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer` (`compile_canonical_sql`) / `WarehouseLangGraphAgent` / PostgreSQL 16 DWH / Kimball Dimensional Modeling
+- **Triệu chứng:**
+  1. Trong CSDL DWH, tồn tại 17 nhóm chỉ tiêu lá có cùng tên gọi (ví dụ: *"Chăn nuôi"*, *"Trồng trọt"*, *"Đang hoạt động"*, *"Thành lập mới"*, *"Thành viên"*...) thuộc các nhóm phân loại cha khác nhau (HTX, THT, Trang trại, LHHTX). Khi bảng kết quả hiển thị danh mục chỉ có 5 cột (thiếu cột *Nhóm chỉ tiêu*), người dùng nhìn thấy nhiều dòng có cùng một tên gọi nhưng số liệu khác nhau mà không thể biết dòng nào thuộc lĩnh vực/loại hình nào.
+  2. Các bộ kiểm thử chấp nhận câu lệnh `assert 5_cols in ans or 6_cols in ans` (test tampering/weakening) khiến hiện tượng thoái lui về bảng 5 cột bị che khuất và lọt qua CI.
+- **Nguyên nhân gốc rễ:**
+  1. Trong CTE `ranked_facts`, bảng `fact_report_criteria` chứa trường `parent_criteria_id` trỏ tới `criteria.id` của cấp cha, nhưng câu `SELECT` bên ngoài không `LEFT JOIN dwh_internal.criteria` để trích xuất tên nhóm cha `p.name` thành cột `nhom_chi_tieu`.
+  2. Bảng Markdown và cấu trúc DTO `tabular_data` trong `warehouse_langgraph_agent.py` chỉ định nghĩa 5 cột (`stt`, `item`, `value`, `office`, `mission`), bỏ sót thuộc tính nhóm phân loại cha theo chuẩn Kimball Conformed Hierarchical Dimensions.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không hiển thị danh mục chỉ tiêu đa phân cấp mà thiếu trường ngữ nghĩa phân cấp cha (`nhom_chi_tieu` / `category`); Không viết assert lỏng lẻo dạng `assert 5_col or 6_col` làm suy yếu khả năng phát hiện lỗi hồi quy.
+  * ✅ **ALWAYS:** 
+    1. Trong CTE `ranked_facts` của `DIMENSION_LISTING`, bắt buộc chọn `f.parent_criteria_id` và `LEFT JOIN dwh_internal.criteria p ON rf.parent_criteria_id = p.id` để lấy `COALESCE(p.name, 'Chỉ tiêu chung') AS nhom_chi_tieu`.
+    2. Cưỡng chế bảng Markdown 6 cột chuẩn: `| STT | Tên chỉ tiêu | Nhóm chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |` và chèn cột `category` ở vị trí thứ 3 (index 2) trong `tabular_data["columns"]`.
+    3. Bộ kiểm thử bắt buộc assert chặt chẽ tiêu đề bảng 6 cột và kiểm tra sự hiện diện của trường `category` trong từng dòng dữ liệu.
+
+---
+
+### [TRAP-063] Bẫy Cắt Cụm Dữ Liệu Warehouse Bởi LIMIT 50 Ngầm & Lát Cắt Python (rows[:50] / PAGE_SIZE=5) Kèm Bỏ Sót Mẫu Câu Lũy Kế Đầu Năm (Year-to-Date)
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer` / `ASTEnforcerService` / `WarehouseLangGraphAgent` / `SmartTable.tsx`
+- **Triệu chứng:**
+  1. Câu hỏi *"Số lượng chỉ tiêu thu thập được từ đầu năm tới nay"* chỉ trả về 50 bản ghi, thấp hơn giai đoạn *"3/2026 - 06/2026"* (114 bản ghi).
+  2. Trên giao diện React UI, bảng `<SmartTable>` chỉ hiển thị 5 dòng mỗi trang (`PAGE_SIZE = 5`), cắt cụt khả năng đối soát trực quan toàn bộ danh mục.
+- **Nguyên nhân gốc rễ:**
+  1. Stream B (`_extract_stream_b_deterministic`) chưa có mẫu regex cho cụm lũy kế đầu năm (`"từ đầu năm tới nay"`, `"đầu năm đến nay"`, `"lũy kế từ đầu năm"`) và dải tháng gạch chéo (`"3/2026 - 06/2026"`). Khi câu hỏi rơi vào nhánh mặc định hoặc LLM fallback, `CanonicalQueryFrameDTO.limit` gán mặc định `50`, kết hợp `ASTEnforcerService` tự động tiêm `LIMIT 500` và `node_synthesize_response` cắt `rows[:50]`.
+  2. `DuckDBSemanticCatalog.is_dimension_query` thiếu từ khóa `"đầu năm"`, `"tới nay"`, `"đến nay"`, `"giai đoạn"` trong `has_time_term`, và `_extract_streams_llm` chưa truyền `stream_b` vào `_extract_stream_a_deterministic`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không gán cứng `limit = 50` mặc định trong `CanonicalQueryFrameDTO`; Không cắt `rows[:50]` / `rows[:100]` trong `warehouse_langgraph_agent.py`; Không chia trang cứng 5 dòng (`PAGE_SIZE = 5`) trong `SmartTable.tsx`.
+  * ✅ **ALWAYS:**
+    1. Đặt `CanonicalQueryFrameDTO.limit: Optional[int] = None` (chỉ thêm `LIMIT` vào SQL khi người dùng yêu cầu Top-N tường minh).
+    2. Bổ sung đầy đủ mẫu regex Year-to-Date (`từ đầu năm tới nay`, `đầu năm đến tháng X`) và dải `mm/yyyy - mm/yyyy` trong Stream B.
+    3. Hiển thị toàn bộ bản ghi trả về từ Warehouse trong khung cuộn dọc `max-h-[520px] overflow-y-auto` có cố định tiêu đề `sticky top-0`.
+
+---
+
+### [TRAP-064] Bẫy Độ Trễ Hiệu Ứng Gõ Chữ Từng Ký Tự (Typewriter ms Delay) Trên Khối Bảng Dữ Liệu Warehouse
+- **Môi trường & Công nghệ:** `WarehouseLangGraphAgent.run_stream` / `FluidTextStream.tsx` / `useSmoothStream.ts`
+- **Triệu chứng:**
+  - Khi trả về bảng dữ liệu Warehouse lớn (114 dòng x 6 cột $\approx 15.000$ ký tự Markdown), vòng lặp `for line in answer_lines: await asyncio.sleep(0.005)` ở Backend cộng với bộ đệm `useSmoothStream` (~14–42ms/nhịp) ở Frontend khiến bảng dữ liệu mất nhiều giây để vẽ từng ký tự và bị nhảy bố cục liên tục.
+- **Nguyên nhân gốc rễ:**
+  - Áp dụng chung hiệu ứng gõ chữ từng ký tự (dành cho văn bản hội thoại ngắn) lên toàn bộ khối dữ liệu có cấu trúc (Markdown Table, Card 5 trường, khối `<details>` SQL).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không chia nhỏ từng dòng Markdown kèm `asyncio.sleep` trong `run_stream` của Backend; Không chạy hiệu ứng gõ chữ `ms` trên bảng dữ liệu hoặc thẻ chỉ tiêu Warehouse.
+  * ✅ **ALWAYS:** Phát toàn bộ `final_answer` trong 1 sự kiện `token` duy nhất từ Backend; Tại `FluidTextStream.tsx`, tách phần câu dẫn ngắn (`introText`) và phần khối dữ liệu Warehouse (`warehouseBlock`) để render tức thì (`0ms`) toàn bộ bảng/thẻ số liệu và khối SQL ngay khi nhận phản hồi.
+
+---
+
+### [TRAP-065] Bẫy Ép Kiểu `DECIMAL` Trực Tiếp Trên Cột `f.value` Chứa Ký Tự `'-'` & Va Chạm Thực Thể Tổ Chức - Nhiệm Vụ - Tháng Viết Bằng Chữ
+- **Môi trường & Công nghệ:** `ASTEnforcerService` / `CanonicalSemanticNormalizer` / `DuckDBSemanticCatalog` / PostgreSQL 16 (`vna_wom_dev`)
+- **Triệu chứng:**
+  1. Khi truy vấn các chỉ tiêu lá có giá trị `f.value = '-'` (chưa cập nhật số liệu phê duyệt, thuộc kịch bản `SC-2.3`), `ASTEnforcerService` (TẦNG 4.2) tự động bọc `NULLIF(TRIM(f.value), '')::numeric` hoặc `REGEXP_REPLACE(TRIM(f.value), '[^0-9.-]', '', 'g')::decimal`, giữ lại dấu `'-'` đơn độc và gây lỗi runtime PostgreSQL `invalid input syntax for type numeric: "-"`.
+  2. Tên đơn vị hành chính chứa chuỗi con trùng tên nhiệm vụ (như `"Chi cục Phát triển nông thôn"`, `"Phòng Kinh tế hợp tác và Phát triển nông thôn"`) bị `resolve_mission()` nhận diện nhầm thành `target_mission = "Phát triển nông thôn"`, làm rớt mất 7 chỉ tiêu thuộc nhiệm vụ `"Diêm nghiệp"` do cùng đơn vị đó quản lý (`107` dòng thay vì `114` dòng).
+  3. Tháng viết bằng chữ `"tháng ba"` (ví dụ `"ngày 10 tháng ba năm 2026"`) bị bộ trích xuất chức vụ khớp nhầm với mã vị trí `"BA"` trong bảng `dwh_internal.users`, hoặc từ `"hợp tác xã"` kích hoạt nhầm bộ lọc đơn vị hành chính cấp `"xã"` (`dwh_internal.ward`).
+- **Nguyên nhân gốc rễ:**
+  1. Tầng AST Enforcer ép kiểu số vô điều kiện lên cột `value` mà không kiểm tra mẫu số hợp lệ `^-?[0-9]+(\.[0-9]+)?$`.
+  2. Chưa loại bỏ (mask/strip) span tên đơn vị tổ chức (`Sở/Phòng/Chi cục ... Phát triển nông thôn`) và cụm từ ghép (`hợp tác xã`, `liên hiệp hợp tác xã`) trước khi chạy bộ dò `mission`, `ward`, và `position`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không ép kiểu `f.value::numeric` trực tiếp nếu chưa qua biểu thức chính quy kiểm tra chuỗi số; Không quét `mission`, `ward`, `position` trên chuỗi thô chưa mask tên cơ quan/tổ chức và tháng viết bằng chữ.
+  * ✅ **ALWAYS:**
+    1. Giữ `f.value AS gia_tri` ở dạng chuỗi (`TEXT`) tại mệnh đề `SELECT` ngoài cùng và chỉ dùng `CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\.[0-9]+)?$' THEN CAST(TRIM(f.value) AS DECIMAL) ELSE NULL END` bên trong các hàm tổng hợp hoặc `ORDER BY`.
+    2. Chuẩn hóa tháng viết bằng chữ (`tháng giêng`..`tháng chạp`, `tháng một`..`tháng mười hai`) sang số trước khi trích xuất ngày/tháng, đồng thời mask tên đơn vị (`Chi cục/Phòng/Sở ... Phát triển nông thôn`) và cụm `hợp tác xã` trước khi trích xuất `mission` và `ward`.
+
+---
+
+### [TRAP-066] Bẫy Escape HTML Toàn Cục Làm Vỡ Bảng Markdown, Thẻ `<details>` SQL & Cộng Dồn Trạng Thái `tree_modal` Giữa Các Lượt Chat Trên `/bench`
+- **Môi trường & Công nghệ:** `IPGov_Chatbot/frontend/role_selector_bench.html` / `SmartTable.tsx` / `WarehouseLangGraphAgent`
+- **Triệu chứng:**
+  1. Trên giao diện `/bench`, hàm `formatResponseWithTreeButtons(rawText)` gọi `escapeHtml(rawText)` lên toàn bộ chuỗi phản hồi hoặc xóa bỏ dòng `<details>`/`<summary>`, khiến bảng Markdown hiện ký tự ống `|` thô, câu lệnh SQL bị đổ tràn ra màn hình, và thực thể `&nbsp;` hiển thị nguyên chữ `&nbsp;`.
+  2. Nút `- (Xem chi tiết con)` không truyền `rootId` của dòng chỉ tiêu Cấp 1 và biến `window.__latestTreeModalData` dùng `Object.assign` cộng dồn qua nhiều lượt hỏi, khiến khi bấm mở Pop-up Tree Modal ở câu hỏi sau vẫn hiển thị lẫn cây chỉ tiêu của câu hỏi trước.
+- **Nguyên nhân gốc rễ:**
+  1. Xử lý chuỗi Markdown bằng `escapeHtml` đơn thuần thay vì tách khối bảng Markdown (`<table>`), khối `<details><summary>...</summary>...</details>` và định dạng inline.
+  2. Thiếu cơ chế định danh `rootId` (theo `criteria_id` hoặc tên chuẩn hóa của chỉ tiêu Cấp 1 ở cột 2) trong sự kiện `onclick="openCriteriaTreeModal(rootId)"` và không reset `window.__latestTreeModalData` theo từng thông điệp.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `Object.assign` cộng dồn dữ liệu `tree_modal` cũ qua các lượt chat; Không dùng thực thể `&nbsp;` trong văn bản Markdown gợi ý chip; Không để nút mở Pop-up gọi `openCriteriaTreeModal()` không tham số.
+  * ✅ **ALWAYS:** Reset `window.__latestTreeModalData` theo dữ liệu `tabular_data.tree_modal` mới nhất, truyền `rootId` của đúng dòng chỉ tiêu Cấp 1 vào `openCriteriaTreeModal(rootId)`, bảo toàn khối thu gọn `<details>` cho SQL, và cấu hình Pop-up Modal có thanh cuộn dọc (`overflow-y-auto`, `max-h-[80vh]`) cùng 2 cơ chế đóng (nút `'✕'` góc phải trên và click vùng nền backdrop bên ngoài).
+
+---
+
+### [TRAP-067] Bẫy Ghi Đè `tabular_data` Bằng 2 Bảng Trong `REQ-Q01` & Biến Đếm Render Khả Biến Trong React 19 StrictMode
+- **Môi trường & Công nghệ:** `IPGov_Chatbot/modules/mod03_router/warehouse_langgraph_agent.py` / `IPGov_Chatbot/frontend/src/components/chat/MessageItem.tsx` / `SmartTable.tsx`
+- **Triệu chứng:**
+  1. Khi hỏi câu hỏi Loại 1 (`REQ-Q01`: `"Liệt kê số lượng các chỉ tiêu từ tháng 2 đến tháng 8 năm nay"`), giao diện Next.js (`http://localhost:3000`) hiển thị **2 bảng chồng nhau** đều có 114 bản ghi và sai bộ cột quy định trong `output.md` Mục 2.1.C (`STT | Tên chỉ tiêu Cấp 1 | Loại cấu trúc | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm`).
+  2. Nếu dùng biến đếm cục bộ khả biến `let tableRenderCount = 0` bên trong thân component `MessageItem` để chỉ truyền `tabularData` cho bảng đầu tiên, trong môi trường phát triển của **React 19 StrictMode** (hoặc khi `useTypingEffect` kích hoạt re-render), component bị gọi hàm 2 lần khiến `tableRenderCount` tăng lên `2` ở lượt render thứ hai và làm mất hoàn toàn `tabularData` (bao gồm `tree_modal`).
+- **Nguyên nhân gốc rễ:**
+  1. Backend `warehouse_langgraph_agent.py` vừa chèn 2 bảng Markdown vào `answer` (Bảng Cấp 1 + Bảng phẳng 114 dòng), vừa đặt `tabular_data["rows"] = formatted_rows` (114 dòng phẳng). Ở Frontend, `MessageItem.tsx` truyền cùng một `message.tabularData` vào mọi thẻ `<table>` trong `ReactMarkdown`, và `SmartTable.tsx` ưu tiên render `data.rows` thay vì `children` Markdown nên cả 2 bảng đều bị ghi đè thành bảng phẳng 114 dòng.
+  2. Biến đếm khả biến đặt trong closure của React functional component vi phạm tính thuần khiết (purity) khi React StrictMode double-invoke render.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không sinh 2 bảng Markdown kèm `tabular_data.rows` lệch cấu trúc cho câu hỏi `REQ-Q01`; Không dùng biến đếm khả biến (`let count = 0`) tăng dần bên trong custom component của `ReactMarkdown`.
+  * ✅ **ALWAYS:**
+    1. Với `REQ-Q01`, chỉ phát ra **duy nhất 1 bảng Cấp 1** đúng 6 cột chuẩn của `IPGov_Chatbot/docs/output.md` Mục 2.1.C, gán `tabular_data["rows"] = l1_formatted` (9 dòng Cấp 1), và lưu tổng số dòng phẳng vào `tabular_data["raw_fact_count"] = 114`.
+    2. Trong `SmartTable.tsx`, sử dụng `w-fit`, `py-2 px-3`, căn trái toàn bộ cột, và vẽ nhánh nối phân cấp kèm đầu mũi tên SVG (`▶`) tới từng box chỉ tiêu con trong Pop-up Tree Modal.
+
+---
+
+### [TRAP-068] Bẫy Đặt Biểu Thức `CASE WHEN` Loại Bỏ Giá Trị `'0'` Lên Trước `f.report_date DESC` Trong `ROW_NUMBER()` & Dư Thừa Cột/JOIN Trong SQL Đơn Chỉ Tiêu
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer.compile_canonical_sql` / `DuckDBSemanticCatalog._hydrate_catalog` / `WarehouseLangGraphAgent.execute_safe_sql`
+- **Triệu chứng:**
+  1. Chỉ tiêu `'Tổng hộ sản xuất muối'` (`tong_ho_san_xuat_muoi`) có bản ghi phê duyệt mới nhất vào ngày `2026-07-31` với `value = '0'`, nhưng hệ thống lại trả về giá trị cũ `660` của ngày `2026-06-30`.
+  2. Câu lệnh SQL đơn chỉ tiêu bị phình to không cần thiết do nhân đôi cột hiển thị (`gia_tri` vs `gia_tri_moi_nhat`, `ngay_bao_cao` vs `ngay_bao_cao_moi_nhat`, `ten_phong_ban` vs `ten_van_phong`), nối thừa bảng `dwh_internal.criteria gp` cấp ông, lồng correlated subquery `c_ord.code` trong `ORDER BY`, và bị `execute_safe_sql` tiêm thêm `LIMIT 500` ở cuối CTE `WITH ranked_facts`.
+- **Nguyên nhân gốc rễ:**
+  1. Trong mệnh đề `ROW_NUMBER() OVER (... ORDER BY ...)` của `ranked_facts` và CTE `fact_nonzero` của DuckDB Catalog, biểu thức `CASE WHEN ... AND NOT (f.mission_name = 'Diêm nghiệp' AND TRIM(f.value) IN ('0', '0.0')) THEN 0 ELSE 1 END ASC` được đặt đứng trước `f.report_date DESC NULLS LAST`, làm đảo thứ tự thời gian thực tế trong Kho dữ liệu.
+  2. Chưa thống nhất một chuẩn alias duy nhất giữa tầng sinh SQL và tầng đọc kết quả, đồng thời `execute_safe_sql` gọi `_sanitize_single_sql_ast` với tham số mặc định `inject_limit=True`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không đặt điều kiện lọc/ưu tiên giá trị khác `'0'` đứng trước `f.report_date DESC NULLS LAST, f.version DESC NULLS LAST` trong `ROW_NUMBER()`; Không nhân đôi cột cùng ý nghĩa trong `SELECT`; Không tiêm `LIMIT 500` vào truy vấn đã khử trùng lặp bằng `WITH ranked_facts ... WHERE rn = 1`.
+  * ✅ **ALWAYS:**
+    1. Xếp hạng bản ghi mới nhất thuần túy theo `ROW_NUMBER() OVER (PARTITION BY f.criteria_id, f.office_id ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST)`.
+    2. Chỉ loại bỏ chuỗi rỗng `''` và ký tự `'-'` khi kiểm tra giá trị chưa cập nhật; bảo toàn `'0'` và `'0.0'` là số liệu thống kê hợp lệ.
+    3. Thống nhất 6 cột tối giản chuẩn `/ponytail` cho truy vấn chỉ tiêu: `ten_chi_tieu`, `gia_tri_moi_nhat`, `ten_nhiem_vu`, `ten_van_phong`, `ngay_bao_cao_moi_nhat`, `nhom_chi_tieu`.
+
+---
+
+### [TRAP-069] Bẫy Nhân Đôi Nội Dung Chỉ Tiêu Cha (`SC-2.4`) & Sai Lệch Thuật Toán Khoảng Cách Ngày Cụ Thể `[A, B]` vs. Khoảng Thời Gian (`SC-2.2`)
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer.compile_canonical_sql` / `WarehouseLangGraphAgent.node_synthesize_response` / `MessageItem.tsx` / `QuickActionChips.tsx`
+- **Triệu chứng:**
+  1. Khi hỏi chỉ tiêu cha (`"số lượng chỉ tiêu HTX nông nghiệp"`), hệ thống chèn lặp 5 khối nội dung (thẻ 5 dòng đầu + câu giải thích + danh sách nút tĩnh `🔘 [...]` trong Markdown + bảng `SmartTable` 8 dòng + danh sách gạch đầu dòng + `QuickActionChips` ở đáy), sai lệch so với quy định tại `IPGov_Chatbot/docs/output.md`.
+  2. Khi hỏi mốc ngày cụ thể $a$ (`"số lượng chỉ tiêu trang trại ngày 23/4"` trên tập mốc `[31/3, 30/6, 30/9]` = `[A, B, C]`), câu SQL đặt `CASE WHEN f.report_date::date >= '2026-04-23'::date THEN 0 ELSE 1 END ASC` đứng trước `ABS(...)` nên chọn nhầm `30/06/2026` (cách 68 ngày) thay vì `31/03/2026` (cách 23 ngày).
+  3. Khi hỏi chỉ tiêu trong một khoảng thời gian (`"số lượng chỉ tiêu trang trại trong nửa đầu năm nay"` $\to$ `01/01..30/06`), điều kiện `is_parent_case` chỉ kiểm tra `not specific_date` mà chưa kiểm tra `date_from`/`month_filter`, hoặc bộ chọn dòng đơn lẻ lọc `_get_metric_val(r) is not None` làm bỏ qua bản ghi tại `report_date` mới nhất trong khoảng (`30/06/2026` có giá trị `NULL`).
+- **Nguyên nhân gốc rễ:**
+  1. `is_parent_case` tự sinh thêm bảng phụ và danh sách tóm tắt thay vì chỉ phát ra câu thông báo chuẩn của `output.md` kèm `quick_action_chips` và đặt `tabular_data = None`.
+  2. Mệnh đề `ORDER BY` khi có `specific_date` ưu tiên ngày $\ge a$ thay vì tính khoảng cách ngắn nhất tới 2 cận $[A, B]$ (bằng nhau mới ưu tiên cận trên $B$).
+  3. Chưa tách bạch điều kiện tra cứu theo khoảng thời gian (`date_from` / `month_filter`) khỏi `is_parent_case` và lọc bỏ `None` khi chọn `matched_single_row`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không chèn thẻ 5 dòng, bảng phụ hay danh sách lặp vào phản hồi `SC-2.4`; Không đặt `CASE WHEN f.report_date >= spec_d` đứng trước `ABS(f.report_date::date - spec_d::date) ASC`; Không bỏ qua dòng tại `report_date` mới nhất trong khoảng thời gian khi giá trị của nó là `NULL`/`'-'`.
+  * ✅ **ALWAYS:**
+    1. Với `SC-2.4`, chỉ hiển thị đúng câu thông báo chuẩn `output.md`, đặt `tabular_data = None`, và hiển thị 1 lần các nút `🔘 [Tên chỉ tiêu con]` ngay bên dưới câu thông báo (trước khối SQL).
+    2. Với `SC-2.2` khi hỏi ngày cụ thể $a$, dùng `ORDER BY ABS(f.report_date::date - '<spec_d>'::date) ASC, f.report_date DESC NULLS LAST, f.version DESC NULLS LAST` (và hàm `resolve_nearest_report_date`) để chọn cận gần hơn trong khoảng $[A, B]$ (cách đều ưu tiên cận trên $B$).
+    3. Với câu hỏi trong một khoảng thời gian (`date_from` / `date_to` / `month_filter`), luôn lấy bản ghi tại `report_date` mới nhất trong khoảng đó (kể cả khi giá trị là `NULL` $\to$ hiển thị `Chưa có số liệu phê duyệt (-)`).
+
+---
+
+### [TRAP-070] Bẫy Gộp 2 Đơn Vị Phụ Trách Khác `department_code` Trong `office_mission`, Cột `deleted_at` Của Bảng `office` & Rò Rỉ Đuôi Thời Gian Vào Tên Lĩnh Vực (`REQ-Q03` / `SC-3.1`)
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer.compile_canonical_sql` / `DuckDBSemanticCatalog.extract_scope_from_query` / `WarehouseLangGraphAgent.node_synthesize_response`
+- **Triệu chứng:**
+  1. Khi hỏi `"lĩnh vực nông nghiệp hiện đang có những nhiệm vụ nào"`, cột `Đơn vị phụ trách` hiển thị 2 đơn vị `"Chi cục, Phòng nông nghiệp"` cho mỗi nhiệm vụ (`Diêm nghiệp`, `Phát triển nông thôn`).
+  2. Khi nhiệm vụ trong kho dữ liệu chưa được gán đơn vị phụ trách (`NULL`, ví dụ `nhiệm vụ 2`, `nhiệm vụ 3`), cột `Đơn vị phụ trách` lại hiển thị `"Chưa phân công"` hoặc `"Cấp tỉnh"` thay vì `'-'`.
+  3. Bảng `dwh_internal.office` không có cột `deleted_date` (chỉ có `deleted_at`), nên nếu viết `o.deleted_date IS NULL` sẽ văng lỗi PostgreSQL `column o.deleted_date does not exist`.
+- **Nguyên nhân gốc rễ:**
+  1. Trong bảng `dwh_internal.office_mission`, `Diêm nghiệp` và `Phát triển nông thôn` (`m.department_code = '68-1-01'`) bị gắn thêm dòng của `department_code = '68-2-01'` (`Phòng nông nghiệp`), trong khi `STRING_AGG(DISTINCT o.office_name, ', ')` không đối chiếu `om.department_code = m.department_code` hay ưu tiên đơn vị thực hiện trong `fact_report_criteria`.
+  2. Danh sách `stop_tails` trong `extract_scope_from_query` trước đó thiếu các cụm từ chỉ thời gian (`" trong quý"`, `" trong nửa"`, `" từ đầu năm"`, `" từ tháng"`,...), khiến cụm thời gian ở cuối câu có thể bị dính vào tên lĩnh vực.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `STRING_AGG` gộp nhiều đơn vị khác `department_code` cho 1 nhiệm vụ; Không gọi `o.deleted_date` trên bảng `dwh_internal.office`; Không fallback đơn vị `NULL` thành `"Cấp tỉnh"` hay `"Chưa phân công"`.
+  * ✅ **ALWAYS:**
+    1. Xác định **01 đơn vị phụ trách duy nhất** cho mỗi nhiệm vụ theo thứ tự ưu tiên: bản ghi đã duyệt trong `fact_report_criteria` $\to$ bản ghi trong `office_mission` có `om.department_code = m.department_code` $\to$ fallback **`'-'`** khi `NULL`.
+    2. Cắt sạch các cụm từ thời gian trong `extract_scope_from_query` và áp dụng `EXISTS (SELECT 1 FROM dwh_internal.fact_report_criteria ...)` cho mọi mốc thời gian (`nửa đầu/cuối năm`, `quý 1..4`, `từ đầu năm tới giờ`, `từ tháng A đến tháng B`, `tháng X`, `ngày cụ thể`).
+
+---
+
+### [TRAP-071] Bẫy Lệch Cận `[A, B]` Khi Dùng `LAG/LEAD`, Rò Rỉ `lval` Ngoài Kỳ Lọc Trong Tree Modal & Ghi Đè CQR Giữa `SC-2.4` $\leftrightarrow$ `SC-2.1`
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer.compile_canonical_sql` / `DuckDBSemanticCatalog.build_criteria_tree_for_rows` / `WarehouseLangGraphAgent.node_parse_context`
+- **Triệu chứng:**
+  1. Nếu dùng `LAG(f.report_date) OVER (ORDER BY f.report_date)` và `LEAD(f.report_date)` trên bảng có nhiều bản ghi cùng `report_date` (khác `version`) hoặc khi `rn = 1` chọn cận trên $B$, giá trị `can_duoi_ngay` / `can_tren_ngay` tại dòng `rn = 1` bị lệch khỏi khoảng $[A, B]$ bao quanh ngày hỏi $a$.
+  2. Khi người dùng lọc theo khoảng thời gian (`has_temporal_filter=True`) và mở Pop-up Tree Modal (`REQ-Q01` / `SC-4.1`), các chỉ tiêu con không phát sinh bản ghi trong kỳ lại lấy nhầm `latest_value` (`lval`) của cả năm từ `catalog_criteria_hierarchy`.
+  3. Khi Lượt 1 hỏi chỉ tiêu cha (`SC-2.4`, ví dụ `"HTX nông nghiệp"`) và Lượt 2 gõ tự nhiên chỉ tiêu lá trùng tên (`"Thế còn chỉ tiêu Đang hoạt động thì sao?"`), bộ viết lại câu hỏi CQR có thể ghi đè chỉ tiêu mới bằng tên chỉ tiêu cha cũ hoặc đánh rơi ngữ cảnh cha khiến hệ thống trả về bảng 4 dòng `DUPLICATE_LEAF` (`SC-2.1`).
+- **Nguyên nhân gốc rễ:**
+  1. `LAG`/`LEAD` phụ thuộc vào dòng lân cận trực tiếp trong thứ tự sắp xếp thay vì so sánh trực tiếp với mốc `spec_d`.
+  2. `build_criteria_tree_for_rows` fallback vô điều kiện về `lval` khi `cid not in val_by_cid`.
+  3. Chưa truyền `inherited_parent_criterion` tách biệt với thực thể chỉ tiêu của lượt hiện tại vào `normalize_query` và `classify_criterion_hierarchy`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `LAG`/`LEAD` để tìm 2 cận ngày báo cáo bao quanh `spec_d`; Không fallback về `lval` trong `build_criteria_tree_for_rows` khi `has_temporal_filter=True`; Không để CQR ghi đè tên chỉ tiêu lá ở Lượt 2 bằng tên chỉ tiêu cha của Lượt 1.
+  * ✅ **ALWAYS:**
+    1. Tính `can_duoi_ngay = MAX(CASE WHEN f.report_date::date <= spec_d THEN f.report_date END) OVER (PARTITION BY f.criteria_id, f.office_id)` và `can_tren_ngay = MIN(CASE WHEN f.report_date::date >= spec_d THEN f.report_date END) OVER (PARTITION BY f.criteria_id, f.office_id)`.
+    2. Truyền `has_temporal_filter=True` vào `build_criteria_tree_for_rows` khi câu hỏi có bộ lọc thời gian để khóa `node_val = None` (`'-'`) cho các nhánh con không phát sinh dữ liệu trong kỳ.
+    3. Duy trì `inherited_parent_criterion` trong `AgentState` / `history` và truyền `parent_context` vào `classify_criterion_hierarchy` để phân giải `DUPLICATE_LEAF` $\to$ `SINGLE_LEAF` đúng nhánh cha.
+
+---
+
+### [TRAP-072] Bẫy Ghi Đè Đa Bảng Markdown Trong `SmartTable.tsx` (`REQ-Q05`), Lệch Selector `drilldown-mission` & Rò Rỉ Tiền Tố `[tenant_code=...]` Lên Bong Bóng Chat
+- **Môi trường & Công nghệ:** `SmartTable.tsx` / `MessageItem.tsx` / `ChatContainer.tsx` / `storage.ts`
+- **Triệu chứng:**
+  1. Khi phản hồi backend (`final_answer`, ví dụ `REQ-Q05` / `SC-5.1b`) chứa **3 bảng Markdown khác nhau** (Bảng 1: 9 dòng tổng hợp kỳ báo cáo; Bảng 2: 14 dòng chi tiết chỉ tiêu nháp; Bảng 3: 72 dòng đối chiếu Draft vs Approved), cả 3 bảng trên UI đều hiển thị y hệt Bảng 1 (9 dòng)!
+  2. Nút drill-down nhiệm vụ trong `SmartTable.tsx` đặt `data-testid="drilldown-mission-${cleanVal}"` thay vì chỉ số dòng `rIdx`, làm gãy kịch bản kiểm thử tự động gọi `data-testid="drilldown-mission-0"` / `"drilldown-mission-1"`.
+  3. Bong bóng chat của người dùng hiển thị nguyên chuỗi `[tenant_code=68, level=0] <câu hỏi>` trên giao diện.
+- **Nguyên nhân gốc rễ:**
+  1. `MessageItem.tsx` truyền cùng `tabularData={message.tabular_data}` (chứa dữ liệu của Bảng 1) vào mọi thẻ `<table>` do `ReactMarkdown` sinh ra, và `SmartTable.tsx` ưu tiên mù quáng `tabularData` mà không đối chiếu với `children` (`mdColumns`, `mdRows`). Đồng thời `parseTableFromChildren` dùng chỉ số `forEach` `idx` trên `thead` (bị lệch khi có text node `\n`) thay vì bộ đếm phần tử hợp lệ `hIdx`.
+  2. `SmartTable.tsx` gắn `cleanVal` vào `data-testid` thay vì `rIdx`.
+  3. `ChatContainer.tsx` gán trực tiếp `promptWithContext` vào `userMsg.content`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không ưu tiên mù quáng `tabularData` trong `SmartTable.tsx` khi `children` có cấu trúc cột/dòng khác `tabularData`; Không dùng chỉ số `forEach` thô cho `col_${idx}` trong `thead`; Không gán chuỗi `[tenant_code=...]` vào `userMsg.content` hiển thị trên UI.
+  * ✅ **ALWAYS:**
+    1. Luôn phân tích `parseTableFromChildren(children)` (`mdColumns`, `mdRows`) trong `resolveSmartTableData` và chỉ áp dụng/làm giàu từ `tabularData` khi `(a)` `mdRows.length === 0`, hoặc `(b)` số cột, tên cột (`doHeadersMatch`) và số dòng khớp với `tabularData`.
+    2. Đặt `data-testid={\`drilldown-mission-${rIdx}\`}` kèm `data-mission-name={cleanVal}` cho nút drill-down nhiệm vụ.
+    3. Cắt bỏ tiền tố `/^\[tenant_code=[^\]]+\]\s*/i` khỏi `userMsg.content` trên UI (trong `ChatContainer.tsx`, `MessageItem.tsx`, `storage.ts`, `api.ts`), chỉ gửi `promptWithContext` xuống API backend.
+
+---
+
+### [TRAP-073] Bẫy Lách Luật AST (AST Evasion), Nhiễm Trọng Số Tiền Tố `jaro_winkler_similarity` Trên Chuỗi Giao Token (`sect`) & Lệch Alias `nguoi_tao` / Biểu Thức Số Học Ngoại Truy Vấn (`q3.val - q2.val`)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` / `CanonicalSemanticNormalizer` / `ClarificationEngine` / `WarehouseLangGraphAgent` / `ASTEnforcerService`
+- **Triệu chứng:**
+  1. Thay thế toán tử `in` / `re` bằng các hàm Python tự chế (`_lcs_length`, `_indel_ratio`, `_partial_indel_ratio`, `_token_set_similarity`, `_has_term`, `_has_any_term`, `text.find(kw) != -1`, `len(text.split(kw)) > 1`) vi phạm quy tắc chống lách luật AST (AST Evasion / Smuggling) và gây nghẽn CPU Python.
+  2. Khi tính độ tương đồng tập từ (`_sql_token_set_similarity`) bằng cách ghép phần giao `sect` lên đầu (`s_ab = sect + ' ' + d1`, `s_ba = sect + ' ' + d2`) rồi đưa vào `GREATEST(..., jaro_winkler_similarity(s_ab, s_ba))`, trọng số Winkler ưu tiên tiền tố chung khiến mọi câu hỏi có chứa `"tỉnh Lâm Đồng"` khớp nhầm với tài khoản `"Admin Tỉnh Lâm Đồng"` ($\ge 85\%$) hoặc khớp nhầm chỉ tiêu chia sẻ từ đầu, đẩy câu hỏi KTXH sang `OFFICER_ASSIGNMENT`.
+  3. Kịch bản `SC-1.3_REPORT_DRAFT_ONLY` biên dịch SQL với alias `report_id`, `report_status`, `nguoi_tao`, nhưng `warehouse_langgraph_agent.py` chỉ đọc `r.get("id")`, `r.get("status")`, `r.get("created_by")` dẫn đến hiển thị sai người tạo mặc định `"chicuc_ptnt"` thay vì `"Admin Tỉnh Lâm Đồng"`.
+  4. Trong `ASTEnforcerService`, khi CTE chọn `SELECT value AS val` và truy vấn ngoài thực hiện phép trừ `q3.val - q2.val`, bộ kiểm tra AST chỉ dò tên cột gốc `value` trong biểu thức số học mà bỏ qua alias `val`, làm lọt cột `VARCHAR` chưa ép kiểu `NULLIF(TRIM(value), '')::DECIMAL`.
+- **Nguyên nhân gốc rễ:**
+  1. Chưa ủy thác toàn bộ phép đối sánh từ vựng và khoảng cách chuỗi xuống tầng C++ SQL của DuckDB (`semantic_lexicon`, `strpos`, `string_split_regex`, `levenshtein`, `jaro_winkler_similarity`).
+  2. Áp dụng `jaro_winkler_similarity` trên hai chuỗi đã được tiền xử lý đặt phần giao `sect` lên đầu làm sai lệch bản chất đo khoảng cách chỉnh sửa (edit distance) trên phần hiệu `d1`, `d2`.
+  3. Thiếu đồng bộ tên cột alias giữa `compile_canonical_sql` và `node_synthesize_response`, cùng với việc `ASTEnforcerService` chưa thu thập tập alias của cột `value` trước khi quét các nút `exp.Sub / exp.Add / exp.Mul / exp.Div`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không viết hàm độ tương đồng chuỗi bằng vòng lặp Python hoặc lách luật AST bằng `.find() != -1` / `.split()`; Không đưa `jaro_winkler_similarity(s_ab, s_ba)` vào phép so sánh chuỗi đã ghép tiền tố `sect`; Không cho phép tài khoản quản trị hệ thống (`Admin Tỉnh...`, `Phường...`) khớp tự do trong `resolve_user_name` khi câu hỏi không có ngữ cảnh nhân sự.
+  * ✅ **ALWAYS:**
+    1. Thực thi 100% đối sánh từ điển ngữ nghĩa qua bảng DuckDB `semantic_lexicon(category, term, weight)` (`match_lexicon_categories`, `has_lexicon_category`) và các hàm SQL gốc của DuckDB (`sql_has_term`, `sql_has_any_term`, `sql_find_word_boundary_span`).
+    2. Trong `_sql_token_set_similarity`, chỉ dùng khoảng cách chỉnh sửa chuẩn hóa (`1.0 - levenshtein(...) / GREATEST(length(...))`) khi đối chiếu các chuỗi tổ hợp `sect`, `s_ab`, `s_ba`.
+    3. Hỗ trợ đầy đủ cả bộ khóa gốc và alias (`id`/`report_id`, `status`/`report_status`, `created_by`/`nguoi_tao`) tại tầng tổng hợp phản hồi `REQ-Q05`, và thu thập mọi alias của cột `value` trong `ASTEnforcerService` để bọc `CAST(NULLIF(TRIM(value), '') AS DECIMAL)` khi alias đó tham gia phép toán số học ở truy vấn cha.
+
+---
+
+### [TRAP-074] Bẫy Phình To Nhánh Ngoài Phạm Vi `output.md`, Bỏ Quên Bảng `criteria_group` Trong `ALLOWED_WAREHOUSE_TABLES` & Va Chạm Động Từ Đệm `"tổng hợp"` Với Chỉ Tiêu Lá `"Tổng hợp"` (`tong_hop4`)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog.classify_criterion_hierarchy` / `CanonicalSemanticNormalizer` / `WarehouseLangGraphAgent` / PostgreSQL 16 (`vna_wom_dev`)
+- **Triệu chứng:**
+  1. Sự xuất hiện của các nhánh ngoài phạm vi `IPGov_Chatbot/docs/output.md` (`R2-DYN-**`, `ward_mission_scope`, `office_user_dept`, `fact_office_scope`, `fact_report_scope`, `criteria_fact_office_scope`, 6 nhánh kiểm toán tự chế `SC-1.1_REPORT_TOTAL_SUBMITTED`..`SC-4.3_MISSION_EMPTY_SUBDEPT`) kèm dữ liệu giả (`Chi cục Phát triển nông thôn`, `admin-lamdong`, 2 dòng `collection_form` giả) làm lệch hoàn toàn kết quả hiển thị của `REQ-Q01`..`REQ-Q05`.
+  2. Câu hỏi `SC-5.2` truy vấn `dwh_internal.criteria_group` bị `execute_safe_sql` chặn thực thi và trả về 0 dòng vì `ALLOWED_WAREHOUSE_TABLES` thiếu `"criteria_group"`.
+  3. Khi câu hỏi có từ đệm hành chính `"tổng hợp số lượng chỉ tiêu trang trại..."` (`Q02-B9 P1`), hàm `classify_criterion_hierarchy` khớp trực tiếp chuỗi có dấu `"tổng hợp"` với chỉ tiêu lá Cấp 3 `"Tổng hợp"` (`code = 'tong_hop4'`, thuộc nhóm Trang trại), làm trả về `SINGLE_LEAF` (`Tổng hợp`) thay vì `PARENT_GROUP` (`Trang trại`).
+- **Nguyên nhân gốc rễ:**
+  1. Không khóa chặt phạm vi thiết kế vào tài liệu chuẩn `IPGov_Chatbot/docs/output.md` và tự ý sửa dữ liệu gốc trong `vna_wom_dev`.
+  2. Chưa khai báo bảng `"criteria_group"` trong tập `ALLOWED_WAREHOUSE_TABLES` của `warehouse_langgraph_agent.py`.
+  3. Chốt chặn chống khớp nhầm `"tổng hợp"` trước đó chỉ đặt trong nhánh không dấu (`if not sp`) và chỉ kiểm tra `it["code"] == "tong_hop"` thay vì `it["name_low"] == "tổng hợp"` (`code = 'tong_hop4'`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không thêm các nhánh `target_table` hoặc `audit_sub_intent` ngoài phạm vi `IPGov_Chatbot/docs/output.md`; Không tự ý chèn bản ghi giả hoặc đổi tên đơn vị `'Chi cục'` thành `'Chi cục Phát triển nông thôn'`; Không cho phép `it["name_low"] == "tổng hợp"` khớp tự do khi người dùng dùng `"tổng hợp"` như động từ đệm.
+  * ✅ **ALWAYS:**
+    1. Chỉ duy trì đúng 5 nhóm câu hỏi `REQ-Q01`..`REQ-Q05` (với 3 `audit_sub_intent` chuẩn: `REPORT_SUBMISSION_STATUS`, `FORM_CRITERIA_GROUP`, `MISSION_ASSIGNMENT_MATRIX`) và bảo toàn nguyên trạng dữ liệu chuẩn trong `vna_wom_dev` (`office_name = 'Chi cục'`, `created_by = 'tzyalnh'`).
+    2. Khai báo đầy đủ `"criteria_group"` trong `ALLOWED_WAREHOUSE_TABLES`.
+    3. Trong `classify_criterion_hierarchy`, chặn khớp chỉ tiêu có `it["name_low"] == "tổng hợp"` trừ khi câu hỏi chứa ngữ cảnh tường minh `("chi tieu tong hop", "trang trai tong hop", "linh vuc tong hop")`.
+
+---
+
+### [TRAP-075] Bẫy Cướp Quyền Điều Hướng Do Nhánh Tra Cứu Danh Mục Sở/Phòng Ban (`office_or_department`) Thiếu Chốt Chặn `not has_specific_catalog_metric`
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer._extract_stream_a_deterministic` / `DuckDBSemanticCatalog.is_dimension_query`
+- **Triệu chứng:**
+  Khi câu hỏi tra cứu một chỉ tiêu cụ thể nhưng có chứa từ "đơn vị" (ví dụ: *"Làm ơn cho tôi hỏi thăm một chút là chỉ tiêu số lượng đơn vị đang hoạt động trên hệ thống hiện nay ghi nhận như thế nào?"*), nhánh kiểm tra `is_dimension_query(raw_input, "office_or_department")` tại dòng 993 trong `canonical_normalizer.py` bị kích hoạt, chuyển hướng toàn bộ câu hỏi sang `DIMENSION_LISTING` (liệt kê danh mục phòng ban) thay vì trả về bảng đối chiếu `DUPLICATE_LEAF` (SC-2.1) của chỉ tiêu *"Đang hoạt động"*.
+- **Nguyên nhân gốc rễ:**
+  Nhánh 4 trong `_extract_stream_a_deterministic` thiếu điều kiện phòng vệ `not has_specific_catalog_metric and not is_fact_calc`, dẫn đến việc chỉ cần câu hỏi xuất hiện từ khóa phòng ban/đơn vị thì bị cướp quyền điều hướng ngay cả khi đã phát hiện ra chỉ tiêu số liệu cụ thể trong catalog.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không đặt các nhánh phân loại danh mục (Dimension Listing) trước khi kiểm tra hoặc bỏ qua điều kiện `not has_specific_catalog_metric and not is_fact_calc`.
+  * ✅ **ALWAYS:**
+    Bắt buộc thêm `if not has_specific_catalog_metric and not is_fact_calc and hasattr(self.catalog, "is_dimension_query") and self.catalog.is_dimension_query(raw_input, "office_or_department"):` để đảm bảo câu hỏi chứa chỉ tiêu cụ thể luôn được định tuyến đúng về Fact Plane (`METRIC_POINT_INQUIRY` / `DUPLICATE_LEAF`).
+
+---
+
+### [TRAP-076] Bẫy Rò Rỉ Ngữ Cảnh Nhóm Cha (Parent Context Leakage) Do Heuristic Đếm Độ Dài Từ Thay Vì Dấu Hiệu Tỉnh Lược Cấu Trúc
+- **Môi trường & Công nghệ:** `WarehouseLangGraphAgent` / Quản trị Hội thoại Đa Lượt (Discourse State Tracking) / SC-2.1 & SC-2.4
+- **Triệu chứng:**
+  Sau khi hỏi một nhóm chỉ tiêu cha ở Turn 1 (ví dụ: *"Cho tôi xem số liệu chỉ tiêu Trang trại năm 2026?"*), ở Turn 2 người dùng hỏi một chỉ tiêu độc lập trùng tên ở nhiều nhánh nhưng không có từ hỏi dạng câu hỏi dài (ví dụ: *"Chỉ tiêu trồng trọt"* hoặc *"Trồng trọt năm 2026"*). Chatbot vô tình kế thừa lại ngữ cảnh `"Trang trại"` của Turn 1, khiến bảng đối chiếu 4 nhánh (`multi_parent_rows`) bị teo tóp về 1 nhánh duy nhất (giá trị 26) thay vì trả về cả 4 nhánh (HTX, LHHTX, THT, Trang trại).
+- **Nguyên nhân gốc rễ:**
+  Heuristic `is_contextual_query = has_connective or (len(norm_tokens) <= 5 and not has_standalone_metric_ask)` gán bừa mọi câu hỏi ngắn $\le 5$ từ không chứa từ nghi vấn ("bao nhiêu", "đạt bao nhiêu") thành câu hỏi phụ thuộc ngữ cảnh, bất kể người dùng không hề dùng các từ nối liên kết hay đại từ chỉ định.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không dùng heuristic đếm số từ `len(tokens) <= 5` để suy đoán ý định tỉnh lược (anaphora).
+  * ✅ **ALWAYS:** Chỉ cho phép kế thừa `inherited_parent_ctx` khi câu hỏi chứa từ nối liên kết tường minh (`"còn"`, `"sao"`, `"thế"`, `"trong"`, `"nhánh"`, `"thuộc"`) hoặc đại từ chỉ định trỏ vào thực thể trước (`"nhóm đó"`, `"nhánh này"`, `"ở trên"`). Các câu hỏi tra cứu danh từ độc lập phải tự động giải phóng ngữ cảnh cha (`inherited_parent_ctx = None`) để trả về toàn diện các nhánh (`SC-2.1`).
+
+---
+
+### [TRAP-077] Bẫy ValidationError Kiểu Dữ Liệu Trong DialogueStateFrame Khi Trích Xuất Thực Thể Danh Sách (List Coercion Trap)
+- **Môi trường & Công nghệ:** `DiscourseStateTracker` / `WarehouseLangGraphAgent` / Pydantic v2 `DialogueStateFrame`
+- **Triệu chứng:**
+  `pydantic_core._pydantic_core.ValidationError: Input should be a valid string [type=string_type, input_value=['HTX nông nghiệp', ...], input_type=list]` tại `discourse_state_tracker.py` khi chạy câu hỏi OOD dạng `"Liệt kê danh mục các nhiệm vụ thuộc khối ngành Nông nghiệp và Phát triển nông thôn?"`.
+- **Nguyên nhân gốc rễ:**
+  Hàm `extract_topic_entity` hoặc `planner_slots["topic_entity"]` trả về một `list` (do `catalog.find_criteria_by_name` trả về danh sách thực thể hoặc trường hợp đa thực thể). Giá trị này được gán trực tiếp vào trường `topic_entity: Optional[str]` và `keywords: List[str]` trong `DialogueStateFrame`, vi phạm ràng buộc kiểu dữ liệu nghiêm ngặt của Pydantic v2.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không truyền trực tiếp kết quả trích xuất thực thể hoặc slot vào `DialogueStateFrame` mà không kiểm tra và ép kiểu.
+  * ✅ **ALWAYS:**
+    Luôn kiểm tra `isinstance(topic, list)` và ép kiểu an toàn (`", ".join(str(x) for x in topic)` nếu là list, `str(topic)` nếu không rỗng) trước khi khởi tạo `DialogueStateFrame`, đồng thời làm phẳng (flatten) mảng `keywords` để đảm bảo 100% phần tử là `str`.
+
+---
+
+### [TRAP-078] Bẫy Rò Rỉ Ngữ Cảnh Do Đưa Giới Từ Thông Dụng Vào Tập Từ Nối Tỉnh Lược (Preposition Context Leakage Trap)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` (`DISCOURSE_CONNECTIVE` / `DISCOURSE_DEMONSTRATIVE`) / `WarehouseLangGraphAgent`
+- **Triệu chứng:**
+  Sau khi hỏi chỉ tiêu cha ở Turn 1 (ví dụ: *"Cho tôi xem số liệu chỉ tiêu Trang trại năm 2026?"*), ở Turn 2 người dùng hỏi một câu độc lập có chứa giới từ thông dụng như *"trong"* (*"Chỉ tiêu trồng trọt trong năm 2026 là bao nhiêu?"*) hoặc *"thuộc"* (*"Các chỉ tiêu thuộc nhiệm vụ Diêm nghiệp?"*). Chatbot nhận diện nhầm câu hỏi là hội thoại tỉnh lược (anaphora ellipsis continuation), tự động kích hoạt `inherited_parent_ctx = Trang trại`, làm teo tóp bảng so sánh 4 nhánh (`duplicate_leaf`) thành 1 nhánh hoặc cướp quyền điều hướng của nhiệm vụ mới.
+- **Nguyên nhân gốc rễ:**
+  Tập từ nối `DISCOURSE_CONNECTIVE` bị cấu hình thừa các giới từ quan hệ thông dụng (`"trong"`, `"thuộc"`, `"đối với"`), và `DISCOURSE_DEMONSTRATIVE` chứa các danh từ phân loại đơn lẻ (`"nhóm"`, `"nhánh"`). Bất kỳ câu hỏi chuẩn nào có giới từ thời gian (`"trong năm 2026"`) hoặc giới từ quan hệ (`"thuộc nhiệm vụ"`) đều bị dương tính giả (false positive).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không đưa các giới từ độc lập (`"trong"`, `"thuộc"`, `"đối với"`) hoặc danh từ chung (`"nhóm"`, `"nhánh"`) vào `DISCOURSE_CONNECTIVE` / `DISCOURSE_DEMONSTRATIVE`.
+  * ✅ **ALWAYS:**
+    1. Chỉ định nghĩa `DISCOURSE_CONNECTIVE` với các cụm từ nối tỉnh lược thực sự: `{"thế còn", "vậy còn", "thế thì", "còn thì", "còn", "thì sao", "thế sao"}`.
+    2. Chỉ định nghĩa `DISCOURSE_DEMONSTRATIVE` với các cụm đại từ chỉ định tường minh: `{"nhóm đó", "nhánh này", "nhóm này", "nhánh đó", "chỉ tiêu đó", "chỉ tiêu này", "ở trên", "vừa rồi"}`.
+    3. Thêm chốt chặn nghiệp vụ trong agent router: Bỏ qua kế thừa ngữ cảnh cha nếu câu hỏi chứa nhiệm vụ tường minh (`has_explicit_mission`) hoặc câu hỏi tự định nghĩa một chỉ tiêu cha mới (`is_parent_in_query`).
+
+---
+
+### [TRAP-079] Bẫy Va Chạm Substring `INSTR` Trên Token Không Dấu Đơn Tiết ("con", "the", "sao") & Khiếm Khuyết Hợp Đồng `root_name` Trong `classify_criterion_hierarchy`
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` (`DISCOURSE_CONNECTIVE`) / `WarehouseLangGraphAgent` / `semantic_lexicon`
+- **Triệu chứng:**
+  1. Khi người dùng hỏi Turn 1 về chỉ tiêu cha (ví dụ *"Cho tôi xem số liệu chỉ tiêu Trang trại năm 2026?"*), sang Turn 2 người dùng hỏi một câu độc lập có từ "con" (ví dụ *"Chỉ tiêu con trong năm 2026 là bao nhiêu?"*) hoặc "sao" (*"Tại sao..."*), hệ thống nhận diện nhầm "con" / "sao" là `DISCOURSE_CONNECTIVE`, vô tình kế thừa lại ngữ cảnh cha `Trang trại`.
+  2. Kế thừa ngữ cảnh nhóm cha từ lịch sử hội thoại (`history`) hoàn toàn tê liệt vì `u_h.get("classification") in ("parent", "parent_group")` có phát hiện nhưng điều kiện `u_h.get("root_name")` luôn là `None` do `classify_criterion_hierarchy` trả về `name`, `parent_name` nhưng quên gán khóa `root_name` và `root_id` cho nút gốc.
+- **Nguyên nhân gốc rễ:**
+  1. Đưa các token không dấu 1 âm tiết (`"con"`, `"the"`, `"sao"`) vào bảng `semantic_lexicon` rồi dùng toán tử `INSTR(haystack, needle) > 0` không có ranh giới từ (word boundary) làm khớp bất kỳ từ tiếng Việt thông dụng nào chứa chuỗi con đó (`"chỉ tiêu con"` khớp `"con"`, `"tại sao"` khớp `"sao"`).
+  2. Sự sai lệch hợp đồng dữ liệu giữa hàm phân loại phân cấp `classify_criterion_hierarchy` (bỏ quên `root_name`) và hàm router đa lượt `node_plan_route` của agent.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ nạp token không dấu 1 âm tiết (`con`, `the`, `sao`) vào lexicon từ nối; Không dựa dẫm vào 1 khóa duy nhất `u_h.get("root_name")` mà không có fallback an toàn.
+  * ✅ **ALWAYS:**
+    1. Kiểm tra ranh giới từ (`' ' || needle || ' '`) đối với `DISCOURSE_CONNECTIVE` trong `has_lexicon_term` và chặn các token không dấu 1 âm tiết khi hydrate catalog.
+    2. Trong `classify_criterion_hierarchy`, gán đầy đủ cả `root_id` và `root_name` cho các nút gốc (`category == 'PARENT_GROUP'`).
+    3. Trong agent router, trích xuất linh hoạt `p_name = u_h.get("root_name") or u_h.get("name") or u_h.get("matched_name")`, và áp dụng chốt chặn `is_dup_leaf and not (has_connective or has_demonstrative)` để triệt tiêu mọi rò rỉ ngữ cảnh cha.
+
+
+
+
+
+
+
+
+---
+
+### [TRAP-080] Bẫy Dò Chuỗi Cứng (Probing) và Cắt Chuỗi Cứng (Slicing) Trong Router/Catalog Gây Gãy Tính Tổng Quát Hóa Framework
+- **Môi trường & Công nghệ:** `CanonicalSemanticNormalizer` / `DuckDBSemanticCatalog` / `WarehouseLangGraphAgent` / AST Zero-Heuristic
+- **Triệu chứng:**
+  1. Dò chuỗi con cố định (ví dụ: `"lành" in frame.target_user_name`) để quyết định SELECT cột `u.position`, khiến các cán bộ khác bị mất chức danh hoặc sinh SQL không đồng nhất.
+  2. Dùng `if frame.department_code == "68-1-07"` hardcode mã phòng ban liên kết trong code Python thay vì lưu trong metadata catalog.
+  3. Sử dụng `[:]`, `removeprefix`, `removesuffix`, hoặc `.find()` cắt chuỗi thủ công trong Python (`u_search[len(pref):]`, `metric_name[len("chỉ tiêu "):]`, `extracted_mission[:pos]`) vi phạm nguyên tắc cấm cắt chuỗi cứng.
+  4. CTE SQL sinh ra chứa cứng nhãn `"HTX nông nghiệp"` và năm `"2026"` thay vì lấy theo metric và năm động.
+- **Nguyên nhân gốc rễ:**
+  Lối mòn vá lỗi (patching) nhanh để giải quyết test case cục bộ thay vì tổng quát hóa schema metadata và ủy thác xử lý cho DuckDB SQL engine.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không dò chuỗi con của tên riêng thực thể (`"lành" in text`); Không hardcode mã liên kết phòng ban/sở ngành trong code Python; Không dùng `[:]` / `removeprefix` / `removesuffix` / `.find()` cắt chuỗi; Không hardcode nhãn phân loại hoặc năm trong CTE.
+  * ✅ **ALWAYS:**
+    1. Chiếu đồng nhất các cột nghiệp vụ cần thiết (`u.position`).
+    2. Lưu cấu trúc quan hệ (`related_codes`) trong `catalog_seed_metadata.json` và bảng `catalog_departments` DuckDB, truy xuất qua `get_associated_department_codes(code)`.
+    3. Ủy thác loại bỏ từ nhiễu/tiền tố/hậu tố qua `strip_query_noise` bằng DuckDB SQL với bảng `semantic_lexicon`.
+    4. Trích xuất dynamic label `metric_lbl` và `{year}` cho mọi CTE và biểu thức truy vấn.
+
+---
+
+### [TRAP-081] Bẫy Va Chạm Tiền Tố Substring Không Ranh Giới Từ Trong strip_query_noise và has_lexicon_term (Word Boundary Prefix Collision Trap)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` (`strip_query_noise`, `has_lexicon_term`) / `CanonicalSemanticNormalizer`
+- **Triệu chứng:**
+  Khi người dùng hỏi câu hỏi bắt đầu bằng từ vựng có tiền tố trùng với một token nhiễu ngắn (ví dụ: *"Hiệu quả hoạt động của trang trại là bao nhiêu?"* chứa từ *"Hiệu quả"* bắt đầu bằng `"Hi"` trùng với greeting lead noise `"hi"`), hệ thống nhận diện nhầm câu hỏi có chứa lời chào hỏi và tự động cắt cụt tiền tố chuỗi (`"Hiệu quả..."` -> `"ệu quả..."`). Chuỗi truy vấn bị hỏng khiến tầng trích xuất thực thể không thể khớp được chỉ tiêu *"Hiệu quả hoạt động"*, dẫn đến rớt nhánh hoặc gán sai chỉ tiêu cha.
+- **Nguyên nhân gốc rễ:**
+  Hàm `strip_query_noise` và `has_lexicon_term` khi so khớp tiền tố (`LEAD` / `PREFIX`) dùng toán tử `LIKE term || '%'` hoặc `INSTR(text, term) > 0` không có điều kiện ranh giới từ (word boundary). Do đó, token 2 ký tự `"hi"` khớp vào 2 ký tự đầu của `"Hiệu quả"`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không so khớp tiền tố chuỗi `LIKE term || '%'` hoặc `INSTR(text, term) > 0` đối với các từ nhiễu ngắn mà không kiểm tra ký tự ranh giới từ.
+  * ✅ **ALWAYS:**
+    Khi loại bỏ hoặc nhận diện tiền tố (`is_lead`), bắt buộc kiểm tra xem token đó có đứng độc lập hoặc theo sau bởi dấu cách / dấu phân cách hay không:
+    `LOWER(text) = LOWER(term) OR LOWER(text) LIKE LOWER(term) || ' %' OR LOWER(text) LIKE LOWER(term) || ',%' OR LOWER(text) LIKE LOWER(term) || '!%' ...`
+
+---
+
+### [TRAP-082] Bẫy Cắt Chuỗi Tiền Tố [len(p):] Thủ Công Gây Rò Rỉ Kỹ Thuật và Bỏ Qua Lexicon Quản Trị Trung Tâm
+- **Môi trường & Công nghệ:** `ClarificationEngine` / `WarehouseLangGraphAgent` / `DuckDBSemanticCatalog`
+- **Triệu chứng:**
+  Xuất hiện các hàm cục bộ lặp lại (`_stem_core_cand`, `_stem_core`) sử dụng vòng lặp `for p in ("số lượng ", ...): if n.startswith(p): return n[len(p):].strip()`. Khi cần bổ sung tiền tố mới (ví dụ: `"mức độ"`, `"tỷ lệ"`), kỹ sư buộc phải tìm và sửa nhiều nơi trong mã nguồn, dễ bỏ sót và vi phạm nguyên tắc Zero-Heuristics của hệ thống.
+- **Nguyên nhân gốc rễ:**
+  Viết logic cắt chuỗi tiện tay bằng Python thủ công thay vì ủy thác cho bảng `semantic_lexicon` (`METRIC_AGG_PREFIX_NOISE`) và hàm `strip_query_noise` trong DuckDB Catalog.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không viết vòng lặp `startswith` kết hợp `[len(p):]` để cắt tiền tố/hậu tố chuỗi trong Router hay Agent.
+  * ✅ **ALWAYS:** Đăng ký các tiền tố/hậu tố vào `semantic_lexicon` và gọi `self.catalog.strip_query_noise(text, category)` để quản trị tập trung tại một nguồn chân lý duy nhất (SSOT).
+
+---
+
+### [TRAP-083] Bẫy Hardcode Fallback Danh Mục Nghiệp Vụ Gây Thiên Kiến Miền Dữ Liệu (Domain Bias Trap)
+- **Môi trường & Công nghệ:** `WarehouseLangGraphAgent` / `DuckDBSemanticCatalog` / `build_criteria_tree_for_rows`
+- **Triệu chứng:**
+  Khi DuckDB Catalog gặp lỗi hoặc bảng danh mục chưa có bản ghi, hệ thống fallback về các giá trị cứng thuộc lĩnh vực nông nghiệp (`"Nông nghiệp"`, `"Diêm nghiệp"`, `"Phát triển nông thôn"`, `"Chi cục"`), hoặc hardcode thứ tự ưu tiên `m_order = 0 if nd["mission_name"] == "Diêm nghiệp" else 1`. Khi mở rộng sang các sở ngành khác (Y tế, Giáo dục, Xây dựng, Tài chính), hệ thống hiển thị gợi ý hoặc nhãn sở ngành không thuộc phạm vi người dùng hỏi.
+- **Nguyên nhân gốc rễ:**
+  Lối tư duy dùng dữ liệu mẫu cục bộ làm fallback cứu vớt kết quả thay vì trả về `[]` an toàn hoặc truy vấn động từ các bảng metadata `catalog_missions_detail` và `catalog_scopes`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không hardcode chuỗi tên lĩnh vực/nhiệm vụ/phòng ban nghiệp vụ trong các mệnh đề `or [...]` hoặc biểu thức `if/else` sắp xếp thứ tự.
+  * ✅ **ALWAYS:**
+    1. Khi danh mục rỗng, trả về `[]` an toàn để kích hoạt nhánh xử lý từ chối chuẩn mực.
+    2. Sắp xếp thứ tự nhiệm vụ/lĩnh vực động qua `ORDER BY name ASC` hoặc `mission_order_map` được build từ bảng metadata `catalog_missions_detail`.
+    3. Tra cứu `def_mname` và `def_oname` động từ bản ghi hợp lệ đầu tiên trong metadata thay vì hardcode chuỗi tĩnh.
+
+---
+
+### [TRAP-084] Bẫy N+1 Query Lặp Truy Vấn Metadata Trong Vòng Lặp Phân Cấp Cây Chỉ Tiêu (N+1 Tree Hydration Query Trap)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog.build_criteria_tree_for_rows`
+- **Triệu chứng:**
+  Khi dựng cây chỉ tiêu cho kết quả truy vấn gồm hàng trăm dòng (`hier_rows`), hệ thống thực thi câu lệnh SQL lặp đi lặp lại `SELECT has_approved_facts FROM catalog_missions_detail WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))` cho từng dòng bên trong vòng lặp `for r in hier_rows:`. Thao tác này gây nghẽn IO, tăng độ trễ tổng thể và dễ phát sinh deadlock/connection lock trên DuckDB RAM dưới tải đồng thời.
+- **Nguyên nhân gốc rễ:**
+  Truy vấn đơn lẻ bên trong vòng lặp (N+1 query anti-pattern) thay vì gom nhóm (batch fetch) siêu dữ liệu `catalog_missions_detail` thành một bảng tra cứu bộ nhớ (in-memory hash map) trước khi bắt đầu duyệt cây.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không gọi `self.conn.execute(...)` bên trong vòng lặp duyệt dòng cây phân cấp `hier_rows`.
+  * ✅ **ALWAYS:**
+
+---
+
+### [TRAP-085] Bẫy Trả Về Trạng Thái Đối Thoại Cũ (Stale `curr_quest`) Trong Phân Nhánh Khám Phá Danh Mục (Stale Context Frame Trap in `CATALOG_DISCOVERY`)
+- **Môi trường & Công nghệ:** `IntentRouter.route_query` / `HDFTDialogueTracker` / `CATALOG_DISCOVERY`
+- **Triệu chứng:**
+  Trong chuỗi hội thoại đa lượt, khi người dùng chuyển từ câu hỏi khám phá biểu mẫu chung (*"Năm 2026 có những biểu mẫu thu thập dữ liệu nào ?"*) sang câu hỏi lọc theo phòng ban (*"Biểu mẫu nào của Phòng Xây dựng sắp đến hạn nộp ?"*), dù `HDFTDialogueTracker.update_state` đã nhận diện chính xác phòng ban (*"Phòng Xây dựng"*) và nạp vào `active_quest.admin_entity`, đối tượng trả về `RouterOutputDTO` ở phân nhánh `CATALOG_DISCOVERY` vẫn mang `active_quest=curr_quest` (frame cũ từ lượt trước), làm mất hoàn toàn slot phòng ban vừa trích xuất được và khiến các lượt hội thoại tiếp theo không thể kế thừa ngữ cảnh.
+- **Nguyên nhân gốc rễ:**
+  Tại phân nhánh `if parsed.intent == "CATALOG_DISCOVERY"` trong `intent_router.py`, hàm khởi tạo `RouterOutputDTO` sử dụng biến `active_quest=curr_quest` (trạng thái trước khi cập nhật lượt mới) thay vì `active_quest=active_quest` (trạng thái đã được cập nhật bởi `self.hdft_tracker.update_state`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không gán `active_quest=curr_quest` trong các phân nhánh định tuyến nằm sau lệnh gọi `self.hdft_tracker.update_state`.
+  * ✅ **ALWAYS:** Luôn gán `active_quest=active_quest`, `active_quest_preserved=True if active_quest else False`, và `active_quest_action=QuestActionEnum.INIT if not curr_quest else QuestActionEnum.PRESERVE` để bảo đảm cấu trúc trạng thái đối thoại trả về luôn phản ánh chính xác các slot vừa được cập nhật và làm giàu trong lượt hiện tại.
+
+---
+
+### [TRAP-086] Bẫy Coi Mọi Chỉ Tiêu Cha Là Rỗng (`SC-2.4a` vs `SC-2.4b`), Cướp Quyền `DIMENSION_LISTING` Khi Câu Hỏi Có Từ `"số lượng"` + Ngày Tháng Trên `DUPLICATE_LEAF`, Và Gọi Sớm Vector Embedding Trước `classify_criterion_hierarchy`
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` / `CanonicalSemanticNormalizer` / `WarehouseLangGraphAgent` / `DiscourseStateTracker` / `DWHConnectionPool`
+- **Triệu chứng:**
+  1. Trong kho dữ liệu `vna_wom_dev`, có 5 chỉ tiêu cha (`is_leaf = FALSE`) thực sự có số liệu tổng hợp đã phê duyệt (`Tổng số lượng chủ thể sản phẩm OCOP trong năm` = `17`, `Tổng số lượng sản phẩm OCOP trong năm` = `32`, `Số lượng HTX phân theo lĩnh vực` = `138`, `Tổng diện tích sản xuất muối` = `0` / `1.520`, `Tổng sản lượng muối` = `0` / `27.000`). Nếu mặc định coi mọi chỉ tiêu cha đều không có số liệu, người dùng bị mất số liệu tổng hợp của chỉ tiêu cha.
+  2. Khi người dùng hỏi `"số lượng chỉ tiêu trồng trọt ngày 30/4"`, `is_dimension_query` khớp từ `"số lượng"` + `"chỉ tiêu"` và phân loại nhầm sang `DIMENSION_LISTING` thay vì `METRIC_POINT_INQUIRY` (`SC-2.1` + `🎫 Ticket Thời Gian`), đồng thời nhánh `SC-2.1` chỉ chạy khi `len(rows) == 1` hoặc ghi đè bằng `br.get("latest_value")` không lọc theo ngày.
+  3. Gọi `find_top_k_candidates` / `resolve_metric_id` trước khi kiểm tra `classify_criterion_hierarchy` trong DuckDB RAM làm kích hoạt nạp mô hình SentenceTransformers (`~22s`) không cần thiết.
+- **Nguyên nhân gốc rễ:**
+  1. Chưa tách bạch `SC-2.4a` (chỉ tiêu cha có số liệu $\to$ hiển thị Thẻ 5 Trường Chuẩn + bảng 1 dòng + các nút gợi ý chỉ tiêu con) và `SC-2.4b` (chỉ tiêu cha không có số liệu $\to$ giải thích nhóm cha + các nút gợi ý chỉ tiêu con).
+  2. `is_dimension_query` chưa kiểm tra `classify_criterion_hierarchy` để loại trừ trường hợp câu hỏi đang nhắm tới một chỉ tiêu lá/cha cụ thể; `compile_canonical_sql` chưa đưa `lf.criteria_id` vào mệnh đề `SELECT` ngoài của `METRIC_POINT_INQUIRY`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không mặc định mọi chỉ tiêu cha đều rỗng; Không để `is_dimension_query` trả về `True` khi `classify_criterion_hierarchy` khớp chỉ tiêu cụ thể (`single_leaf`, `duplicate_leaf`, `parent`, `parent_group`); Không fallback về `br.get("latest_value")` khi đang có bộ lọc thời gian (`has_temporal_point_or_range=True`).
+  * ✅ **ALWAYS:**
+    1. Kiểm tra `not _is_empty_or_dash(parent_val)` trong `SC-2.4` để hiển thị **Thẻ 5 Trường Chuẩn + Bảng 1 dòng + Nút gợi ý chỉ tiêu con** (`SC-2.4a`), và chỉ hiển thị thông báo nhóm cha rỗng khi `_is_empty_or_dash(parent_val)` (`SC-2.4b`).
+    2. Bổ sung `lf.criteria_id` vào `SELECT` ngoài của `METRIC_POINT_INQUIRY` và đối chiếu `str(r.get("criteria_id")) == str(br.get("id"))` trong `SC-2.1` để hiển thị chính xác bảng 6 cột theo đúng mốc thời gian (`31/03/2026` cho ngày `30/04`).
+    3. Ưu tiên kiểm tra `classify_criterion_hierarchy` trong DuckDB RAM trước khi gọi `find_top_k_candidates`, và tái sử dụng kết nối TCP đồng bộ (`_sync_conn`) trong `DWHConnectionPool.execute_sync_fallback`.
+
+
+
+

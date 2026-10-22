@@ -111,6 +111,7 @@ class CanonicalIntentEnum(str, Enum):
     RELATIONAL_EXPLORATION = "RELATIONAL_EXPLORATION"   # Khám phá quan hệ liên bảng (xã phường theo tỉnh, nhiệm vụ theo phòng...)
     OFFICER_ASSIGNMENT = "OFFICER_ASSIGNMENT"         # Tra cứu cán bộ phụ trách nhiệm vụ
     REPORT_STATUS_AUDIT = "REPORT_STATUS_AUDIT"       # Tra cứu tiến độ nộp báo cáo, đợt nộp
+    REPORT_FORM_MISSION_AUDIT = "REPORT_FORM_MISSION_AUDIT" # Tra cứu tiến độ báo cáo, biểu mẫu thu thập & ma trận phân công nhiệm vụ (REQ-Q05)
     CAPABILITY_INTRO = "CAPABILITY_INTRO"             # Chào hỏi, giới thiệu tính năng hệ thống
     GREETING_FAREWELL = "GREETING_FAREWELL"           # Chào hỏi & Tạm biệt / cảm ơn lịch sự
     OUT_OF_SCOPE = "OUT_OF_SCOPE"                     # Ngoài phạm vi kho DWH
@@ -135,6 +136,7 @@ class SemanticQueryIntentDTO(BaseModel):
         "RELATIONAL_EXPLORATION",
         "METADATA_EXPLORATION",
         "DIMENSION_LISTING",
+        "REPORT_FORM_MISSION_AUDIT",
         "CAPABILITY_INTRO",
         "GREETING_FAREWELL",
         "OUT_OF_SCOPE",
@@ -197,6 +199,18 @@ class SemanticQueryIntentDTO(BaseModel):
     sub_queries: List[str] = Field(
         default_factory=list,
         description="Danh sách truy vấn con cho Scatter-Gather"
+    )
+    status_filter: Optional[List[str]] = Field(
+        default=None,
+        description="Danh sách trạng thái báo cáo cần lọc: 'approved', 'draft', 'pending', 'rejected', hoặc 'ALL'"
+    )
+    audit_sub_intent: Optional[str] = Field(
+        default=None,
+        description="Phân nhánh con của REQ-Q05: 'REPORT_SUBMISSION_STATUS' (SC-5.1), 'FORM_CRITERIA_GROUP' (SC-5.2), 'MISSION_ASSIGNMENT_MATRIX' (SC-5.3)"
+    )
+    include_draft_comparison: bool = Field(
+        default=False,
+        description="True nếu người dùng yêu cầu đối chiếu số liệu giữa bản nháp (draft) và bản đã duyệt (approved)"
     )
 
 
@@ -363,5 +377,21 @@ class CanonicalQueryFrameDTO(BaseModel):
     parent_criterion_context: Optional[str] = Field(
         default=None,
         description="Tên chỉ tiêu cha kế thừa từ lượt hỏi trước (SC-2.4 -> SC-2.1 disambiguation)"
+    )
+    status_filter: Optional[List[str]] = Field(
+        default=None,
+        description="Danh sách trạng thái báo cáo cần lọc ('approved', 'draft', 'pending', 'rejected', 'ALL')"
+    )
+    audit_sub_intent: Optional[str] = Field(
+        default=None,
+        description="Phân nhánh con của REQ-Q05: 'REPORT_SUBMISSION_STATUS' (SC-5.1), 'FORM_CRITERIA_GROUP' (SC-5.2), 'MISSION_ASSIGNMENT_MATRIX' (SC-5.3)"
+    )
+    include_draft_comparison: bool = Field(
+        default=False,
+        description="True nếu yêu cầu đối chiếu giữa bản nháp (draft) và bản đã duyệt (approved)"
+    )
+    blocked_draft_access: bool = Field(
+        default=False,
+        description="True nếu người dùng cấp thấp bị HBAC chặn quyền xem dữ liệu draft/pending vượt cấp"
     )
 

@@ -56,6 +56,10 @@ export const fetchSessionHistory = async (sessionId: string): Promise<ChatMessag
     if (response.data && response.data.success) {
       return response.data.data.map((m: any) => ({
         ...m,
+        content:
+          m.role === "user" && typeof m.content === "string"
+            ? m.content.replace(/^\[\s*tenant_code\s*[=:][^\]]+\]\s*/i, "").trim()
+            : m.content,
         timestamp: m.timestamp || m.created_at || new Date().toISOString(),
       }));
     }
