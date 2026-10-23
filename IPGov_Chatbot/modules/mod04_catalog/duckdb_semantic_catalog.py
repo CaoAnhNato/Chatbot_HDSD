@@ -3996,11 +3996,21 @@ class DuckDBSemanticCatalog:
             parent_matches.sort(key=lambda x: (x["level"], len(x["name"])), reverse=True)
             target_parent = parent_matches[0]
             parent_id = target_parent["id"]
-            direct_children = [it for it in items if it["parent_id"] == parent_id]
-            leaf_descendants = [
-                it for it in items
-                if it["is_leaf"] and (it["parent_id"] == parent_id or it["root_id"] == parent_id)
-            ]
+            direct_children = []
+            for it in items:
+                if it["parent_id"] == parent_id:
+                    ch_copy = dict(it)
+                    sub_cnt = sum(1 for sub in items if sub["parent_id"] == it["id"])
+                    ch_copy["child_count"] = sub_cnt
+                    ch_copy["is_parent_group"] = (not bool(it["is_leaf"])) or sub_cnt > 0
+                    direct_children.append(ch_copy)
+            leaf_descendants = []
+            for it in items:
+                if it["is_leaf"] and (it["parent_id"] == parent_id or it["root_id"] == parent_id):
+                    lf_copy = dict(it)
+                    lf_copy["child_count"] = 0
+                    lf_copy["is_parent_group"] = False
+                    leaf_descendants.append(lf_copy)
             p_disp_name = target_parent["name"]
             return {
                 "category": "PARENT_GROUP",
@@ -4232,6 +4242,24 @@ class DuckDBSemanticCatalog:
         except Exception:
             pass
 
+        def _format_ddmmyyyy(d_val: Any) -> str:
+            if not d_val:
+                return ""
+            s = str(d_val).strip()[:10]
+            if not s or s in ("-", "None", "null"):
+                return ""
+            if "-" in s and len(s) == 10:
+                parts = s.split("-")
+                if len(parts) == 3 and len(parts[0]) == 4:
+                    return f"{parts[2]}/{parts[1]}/{parts[0]}"
+            return s
+
+        default_active_date = next(
+            (_format_ddmmyyyy(v) for v in date_by_cid.values() if _format_ddmmyyyy(v)),
+            "",
+        )
+        fallback_latest_ddmmyyyy = _format_ddmmyyyy(self.get_latest_report_date()) or "30/09/2026"
+
         nodes_by_id: Dict[str, Dict[str, Any]] = {}
         children_by_parent: Dict[str, List[str]] = {}
         roots: List[str] = []
@@ -4252,6 +4280,12 @@ class DuckDBSemanticCatalog:
                 node_val = None
             else:
                 node_val = lval
+
+            has_valid_val = node_val is not None and str(node_val).strip() not in ("", "-", "None")
+            node_rep_date = _format_ddmmyyyy(date_by_cid.get(cid))
+            if not node_rep_date and has_valid_val:
+                node_rep_date = default_active_date or fallback_latest_ddmmyyyy
+
             nodes_by_id[cid] = {
                 "id": cid,
                 "code": code,
@@ -4263,7 +4297,7 @@ class DuckDBSemanticCatalog:
                 "mission_name": mname or def_mname,
                 "office_name": oname or def_oname,
                 "value": node_val,
-                "report_date": str(date_by_cid.get(cid) or ""),
+                "report_date": node_rep_date,
                 "children": [],
             }
             if pid:
@@ -4393,6 +4427,305 @@ class DuckDBSemanticCatalog:
         except Exception:
             pass
         return "-"
+
+    def get_criterion_timeline_snapshots(
+        self,
+        criteria_id: Optional[str] = None,
+        criteria_code: Optional[str] = None,
+        criteria_name: Optional[str] = None,
+        parent_name: Optional[str] = None,
+        year_code: str = "2026",
+        tenant_code: str = "68",
+    ) -> List[Dict[str, Any]]:
+        """
+        Truy xuất mảng các kỳ báo cáo đã phê duyệt trong năm của một chỉ tiêu (phục vụ Ticket slider-time 0ms).
+        Trả về danh sách sắp xếp tăng dần theo thời gian (iso_date ASC), kèm delta_prev và delta_pct.
+        """
+        snapshots: List[Dict[str, Any]] = []
+        try:
+            import psycopg2
+            conn_pg = psycopg2.connect(
+                host=settings.DWH_HOST,
+                port=settings.DWH_PORT,
+                dbname=settings.DWH_DB,
+                user=settings.DWH_USER,
+                password=settings.DWH_PASSWORD,
+                connect_timeout=2,
+            )
+            conn_pg.autocommit = True
+            cur = conn_pg.cursor()
+
+            conds = ["f.tenant_code = %s", "f.year_code = %s", "f.report_status = 'approved'"]
+            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+
+            crit_sub_conds = []
+            if criteria_id and len(str(criteria_id).strip()) == 36 and "-" in str(criteria_id):
+                crit_sub_conds.append("f.criteria_id::text = %s")
+                params.append(str(criteria_id).strip())
+            if criteria_code:
+                c_code = str(criteria_code).strip()
+                if c_code in ("tong_san_luong_muoi_gd2", "tong_san_luong_muoi"):
+                    crit_sub_conds.append("f.code IN ('tong_san_luong_muoi_gd2', 'tong_san_luong_muoi')")
+                else:
+                    crit_sub_conds.append("f.code = %s")
+                    params.append(c_code)
+            if criteria_name and not crit_sub_conds:
+                crit_sub_conds.append("LOWER(TRIM(f.name)) = LOWER(TRIM(%s))")
+                params.append(str(criteria_name).strip())
+
+            if not crit_sub_conds and criteria_name:
+                crit_sub_conds.append("LOWER(TRIM(f.name)) = LOWER(TRIM(%s))")
+                params.append(str(criteria_name).strip())
+
+            if not crit_sub_conds:
+                conn_pg.close()
+                return []
+
+            conds.append("(" + " OR ".join(crit_sub_conds) + ")")
+            if parent_name and not criteria_id and not criteria_code:
+                conds.append("LOWER(TRIM(COALESCE(p.name, ''))) = LOWER(TRIM(%s))")
+                params.append(str(parent_name).strip())
+
+            where_sql = " AND ".join(conds)
+            sql = f"""
+                WITH ranked_snaps AS (
+                    SELECT
+                        f.report_date::date::text AS iso_date,
+                        f.value,
+                        COALESCE(o.office_name, 'Chi cục') AS office_name,
+                        COALESCE(f.mission_name, '-') AS mission_name,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY f.report_date::date
+                            ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                        ) AS rn
+                    FROM dwh_internal.fact_report_criteria f
+                    LEFT JOIN dwh_internal.office o ON f.office_id = o.id
+                    LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
+                    WHERE {where_sql}
+                )
+                SELECT iso_date, value, office_name, mission_name
+                FROM ranked_snaps
+                WHERE rn = 1 AND iso_date IS NOT NULL
+                ORDER BY iso_date ASC;
+            """
+            cur.execute(sql, tuple(params))
+            pg_rows = cur.fetchall()
+            conn_pg.close()
+
+            prev_num: Optional[float] = None
+            for iso_d, raw_val, off_name, mis_name in pg_rows:
+                iso_s = str(iso_d).strip()[:10]
+                parts = iso_s.split("-")
+                rep_ddmmyyyy = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else iso_s
+                try:
+                    m_num = int(parts[1]) if len(parts) == 3 else 1
+                except Exception:
+                    m_num = 1
+                q_num = (m_num - 1) // 3 + 1
+                p_label = f"Kỳ Q{q_num} ({rep_ddmmyyyy})"
+
+                num_val: Optional[float] = None
+                if raw_val is not None and str(raw_val).strip() not in ("", "-", "None", "null"):
+                    try:
+                        num_val = float(str(raw_val).strip())
+                        val_disp = f"{int(num_val):,}".replace(",", ".") if num_val.is_integer() else f"{num_val:,.2f}"
+                    except Exception:
+                        val_disp = str(raw_val).strip()
+                else:
+                    val_disp = "Chưa có số liệu phê duyệt (-)"
+
+                if raw_val is None or str(raw_val).strip() in ("", "-", "None", "null"):
+                    continue
+
+                d_prev: Optional[float] = None
+                d_pct: Optional[float] = None
+                if num_val is not None and prev_num is not None:
+                    d_prev = round(num_val - prev_num, 2)
+                    if prev_num != 0:
+                        d_pct = round(((num_val - prev_num) / prev_num) * 100.0, 2)
+                if num_val is not None:
+                    prev_num = num_val
+
+                clean_off = str(off_name or "Chi cục").strip()
+                if clean_off.lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
+                    clean_off = "Chi cục"
+
+                snapshots.append({
+                    "date": rep_ddmmyyyy,
+                    "report_date": rep_ddmmyyyy,
+                    "iso_date": iso_s,
+                    "period_label": p_label,
+                    "value": val_disp,
+                    "raw_value": num_val,
+                    "office": clean_off,
+                    "mission": str(mis_name or "-").strip(),
+                    "delta_prev": d_prev,
+                    "delta_pct": d_pct,
+                })
+        except Exception as e:
+            logger.debug("Không thể truy vấn timeline snapshots từ PG: %s", e)
+
+        return snapshots
+
+    def get_children_values_at_temporal_scope(
+        self,
+        child_ids: List[Any],
+        year_code: str = "2026",
+        tenant_code: str = "68",
+        specific_date: Optional[str] = None,
+        date_from: Optional[str] = None,
+        date_to: Optional[str] = None,
+        month_filter: Optional[int] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Truy xuất giá trị của danh sách chỉ tiêu con (child_ids) đúng tại kỳ báo cáo thời gian đang lọc
+        (specific_date / date_from..date_to / month_filter) để ngăn chặn rò rỉ latest_value toàn năm (TC-CONTRACT-05).
+        """
+        if not child_ids:
+            return {}
+        valid_ids: List[str] = []
+        valid_names: List[str] = []
+        for item in child_ids:
+            if isinstance(item, dict):
+                raw_id = str(item.get("id") or item.get("criteria_id") or "").strip()
+                raw_nm = str(item.get("name") or item.get("ten_chi_tieu") or "").strip().lower()
+                if len(raw_id) == 36:
+                    valid_ids.append(raw_id)
+                if raw_nm:
+                    valid_names.append(raw_nm)
+            else:
+                raw_s = str(item or "").strip()
+                if len(raw_s) == 36:
+                    valid_ids.append(raw_s)
+                elif raw_s:
+                    valid_names.append(raw_s.lower())
+
+        if not valid_ids and not valid_names:
+            return {}
+
+        result_map: Dict[str, Dict[str, Any]] = {}
+        try:
+            import psycopg2
+            conn_pg = psycopg2.connect(
+                host=settings.DWH_HOST,
+                port=settings.DWH_PORT,
+                dbname=settings.DWH_DB,
+                user=settings.DWH_USER,
+                password=settings.DWH_PASSWORD,
+                connect_timeout=2,
+            )
+            conn_pg.autocommit = True
+            cur = conn_pg.cursor()
+
+            conds = [
+                "f.tenant_code = %s",
+                "f.year_code = %s",
+                "f.report_status = 'approved'",
+            ]
+            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+            if valid_ids and valid_names:
+                conds.append("(f.criteria_id::text = ANY(%s) OR LOWER(TRIM(f.name)) = ANY(%s))")
+                params.extend([valid_ids, valid_names])
+            elif valid_ids:
+                conds.append("f.criteria_id::text = ANY(%s)")
+                params.append(valid_ids)
+            else:
+                conds.append("LOWER(TRIM(f.name)) = ANY(%s)")
+                params.append(valid_names)
+
+            if date_from is not None:
+                conds.append("f.report_date::date >= %s::date")
+                params.append(str(date_from)[:10])
+                if date_to is not None:
+                    conds.append("f.report_date::date <= %s::date")
+                    params.append(str(date_to)[:10])
+            elif month_filter is not None:
+                conds.append("EXTRACT(MONTH FROM f.report_date) = %s")
+                params.append(int(month_filter))
+
+            where_sql = " AND ".join(conds)
+            if specific_date:
+                spec_d = str(specific_date)[:10]
+                sql = f"""
+                    WITH ranked_ch AS (
+                        SELECT
+                            f.criteria_id::text AS cid,
+                            f.name AS cname,
+                            f.value,
+                            f.report_date::date::text AS iso_date,
+                            ABS(f.report_date::date - %s::date) AS do_lech_ngay,
+                            MAX(CASE WHEN f.report_date::date <= %s::date THEN f.report_date::date::text END) OVER (
+                                PARTITION BY f.criteria_id
+                            ) AS can_duoi_ngay,
+                            MIN(CASE WHEN f.report_date::date >= %s::date THEN f.report_date::date::text END) OVER (
+                                PARTITION BY f.criteria_id
+                            ) AS can_tren_ngay,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY f.criteria_id
+                                ORDER BY ABS(f.report_date::date - %s::date) ASC,
+                                         f.report_date DESC NULLS LAST,
+                                         f.version DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_internal.fact_report_criteria f
+                        WHERE {where_sql}
+                    )
+                    SELECT cid, cname, value, iso_date, do_lech_ngay, can_duoi_ngay, can_tren_ngay
+                    FROM ranked_ch
+                    WHERE rn = 1;
+                """
+                full_params = [spec_d, spec_d, spec_d, spec_d] + params
+                cur.execute(sql, tuple(full_params))
+                for cid, cname, val, iso_d, dl, cd, ct in cur.fetchall():
+                    entry = {
+                        "value": val,
+                        "report_date": iso_d,
+                        "do_lech_ngay": dl,
+                        "can_duoi_ngay": cd,
+                        "can_tren_ngay": ct,
+                    }
+                    if cid:
+                        result_map[str(cid)] = entry
+                        result_map[str(cid).lower()] = entry
+                    if cname:
+                        result_map[str(cname).strip().lower()] = entry
+            else:
+                sql = f"""
+                    WITH ranked_ch AS (
+                        SELECT
+                            f.criteria_id::text AS cid,
+                            f.name AS cname,
+                            f.value,
+                            f.report_date::date::text AS iso_date,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY f.criteria_id
+                                ORDER BY f.report_date DESC NULLS LAST,
+                                         f.version DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_internal.fact_report_criteria f
+                        WHERE {where_sql}
+                    )
+                    SELECT cid, cname, value, iso_date
+                    FROM ranked_ch
+                    WHERE rn = 1;
+                """
+                cur.execute(sql, tuple(params))
+                for cid, cname, val, iso_d in cur.fetchall():
+                    entry = {
+                        "value": val,
+                        "report_date": iso_d,
+                    }
+                    if cid:
+                        result_map[str(cid)] = entry
+                        result_map[str(cid).lower()] = entry
+                    if cname:
+                        result_map[str(cname).strip().lower()] = entry
+            conn_pg.close()
+        except Exception as e:
+            logger.debug("Không thể truy vấn giá trị chỉ tiêu con theo thời gian từ PG: %s", e)
+
+        return result_map
+
+
 
 
 

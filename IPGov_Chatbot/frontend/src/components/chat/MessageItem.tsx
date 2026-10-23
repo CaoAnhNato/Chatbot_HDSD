@@ -3,12 +3,13 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChatMessage } from '@/types/chat';
+import { ChatMessage, PinnedDrawerItem } from '@/types/chat';
 import { User, Bot, ExternalLink, ZoomIn, ChevronRight, Copy, Check, Terminal } from 'lucide-react';
 import { YouTubeEmbed } from './YouTubeEmbed';
 import { ContactCard } from './ContactCard';
 import { QuickActionChips } from './QuickActionChips';
 import { SmartTable } from './SmartTable';
+import { SingleMetricSliderCard } from './SingleMetricSliderCard';
 import { FluidTextStream } from './FluidTextStream';
 import { resolveImageUrl } from '@/lib/utils';
 import { normalizeMarkdownTables } from '@/lib/table_normalizer';
@@ -17,6 +18,7 @@ interface MessageItemProps {
   message: ChatMessage;
   onImageClick: (imageUrl: string, altText: string) => void;
   onSelectChip?: (queryText: string) => void;
+  onPinItem?: (item: PinnedDrawerItem) => void;
 }
 
 const CollapsibleSqlBlock: React.FC<{ summary: string; content: string }> = ({ summary, content }) => {
@@ -78,6 +80,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   message,
   onImageClick,
   onSelectChip,
+  onPinItem,
 }) => {
   const isUser = message.role === 'user';
 
@@ -150,7 +153,11 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
     () => ({
       table: ({ node, children, ...props }: any) => {
         return (
-          <SmartTable tabularData={message.tabular_data} onSelectChip={onSelectChip}>
+          <SmartTable
+            tabularData={message.tabular_data}
+            onSelectChip={onSelectChip}
+            onPinItem={onPinItem}
+          >
             {children}
           </SmartTable>
         );
@@ -209,7 +216,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
         );
       },
     }),
-    [message.tabular_data, onImageClick, onSelectChip]
+    [message.tabular_data, onImageClick, onSelectChip, onPinItem]
   );
 
   return (
@@ -238,6 +245,15 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
         ) : (
           <div className="prose prose-slate prose-base max-w-none space-y-2 text-slate-800 text-[15px]">
             {message.contact_support && <ContactCard info={message.contact_support} />}
+
+            {/* Feature 4 (Đề xuất 5 Mở rộng): Ticket slider-time cho chỉ tiêu đơn lẻ REQ-Q02 / SC-2.4a */}
+            {message.tabular_data?.single_metric_card && (
+              <SingleMetricSliderCard
+                card={message.tabular_data.single_metric_card}
+                onSelectChip={onSelectChip}
+                onPinItem={onPinItem}
+              />
+            )}
 
             {message.content ? (
               !isAnimationSettled ? (
@@ -321,7 +337,8 @@ export const MessageItem = React.memo(MessageItemComponent, (prev, next) => {
     prev.message.contact_support === next.message.contact_support &&
     prev.message.quick_action_chips === next.message.quick_action_chips &&
     prev.onImageClick === next.onImageClick &&
-    prev.onSelectChip === next.onSelectChip
+    prev.onSelectChip === next.onSelectChip &&
+    prev.onPinItem === next.onPinItem
   );
 });
 MessageItem.displayName = 'MessageItem';

@@ -393,6 +393,53 @@ def _format_temporal_period_label(norm_frame: Any, year: Any) -> Tuple[str, str]
     return (p_lbl, title_period)
 
 
+def _build_temporal_scope_meta(norm_frame: Any, year: Any) -> Dict[str, Any]:
+    """
+    Trích xuất siêu dữ liệu phạm vi thời gian chuẩn hóa (TemporalScopeMeta)
+    phục vụ Context Ticket Bar, Pinned Reference Drawer và Action Chips.
+    """
+    y_str = str(year or ( getattr(norm_frame, "year_code", None) if norm_frame else None ) or "2026")
+    _, title_period = _format_temporal_period_label(norm_frame, y_str)
+    meta: Dict[str, Any] = {
+        "year": y_str,
+        "month_filter": getattr(norm_frame, "month_filter", None) if norm_frame else None,
+        "specific_date": str(getattr(norm_frame, "specific_date", ""))[:10] if (norm_frame and getattr(norm_frame, "specific_date", None)) else None,
+        "date_from": str(getattr(norm_frame, "date_from", ""))[:10] if (norm_frame and getattr(norm_frame, "date_from", None)) else None,
+        "date_to": str(getattr(norm_frame, "date_to", ""))[:10] if (norm_frame and getattr(norm_frame, "date_to", None)) else None,
+        "period_label": title_period,
+        "query_suffix": f"năm {y_str}",
+    }
+    if not norm_frame:
+        return meta
+
+    if meta["month_filter"]:
+        mf = int(meta["month_filter"])
+        meta["query_suffix"] = f"tháng {mf:02d}/{y_str}"
+    elif meta["specific_date"]:
+        sp = meta["specific_date"]
+        sp_vn = f"{sp[8:10]}/{sp[5:7]}/{sp[0:4]}" if len(sp) >= 10 else sp
+        meta["query_suffix"] = f"ngày {sp_vn}"
+    elif meta["date_from"] and meta["date_to"]:
+        df, dt = meta["date_from"], meta["date_to"]
+        df_vn = f"{df[8:10]}/{df[5:7]}/{df[0:4]}" if len(df) >= 10 else df
+        dt_vn = f"{dt[8:10]}/{dt[5:7]}/{dt[0:4]}" if len(dt) >= 10 else dt
+        try:
+            sm, em = int(df[5:7]), int(dt[5:7])
+            if sm in (1, 4, 7, 10) and em - sm == 2:
+                q_num = (sm - 1) // 3 + 1
+                meta["query_suffix"] = f"Quý {q_num}/{y_str}"
+            elif sm == 1 and em == 6:
+                meta["query_suffix"] = f"6 tháng đầu năm {y_str}"
+            elif sm == 7 and em == 12:
+                meta["query_suffix"] = f"6 tháng cuối năm {y_str}"
+            else:
+                meta["query_suffix"] = f"từ ngày {df_vn} đến ngày {dt_vn}"
+        except Exception:
+            meta["query_suffix"] = f"từ ngày {df_vn} đến ngày {dt_vn}"
+
+    return meta
+
+
 def _derive_mission_code(name: str, fallback_idx: int = 1) -> str:
     clean_words = [w for w in name.strip().split() if w.isalnum()]
     if clean_words:
@@ -1954,14 +2001,14 @@ class WarehouseLangGraphAgent:
                         f"    SELECT f.code, f.name, f.parent_criteria_id, f.value AS approved_val, f.report_date::date::text AS approved_date,\n"
                         f"           ROW_NUMBER() OVER (PARTITION BY f.code ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST) AS rn\n"
                         f"    FROM dwh_internal.fact_report_criteria f\n"
-                        f"    WHERE f.tenant_code = '{t_c}' AND f.year_code = '{y_c}' AND f.report_status = 'approved'\n"
+                        f"    WHERE f.tenant_code = '{t_c}' AND f.year_code = '{y_c}' AND f.report_status = 'approved'{mis_filter_draft}\n"
                         f"      AND NULLIF(TRIM(f.value), '') IS NOT NULL AND TRIM(f.value) != '-'\n"
                         f"),\n"
                         f"latest_draft AS (\n"
                         f"    SELECT f.code, f.name, f.parent_criteria_id, f.value AS draft_val, f.report_date::date::text AS draft_date,\n"
                         f"           ROW_NUMBER() OVER (PARTITION BY f.code ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST) AS rn\n"
                         f"    FROM dwh_internal.fact_report_criteria f\n"
-                        f"    WHERE f.tenant_code = '{t_c}' AND f.year_code = '{y_c}' AND f.report_status = 'draft'\n"
+                        f"    WHERE f.tenant_code = '{t_c}' AND f.year_code = '{y_c}' AND f.report_status = 'draft'{mis_filter_draft}\n"
                         f"      AND NULLIF(TRIM(f.value), '') IS NOT NULL AND TRIM(f.value) != '-'\n"
                         f")\n"
                         f"SELECT d.code, d.name, COALESCE(p.name, 'Chỉ tiêu gốc') AS parent_name,\n"
@@ -2050,15 +2097,21 @@ class WarehouseLangGraphAgent:
                 "quick_action_chips": chips,
             }
 
-        # Nếu tập kết quả rỗng nhưng câu hỏi tra cứu 1 chỉ tiêu cụ thể trong danh mục (không lọc tháng/ngày cụ thể và không phải năm rỗng)
+        temporal_meta = _build_temporal_scope_meta(norm_frame, year)
+
+        # Nếu tập kết quả rỗng nhưng câu hỏi tra cứu 1 chỉ tiêu cụ thể trong danh mục
         if (
             not rows
             and not state.get("is_empty_year")
             and norm_frame
             and norm_frame.intent == CanonicalIntentEnum.METRIC_POINT_INQUIRY
-            and not (norm_frame.month_filter is not None or norm_frame.date_from is not None or norm_frame.specific_date is not None)
             and hasattr(self.catalog, "classify_criterion_hierarchy")
         ):
+            has_temp_filter_empty = bool(
+                norm_frame.month_filter is not None
+                or norm_frame.date_from is not None
+                or norm_frame.specific_date is not None
+            )
             try:
                 latest_report_date = (
                     getattr(self.catalog, "get_latest_report_date", lambda: "-")() or "-"
@@ -2066,35 +2119,72 @@ class WarehouseLangGraphAgent:
                     else "-"
                 )
                 h_empty = self.catalog.classify_criterion_hierarchy(clean_prompt, matched_name=selected_cand)
-                if h_empty and h_empty.get("classification") == "single_leaf" and h_empty.get("item"):
-                    it = h_empty["item"]
-                    rows = [{
-                        "ten_chi_tieu": it.get("name") or selected_cand,
-                        "gia_tri_moi_nhat": it.get("latest_value"),
-                        "ten_van_phong": it.get("office_name") or "Cấp tỉnh",
-                        "ten_nhiem_vu": it.get("mission_name") or "-",
-                        "ngay_bao_cao_moi_nhat": latest_report_date,
-                    }]
-                    selected_cand = it.get("name") or selected_cand
-                elif h_empty and h_empty.get("classification") in ("parent", "parent_group"):
-                    rows = [{
-                        "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
-                        "gia_tri_moi_nhat": h_empty.get("parent_value"),
-                        "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
-                        "ten_nhiem_vu": h_empty.get("mission_name") or "-",
-                        "ngay_bao_cao_moi_nhat": latest_report_date,
-                    }]
-                    selected_cand = h_empty.get("parent_name") or selected_cand
-                elif h_empty and h_empty.get("classification") == "duplicate_leaf" and h_empty.get("branches"):
-                    br0 = h_empty["branches"][0]
-                    rows = [{
-                        "ten_chi_tieu": br0.get("name") or selected_cand,
-                        "gia_tri_moi_nhat": br0.get("latest_value"),
-                        "ten_van_phong": br0.get("office_name") or "Cấp tỉnh",
-                        "ten_nhiem_vu": br0.get("mission_name") or "-",
-                        "ngay_bao_cao_moi_nhat": latest_report_date,
-                    }]
-                    selected_cand = br0.get("name") or selected_cand
+                if not has_temp_filter_empty:
+                    if h_empty and h_empty.get("classification") == "single_leaf" and h_empty.get("item"):
+                        it = h_empty["item"]
+                        rows = [{
+                            "ten_chi_tieu": it.get("name") or selected_cand,
+                            "gia_tri_moi_nhat": it.get("latest_value"),
+                            "ten_van_phong": it.get("office_name") or "Cấp tỉnh",
+                            "ten_nhiem_vu": it.get("mission_name") or "-",
+                            "ngay_bao_cao_moi_nhat": latest_report_date,
+                        }]
+                        selected_cand = it.get("name") or selected_cand
+                    elif h_empty and h_empty.get("classification") in ("parent", "parent_group"):
+                        rows = [{
+                            "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
+                            "gia_tri_moi_nhat": h_empty.get("parent_value"),
+                            "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
+                            "ten_nhiem_vu": h_empty.get("mission_name") or "-",
+                            "ngay_bao_cao_moi_nhat": latest_report_date,
+                        }]
+                        selected_cand = h_empty.get("parent_name") or selected_cand
+                    elif h_empty and h_empty.get("classification") == "duplicate_leaf" and h_empty.get("branches"):
+                        br0 = h_empty["branches"][0]
+                        rows = [{
+                            "ten_chi_tieu": br0.get("name") or selected_cand,
+                            "gia_tri_moi_nhat": br0.get("latest_value"),
+                            "ten_van_phong": br0.get("office_name") or "Cấp tỉnh",
+                            "ten_nhiem_vu": br0.get("mission_name") or "-",
+                            "ngay_bao_cao_moi_nhat": latest_report_date,
+                        }]
+                        selected_cand = br0.get("name") or selected_cand
+                elif (
+                    h_empty
+                    and h_empty.get("classification") in ("parent", "parent_group")
+                    and hasattr(self.catalog, "get_children_values_at_temporal_scope")
+                ):
+                    cand_nodes = (
+                        [{"id": h_empty.get("parent_id"), "name": h_empty.get("parent_name") or selected_cand}]
+                        + list(h_empty.get("direct_children") or [])
+                        + list(h_empty.get("leaf_descendants") or [])
+                    )
+                    t_map = self.catalog.get_children_values_at_temporal_scope(
+                        cand_nodes,
+                        year_code=str(norm_frame.year_code or year or "2026"),
+                        tenant_code=str(norm_frame.tenant_code or "68"),
+                        specific_date=norm_frame.specific_date,
+                        date_from=norm_frame.date_from,
+                        date_to=norm_frame.date_to,
+                        month_filter=norm_frame.month_filter,
+                    )
+                    if t_map:
+                        sample_t = next(iter(t_map.values()))
+                        p_id_key = str(h_empty.get("parent_id") or "").lower()
+                        p_nm_key = str(h_empty.get("parent_name") or selected_cand or "").strip().lower()
+                        p_entry = t_map.get(p_id_key) or t_map.get(p_nm_key) or {}
+                        rows = [{
+                            "criteria_id": h_empty.get("parent_id"),
+                            "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
+                            "gia_tri_moi_nhat": p_entry.get("value"),
+                            "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
+                            "ten_nhiem_vu": h_empty.get("mission_name") or "-",
+                            "ngay_bao_cao": p_entry.get("report_date") or sample_t.get("report_date") or "-",
+                            "do_lech_ngay": sample_t.get("do_lech_ngay"),
+                            "can_duoi_ngay": sample_t.get("can_duoi_ngay"),
+                            "can_tren_ngay": sample_t.get("can_tren_ngay"),
+                        }]
+                        selected_cand = h_empty.get("parent_name") or selected_cand
             except Exception as e:
                 logger.debug("Catalog fallback on empty rows failed: %s", e)
 
@@ -2358,10 +2448,38 @@ class WarehouseLangGraphAgent:
                     (h_info_parent.get("direct_children") or h_info_parent.get("children") or [])
                     if h_info_parent else []
                 )
+                temporal_child_map: Dict[str, Dict[str, Any]] = {}
+                if has_temporal_point_or_range and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
+                    nodes_for_t = (
+                        [{"id": target_pid, "name": (h_info_parent.get("parent_name") if h_info_parent else None) or selected_cand}]
+                        + list(raw_children)
+                        + list((h_info_parent.get("leaf_descendants") or []) if h_info_parent else [])
+                    )
+                    temporal_child_map = self.catalog.get_children_values_at_temporal_scope(
+                        nodes_for_t,
+                        year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year),
+                        tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                        specific_date=getattr(norm_frame, "specific_date", None) if norm_frame else None,
+                        date_from=getattr(norm_frame, "date_from", None) if norm_frame else None,
+                        date_to=getattr(norm_frame, "date_to", None) if norm_frame else None,
+                        month_filter=getattr(norm_frame, "month_filter", None) if norm_frame else None,
+                    )
+
                 for ch in raw_children:
+                    ch_id_k = str(ch.get("id") or "").lower()
+                    ch_nm_k = str(ch.get("name") or "").strip().lower()
+                    if has_temporal_point_or_range:
+                        t_entry = temporal_child_map.get(ch_id_k) or temporal_child_map.get(ch_nm_k)
+                        ch_val = t_entry.get("value") if t_entry else None
+                    else:
+                        ch_val = ch.get("latest_value")
                     all_children_list.append({
+                        "id": ch.get("id"),
+                        "code": ch.get("code"),
                         "ten_chi_tieu": ch.get("name"),
-                        "gia_tri": ch.get("latest_value"),
+                        "gia_tri": ch_val,
+                        "child_count": int(ch.get("child_count") or 0),
+                        "is_parent_group": bool(ch.get("is_parent_group") or int(ch.get("child_count") or 0) > 0),
                         "ten_van_phong": ch.get("office_name") or (h_info_parent.get("office_name") if h_info_parent else None) or "Cấp tỉnh",
                         "ten_nhiem_vu": ch.get("mission_name") or (h_info_parent.get("mission_name") if h_info_parent else None) or "-",
                     })
@@ -2375,25 +2493,51 @@ class WarehouseLangGraphAgent:
                 if all_children_list:
                     parent_disp = (h_info_parent.get("parent_name") if h_info_parent else None) or selected_cand
 
-                    r_parent = cand_row or (rows[0] if rows else {})
+                    r_parent = dict(cand_row or (rows[0] if rows else {}))
+                    if has_temporal_point_or_range and temporal_child_map:
+                        sample_t_meta = next(iter(temporal_child_map.values()))
+                        if not r_parent.get("ngay_bao_cao") and not r_parent.get("report_date"):
+                            r_parent["ngay_bao_cao"] = sample_t_meta.get("report_date")
+                        if r_parent.get("do_lech_ngay") is None and sample_t_meta.get("do_lech_ngay") is not None:
+                            r_parent["do_lech_ngay"] = sample_t_meta.get("do_lech_ngay")
+                            r_parent["can_duoi_ngay"] = sample_t_meta.get("can_duoi_ngay")
+                            r_parent["can_tren_ngay"] = sample_t_meta.get("can_tren_ngay")
+
                     parent_val = _get_metric_val(cand_row) if cand_row is not None else (
                         None if has_temporal_point_or_range else (h_info_parent.get("parent_value") or h_info_parent.get("latest_value"))
                     )
 
                     # PA 3.1: Với chỉ tiêu cha có số liệu (SC-2.4a), hiển thị toàn bộ chỉ tiêu con trực tiếp;
-                    # với chỉ tiêu cha rỗng (SC-2.4b), ưu tiên các chỉ tiêu con đang có số liệu hoặc thu hoạch lá Cấp 3
-                    non_empty_children = [c for c in all_children_list if not _is_empty_or_dash(_get_metric_val(c))]
+                    # với chỉ tiêu cha rỗng (SC-2.4b), ưu tiên các chỉ tiêu con đang có số liệu (kèm nhóm trung gian có con) hoặc thu hoạch lá Cấp 3
+                    has_direct_valued_child = any(
+                        not _is_empty_or_dash(_get_metric_val(c)) for c in all_children_list
+                    )
+                    non_empty_children = [
+                        c for c in all_children_list
+                        if not _is_empty_or_dash(_get_metric_val(c))
+                        or (has_direct_valued_child and bool(c.get("is_parent_group") or int(c.get("child_count") or 0) > 0))
+                    ]
                     if not non_empty_children and h_info_parent and h_info_parent.get("leaf_descendants"):
-                        leaf_desc = [
-                            {
-                                "ten_chi_tieu": lf.get("name"),
-                                "gia_tri": lf.get("latest_value"),
-                                "ten_van_phong": lf.get("office_name") or h_info_parent.get("office_name") or "Cấp tỉnh",
-                                "ten_nhiem_vu": lf.get("mission_name") or h_info_parent.get("mission_name") or "-",
-                            }
-                            for lf in h_info_parent.get("leaf_descendants", [])
-                            if not _is_empty_or_dash(lf.get("latest_value"))
-                        ]
+                        leaf_desc = []
+                        for lf in h_info_parent.get("leaf_descendants", []):
+                            lf_id_k = str(lf.get("id") or "").lower()
+                            lf_nm_k = str(lf.get("name") or "").strip().lower()
+                            if has_temporal_point_or_range:
+                                lf_t = temporal_child_map.get(lf_id_k) or temporal_child_map.get(lf_nm_k)
+                                lf_val = lf_t.get("value") if lf_t else None
+                            else:
+                                lf_val = lf.get("latest_value")
+                            if not _is_empty_or_dash(lf_val):
+                                leaf_desc.append({
+                                    "id": lf.get("id"),
+                                    "code": lf.get("code"),
+                                    "ten_chi_tieu": lf.get("name"),
+                                    "gia_tri": lf_val,
+                                    "child_count": int(lf.get("child_count") or 0),
+                                    "is_parent_group": bool(lf.get("is_parent_group") or int(lf.get("child_count") or 0) > 0),
+                                    "ten_van_phong": lf.get("office_name") or h_info_parent.get("office_name") or "Cấp tỉnh",
+                                    "ten_nhiem_vu": lf.get("mission_name") or h_info_parent.get("mission_name") or "-",
+                                })
                         if leaf_desc:
                             non_empty_children = leaf_desc
                     if not _is_empty_or_dash(parent_val):
@@ -2401,14 +2545,28 @@ class WarehouseLangGraphAgent:
                     else:
                         display_children = non_empty_children if non_empty_children else all_children_list
 
-                    chips = [
-                        {
+                    chips = []
+                    for i, alt in enumerate(display_children):
+                        alt_name = _get_metric_name(alt)
+                        alt_raw_v = _get_metric_val(alt)
+                        alt_fmt_v = None if _is_empty_or_dash(alt_raw_v) else vn_format_num(alt_raw_v)
+                        alt_ch_cnt = int(alt.get("child_count") or 0)
+                        alt_is_grp = bool(alt.get("is_parent_group") or alt_ch_cnt > 0)
+                        if alt_is_grp and alt_fmt_v is None:
+                            unit_status = f"{alt_ch_cnt} chỉ tiêu con ▸"
+                        elif alt_fmt_v is not None:
+                            unit_status = f"{alt_ch_cnt} chỉ tiêu con" if alt_is_grp else "Đã phê duyệt"
+                        else:
+                            unit_status = "Chưa có số liệu (-)"
+                        chips.append({
                             "id": f"chip_alt_{i+1}",
-                            "label": f"🔘 [{_get_metric_name(alt)}]",
-                            "query_text": f"Chỉ tiêu {_get_metric_name(alt)} thuộc {parent_disp} năm {year} là bao nhiêu?"
-                        }
-                        for i, alt in enumerate(display_children)
-                    ]
+                            "label": f"🔘 [{alt_name}]",
+                            "query_text": f"Chỉ tiêu {alt_name} thuộc {parent_disp} {temporal_meta['query_suffix']} là bao nhiêu?",
+                            "preview_value": alt_fmt_v,
+                            "unit_or_status": unit_status,
+                            "child_count": alt_ch_cnt,
+                            "is_parent_group": alt_is_grp,
+                        })
                     chip_md = "  ".join([c["label"] for c in chips])
                     raw_date = (
                         r_parent.get("ngay_bao_cao")
@@ -2490,6 +2648,27 @@ class WarehouseLangGraphAgent:
                             f"Đồng chí có thể bấm chọn một trong các **chỉ tiêu con trực thuộc** ở bên dưới để xem chi tiết:\n\n"
                             f"{chip_md}"
                         )
+                        parent_snaps = []
+                        if hasattr(self.catalog, "get_criterion_timeline_snapshots"):
+                            parent_snaps = self.catalog.get_criterion_timeline_snapshots(
+                                criteria_id=target_pid,
+                                criteria_name=parent_disp,
+                                year_code=str(year or "2026"),
+                                tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                            )
+                        single_metric_card = {
+                            "criteria_id": target_pid or "",
+                            "criteria_code": str(cand_row.get("code") or "") if cand_row else "",
+                            "criteria_name": parent_disp,
+                            "hierarchy_label": hier_suffix.replace("*", "").strip(),
+                            "current_value": fmt_val,
+                            "raw_value": parent_val,
+                            "office_name": office_str,
+                            "mission_name": mission_str,
+                            "report_date": date_str,
+                            "temporal_shift_notice": temporal_shift_bullet.replace("\n- **Lưu ý mốc thời gian:** ", "").strip() if temporal_shift_bullet else None,
+                            "timeline_snapshots": parent_snaps,
+                        }
                         tabular_data = {
                             "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
                             "columns": [
@@ -2512,6 +2691,8 @@ class WarehouseLangGraphAgent:
                                 }
                             ],
                             "total_records": 1,
+                            "single_metric_card": single_metric_card,
+                            "temporal_scope": temporal_meta,
                         }
                         ans = _append_collapsible_sql(ans, sql)
                         return {
@@ -2975,10 +3156,16 @@ class WarehouseLangGraphAgent:
                             "scope_name": m_scope,
                             "office_name": m_off,
                             "status": m_st,
-                            "action_query": f"Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ {m_name} năm {year}?",
+                            "action_query": f"Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ {m_name} {temporal_meta['query_suffix']}?",
                         }
                     ],
                     "total_records": 1,
+                    "temporal_scope": temporal_meta,
+                    "context_query_template": (
+                        f"Các nhiệm vụ thuộc lĩnh vực {norm_frame.target_scope} {{period}}?"
+                        if (norm_frame and getattr(norm_frame, "target_scope", None))
+                        else "Danh mục các nhiệm vụ trọng tâm {period} của tỉnh Lâm Đồng?"
+                    ),
                 }
             # Kịch bản 3b: Báo cáo (1 dòng duy nhất)
             elif is_report_list:
@@ -3196,6 +3383,8 @@ class WarehouseLangGraphAgent:
                             "rows": multi_rows,
                             "multi_parent_rows": multi_rows,
                             "total_records": len(multi_rows),
+                            "temporal_scope": temporal_meta,
+                            "context_query_template": f"Chỉ tiêu {ten_chi_tieu} {{period}} là bao nhiêu?",
                         }
                     else:
                         nhom_ct_single = r0.get("nhom_chi_tieu") or (h_info_leaf.get("item", {}).get("parent_name") if (h_info_leaf and isinstance(h_info_leaf.get("item"), dict)) else None)
@@ -3214,6 +3403,32 @@ class WarehouseLangGraphAgent:
                             f"- **Thời điểm báo cáo:** {date_str}"
                             f"{temporal_shift_bullet}"
                         )
+                        leaf_item_meta = (h_info_leaf.get("item") if (h_info_leaf and isinstance(h_info_leaf.get("item"), dict)) else {}) or {}
+                        c_id_single = str(r0.get("criteria_id") or leaf_item_meta.get("id") or "")
+                        c_code_single = str(r0.get("ma_chi_tieu") or r0.get("code") or leaf_item_meta.get("code") or "")
+                        timeline_snaps = []
+                        if hasattr(self.catalog, "get_criterion_timeline_snapshots"):
+                            timeline_snaps = self.catalog.get_criterion_timeline_snapshots(
+                                criteria_id=c_id_single or None,
+                                criteria_code=c_code_single or None,
+                                criteria_name=ten_chi_tieu,
+                                parent_name=nhom_ct_single,
+                                year_code=str(year or "2026"),
+                                tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                            )
+                        single_metric_card = {
+                            "criteria_id": c_id_single,
+                            "criteria_code": c_code_single,
+                            "criteria_name": ten_chi_tieu,
+                            "hierarchy_label": hier_suffix.replace("*", "").strip(),
+                            "current_value": fmt_val,
+                            "raw_value": val,
+                            "office_name": office_str,
+                            "mission_name": mission_str,
+                            "report_date": date_str,
+                            "temporal_shift_notice": temporal_shift_bullet.replace("\n- **Lưu ý mốc thời gian:** ", "").strip() if temporal_shift_bullet else None,
+                            "timeline_snapshots": timeline_snaps,
+                        }
                         tabular_data = {
                             "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
                             "columns": [
@@ -3236,6 +3451,8 @@ class WarehouseLangGraphAgent:
                                 }
                             ],
                             "total_records": 1,
+                            "single_metric_card": single_metric_card,
+                            "temporal_scope": temporal_meta,
                         }
                 else:
                     if display_name.lower().startswith("chỉ tiêu"):
@@ -3277,6 +3494,7 @@ class WarehouseLangGraphAgent:
                             }
                         ],
                         "total_records": 1,
+                        "temporal_scope": temporal_meta,
                     }
         else:
             # Kịch bản 5: Nhiều dòng -> Render bảng Markdown chuyên biệt theo miền dữ liệu
@@ -3365,6 +3583,12 @@ class WarehouseLangGraphAgent:
                     ],
                     "rows": [],
                     "total_records": len(rows),
+                    "temporal_scope": temporal_meta,
+                    "context_query_template": (
+                        f"Các nhiệm vụ thuộc lĩnh vực {norm_frame.target_scope} {{period}}?"
+                        if (norm_frame and getattr(norm_frame, "target_scope", None))
+                        else "Danh mục các nhiệm vụ trọng tâm {period} của tỉnh Lâm Đồng?"
+                    ),
                 }
                 for idx, r in enumerate(rows, 1):
                     m_name = r.get("mission_name") or r.get("ten_nhiem_vu") or r.get("name") or f"Nhiệm vụ {idx}"
@@ -3388,7 +3612,7 @@ class WarehouseLangGraphAgent:
                         "scope_name": m_scope,
                         "office_name": m_off,
                         "status": m_st,
-                        "action_query": f"Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ {m_name} năm {year}?",
+                        "action_query": f"Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ {m_name} {temporal_meta['query_suffix']}?",
                     })
             elif (norm_frame and norm_frame.intent == CanonicalIntentEnum.METRIC_TOP_K) or "xep_hang" in cols_lower:
                 ans = f"Dưới đây là danh sách xếp hạng theo số liệu báo cáo năm **{year}** của tỉnh Lâm Đồng:\n\n"
@@ -3528,6 +3752,8 @@ class WarehouseLangGraphAgent:
                             "trees_by_root_id": trees_by_root,
                             "total_records": len(l1_formatted),
                             "raw_fact_count": len(rows),
+                            "temporal_scope": temporal_meta,
+                            "context_query_template": f"Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ {norm_frame.target_mission} {{period}}?",
                         }
                     elif l1_formatted:
                         ans_period, title_period = _format_temporal_period_label(norm_frame, year)
@@ -3561,6 +3787,8 @@ class WarehouseLangGraphAgent:
                             "trees_by_root_id": trees_by_root,
                             "total_records": len(l1_formatted),
                             "raw_fact_count": len(rows),
+                            "temporal_scope": temporal_meta,
+                            "context_query_template": "Danh sách các chỉ tiêu Cấp 1 đã được phê duyệt {period}?",
                         }
                     else:
                         ans_period, title_period = _format_temporal_period_label(norm_frame, year)
@@ -3585,6 +3813,7 @@ class WarehouseLangGraphAgent:
                             "trees_by_root_id": {},
                             "total_records": len(rows),
                             "raw_fact_count": len(rows),
+                            "temporal_scope": temporal_meta,
                         }
                         for idx, r in enumerate(rows, 1):
                             name = (

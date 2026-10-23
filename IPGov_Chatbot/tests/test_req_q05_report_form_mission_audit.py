@@ -77,9 +77,14 @@ class TestReqQ05ReportFormMissionAudit:
         res = self.agent.run(q)
         ans = res["answer"]
         assert "Diêm nghiệp" in ans
+        assert "14 bản ghi" in ans
         assert "Đối chiếu chênh lệch" in ans
+        assert "6 chỉ tiêu có thay đổi" in ans
         assert "Chi cục" in ans
         assert "Chi cục Phát triển nông thôn" not in ans
+        tab = res.get("tabular_data") or {}
+        assert len(tab.get("draft_criteria_rows") or []) == 14
+        assert len(tab.get("draft_vs_approved_diff") or []) == 6
 
     def test_sc_5_2_form_criteria_group(self):
         q = "Hệ thống hiện có những biểu mẫu thu thập hoặc bộ thu thập chỉ tiêu nào đang áp dụng năm 2026?"

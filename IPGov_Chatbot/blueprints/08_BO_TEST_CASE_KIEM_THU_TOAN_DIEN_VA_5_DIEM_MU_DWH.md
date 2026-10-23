@@ -176,4 +176,35 @@ class TestSecurityRedTeam:
 ```
 
 ---
+
+### 4. BỘ KIỂM THỬ HỢP ĐỒNG GENERATIVE UI / HYBRID CHAT-GUI (`TC-CONTRACT-01` $\to$ `TC-CONTRACT-10`)
+
+Bộ kiểm thử tự động tại [`IPGov_Chatbot/tests/unit/test_generative_ui_contracts.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/unit/test_generative_ui_contracts.py) xác thực toàn bộ hợp đồng dữ liệu JSON giữa Backend (`mod03_router`, `mod04_catalog`) và 5 tính năng Generative UI trên Frontend:
+
+| Mã Test | Kịch Bản Kiểm Thử Hợp Đồng | Kỳ Vọng Nghiệm Thu (`Pass Gate`) |
+| :---: | :--- | :--- |
+| **`TC-CONTRACT-01`** | `test_req_q01_level1_hierarchy_and_tree_modal_payload` | `REQ-Q01` năm 2026 trả về 9 dòng Cấp 1 (`raw_fact_count == 114`), nút gốc `Chương trình OCOP` trong `tree_modal` có 4 nhánh Cấp 2 và 12 lá Cấp 3. |
+| **`TC-CONTRACT-02`** | `test_sc_1_1_empty_month_no_latest_value_leak` | Khi truy vấn tháng trống dữ liệu (VD: tháng 01/2024), hệ thống chặn sớm và tuyệt đối không rò rỉ `latest_value` của cả năm. |
+| **`TC-CONTRACT-03`** | `test_tree_modal_nodes_contain_complete_5_field_metadata` | Mọi nút trong `tree_modal` bắt buộc có đủ `name`, `value`, `office_name`, `mission_name`, `report_date` (`DD/MM/YYYY`) phục vụ đối chiếu tại chỗ `0ms`. |
+| **`TC-CONTRACT-04`** | `test_req_q02_single_metric_card_contains_timeline_snapshots` | `REQ-Q02` đính kèm `single_metric_card` chứa `timeline_snapshots` sắp xếp tăng dần theo `iso_date` và tính đúng `delta_prev` (`520` $\to$ `0`, `delta_prev == -520.0`). |
+| **`TC-CONTRACT-05`** | `test_sc24_action_chips_contain_preview_values_and_child_counts` | `quick_action_chips` của `SC-2.4` chứa `preview_value`, `child_count`, `is_parent_group` (bao gồm cả nhóm cha trung gian `Tổng số LHHTX phân theo lĩnh vực` có `child_count == 3`) và bảo toàn hậu tố thời gian (`23/04/2026` $\to$ đối chiếu kỳ `31/03/2026`). |
+| **`TC-CONTRACT-06`** | `test_sc22_nearest_snapshot_dual_bound_and_timeline_snapshots` | `SC-2.2` tra cứu ngày bất kỳ (`15/05/2026`) đối chiếu chính xác mốc gần nhất (`31/03/2026`), hiển thị độ lệch ngày và trả về trọn bộ `timeline_snapshots`. |
+| **`TC-CONTRACT-07`** | `test_sc21_duplicate_leaf_multi_parent_rows_contract` | `SC-2.1` (`Trồng trọt`) trả về đủ 4 nhánh cha (`HTX nông nghiệp`, `Liên hiệp HTX nông nghiệp`, `Tổ hợp tác nông nghiệp`, `Trang trại`) kèm `temporal_scope` và `context_query_template`. |
+| **`TC-CONTRACT-08`** | `test_req_q05_audit_payload_supports_client_quick_filters` | `REQ-Q05` trả về `status_summary` (`approved=6, draft=3, total=9`), `draft_criteria_rows` (`10` dòng) và `draft_vs_approved_diff` (`7` dòng) phục vụ lọc nhanh `0ms`. |
+| **`TC-CONTRACT-09`** | `test_req_q03_and_req_q04_temporal_scope_metadata` | `REQ-Q03` và `REQ-Q04` luôn đính kèm `temporal_scope` hợp lệ (`period_type`, `year`, `query_suffix`) và `context_query_template` phục vụ khay ghim tham chiếu & Context Ticket Bar. |
+| **`TC-CONTRACT-10`** | `test_timeline_snapshots_single_period_and_empty_criterion_graceful_degradation` | Chỉ tiêu chưa có số liệu phê duyệt (`Liên kết sản xuất`) trả về `timeline_snapshots == []` an toàn, không sinh lỗi chia cho 0. |
+
+### 5. MA TRẬN KIỂM THỬ GIAO DIỆN GENERATIVE UI (`UI-FEAT-01A` $\to$ `UI-FEAT-05D`)
+
+| Nhóm Tính Năng | Mã Kịch Bản UI | Selector / Thao Tác Kiểm Chứng (`data-testid`) | Kỳ Vọng Nghiệm Thu (`Pass Gate`) |
+| :--- | :---: | :--- | :--- |
+| **Feature 1 (`GP 1.3`)** | `UI-FEAT-01A` $\to$ `01G` | `tree-sticky-root-column`, `tree-search-input`, `tree-search-highlight`, `tree-empty-reset-button`, `tree-status-filter`, `tree-view-switcher` | Cột gốc Cấp 1 giữ nguyên vị trí khi cuộn; nhánh Cấp 3 tự đóng khi tổng con $> 7$; gõ không dấu (`"hang 3 sao"`) giữ nguyên chuỗi cha Cấp 1 $\to$ Cấp 2 và tô vàng `<mark>`; nút `[Xóa bộ lọc]` khôi phục toàn bộ cây. |
+| **Feature 2 (`GP 2.3` + `Đề xuất 3`)** | `UI-FEAT-02A` $\to$ `02F` | `tree-comparison-tray`, `push-comparison-to-chat`, `pin-item-button`, `pinned-reference-drawer`, `pinned-drawer-search-input`, `pinned-table-drilldown-0` | Chọn 1–4 nút con mở khay đối chiếu `0ms` kèm Sparkbar, chọn nút thứ 5 tự động thay thế FIFO; ghim tối đa 3 tab bên phải màn hình, tìm kiếm nhanh trong khay ghim và drill-down bảo toàn `temporal_scope.query_suffix`. |
+| **Feature 3 (`Đề xuất 4`)** | `UI-FEAT-03A` $\to$ `03D` | `chip-preview-badge`, `chip-group-badge`, `chip-status-badge` | Chip `SC-2.4a` và `SC-2.4b` hiển thị số liệu xem trước (`1.260`, `2.500`), huy hiệu nhóm con (`🌳 4 chỉ tiêu con`, `🌳 3 chỉ tiêu con`) và kế thừa điều kiện lọc thời gian. |
+| **Feature 4 (`Đề xuất 5 Mở rộng`)** | `UI-FEAT-04A` $\to$ `04E` | `metric-slider-time`, `metric-timeline-range`, `slider-temporal-shift-notice`, `slider-custom-date-input`, `slider-custom-date-apply`, `smart-table-context-ticket-bar` | Kéo thanh trượt kỳ báo cáo cập nhật tức thì `0ms`; chọn ngày tùy chỉnh `15/05/2026` tính đúng mốc `31/03/2026` ($\Delta = 45$ ngày) kèm cận dưới/cận trên; bảng `SmartTable` có thanh `Context Ticket Bar` chuyển kỳ nhanh. |
+| **Feature 5 (`Đề xuất 6`)** | `UI-FEAT-05A` $\to$ `05D` | `smart-table-quick-filters`, `table-filter-has-value`, `table-filter-has-children`, `table-filter-has-diff`, `table-filter-draft-only` | Lọc tức thì `0ms`: `REQ-Q01` lọc còn 3/9 dòng có số liệu hoặc 8/9 dòng có chỉ tiêu con; `SC-5.1a` lọc còn 3/9 kỳ nháp chưa nộp; `SC-5.1b` lọc dòng có chênh lệch khác 0. |
+
+---
 *Tài liệu này là một phần chuyên biệt của Bộ bản vẽ thiết kế hệ thống `IPGov_Chatbot/blueprints/`.*
+
+

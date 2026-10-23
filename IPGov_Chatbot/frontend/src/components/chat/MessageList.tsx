@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { ChatMessage } from '@/types/chat';
+import { ChatMessage, PinnedDrawerItem } from '@/types/chat';
 import { MessageItem } from './MessageItem';
 import { Bot, Loader2 } from 'lucide-react';
 
@@ -11,6 +11,7 @@ interface MessageListProps {
   currentStage?: { stage: string; message: string } | null;
   onImageClick: (imageUrl: string, altText: string) => void;
   onSelectChip?: (queryText: string) => void;
+  onPinItem?: (item: PinnedDrawerItem) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -19,6 +20,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   currentStage,
   onImageClick,
   onSelectChip,
+  onPinItem,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +49,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             message={msg}
             onImageClick={onImageClick}
             onSelectChip={onSelectChip}
+            onPinItem={onPinItem}
           />
         ))
       )}

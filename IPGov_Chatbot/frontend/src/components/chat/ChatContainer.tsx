@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChatMessage, ChatSession, QuickActionChip } from '@/types/chat';
+import { ChatMessage, ChatSession, QuickActionChip, PinnedDrawerItem } from '@/types/chat';
 import {
   sendMessageStream,
   fetchChatSessions,
@@ -25,6 +25,7 @@ import { MessageList } from './MessageList';
 import { ChatInput } from './ChatInput';
 import { MediaViewer } from './MediaViewer';
 import { ChatSidebar } from './ChatSidebar';
+import { PinnedReferenceDrawer } from './PinnedReferenceDrawer';
 import {
   PRESET_ROLES,
   UserRoleProfile,
@@ -130,6 +131,39 @@ export const ChatContainer: React.FC = () => {
   const [currentStage, setCurrentStage] = useState<{ stage: string; message: string } | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [pinnedItems, setPinnedItems] = useState<PinnedDrawerItem[]>([]);
+  const [activePinnedTabId, setActivePinnedTabId] = useState<string | null>(null);
+  const [pinnedToast, setPinnedToast] = useState<string | null>(null);
+
+  const handlePinItem = (item: PinnedDrawerItem) => {
+    setPinnedItems((prev) => {
+      const existingIdx = prev.findIndex((p) => p.id === item.id);
+      if (existingIdx >= 0) {
+        setActivePinnedTabId(item.id);
+        return prev;
+      }
+      if (prev.length >= 3) {
+        setPinnedToast('Khay ghim tối đa 3 thẻ. Đã tự động thay thế thẻ ghim cũ nhất.');
+        setTimeout(() => setPinnedToast(null), 3500);
+        const next = [...prev.slice(1), item];
+        setActivePinnedTabId(item.id);
+        return next;
+      }
+      const next = [...prev, item];
+      setActivePinnedTabId(item.id);
+      return next;
+    });
+  };
+
+  const handleUnpinItem = (id: string) => {
+    setPinnedItems((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      if (activePinnedTabId === id) {
+        setActivePinnedTabId(next.length > 0 ? next[next.length - 1].id : null);
+      }
+      return next;
+    });
+  };
 
   const [viewerState, setViewerState] = useState<{
     isOpen: boolean;
@@ -185,9 +219,9 @@ export const ChatContainer: React.FC = () => {
 
       if (finalSessions.length > 0) {
         const savedActiveId = loadActiveSessionId();
-        const target =
-          (savedActiveId ? finalSessions.find((s) => s.id === savedActiveId) : undefined) ||
-          finalSessions[0];
+        const target = savedActiveId
+          ? finalSessions.find((s) => s.id === savedActiveId)
+          : undefined;
         if (target) {
           await restoreSessionView(target);
         }
@@ -534,19 +568,38 @@ export const ChatContainer: React.FC = () => {
           </div>
         </header>
 
-        {/* Messages List */}
-        <MessageList
-          messages={messages}
-          isLoading={isLoading}
-          currentStage={currentStage}
-          onImageClick={(imageUrl, altText) =>
-            setViewerState({ isOpen: true, imageUrl, altText })
-          }
-          onSelectChip={(queryText) => handleSendMessage(queryText)}
-        />
+        {/* Khung nội dung Split-Screen: Cột Chat bên trái + Khay Tham Chiếu Đã Ghim bên phải (Feature 2 Tier 2) */}
+        <div className="flex-1 flex h-full overflow-hidden">
+          <div className="flex-1 flex flex-col h-full overflow-hidden">
+            {/* Messages List */}
+            <MessageList
+              messages={messages}
+              isLoading={isLoading}
+              currentStage={currentStage}
+              onImageClick={(imageUrl, altText) =>
+                setViewerState({ isOpen: true, imageUrl, altText })
+              }
+              onSelectChip={(queryText) => handleSendMessage(queryText)}
+              onPinItem={handlePinItem}
+            />
 
-        {/* Input Form */}
-        <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+            {/* Input Form */}
+            <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
+          </div>
+
+          <PinnedReferenceDrawer
+            items={pinnedItems}
+            activeTabId={activePinnedTabId}
+            onSelectTab={(id) => setActivePinnedTabId(id)}
+            onUnpin={handleUnpinItem}
+            onClearAll={() => {
+              setPinnedItems([]);
+              setActivePinnedTabId(null);
+            }}
+            onSelectChip={(queryText) => handleSendMessage(queryText)}
+            toastMessage={pinnedToast}
+          />
+        </div>
 
         {/* Image Lightbox Viewer */}
         <MediaViewer

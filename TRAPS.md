@@ -862,6 +862,18 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     2. Bổ sung `lf.criteria_id` vào `SELECT` ngoài của `METRIC_POINT_INQUIRY` và đối chiếu `str(r.get("criteria_id")) == str(br.get("id"))` trong `SC-2.1` để hiển thị chính xác bảng 6 cột theo đúng mốc thời gian (`31/03/2026` cho ngày `30/04`).
     3. Ưu tiên kiểm tra `classify_criterion_hierarchy` trong DuckDB RAM trước khi gọi `find_top_k_candidates`, và tái sử dụng kết nối TCP đồng bộ (`_sync_conn`) trong `DWHConnectionPool.execute_sync_fallback`.
 
+---
 
-
-
+### [TRAP-087] Bẫy Bỏ Sót Bộ Lọc Nhiệm Vụ (`mis_filter_draft`) Trong Truy Vấn Đối Chiếu Chênh Lệch Bản Nháp (`SC-5.1b` `diff_sql`) Và Tiêm Nhãn Phân Cấp Cấu Trúc Vào Truy Vấn Drill-Down Ngăn Ghim Tham Chiếu (`PinnedReferenceDrawer`)
+- **Môi trường & Công nghệ:** `WarehouseLangGraphAgent` (`SC-5.1b`) / `PinnedReferenceDrawer.tsx` / `SmartTable.tsx`
+- **Triệu chứng:**
+  1. Khi người dùng hỏi chi tiết các chỉ tiêu bản nháp và đối chiếu chênh lệch của một nhiệm vụ cụ thể (ví dụ: `"nhiệm vụ Diêm nghiệp năm 2026"` — `SC-5.1b`), bảng 1 (`draft_detail_sql`) lọc đúng `14` dòng của `Diêm nghiệp`, nhưng bảng 2 (`diff_sql` — đối chiếu chênh lệch giữa Bản nháp mới nhất và Bản đã phê duyệt) lại trả về `72` dòng của toàn bộ các nhiệm vụ (bao gồm cả `Phát triển nông thôn`) thay vì `6` dòng có chênh lệch của `Diêm nghiệp`.
+  2. Trên giao diện `PinnedReferenceDrawer`, khi người dùng ghim bảng danh mục chỉ tiêu Cấp 1 (`SC-1.1a`) có cột `Loại chỉ tiêu / Phân nhóm cha` mang giá trị cấu trúc `"Nhóm chỉ tiêu (2 chỉ tiêu con)"` và bấm vào dòng `Tổng diện tích sản xuất muối` để đối chiếu số liệu Quý 2, hàm `handleRowDrilldown` ghép nguyên chuỗi `"Nhóm chỉ tiêu (2 chỉ tiêu con)"` vào câu hỏi gửi đi, làm hỏng truy vấn ngôn ngữ tự nhiên.
+- **Nguyên nhân gốc rễ:**
+  1. Trong `warehouse_langgraph_agent.py`, biến `mis_filter_draft` (`AND f.mission_name ILIKE '%...%'`) được đưa vào `draft_detail_sql` nhưng bị bỏ sót trong 2 CTE `latest_approved` và `latest_draft` của `diff_sql`.
+  2. Trong `PinnedReferenceDrawer.tsx`, `handleRowDrilldown` chỉ loại trừ `'Chỉ tiêu gốc'` khỏi `parentCtx` mà chưa loại trừ các nhãn mô tả cấu trúc Cấp 1 như `'Nhóm chỉ tiêu'` hoặc `'Chỉ tiêu đơn'`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ áp dụng bộ lọc phạm vi (`target_mission`, `tenant_code`, `year_code`) ở một truy vấn con mà bỏ sót ở truy vấn đối chiếu đi kèm trong cùng một kịch bản; Không ghép các nhãn mô tả cấu trúc (`Nhóm chỉ tiêu (...)`, `Chỉ tiêu đơn`) làm ngữ cảnh tên nhóm cha trong câu hỏi drill-down.
+  * ✅ **ALWAYS:**
+    1. Truyền nhất quán `{mis_filter_draft}` vào cả `draft_detail_sql` lẫn hai CTE `latest_approved` và `latest_draft` của `diff_sql`.
+    2. Kiểm tra loại trừ `!parentCtx.startsWith('Nhóm chỉ tiêu') && !parentCtx.startsWith('Chỉ tiêu đơn')` trước khi nối `parentCtx` vào câu hỏi drill-down trong `PinnedReferenceDrawer.tsx`.

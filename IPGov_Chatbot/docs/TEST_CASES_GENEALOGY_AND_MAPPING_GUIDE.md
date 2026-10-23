@@ -302,3 +302,19 @@ Căn cứ theo [ADR-002](../docs/ADR_002_SEMANTIC_DISAMBIGUATION_AND_DWH_GOVERNA
 5. **Nhóm 5: Nhiệm vụ & Cán bộ chuyên môn (4 câu):** Danh mục chương trình, đề án trọng tâm, phân công cán bộ, tài khoản quản trị hệ thống.
 6. **Nhóm 6: Khả năng Chatbot & Ngữ cảnh đa lượt (4 câu):** Lời chào công vụ 4 trụ cột (không lộ tên bảng kỹ thuật thô), câu hỏi mốc thời gian tự nhiên, kế thừa ngữ cảnh hội thoại đa lượt và thu gọn câu lệnh SQL mặc định.
 
+---
+
+## 8. BỘ KIỂM THỬ HỢP ĐỒNG GENERATIVE UI / HYBRID CHAT-GUI (`TC-CONTRACT-01` $\to$ `TC-CONTRACT-10` & `UI-FEAT-01A` $\to$ `UI-FEAT-05D`)
+
+- **File kiểm thử tự động:** [`IPGov_Chatbot/tests/unit/test_generative_ui_contracts.py`](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/unit/test_generative_ui_contracts.py)
+- **Lệnh thực thi:**
+  ```powershell
+  .\.venv\Scripts\python.exe -m pytest IPGov_Chatbot/tests/unit/test_generative_ui_contracts.py -v
+  ```
+- **Phạm vi bảo vệ:**
+  - `TC-CONTRACT-01` $\to$ `TC-CONTRACT-03`: Cấu trúc phân cấp 9 chỉ tiêu Cấp 1 (`REQ-Q01`), chặn rò rỉ `latest_value` khi truy vấn tháng trống (`SC-1.1`), và bảo toàn đủ 5 trường siêu dữ liệu trên mọi nút `tree_modal` (`GP 1.3`).
+  - `TC-CONTRACT-04`, `TC-CONTRACT-06`, `TC-CONTRACT-10`: Chuỗi thời gian `timeline_snapshots` (`delta_prev`, `delta_pct`), thuật toán 2 cận `Dual-Bound Snapshot` (`SC-2.2`) và suy thoái an toàn khi chỉ tiêu chưa có số liệu (`Đề xuất 5 Mở rộng`).
+  - `TC-CONTRACT-05`: Làm giàu `quick_action_chips` của `SC-2.4a` / `SC-2.4b` với `preview_value`, `child_count`, `is_parent_group` (bao gồm cả nhóm cha trung gian `Tổng số LHHTX phân theo lĩnh vực`) và bảo toàn hậu tố thời gian (`Đề xuất 4`).
+  - `TC-CONTRACT-07`, `TC-CONTRACT-09`: Bảo toàn `temporal_scope` và `context_query_template` cho khay ghim tham chiếu (`PinnedReferenceDrawer`) và `Context Ticket Bar` trên `SmartTable` (`GP 2.3` + `Đề xuất 3`, `Đề xuất 5 Mở rộng`).
+  - `TC-CONTRACT-08`: Cấu trúc `status_summary`, `draft_criteria_rows`, `draft_vs_approved_diff` phục vụ bộ lọc 1 chạm `0ms` trên bảng Kiểm toán (`Đề xuất 6`).
+
