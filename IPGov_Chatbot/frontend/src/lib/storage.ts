@@ -16,20 +16,30 @@ export const cleanSessionTitle = (rawTitle: string): string => {
   return cleaned.length > 42 ? `${cleaned.slice(0, 42)}...` : cleaned;
 };
 
-const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
+export const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
   const cleanMsg =
     msg.role === 'user' && msg.content
       ? { ...msg, content: stripTenantContextPrefix(msg.content) }
       : msg;
   if (!cleanMsg.tabular_data) return cleanMsg;
   const td: any = { ...cleanMsg.tabular_data };
+
+  // R1.2: Giới hạn tối đa 20 dòng trong localStorage để chống tràn dung lượng QuotaExceededError
+  if (Array.isArray(td.rows) && td.rows.length > 20) {
+    td.rows = td.rows.slice(0, 20);
+  }
+
   // Tránh lưu nhân đôi cả tree_modal lẫn trees_by_root_id và level1_rows trùng lặp trong localStorage
-  if (td.tree_modal && td.trees_by_root_id) {
+  if (td.trees_by_root_id) {
     delete td.trees_by_root_id;
   }
-  if (td.rows && td.level1_rows && td.rows.length === td.level1_rows.length) {
+  if (td.level1_rows) {
     delete td.level1_rows;
   }
+  if (td.multi_parent_rows && Array.isArray(td.multi_parent_rows) && td.multi_parent_rows.length > 20) {
+    td.multi_parent_rows = td.multi_parent_rows.slice(0, 20);
+  }
+
   return {
     ...cleanMsg,
     tabular_data: td,

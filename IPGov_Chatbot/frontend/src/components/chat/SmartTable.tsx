@@ -1670,12 +1670,112 @@ export const SmartTable: React.FC<SmartTableProps> = ({
     'all' | 'has_value' | 'has_children' | 'has_diff' | 'draft_only' | 'approved_only'
   >('all');
   const [contextCustomDate, setContextCustomDate] = useState<string>('');
+  // R2.2 & R2.4: In-Place Table Period Filtering (0ms Client-side)
+  const [activePeriod, setActivePeriod] = useState<string>('year');
+  const [customPeriodDate, setCustomPeriodDate] = useState<string | null>(null);
 
   // Xác định cấu trúc cột và dòng
   const { columns, rows, title, treeModal, isPrimaryTable } = useMemo(
     () => resolveSmartTableData(tabularData, children),
     [tabularData, children]
   );
+
+  // R2.2 & R2.4: Cập nhật giá trị các dòng bảng hoặc lọc theo kỳ báo cáo tại chỗ (0ms Client-side)
+  const periodAdjustedRows = useMemo(() => {
+    if (!rows || rows.length === 0) return rows;
+
+    // 1. Nếu tabularData có period_snapshots:
+    const periodSnapshots = (tabularData as any)?.period_snapshots;
+    if (periodSnapshots && periodSnapshots[activePeriod]) {
+      return periodSnapshots[activePeriod];
+    }
+
+    // 2. Nếu các dòng có timeline_values hoặc period_values:
+    const hasRowPeriodValues = rows.some(
+      (r) => r.timeline_values || r.period_values || r.snapshots
+    );
+    if (hasRowPeriodValues) {
+      return rows.map((r) => {
+        const pMap = r.timeline_values || r.period_values || r.snapshots;
+        if (!pMap) return r;
+        const targetVal =
+          pMap[activePeriod] ??
+          (activePeriod === 'year' ? (pMap['year'] || pMap['all'] || pMap['2026']) : null);
+        if (targetVal !== undefined && targetVal !== null) {
+          const valColKey =
+            columns.find((c) => {
+              const kl = String(c.key || '').toLowerCase();
+              return kl.includes('gia_tri') || kl.includes('value');
+            })?.key || 'value';
+          return {
+            ...r,
+            [valColKey]: typeof targetVal === 'object' ? targetVal.value || targetVal.val : targetVal,
+          };
+        }
+        return r;
+      });
+    }
+
+    // 3. Nếu người dùng chọn lọc theo quý hoặc ngày cụ thể trên bảng có cột thời gian:
+    if (activePeriod !== 'year') {
+      const dateKey = Object.keys(rows[0] || {}).find((k) => {
+        const kl = k.toLowerCase();
+        return (
+          kl === 'report_date' ||
+          kl === 'date' ||
+          kl === 'submitted_date' ||
+          kl.includes('ngay') ||
+          kl.includes('ky_bao_cao')
+        );
+      });
+
+      if (dateKey) {
+        const filtered = rows.filter((r) => {
+          const val = String(r[dateKey] || '').trim();
+          if (!val) return false;
+          if (activePeriod === 'q1') {
+            return (
+              /-0[1-3]-/.test(val) ||
+              /\/(0[1-3]|1|2|3)\//.test(val) ||
+              val.toLowerCase().includes('q1') ||
+              val.toLowerCase().includes('quý 1') ||
+              val.toLowerCase().includes('quý i')
+            );
+          }
+          if (activePeriod === 'q2') {
+            return (
+              /-0[4-6]-/.test(val) ||
+              /\/(0[4-6]|4|5|6)\//.test(val) ||
+              val.toLowerCase().includes('q2') ||
+              val.toLowerCase().includes('quý 2') ||
+              val.toLowerCase().includes('quý ii')
+            );
+          }
+          if (activePeriod === 'q3') {
+            return (
+              /-0[7-9]-/.test(val) ||
+              /\/(0[7-9]|7|8|9)\//.test(val) ||
+              val.toLowerCase().includes('q3') ||
+              val.toLowerCase().includes('quý 3') ||
+              val.toLowerCase().includes('quý iii')
+            );
+          }
+          if (activePeriod === 'custom' && customPeriodDate) {
+            const normalizedCustom = customPeriodDate.replace(/\//g, '-');
+            const normalizedVal = val.replace(/\//g, '-');
+            return normalizedVal.includes(normalizedCustom) || normalizedVal.includes(customPeriodDate);
+          }
+          return true;
+        });
+
+        if (filtered.length > 0) {
+          return filtered;
+        }
+      }
+    }
+
+    return rows;
+  }, [rows, tabularData, activePeriod, customPeriodDate, columns]);
 
   const temporalScope: TemporalScopeMeta | undefined = (tabularData as any)?.temporal_scope;
   const temporalLabel = temporalScope?.label || temporalScope?.period_label || null;
@@ -1851,50 +1951,37 @@ export const SmartTable: React.FC<SmartTableProps> = ({
 
   // Kiểm tra hiển thị Thanh Ticket Thời Gian (Context Ticket Bar — Feature 4 Mở rộng cho SC-2.1, REQ-Q01, REQ-Q04, REQ-Q03)
   const showContextTicketBar = useMemo(() => {
-    if (!isPrimaryTable || !onSelectChip) return false;
+    if (!isPrimaryTable) return false;
     if (contextQueryTemplate) return true;
     if (Array.isArray((tabularData as any)?.multi_parent_rows)) return true;
     if (isMissionListingTable) return true;
     if (tableFilterCategory === 'criteria') return true;
     return false;
-  }, [isPrimaryTable, onSelectChip, contextQueryTemplate, tabularData, isMissionListingTable, tableFilterCategory]);
+  }, [isPrimaryTable, contextQueryTemplate, tabularData, isMissionListingTable, tableFilterCategory]);
 
   const dispatchContextTicket = useCallback(
-    (periodPhrase: string) => {
-      if (!onSelectChip) return;
-      if (contextQueryTemplate) {
-        onSelectChip(contextQueryTemplate.replace('{period}', periodPhrase));
-        return;
+    (periodIdOrPhrase: string, customDateStr?: string) => {
+      // R2.2 & R2.4: Cập nhật kỳ báo cáo tại chỗ 0ms client-side, KHÔNG gọi onSelectChip (tránh sinh thêm message turn mới)
+      let pid = periodIdOrPhrase;
+      if (pid.includes('q1') || pid.includes('Quý 1')) pid = 'q1';
+      else if (pid.includes('q2') || pid.includes('Quý 2')) pid = 'q2';
+      else if (pid.includes('q3') || pid.includes('Quý 3')) pid = 'q3';
+      else if (pid.includes('ngày') || pid === 'custom') pid = 'custom';
+      else if (pid.includes('năm') || pid === 'year') pid = 'year';
+
+      setActivePeriod(pid);
+      if (pid === 'custom') {
+        setCustomPeriodDate(customDateStr || null);
+      } else {
+        setCustomPeriodDate(null);
       }
-      const cleanTitle = cleanDisplayString(title);
-      if (
-        Array.isArray((tabularData as any)?.multi_parent_rows) ||
-        cleanTitle.toLowerCase().includes('đối chiếu chỉ tiêu')
-      ) {
-        const match = cleanTitle.match(/'([^']+)'/);
-        const critName = match?.[1] || cleanDisplayString(rows[0]?.item) || 'Trồng trọt';
-        onSelectChip(`Chỉ tiêu ${critName} ${periodPhrase} là bao nhiêu?`);
-        return;
-      }
-      if (isMissionListingTable) {
-        onSelectChip(`Danh mục các nhiệm vụ trọng tâm ${periodPhrase} của tỉnh Lâm Đồng?`);
-        return;
-      }
-      const missionMatch = cleanTitle.match(/thuộc nhiệm vụ\s+([^\n(]+?)(?:\s+năm|\s+trong|\s+tại|$)/i);
-      if (missionMatch?.[1]) {
-        onSelectChip(
-          `Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ ${missionMatch[1].trim()} ${periodPhrase}?`
-        );
-        return;
-      }
-      onSelectChip(`Danh sách các chỉ tiêu Cấp 1 đã được phê duyệt ${periodPhrase}?`);
     },
-    [onSelectChip, contextQueryTemplate, title, tabularData, rows, isMissionListingTable]
+    []
   );
 
   // Lọc dữ liệu theo Quick Filter Pills (Feature 5) + từ khóa tìm kiếm (hỗ trợ không dấu)
   const filteredRows = useMemo(() => {
-    let base = rows;
+    let base = periodAdjustedRows;
 
     if (quickFilter !== 'all') {
       base = base.filter((r) => {
@@ -2015,7 +2102,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
     return base.filter((r) =>
       Object.values(r).some((val) => expandSearchNorm(String(val ?? '')).includes(termNorm))
     );
-  }, [rows, searchTerm, quickFilter, columns]);
+  }, [periodAdjustedRows, searchTerm, quickFilter, columns]);
 
   // Sắp xếp dữ liệu theo cột được chọn
   const sortedRows = useMemo(() => {
@@ -2234,7 +2321,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 mr-1">
               <Clock className="w-3 h-3" />
-              Ticket thời gian:
+              Kỳ báo cáo:
             </span>
             {[
               { id: 'year', label: 'Năm 2026 (Mới nhất)', phrase: 'năm 2026' },
@@ -2242,17 +2329,13 @@ export const SmartTable: React.FC<SmartTableProps> = ({
               { id: 'q2', label: 'Quý 2', phrase: 'trong Quý 2 năm 2026' },
               { id: 'q3', label: 'Quý 3', phrase: 'trong Quý 3 năm 2026' },
             ].map((tk) => {
-              const activeSuffix = (temporalScope?.query_suffix || 'năm 2026').toLowerCase();
-              const isTkActive =
-                tk.id === 'year'
-                  ? activeSuffix === 'năm 2026'
-                  : activeSuffix.includes(tk.label.toLowerCase());
+              const isTkActive = activePeriod === tk.id;
               return (
                 <button
                   key={tk.id}
                   type="button"
                   data-testid={`context-ticket-${tk.id}`}
-                  onClick={() => dispatchContextTicket(tk.phrase)}
+                  onClick={() => dispatchContextTicket(tk.id, tk.phrase)}
                   className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border transition cursor-pointer ${
                     isTkActive
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
@@ -2281,7 +2364,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
                 const parts = trimmed.split('-');
                 const vnDate =
                   parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : trimmed;
-                dispatchContextTicket(`tính đến ngày ${vnDate} năm 2026`);
+                dispatchContextTicket('custom', vnDate);
               }}
               className="px-2 py-0.5 text-[11px] font-semibold rounded-md bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 transition cursor-pointer"
             >

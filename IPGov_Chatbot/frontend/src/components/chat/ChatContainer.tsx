@@ -40,6 +40,60 @@ import {
   PanelLeft,
 } from 'lucide-react';
 
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+}
+
+// R1.2: ErrorBoundary bọc MessageList để chống trắng màn hình khi lỗi render tin nhắn
+class ChatErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('ChatErrorBoundary caught an error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        this.props.fallback || (
+          <div className="flex-1 flex items-center justify-center p-6 text-center text-slate-500">
+            <div className="max-w-md bg-white border border-amber-200 rounded-2xl p-5 shadow-xs space-y-2">
+              <p className="font-semibold text-slate-800 text-sm">
+                Đã xảy ra sự cố hiển thị danh sách tin nhắn.
+              </p>
+              <p className="text-xs text-slate-500">
+                Toàn bộ dữ liệu phiên hội thoại vẫn được bảo toàn an toàn trong hệ thống.
+              </p>
+              <button
+                type="button"
+                onClick={() => this.setState({ hasError: false })}
+                className="mt-2 px-3 py-1.5 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Tải lại danh sách tin nhắn
+              </button>
+            </div>
+          </div>
+        )
+      );
+    }
+    return this.props.children;
+  }
+}
+
+
 const CHIPS_LEVEL_0: QuickActionChip[] = [
   { id: 'chip_l0_1', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
   { id: 'chip_l0_2', label: '⚠️ TNLĐ toàn tỉnh 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
@@ -357,7 +411,7 @@ export const ChatContainer: React.FC = () => {
     const nextMessages = [...messages, userMsg, initialBotMsg];
     setMessages(nextMessages);
     setIsLoading(true);
-    setCurrentStage({ stage: 'THINKING', message: '🔍 Đang phân tích câu hỏi & đối chiếu ngữ cảnh...' });
+    setCurrentStage({ stage: 'ĐANG XỬ LÝ', message: '🔍 Đang phân tích câu hỏi & đối chiếu ngữ cảnh...' });
 
     let effectiveSessionId = sessionId || `session-${Date.now()}`;
     if (!sessionId) {
@@ -571,17 +625,19 @@ export const ChatContainer: React.FC = () => {
         {/* Khung nội dung Split-Screen: Cột Chat bên trái + Khay Tham Chiếu Đã Ghim bên phải (Feature 2 Tier 2) */}
         <div className="flex-1 flex h-full overflow-hidden">
           <div className="flex-1 flex flex-col h-full overflow-hidden">
-            {/* Messages List */}
-            <MessageList
-              messages={messages}
-              isLoading={isLoading}
-              currentStage={currentStage}
-              onImageClick={(imageUrl, altText) =>
-                setViewerState({ isOpen: true, imageUrl, altText })
-              }
-              onSelectChip={(queryText) => handleSendMessage(queryText)}
-              onPinItem={handlePinItem}
-            />
+            {/* Messages List (bọc trong ChatErrorBoundary để chống sập giao diện đa lượt) */}
+            <ChatErrorBoundary>
+              <MessageList
+                messages={messages}
+                isLoading={isLoading}
+                currentStage={currentStage}
+                onImageClick={(imageUrl, altText) =>
+                  setViewerState({ isOpen: true, imageUrl, altText })
+                }
+                onSelectChip={(queryText) => handleSendMessage(queryText)}
+                onPinItem={handlePinItem}
+              />
+            </ChatErrorBoundary>
 
             {/* Input Form */}
             <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />

@@ -4,8 +4,10 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { SmartTable, resolveSmartTableData } from '../SmartTable';
-import { stripTenantContextPrefix } from '../../../lib/storage';
-import { TabularData } from '../../../types/chat';
+import { stripTenantContextPrefix, compactMessageForStorage } from '../../../lib/storage';
+import { MessageItem } from '../MessageItem';
+import { SingleMetricSliderCard } from '../SingleMetricSliderCard';
+import { TabularData, SingleMetricCardData } from '../../../types/chat';
 
 export function runGate5UnitTests() {
   // =========================================================================
@@ -306,6 +308,180 @@ export function runGate5UnitTests() {
   assert.equal(
     rawPrompt.replace(/^\[tenant_code=[^\]]+\]\s*/i, '').trim(),
     'Thống kê tiến độ nộp báo cáo năm 2026?'
+  );
+
+  // =========================================================================
+  // TEST 4 (R1.1): Unified Reasoning Indicator (MessageItem returns null on empty streaming)
+  // =========================================================================
+  const emptyStreamingBotMsg = {
+    id: 'msg-stream-empty',
+    role: 'assistant' as const,
+    content: '',
+    timestamp: '2026-10-25T10:00:00Z',
+    isStreaming: true,
+  };
+  const streamHtml = renderToStaticMarkup(
+    <MessageItem message={emptyStreamingBotMsg} />
+  );
+  assert.equal(
+    streamHtml,
+    '',
+    'MessageItem must return null/empty when streaming with empty content to prevent duplicate reasoning indicator'
+  );
+
+  // =========================================================================
+  // TEST 5 (R1.2): Multi-Turn Storage Compaction (Capped to 20 rows, strip deep tree modals)
+  // =========================================================================
+  const largeMsg = {
+    id: 'msg-large-100',
+    role: 'assistant' as const,
+    content: 'Báo cáo chi tiết 100 chỉ tiêu',
+    timestamp: '2026-10-25T10:00:00Z',
+    tabular_data: {
+      title: 'Bảng lớn 100 dòng',
+      columns: [{ key: 'id', label: 'ID', align: 'center' as const, data_type: 'number' as const }],
+      rows: Array.from({ length: 100 }, (_, i) => ({ id: i + 1, val: `Chỉ tiêu ${i + 1}` })),
+      total_records: 100,
+      trees_by_root_id: { r1: { id: 'r1', name: 'Gốc' } },
+      level1_rows: [{ id: 'l1' }],
+      multi_parent_rows: Array.from({ length: 50 }, (_, i) => ({ id: i + 1 })),
+    },
+  };
+  const compacted = compactMessageForStorage(largeMsg);
+  assert.equal(
+    compacted.tabular_data.rows.length,
+    20,
+    'compactMessageForStorage must cap rows to max 20'
+  );
+  assert.equal(
+    compacted.tabular_data.trees_by_root_id,
+    undefined,
+    'compactMessageForStorage must strip heavy trees_by_root_id'
+  );
+  assert.equal(
+    compacted.tabular_data.level1_rows,
+    undefined,
+    'compactMessageForStorage must strip level1_rows'
+  );
+  assert.equal(
+    compacted.tabular_data.multi_parent_rows.length,
+    20,
+    'compactMessageForStorage must cap multi_parent_rows to max 20'
+  );
+
+  // =========================================================================
+  // TEST 6 (R1.3 & R1.4): Senior-Friendly SingleMetricSliderCard
+  // =========================================================================
+  const metricCardData: SingleMetricCardData = {
+    criteria_id: 'crit-01',
+    criteria_name: 'Số HTX nông nghiệp hoạt động hiệu quả',
+    parent_name: 'HTX nông nghiệp',
+    hierarchy_label: 'Cấp 2',
+    current_value: '130',
+    active_value: '130',
+    raw_value: 130,
+    office: 'Chi cục Phát triển nông thôn',
+    mission: 'Phát triển nông thôn',
+    report_date: '31/03/2026',
+    timeline_snapshots: [
+      {
+        report_date: '31/03/2026',
+        iso_date: '2026-03-31',
+        period_label: 'Kỳ Q1 (31/03/2026)',
+        value: '130',
+        raw_value: 130,
+        office: 'Chi cục Phát triển nông thôn',
+        mission: 'Phát triển nông thôn',
+      },
+      {
+        report_date: '30/06/2026',
+        iso_date: '2026-06-30',
+        period_label: 'Kỳ Q2 (30/06/2026)',
+        value: '145',
+        raw_value: 145,
+        office: 'Chi cục Phát triển nông thôn',
+        mission: 'Phát triển nông thôn',
+      },
+    ],
+  };
+
+  const cardHtml = renderToStaticMarkup(
+    <SingleMetricSliderCard card={metricCardData} />
+  );
+  assert.ok(
+    cardHtml.includes('Kỳ báo cáo:'),
+    'SingleMetricSliderCard must display simplified header "Kỳ báo cáo:"'
+  );
+  assert.ok(
+    !cardHtml.includes('type="range"'),
+    'SingleMetricSliderCard must NOT contain range slider input'
+  );
+  assert.ok(
+    !cardHtml.includes('data-testid="metric-timeline-range"'),
+    'SingleMetricSliderCard must NOT have metric-timeline-range input'
+  );
+  assert.ok(
+    cardHtml.includes('data-testid="slider-active-value"'),
+    'SingleMetricSliderCard must preserve slider-active-value testid'
+  );
+  assert.ok(
+    cardHtml.includes('data-testid="slider-period-pill-0"'),
+    'SingleMetricSliderCard must render slider-period-pill-0 button'
+  );
+
+  // =========================================================================
+  // TEST 7 (R1.4, R2.2 & R2.4): SmartTable Context Ticket Bar & In-Place Period Filtering
+  // =========================================================================
+  const contextTableTabular: TabularData = {
+    title: "Đối chiếu chỉ tiêu 'Trồng trọt' theo các nhóm chỉ tiêu cha",
+    columns: [
+      { key: 'stt', label: 'STT', align: 'center', data_type: 'number' },
+      { key: 'item', label: 'Tên chỉ tiêu', align: 'left', data_type: 'text' },
+      { key: 'category', label: 'Nhóm chỉ tiêu (Cấp)', align: 'left', data_type: 'text' },
+      { key: 'value', label: 'Giá trị mới nhất', align: 'right', data_type: 'text' },
+    ],
+    rows: [
+      { stt: 1, item: 'Trồng trọt', category: 'HTX Nông nghiệp', value: '130' },
+      { stt: 2, item: 'Trồng trọt', category: 'LHHTX Nông nghiệp', value: '12' },
+    ],
+    multi_parent_rows: [
+      { stt: 1, item: 'Trồng trọt', category: 'HTX Nông nghiệp', value: '130' },
+      { stt: 2, item: 'Trồng trọt', category: 'LHHTX Nông nghiệp', value: '12' },
+    ],
+    total_records: 2,
+    temporal_scope: { year: '2026', query_suffix: 'năm 2026' },
+  };
+
+  const contextTableHtml = renderToStaticMarkup(
+    <SmartTable tabularData={contextTableTabular} />
+  );
+  assert.ok(
+    contextTableHtml.includes('data-testid="smart-table-context-ticket-bar"'),
+    'SmartTable must render context ticket bar for primary multi_parent_rows table'
+  );
+  assert.ok(
+    contextTableHtml.includes('Kỳ báo cáo:'),
+    'Context ticket bar must display pure Vietnamese "Kỳ báo cáo:"'
+  );
+  assert.ok(
+    !contextTableHtml.includes('Ticket thời gian:'),
+    'Context ticket bar must NOT display "Ticket thời gian:"'
+  );
+  assert.ok(
+    contextTableHtml.includes('data-testid="context-ticket-year"'),
+    'Must render context-ticket-year'
+  );
+  assert.ok(
+    contextTableHtml.includes('data-testid="context-ticket-q1"'),
+    'Must render context-ticket-q1'
+  );
+  assert.ok(
+    contextTableHtml.includes('data-testid="context-ticket-q2"'),
+    'Must render context-ticket-q2'
+  );
+  assert.ok(
+    contextTableHtml.includes('data-testid="context-ticket-q3"'),
+    'Must render context-ticket-q3'
   );
 
   console.log('ALL GATE 5 UNIT TESTS PASSED SUCCESSFULLY!');

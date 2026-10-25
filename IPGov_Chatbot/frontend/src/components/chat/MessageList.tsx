@@ -68,7 +68,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-mono">
               <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                {currentStage?.stage || 'THINKING'}
+                {currentStage?.stage || 'ĐANG XỬ LÝ'}
               </span>
               <span>•</span>
               <span>Thời gian thực</span>

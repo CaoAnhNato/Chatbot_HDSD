@@ -11,3 +11,4 @@ openai
 python-docx
 python-multipart
 sentence-transformers
+playwright

@@ -931,3 +931,44 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ✅ **ALWAYS:**
     1. Dùng `getattr(settings, "OPENROUTER_ROUTER_MODEL", None) or "google/gemini-2.5-flash-lite"` kèm `timeout=5.0, max_retries=0`.
     2. Dùng `json.JSONDecoder(strict=False).raw_decode(raw_text[s_idx:])[0]` để bóc tách chính xác object JSON hợp lệ đầu tiên.
+
+---
+
+### [TRAP-091] Bẫy Kẹp Ngưỡng `max(score, floor)` Sau Phép Trừ Phạt Phân Cực Làm Mất Tác Dụng Của Penalty Deltas
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog._retrieve_candidate_metrics` / `_compute_candidate_score`
+- **Triệu chứng:**
+  Khi câu hỏi chứa từ khóa lũy kế (hoặc không hỏi về xếp hạng sao OCOP), các ứng viên hàng năm hoặc ứng viên lá con mang sao OCOP nhận điểm phạt âm lớn ($\Delta_{\text{temporal}} = -30.0$, $\Delta_{\text{star}} = -25.0$). Tuy nhiên, thuật toán chấm điểm kẹp `final_score = max(score, floor)` ở cuối cùng với `floor = 50.0`. Khi điểm ban đầu của ứng viên là `60.0` và bị trừ `-30.0` thành `30.0`, phép kẹp `max(30.0, 50.0)` đẩy điểm ngược trở lại `50.0`, làm vô hiệu hóa hoàn toàn độ chênh phạt (penalty delta) và khiến ứng viên bị phạt vẫn có điểm số xấp xỉ ứng viên đúng, dẫn đến việc chọn sai chỉ tiêu lá hoặc sai phân cực thời gian.
+- **Nguyên nhân gốc rễ:**
+  Áp dụng ngưỡng sàn `floor` sau khi đã tính toán toàn bộ các điều chỉnh phân cực và điểm cấu trúc, thay vì độc lập hóa ngưỡng sàn cơ sở ngay từ đầu.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không kẹp `max(score, floor)` ở bước cuối cùng sau khi đã áp dụng các hệ số phạt âm (`penalty deltas`).
+  * ✅ **ALWAYS:**
+    Tách rời ngưỡng sàn cơ sở: `base_floor = max(base_score, floor)` trước khi cộng điểm cấu trúc và trừ điểm phạt:
+    `final_score = base_floor + structural_delta - penalty_delta`.
+
+---
+
+### [TRAP-092] Bẫy Khử Trùng Lặp Ứng Viên Bằng Tên Đơn Thuần (`name`) Làm Loại Bỏ Sớm Ứng Viên Đồng Âm Khác Nhánh Cha
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog._retrieve_candidate_metrics` / `find_top_k_candidates`
+- **Triệu chứng:**
+  Khi nhiều nhánh cha khác nhau trong CSDL chia sẻ cùng tên chỉ tiêu lá (như `'Chăn nuôi'`, `'Trồng trọt'`, `'Lâm nghiệp'` cùng xuất hiện dưới `HTX nông nghiệp`, `Liên hiệp HTX nông nghiệp`, `Tổ hợp tác nông nghiệp`, `Trang trại`), bước tiền xử lý khử trùng lặp sử dụng `set(name)` hoặc từ điển `seen[clean_name]`. Thao tác này chỉ giữ lại bản ghi đầu tiên bắt gặp và loại bỏ tất cả các bản ghi ở các nhánh cha còn lại. Khi người dùng hỏi chỉ tiêu kèm đích danh nhánh cha (ví dụ: *"cho tôi biết số liệu chăn nuôi của liên hiệp hợp tác xã"*), ứng viên `'Chăn nuôi'` của Liên hiệp HTX đã bị loại bỏ sớm từ vòng ngoài, khiến hệ thống không thể phân giải đúng nhánh hoặc rớt về fallback.
+- **Nguyên nhân gốc rễ:**
+  Khử trùng lặp chỉ dựa trên tên đơn thuần của chỉ tiêu (`clean_name`) mà bỏ qua khóa ngữ cảnh phân cấp gốc (`root_name`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không khử trùng lặp tập ứng viên chỉ bằng tên chỉ tiêu `clean_name` đối với các kho dữ liệu có chỉ tiêu đồng âm đa nhánh.
+  * ✅ **ALWAYS:**
+    Sử dụng khóa tổ hợp `(clean_name, root_name)` khi lưu và lọc trùng lặp tập ứng viên `candidate_metrics` trong `_retrieve_candidate_metrics`.
+
+---
+
+### [TRAP-093] Bẫy Fallback Quét Văn Bản Trên `fact_report_criteria` Gây Dương Tính Giả Cho Câu Hỏi Toán Học & Thủ Tục Hành Chính Ngoài Phạm Vi
+- **Môi trường & Công nghệ:** `WarehouseLangGraphAgent` / `duckdb_semantic_catalog.py` / `canonical_normalizer.py`
+- **Triệu chứng:**
+  Khi người dùng nhập các câu hỏi toán học số học (ví dụ: `"3 mũ 2"`, `"tính 15 nhân 20"`) hoặc câu hỏi thủ tục hành chính công ngoài DWH (ví dụ: `"thủ tục làm sổ đỏ"`, `"hướng dẫn đăng ký kết hôn"`), catalog không tìm thấy ứng viên ngữ nghĩa tương ứng (`candidates == []`). Hệ thống kích hoạt cơ chế fallback quét text SQL `WHERE f.name ILIKE '%...%'` trên bảng `fact_report_criteria`. Do các từ như `"mũ"`, `"tính"`, `"thủ tục"`, `"kết"` có thể xuất hiện ngẫu nhiên trong các tên chỉ tiêu hoặc văn bản ghi chú báo cáo, câu lệnh SQL sinh ra khớp nhầm vào các bản ghi không liên quan và trả về số liệu sai, vi phạm tiêu chuẩn an toàn ngoài phạm vi (OOS).
+- **Nguyên nhân gốc rễ:**
+  Thiếu tầng phân loại và chặn sớm các câu hỏi ngoài phạm vi nghiệp vụ DWH (Early Out-of-Scope Guard) trước khi bước vào pipeline truy vấn fact data.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ fallback về truy vấn LIKE/ILIKE văn bản trên bảng fact khi catalog rỗng mà chưa kiểm tra câu hỏi có thuộc phạm vi OOS hay không.
+  * ✅ **ALWAYS:**
+    Triển khai bộ phân loại sớm Regex Out-of-Scope (toán học số học, thủ tục hành chính ngoài DWH) ngay tại đầu pipeline normalizer/router. Khi phát hiện câu hỏi OOS, thiết lập ngay `is_out_of_scope = True`, `sql = None` và trả về thông báo từ chối an toàn (Polite Refusal), triệt tiêu hoàn toàn việc sinh SQL giả.
+

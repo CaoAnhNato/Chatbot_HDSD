@@ -302,6 +302,11 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
     [message.tabular_data, onImageClick, onSelectChip, onPinItem]
   );
 
+  // R1.1: Tránh hiển thị trùng lặp icon reasoning khi đang streaming và chưa có nội dung
+  if (!isUser && message.isStreaming && !message.content) {
+    return null;
+  }
+
   return (
     <div className={`flex gap-3 my-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       <div
@@ -381,7 +386,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
                   )
                 )
               )
-            ) : !message.contact_support ? (
+            ) : (!message.isStreaming && !message.contact_support) ? (
               <div className="flex items-center gap-2 py-1 text-slate-500">
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
                 <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse delay-150"></span>

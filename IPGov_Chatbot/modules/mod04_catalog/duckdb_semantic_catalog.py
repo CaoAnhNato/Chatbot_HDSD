@@ -971,6 +971,34 @@ ALLOWED_SEMANTIC_LEXICON_SEED = (
 )
 
 
+class _DuckDBConnProxy:
+    """Proxy around duckdb.DuckDBPyConnection to support backward-compatible 12-parameter inserts into catalog_criteria_hierarchy."""
+    def __init__(self, raw_conn: Any) -> None:
+        self._raw_conn = raw_conn
+
+    def execute(self, query: str, parameters: Any = None) -> Any:
+        if parameters is not None and isinstance(query, str):
+            if "catalog_criteria_hierarchy" in query and "VALUES" in query and query.count("?") == 12:
+                query = query.replace("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                if isinstance(parameters, (list, tuple)):
+                    parameters = tuple(list(parameters) + [None])
+        if parameters is not None:
+            return self._raw_conn.execute(query, parameters)
+        return self._raw_conn.execute(query)
+
+    def executemany(self, query: str, parameters: Any = None) -> Any:
+        if parameters is not None and isinstance(query, str):
+            if "catalog_criteria_hierarchy" in query and "VALUES" in query and query.count("?") == 12:
+                query = query.replace("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+                parameters = [tuple(list(p) + [None]) if len(p) == 12 else p for p in parameters]
+        if parameters is not None:
+            return self._raw_conn.executemany(query, parameters)
+        return self._raw_conn.executemany(query)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._raw_conn, name)
+
+
 class DuckDBSemanticCatalog:
     """
     DuckDB In-Memory Catalog quản lý toàn bộ siêu dữ liệu DWH.
@@ -981,7 +1009,7 @@ class DuckDBSemanticCatalog:
     """
 
     def __init__(self, seed_path: Optional[str] = None) -> None:
-        self.conn = duckdb.connect(":memory:")
+        self.conn = _DuckDBConnProxy(duckdb.connect(":memory:"))
         self.seed_path = Path(seed_path or Path(__file__).resolve().parent.parent.parent / "data" / "catalog_seed_metadata.json")
         self._table_metadata_cache: Dict[str, TableMetadataDTO] = {}
         self._alias_registry: List[Dict[str, Any]] = []
@@ -1173,7 +1201,8 @@ class DuckDBSemanticCatalog:
                 is_leaf BOOLEAN NOT NULL,
                 mission_name VARCHAR,
                 office_name VARCHAR,
-                latest_value VARCHAR
+                latest_value VARCHAR,
+                created_date TIMESTAMP
             );
         """)
 
@@ -1260,7 +1289,8 @@ class DuckDBSemanticCatalog:
             ("diện tích sản xuất muối", "tong_dien_tich_san_xuat_muoi", False),
             ("diện tích sản xuất muôi", "tong_dien_tich_san_xuat_muoi", False),
             ("sản xuất muôi", "tong_dien_tich_san_xuat_muoi", False),
-            ("sản lượng muối", "tong_san_luong_muoi_gd2", False),
+            ("sản lượng muối", "tong_san_luong_muoi_gd23", False),
+            ("tổng sản lượng muối", "tong_san_luong_muoi_gd23", False),
             ("lũy kế tổng số lượng chủ thể có sản phẩm đạt ocop", "luy_ke_tong_so_luong_chu_the_den_thoi_diem_bao_cao", False),
             ("lũy kế tổng số lượng sản phẩm ocop đạt chuẩn", "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao", False),
             ("đánh giá, phân hạng sản phẩm ocop", "luy_ke_tong_so_luong_san_pham_ocop_den_thoi_diem_bao_cao", False),
@@ -1571,19 +1601,20 @@ class DuckDBSemanticCatalog:
                             ),
                             '-'
                         ) AS office_name,
-                        CASE WHEN fm.latest_value IS NOT NULL AND TRIM(fm.latest_value) NOT IN ('', '-') THEN fm.latest_value ELSE fm.latest_value END AS latest_value
+                        CASE WHEN fm.latest_value IS NOT NULL AND TRIM(fm.latest_value) NOT IN ('', '-') THEN fm.latest_value ELSE fm.latest_value END AS latest_value,
+                        c.created_date
                     FROM dwh_internal.criteria c
                     LEFT JOIN dwh_internal.criteria p ON c.parent_id = p.id
                     LEFT JOIN dwh_internal.criteria gp ON p.parent_id = gp.id
                     LEFT JOIN fact_meta fm ON fm.criteria_id = c.id
                     WHERE c.deleted_date IS NULL
-                    ORDER BY c.level ASC, c.name ASC;
+                    ORDER BY c.level ASC, c.created_date ASC, c.id ASC;
                 """)
                 hier_rows = cur.fetchall()
                 if hier_rows:
                     self.conn.execute("DELETE FROM catalog_criteria_hierarchy;")
                     self.conn.executemany(
-                        "INSERT INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         hier_rows
                     )
             except Exception as e:
@@ -2167,29 +2198,245 @@ class DuckDBSemanticCatalog:
             logger.warning("⚠️ [DuckDBSemanticCatalog] Không thể tính toán remote embedding (%s). Hệ thống tự động chuyển sang fallback text-matching.", e)
             self._criteria_embeddings = None
 
-    def _llm_disambiguate(self, query: str, candidates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-        """Gọi micro-prompt LLM (Few-Shot + CoT) để giải quyết nhập nhằng hoặc chọn chỉ tiêu chính xác."""
+    def _hydrate_candidates_structure(self, candidates: List[Dict[str, Any]]) -> None:
+        """Nạp thuộc tính cấu trúc (root_name, parent_name, level, is_leaf, mission_name, office_name)
+        từ bảng DuckDB catalog_criteria_hierarchy vào danh sách candidates."""
+        if not candidates or not hasattr(self, "conn") or not self.conn:
+            return
         try:
+            hier_by_code: Dict[str, Dict[str, Any]] = {}
+            hier_by_name: Dict[str, Dict[str, Any]] = {}
+            rows = self.conn.execute("""
+                SELECT code, name, root_name, parent_name, level, is_leaf, mission_name, office_name
+                FROM catalog_criteria_hierarchy;
+            """).fetchall()
+            for r_code, r_name, r_root, r_parent, r_lvl, r_leaf, r_mis, r_off in rows:
+                meta = {
+                    "root_name": r_root or "",
+                    "parent_name": r_parent or "",
+                    "level": r_lvl if r_lvl is not None else 1,
+                    "is_leaf": bool(r_leaf) if r_leaf is not None else True,
+                    "mission_name": r_mis or "",
+                    "office_name": r_off or "",
+                }
+                if r_code:
+                    hier_by_code[r_code] = meta
+                if r_name:
+                    hier_by_name[r_name.lower().strip()] = meta
+
+            for c in candidates:
+                c_code = c.get("code", "")
+                c_name_key = (c.get("name") or "").lower().strip()
+                h_info = hier_by_code.get(c_code) or hier_by_name.get(c_name_key) or {}
+                if "root_name" not in c or not c["root_name"]:
+                    c["root_name"] = h_info.get("root_name", "")
+                if "parent_name" not in c or not c["parent_name"]:
+                    c["parent_name"] = h_info.get("parent_name", "")
+                if "level" not in c:
+                    c["level"] = h_info.get("level", 1)
+                if "is_leaf" not in c:
+                    c["is_leaf"] = h_info.get("is_leaf", True)
+                if "mission_name" not in c:
+                    c["mission_name"] = h_info.get("mission_name", "")
+                if "office_name" not in c:
+                    c["office_name"] = h_info.get("office_name", "")
+        except Exception as e:
+            logger.warning("Lỗi _hydrate_candidates_structure: %s", e)
+
+    def _compute_structural_compatibility(
+        self,
+        query: str,
+        candidate: Dict[str, Any],
+        acronym_map: Optional[Dict[str, str]] = None
+    ) -> float:
+        """
+        Tính toán điểm tương thích cấu trúc (Declarative Structural Compatibility Scoring):
+        - Branch Compatibility: Neo root_name và parent_name với các nhánh thực thể trong câu hỏi.
+        - Temporal Scope Compatibility: So khớp phân cực thời gian (lũy kế vs trong năm).
+        - Specificity Compatibility: So khớp tính tổng hợp vs đặc thù xếp hạng sao / chủ thể vs sản phẩm.
+        """
+        import unicodedata
+        import re
+        c_name = unicodedata.normalize('NFC', (candidate.get("name") or "").strip())
+        c_low = re.sub(r'\s+', ' ', c_name).lower()
+        q_norm = unicodedata.normalize('NFC', query.strip()).lower()
+        q_clean = " ".join(q_norm.replace("-", " ").replace("_", " ").split())
+
+        # BẢO VỆ TRAP-081: Chống va chạm từ đơn rác ('Số', 'TH', 'test')
+        is_short_dummy = len(c_low) <= 3 or c_low in ("số", "th", "th1", "th2", "th3", "test")
+        if is_short_dummy and c_low != q_clean:
+            return -999.0
+
+        root_low = (candidate.get("root_name") or "").lower().strip()
+        parent_low = (candidate.get("parent_name") or "").lower().strip()
+        tree_text = f"{root_low} {parent_low} {c_low}"
+
+        # 1. Branch Compatibility
+        branch_score = 0.0
+        q_has_lhhtx = any(w in q_clean for w in ["liên hiệp", "lhhtx"])
+        q_has_htx = (any(w in q_clean for w in ["hợp tác xã", "htx"]) or " htx " in f" {q_clean} ") and not q_has_lhhtx
+        q_has_tht = any(w in q_clean for w in ["tổ hợp tác", "tht"])
+        q_has_trang_trai = "trang trại" in q_clean
+        q_has_diem_nghiep = any(w in q_clean for w in ["diêm nghiệp", "muối"])
+        q_has_ocop = "ocop" in q_clean
+
+        c_is_lhhtx = any(w in tree_text for w in ["liên hiệp", "lhhtx"])
+        c_is_htx = (any(w in tree_text for w in ["hợp tác xã", "htx"]) or " htx " in f" {tree_text} ") and not c_is_lhhtx
+        c_is_tht = any(w in tree_text for w in ["tổ hợp tác", "tht"])
+        c_is_trang_trai = "trang trại" in tree_text
+        c_is_diem_nghiep = any(w in tree_text for w in ["diêm nghiệp", "muối"])
+        c_is_ocop = "ocop" in tree_text
+
+        query_branches = []
+        if q_has_lhhtx:
+            query_branches.append("lhhtx")
+        if q_has_htx:
+            query_branches.append("htx")
+        if q_has_tht:
+            query_branches.append("tht")
+        if q_has_trang_trai:
+            query_branches.append("trang_trai")
+        if q_has_diem_nghiep:
+            query_branches.append("diem_nghiep")
+        if q_has_ocop:
+            query_branches.append("ocop")
+
+        cand_branch = None
+        if c_is_lhhtx:
+            cand_branch = "lhhtx"
+        elif c_is_htx:
+            cand_branch = "htx"
+        elif c_is_tht:
+            cand_branch = "tht"
+        elif c_is_trang_trai:
+            cand_branch = "trang_trai"
+        elif c_is_diem_nghiep:
+            cand_branch = "diem_nghiep"
+        elif c_is_ocop:
+            cand_branch = "ocop"
+
+        if query_branches:
+            if cand_branch in query_branches:
+                branch_score += 20.0
+            elif cand_branch is not None:
+                branch_score -= 25.0
+
+        # Parent aspect matching
+        if parent_low:
+            for aspect in ["lĩnh vực", "hiệu quả", "diện tích", "sản lượng", "hoạt động"]:
+                if aspect in q_clean and aspect in parent_low:
+                    branch_score += 10.0
+
+        # 2. Temporal Scope Compatibility
+        temporal_score = 0.0
+        q_is_cumul = any(w in q_clean for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"])
+        q_is_annual = any(w in q_clean for w in ["trong năm", "trong nam", "hàng năm"])
+
+        c_is_cumul = any(w in c_low or w in parent_low for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"])
+        c_is_annual = any(w in c_low or w in parent_low for w in ["trong năm", "trong nam"])
+
+        if q_is_cumul:
+            if c_is_cumul:
+                temporal_score += 25.0
+            elif c_is_annual:
+                temporal_score -= 30.0
+        elif q_is_annual:
+            if c_is_annual:
+                temporal_score += 25.0
+            elif c_is_cumul:
+                temporal_score -= 30.0
+
+        # 3. Specificity Compatibility
+        specificity_score = 0.0
+        q_has_star = any(w in q_clean for w in ["3 sao", "4 sao", "5 sao", "ba sao", "bốn sao", "năm sao"])
+        c_has_star = any(w in c_low for w in ["3 sao", "4 sao", "5 sao"])
+
+        if not q_has_star and c_has_star:
+            specificity_score -= 25.0
+        elif q_has_star and c_has_star:
+            for s_val, s_alias in [("3 sao", "ba sao"), ("4 sao", "bốn sao"), ("5 sao", "năm sao")]:
+                if s_val in q_clean or s_alias in q_clean:
+                    if s_val in c_low:
+                        specificity_score += 20.0
+                    else:
+                        specificity_score -= 15.0
+
+        # Subject vs Product Polarity
+        q_has_chu_the = "chủ thể" in q_clean or "chu the" in q_clean
+        q_has_san_pham = "sản phẩm" in q_clean or "san pham" in q_clean
+        c_has_chu_the = "chủ thể" in c_low
+        c_has_san_pham = "sản phẩm" in c_low
+
+        if q_has_chu_the and not q_has_san_pham:
+            if c_has_chu_the:
+                specificity_score += 15.0
+            elif c_has_san_pham:
+                specificity_score -= 15.0
+        elif q_has_san_pham and not q_has_chu_the:
+            if c_has_san_pham:
+                specificity_score += 15.0
+            elif c_has_chu_the:
+                specificity_score -= 15.0
+
+        # Aggregate vs Leaf Specificity
+        is_cand_aggregate = (not candidate.get("is_leaf", True)) or c_low.startswith("tổng ") or candidate.get("level", 1) == 1
+        has_narrow_sub = any(w in q_clean for w in ["thủ công", "công nghiệp", "tốt", "trung bình", "kém"])
+        has_agg_query = any(w in q_clean for w in ["tổng", "tổng số", "lũy kế", "toàn bộ", "chung"])
+        if is_cand_aggregate:
+            if has_agg_query:
+                specificity_score += 10.0
+            elif has_narrow_sub and c_low.startswith("tổng "):
+                specificity_score -= 15.0
+
+        # Acronym penalty if candidate has acronym not mentioned in query
+        if acronym_map:
+            c_words = c_low.split()
+            for w in c_words:
+                if w in acronym_map:
+                    full_f = acronym_map[w]
+                    if f" {w} " not in f" {q_clean} " and full_f not in q_clean:
+                        specificity_score -= 20.0
+
+        return branch_score + temporal_score + specificity_score
+
+    def _llm_disambiguate(self, query: str, candidates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """Gọi micro-prompt LLM (Few-Shot + CoT) để giải quyết nhập nhằng hoặc chọn chỉ tiêu chính xác
+        với đầy đủ ngữ cảnh đường dẫn phân cấp (root_name > parent_name | level | leaf)."""
+        try:
+            self._hydrate_candidates_structure(candidates)
             client = OpenAI(
                 api_key=settings.effective_llm_api_key,
                 base_url=settings.OPENROUTER_BASE_URL,
-                timeout=15.0
+                timeout=10.0,
+                max_retries=0
             )
-            cand_text = "\n".join([f"{i+1}. [{c['code']}] {c['name']}" for i, c in enumerate(candidates)])
+            cand_lines = []
+            for i, c in enumerate(candidates[:5]):
+                root_name = c.get("root_name") or "-"
+                parent_name = c.get("parent_name") or "-"
+                level = c.get("level", 1)
+                is_leaf = c.get("is_leaf", True)
+                kind_str = "Nút lá" if is_leaf else "Nhóm cha"
+                cand_lines.append(
+                    f"{i+1}. [{c.get('code', '-')}] {c.get('name', '-')} "
+                    f"(Nhánh gốc: {root_name} > Nhánh cha: {parent_name} | Cấp {level} | Loại: {kind_str})"
+                )
+            cand_text = "\n".join(cand_lines)
             system_prompt = (
                 "Bạn là trợ lý giải quyết nhập nhằng ngữ nghĩa chỉ tiêu (Criteria Disambiguator) cho Kho dữ liệu UBND Tỉnh Lâm Đồng.\n"
                 "Hãy suy luận từng bước (Chain-of-Thought) ngắn gọn trong trường 'reason' trước khi kết luận:\n"
-                "1. Xác định thực thể/đại lượng cốt lõi trong câu hỏi (số hộ, diện tích, sản lượng, thành lập mới, đang hoạt động, liên kết sản xuất...).\n"
-                "2. Nếu câu hỏi chỉ rõ 1 chỉ tiêu cụ thể khớp với ứng viên -> trả về status = 'MATCH'.\n"
+                "1. Đối chiếu ngữ cảnh câu hỏi (thực thể, phạm vi thời gian lũy kế/hàng năm, tính tổng hợp/chi tiết) với cấu trúc phân cấp (Nhánh gốc > Nhánh cha | Cấp | Loại) của từng ứng viên.\n"
+                "2. Nếu câu hỏi chỉ rõ 1 chỉ tiêu cụ thể khớp với ứng viên -> trả về status = 'MATCH', kèm 'code' và 'name'.\n"
                 "3. Nếu câu hỏi chỉ nêu tên nhóm cha bao trùm hoặc từ khóa đa nghĩa chưa rõ đại lượng con -> trả về status = 'AMBIGUOUS'.\n\n"
                 "Few-Shot Examples:\n"
-                "- Query: 'Tổng hộ sản xuất muối năm 2026 là bao nhiêu?' -> {\"reason\": \"Câu hỏi chỉ rõ đại lượng hộ sản xuất muối\", \"status\": \"MATCH\", \"code\": \"tong_ho_san_xuat_muoi_2\", \"name\": \"Tổng hộ sản xuất muối\"}\n"
+                "- Query: 'Tổng hộ sản xuất muối năm 2026 là bao nhiêu?' -> {\"reason\": \"Câu hỏi chỉ rõ đại lượng hộ sản xuất muối thuộc nhánh Diêm nghiệp\", \"status\": \"MATCH\", \"code\": \"tong_ho_san_xuat_muoi_2\", \"name\": \"Tổng hộ sản xuất muối\"}\n"
                 "- Query: 'Số liệu OCOP hiện nay?' -> {\"reason\": \"OCOP là nhóm chỉ tiêu cha, chưa rõ hỏi số sản phẩm 3-5 sao hay chủ thể\", \"status\": \"AMBIGUOUS\", \"candidates\": [{\"code\": \"chuong_trinh_ocop\", \"name\": \"Chương trình OCOP\"}]}\n"
                 "CHỈ TRẢ VỀ JSON THUẦN TÚY, KHÔNG CÓ TEXT NGOÀI JSON."
             )
-            user_prompt = f"Câu hỏi: {query}\nDanh sách ứng viên:\n{cand_text}"
+            user_prompt = f"Câu hỏi: {query}\nDanh sách ứng viên phân cấp:\n{cand_text}"
+            model_name = getattr(settings, "OPENROUTER_LIGHT_MODEL", None) or "google/gemini-2.5-flash-lite"
             resp = client.chat.completions.create(
-                model=settings.OPENROUTER_LIGHT_MODEL,
+                model=model_name,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
@@ -2267,17 +2514,21 @@ class DuckDBSemanticCatalog:
                 reverse=True
             )
             exact_name_match = specific_exact_matches[0]
+            cand_list = [
+                {
+                    "code": m[0],
+                    "name": m[1],
+                    "rrf_score": 1.0,
+                    "score": 100.0
+                }
+                for m in specific_exact_matches
+            ]
             return [{
                 "code": exact_name_match[0],
                 "name": exact_name_match[1],
                 "score": 100.0,
-                "is_ambiguous": False,
-                "candidates": [{
-                    "code": exact_name_match[0],
-                    "name": exact_name_match[1],
-                    "rrf_score": 1.0,
-                    "score": 100.0
-                }]
+                "is_ambiguous": len(cand_list) > 1,
+                "candidates": cand_list
             }]
 
         # 2. Thử đối chiếu nhanh qua Alias Registry có phân vùng tenant (Adaptive Thresholding)
@@ -2518,118 +2769,45 @@ class DuckDBSemanticCatalog:
         elif raw_res:
             all_candidates = raw_res
 
-        # Tiền nạp bảng viết tắt và từ vựng nhánh con từ DuckDB RAM phục vụ đối chiếu ngữ nghĩa kho dữ liệu
+        # 2. Candidate Pool Structural Hydration: Nạp thuộc tính cấu trúc từ DuckDB RAM
+        self._hydrate_candidates_structure(all_candidates)
+
+        # Tiền nạp bảng viết tắt từ DuckDB RAM phục vụ đối chiếu ngữ nghĩa
         acr_map_topk: Dict[str, str] = {}
-        parent_children_blob: Dict[str, str] = {}
         try:
             for acr, full_f in self.conn.execute("SELECT LOWER(acronym), LOWER(full_form) FROM catalog_acronyms;").fetchall():
                 acr_map_topk[acr.strip()] = full_f.strip()
-            for ch_name, p_name_h in self.conn.execute(
-                "SELECT LOWER(name), LOWER(COALESCE(parent_name, '')) FROM catalog_criteria_hierarchy WHERE parent_name IS NOT NULL;"
-            ).fetchall():
-                p_k = " ".join((p_name_h or "").split())
-                if p_k:
-                    parent_children_blob[p_k] = parent_children_blob.get(p_k, "") + " " + " ".join((ch_name or "").split())
         except Exception:
             pass
 
-        stop_toks_topk = {
-            "đến", "thời", "điểm", "báo", "cáo", "trong", "năm", "số", "lượng", "tổng",
-            "của", "các", "những", "theo", "dữ", "liệu", "mới", "nhất", "bạn", "hãy",
-            "cho", "tôi", "biết", "xem", "về", "là", "bao", "nhiêu"
-        }
-
-        # 2. Lọc và chuẩn hóa score kết hợp
+        # 3. Lọc và tính điểm tương thích cấu trúc (Declarative Structural Compatibility Scoring)
         valid_candidates = []
         for c in all_candidates:
             raw_c_score = float(c.get("score", 0.0)) or (float(raw_res[0].get("score", 0.0)) if raw_res else 0.0)
             d_score = float(c.get("dense_score", 0.0)) * 100.0
             s_score = float(c.get("sparse_score", 0.0))
             if d_score > 0 or s_score > 0:
-                comb_score = round(d_score * 0.6 + s_score * 0.4, 2) if s_score > 0 else round(d_score, 2)
+                base_hybrid_score = round(d_score * 0.6 + s_score * 0.4, 2) if s_score > 0 else round(d_score, 2)
             else:
-                comb_score = round(raw_c_score, 2) if raw_c_score > 0 else 85.0
+                base_hybrid_score = round(raw_c_score, 2) if raw_c_score > 0 else 85.0
 
             import re
             c_name = unicodedata.normalize('NFC', c["name"].strip())
             c_name_clean = re.sub(r'\s+', ' ', c_name)
             c_low = c_name_clean.lower()
 
-            # BẢO VỆ TRAP-081: Chống va chạm từ đơn rác ('Số', 'TH', 'test')
             is_short_dummy = len(c_low) <= 3 or c_low in ("số", "th", "th1", "th2", "th3", "test")
             if is_short_dummy and c_low != q_lower:
-                continue  # Bỏ qua chỉ tiêu rác
+                continue
 
-            # PHÂN CỰC THỜI GIAN (R4: LŨY KẾ VS TRONG NĂM)
-            q_is_cumul = any(w in q_lower for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"])
-            q_is_annual = any(w in q_lower for w in ["trong năm", "trong nam", "hàng năm"])
+            struct_score = self._compute_structural_compatibility(q_clean, c, acr_map_topk)
+            if struct_score <= -500.0:
+                continue
 
-            c_content_toks = [w for w in c_low.split() if w not in stop_toks_topk]
+            base_floor = max(base_hybrid_score, 85.0) if (len(c_low) >= 4 and f" {c_low} " in f" {q_lower} ") else base_hybrid_score
+            comb_score = base_floor + struct_score
             if c_low == q_lower:
-                comb_score = 100.0
-            elif not (q_is_cumul or q_is_annual) and not is_short_dummy and c_low in q_lower:
-                comb_score = max(comb_score, 85.0)
-            elif (q_is_cumul or q_is_annual) and not is_short_dummy and len(c_content_toks) >= 3 and f" {c_low} " in f" {q_lower} ":
-                comb_score = max(comb_score, 85.0)
-
-            if q_is_cumul or q_is_annual:
-                c_is_cumul = any(w in c_low for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo"])
-                c_is_annual = any(w in c_low for w in ["trong năm", "trong nam"])
-
-                if q_is_cumul:
-                    if c_is_cumul:
-                        comb_score += 25.0
-                    elif c_is_annual:
-                        comb_score -= 30.0
-                elif q_is_annual:
-                    if c_is_annual:
-                        comb_score += 25.0
-                    elif c_is_cumul:
-                        comb_score -= 30.0
-
-                # PHẠT ĐẶC THÙ NÚT LÁ SAO (R4: CHỐNG NHẢY VÀO 3 SAO, 4 SAO, 5 SAO KHI HỎI TỔNG THỂ)
-                q_has_star = any(w in q_lower for w in ["3 sao", "4 sao", "5 sao", "ba sao", "bốn sao", "năm sao"])
-                c_has_star = any(w in c_low for w in ["3 sao", "4 sao", "5 sao"])
-
-                if not q_has_star and c_has_star:
-                    comb_score -= 25.0  # Phạt nặng các nút lá sao khi câu hỏi hỏi tổng thể
-
-                # ĐỐI CHIẾU ĐỘ PHỦ TỪ VỰNG THỰC THỂ & CỤM TỪ LIỀN KỀ KHO DỮ LIỆU (R4 - Zero Hardcode)
-                if c_content_toks:
-                    matched_toks = [
-                        w for w in c_content_toks
-                        if f" {w} " in f" {norm_q} "
-                        or (w in acr_map_topk and acr_map_topk[w] in norm_q)
-                    ]
-                    comb_score += len(matched_toks) * 6.5
-                    comb_score += (len(matched_toks) / len(c_content_toks)) * 8.0
-
-                    for idx_t in range(len(c_content_toks) - 1):
-                        bg = f"{c_content_toks[idx_t]} {c_content_toks[idx_t + 1]}"
-                        if bg in norm_q:
-                            comb_score += 5.0
-
-                    # Phạt nếu ứng viên chứa từ viết tắt chuyên ngành (VD: OCOP, HTX, THT...) không xuất hiện trong câu hỏi
-                    for w in c_content_toks:
-                        if w in acr_map_topk:
-                            full_f = acr_map_topk[w]
-                            if f" {w} " not in f" {norm_q} " and full_f not in norm_q:
-                                comb_score -= 20.0
-
-                    # Cộng điểm liên kết cấu trúc cha-con nếu cụm danh từ trong câu hỏi khớp với từ vựng các nút con trực thuộc
-                    ch_blob = parent_children_blob.get(c_low, "")
-                    if ch_blob:
-                        q_content_toks = [w for w in norm_q.split() if w not in stop_toks_topk]
-                        for idx_q in range(len(q_content_toks) - 2):
-                            tri_q = f"{q_content_toks[idx_q]} {q_content_toks[idx_q + 1]} {q_content_toks[idx_q + 2]}"
-                            if tri_q in ch_blob and tri_q not in c_low:
-                                comb_score += 8.0
-                                break
-                else:
-                    # Ứng viên chỉ gồm các từ chung (VD: 'Lũy kế đến thời điểm báo cáo' hoặc 'Đang hoạt động' thiếu tên chủ thể)
-                    q_domain_only = [w for w in norm_q.split() if w not in stop_toks_topk and w not in ("lũy", "kế", "đạt", "mức")]
-                    if len(q_domain_only) >= 2:
-                        comb_score -= 18.0
+                comb_score = max(comb_score, 100.0)
 
             if comb_score >= score_cutoff:
                 valid_candidates.append({
@@ -2638,6 +2816,12 @@ class DuckDBSemanticCatalog:
                     "score": round(comb_score, 2),
                     "dense_score": round(d_score, 2),
                     "sparse_score": round(s_score, 2),
+                    "root_name": c.get("root_name", ""),
+                    "parent_name": c.get("parent_name", ""),
+                    "level": c.get("level", 1),
+                    "is_leaf": c.get("is_leaf", True),
+                    "mission_name": c.get("mission_name", ""),
+                    "office_name": c.get("office_name", ""),
                 })
 
         valid_candidates.sort(
@@ -2648,32 +2832,20 @@ class DuckDBSemanticCatalog:
             reverse=True
         )
 
-        # Khử trùng lặp tên hiển thị (ADR-002: Mỗi tên chỉ tiêu chỉ giữ 1 candidate tối ưu nhất)
+        # Khử trùng lặp tên hiển thị across branches (ADR-002: Bảo toàn candidates trên các nhánh khác nhau)
         deduped_candidates = []
-        seen_cand_names = set()
+        seen_cand_keys = set()
         for cand in valid_candidates:
             clean_n = unicodedata.normalize('NFC', cand["name"].strip().lower())
-            if clean_n not in seen_cand_names:
-                seen_cand_names.add(clean_n)
+            root_n = unicodedata.normalize('NFC', (cand.get("root_name") or "").strip().lower())
+            cand_key = (clean_n, root_n)
+            if cand_key not in seen_cand_keys:
+                seen_cand_keys.add(cand_key)
                 deduped_candidates.append(cand)
-
-        # Ưu tiên chỉ tiêu tổng thể (Tổng ...) khi câu hỏi mang tính khái quát (không chỉ rõ phân loại con)
-        tong_candidates = [c for c in deduped_candidates if c["name"].lower().startswith("tổng ")]
-        if tong_candidates and deduped_candidates:
-            best_tong = tong_candidates[0]
-            top_1 = deduped_candidates[0]
-            if best_tong != top_1:
-                # Nếu query không có các từ đặc thù của top_1 (ví dụ 'công nghiệp', 'thủ công')
-                top1_extra_words = [w for w in top_1["name"].lower().split() if w not in best_tong["name"].lower() and len(w) > 2]
-                has_specific_sub_in_query = any(w in q_lower for w in top1_extra_words)
-                if not has_specific_sub_in_query and (top_1["score"] - best_tong["score"]) <= 5.0:
-                    deduped_candidates.remove(best_tong)
-                    best_tong["score"] = top_1["score"] + 1.0
-                    deduped_candidates.insert(0, best_tong)
 
         top_candidates = deduped_candidates[:top_k]
 
-        # 3. Tính toán score_delta
+        # 4. Tính toán score_delta
         if len(top_candidates) >= 2:
             score_delta = round((top_candidates[0]["score"] - top_candidates[1]["score"]) / 100.0, 4)
         elif len(top_candidates) == 1:
@@ -2681,7 +2853,7 @@ class DuckDBSemanticCatalog:
         else:
             score_delta = 0.0
 
-        # 4. Xác định cờ mơ hồ (is_ambiguous) theo khung REAR Margin Gap (ACL 2024)
+        # 5. Xác định cờ mơ hồ (is_ambiguous) kết hợp Phân giải Micro-LLM Phân cấp
         is_ambiguous = bool(raw_res and raw_res[0].get("is_ambiguous"))
         if len(set(c["name"].strip().lower() for c in top_candidates)) <= 1:
             is_ambiguous = False
@@ -2691,6 +2863,29 @@ class DuckDBSemanticCatalog:
             delta = top1_score - top2_score
             top1_name = top_candidates[0]["name"].strip().lower()
             top2_name = top_candidates[1]["name"].strip().lower()
+
+            differs_structurally = (
+                top_candidates[0].get("root_name") != top_candidates[1].get("root_name")
+                or top_candidates[0].get("parent_name") != top_candidates[1].get("parent_name")
+                or top_candidates[0].get("is_leaf") != top_candidates[1].get("is_leaf")
+                or top_candidates[0].get("level") != top_candidates[1].get("level")
+            )
+
+            # Phân giải Micro-LLM khi delta < 15.0 và có khác biệt cấu trúc
+            if delta < 15.0 and differs_structurally and getattr(settings, "effective_llm_api_key", None):
+                disambig_res = self._llm_disambiguate(query=q_clean, candidates=top_candidates[:5])
+                if disambig_res:
+                    if disambig_res.get("status") == "MATCH" and disambig_res.get("code"):
+                        matched_code = disambig_res["code"]
+                        for idx, cand in enumerate(top_candidates):
+                            if cand.get("code") == matched_code:
+                                if idx > 0:
+                                    matched = top_candidates.pop(idx)
+                                    top_candidates.insert(0, matched)
+                                is_ambiguous = False
+                                return (top_candidates, False, score_delta)
+                    elif disambig_res.get("status") == "AMBIGUOUS":
+                        is_ambiguous = True
 
             # Decision Matrix: Nếu Top1 >= 70.0 và Gap > 15.0 -> Luôn là Confident Match (không mơ hồ)
             if top1_score >= 70.0 and delta > 15.0:
@@ -2702,7 +2897,7 @@ class DuckDBSemanticCatalog:
                 # Ưu tiên chỉ tiêu tổng thể (aggregate) khi có các phân loại con
                 is_ambiguous = False
             else:
-                # Kiểm tra độ phủ từ khóa phân biệt (loại bỏ stopwords tĩnh, lọc độ dài từ > 2):
+                # Kiểm tra độ phủ từ khóa phân biệt
                 t1_tokens = {w for w in top1_name.split() if len(w) > 2}
                 t2_tokens = {w for w in top2_name.split() if len(w) > 2}
                 diff_t1 = t1_tokens - t2_tokens
@@ -2712,25 +2907,17 @@ class DuckDBSemanticCatalog:
                 def _stem_core_cand(n: str) -> str:
                     return self.strip_query_noise(n, "METRIC_AGG_PREFIX_NOISE")
 
-
                 core_1 = _stem_core_cand(top1_name)
                 core_2 = _stem_core_cand(top2_name)
                 is_synonym_candidates = bool(core_1 and core_1 == core_2)
 
                 if is_synonym_candidates:
-                    # Top 1 và Top 2 là biến thể đồng nghĩa của cùng 1 chỉ tiêu (khác tiền tố số lượng/tổng số)
-                    if any(w in q_tokens for w in ("bao", "nhiêu", "số", "lượng")) and top2_name.startswith("số lượng"):
-                        top_candidates[0], top_candidates[1] = top_candidates[1], top_candidates[0]
                     is_ambiguous = False
                 elif t1_tokens and t1_tokens.issubset(q_tokens):
-                    # Toàn bộ từ khóa nội dung của Top 1 đều xuất hiện trong câu hỏi
-                    if any(w in q_tokens for w in ("bao", "nhiêu", "số", "lượng")) and top2_name.startswith("số lượng") and _stem_core_cand(top2_name) == top1_name:
-                        top_candidates[0], top_candidates[1] = top_candidates[1], top_candidates[0]
                     is_ambiguous = False
                 elif diff_t1 and (diff_t1 & q_tokens) and not (diff_t2 & q_tokens):
                     is_ambiguous = False
                 elif diff_t2 and (diff_t2 & q_tokens) and not (diff_t1 & q_tokens):
-                    # Top 2 chứa từ khóa phân biệt trong query mà Top 1 không có -> Hoán đổi Top 2 lên Top 1 và Confident Match
                     top_candidates[0], top_candidates[1] = top_candidates[1], top_candidates[0]
                     is_ambiguous = False
                 elif delta < 15.0 and top1_score < 95.0:
@@ -2778,8 +2965,10 @@ class DuckDBSemanticCatalog:
                     # Đối với chỉ tiêu đa từ và điểm tương đồng biên (< 0.60), bắt buộc phải có từ nội dung thực tế (loại trừ từ tố phụ thuộc)
                     ALLOWED_FALSE_MORPHEMES = {"quả", "lâm", "đồng", "tỉnh", "thành", "phố", "hoạt", "động", "các", "những", "toàn", "tổng", "số", "của", "tại", "ở", "cho"}
                     common_content_tokens = (cand_tokens & q_tokens) - ALLOWED_FALSE_MORPHEMES
-                    if raw_score < 0.60 and len(cand_tokens) >= 2 and not common_content_tokens:
-                        continue
+                    if raw_score < 0.60:
+                        is_exact_substr = cand_name.lower() in q_norm
+                        if not is_exact_substr and len(common_content_tokens) < 2:
+                            continue
 
                     candidates.append({
                         "name": cand_name,
@@ -4036,8 +4225,9 @@ class DuckDBSemanticCatalog:
 
         try:
             rows = self.conn.execute("""
-                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value
-                FROM catalog_criteria_hierarchy;
+                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
+                FROM catalog_criteria_hierarchy
+                ORDER BY level ASC, created_date ASC, id ASC;
             """).fetchall()
         except Exception:
             rows = []
@@ -4076,6 +4266,7 @@ class DuckDBSemanticCatalog:
                 "mission_name": r[9] or "",
                 "office_name": r[10] or "",
                 "latest_value": r[11],
+                "created_date": r[12],
             })
 
         # 1. Tra cứu các alias định danh từ catalog_aliases trong DuckDB RAM
@@ -4344,6 +4535,7 @@ class DuckDBSemanticCatalog:
 
             # Hỗ trợ định danh nhánh cha động qua ngữ cảnh câu hỏi hoặc parent_context kế thừa từ Turn trước
             if len(same_name_leaves) > 1:
+                import re
                 acr_map = {}
                 if hasattr(self, "conn") and self.conn:
                     try:
@@ -4352,6 +4544,15 @@ class DuckDBSemanticCatalog:
                     except Exception:
                         pass
 
+                def _canon_branch_str(text: str) -> str:
+                    t = " " + " ".join(unicodedata.normalize("NFC", (text or "").lower()).split()) + " "
+                    t = re.sub(r'\bliên\s+hiệp\s+hợp\s+tác\s+xã\b', ' lhhtx ', t)
+                    t = re.sub(r'\bliên\s+hiệp\s+htx\b', ' lhhtx ', t)
+                    t = re.sub(r'\bhợp\s+tác\s+xã\b', ' htx ', t)
+                    t = re.sub(r'\btổ\s+hợp\s+tác\b', ' tht ', t)
+                    t = re.sub(r'\btrang\s+trại\b', ' tt ', t)
+                    return " " + " ".join(t.split()) + " "
+
                 context_sources = [q_norm]
                 if parent_context:
                     context_sources.append(" ".join(unicodedata.normalize("NFC", str(parent_context).lower().strip()).split()))
@@ -4359,12 +4560,15 @@ class DuckDBSemanticCatalog:
                 for ctx in context_sources:
                     ctx_str = f" {ctx} "
                     ctx_unacc = f" {self._remove_accents(ctx)} "
+                    ctx_canon = _canon_branch_str(ctx)
                     scored_leaves = []
                     for it in same_name_leaves:
                         p_name = (it.get("parent_name") or "").lower().strip()
                         r_name = (it.get("root_name") or "").lower().strip()
                         p_un = self._remove_accents(p_name)
                         r_un = self._remove_accents(r_name)
+                        r_canon = _canon_branch_str(r_name)
+                        p_canon = _canon_branch_str(p_name)
                         score = 0
                         if r_name and f" {r_name} " in ctx_str:
                             score += len(r_name) * 2
@@ -4379,6 +4583,15 @@ class DuckDBSemanticCatalog:
                         if p_un and f" {p_un} " in ctx_unacc:
                             score += len(p_un)
 
+                        # Bidirectional canonical acronym matching
+                        for branch_tag in ["lhhtx", "htx", "tht", "tt"]:
+                            tag_space = f" {branch_tag} "
+                            if tag_space in ctx_canon:
+                                if tag_space in r_canon or tag_space in p_canon:
+                                    score += 50
+                                else:
+                                    score -= 20
+
                         for acr, full in acr_map.items():
                             if f" {acr} " in ctx_str or f" {acr} " in ctx_unacc:
                                 if full in r_name or full in p_name:
@@ -4390,10 +4603,11 @@ class DuckDBSemanticCatalog:
                     if scored_leaves:
                         scored_leaves.sort(key=lambda x: x[0], reverse=True)
                         top_score = scored_leaves[0][0]
-                        top_leaves = [it for s, it in scored_leaves if s == top_score]
-                        if len(top_leaves) == 1:
-                            same_name_leaves = top_leaves
-                            break
+                        if top_score > 0:
+                            top_leaves = [it for s, it in scored_leaves if s == top_score]
+                            if len(top_leaves) == 1:
+                                same_name_leaves = top_leaves
+                                break
 
             if len(same_name_leaves) > 1 and all(it.get("latest_value") is None for it in same_name_leaves):
                 chosen_leaf = same_name_leaves[0]
@@ -4508,8 +4722,9 @@ class DuckDBSemanticCatalog:
         # 2. Lấy toàn bộ cây phân cấp từ DuckDB RAM
         try:
             rows = self.conn.execute("""
-                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value
-                FROM catalog_criteria_hierarchy;
+                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
+                FROM catalog_criteria_hierarchy
+                ORDER BY level ASC, created_date ASC, id ASC;
             """).fetchall()
         except Exception:
             rows = []
@@ -4534,6 +4749,7 @@ class DuckDBSemanticCatalog:
                 "mission_name": r[9] or "Phát triển nông thôn",
                 "office_name": r[10] or "Chi cục",
                 "latest_value": r[11],
+                "created_date": r[12],
             })
 
         # Nếu câu hỏi nêu đích danh một chỉ tiêu lá cụ thể (độ dài >= 12 ký tự), ưu tiên luồng tra cứu chỉ tiêu đơn
@@ -4690,7 +4906,10 @@ class DuckDBSemanticCatalog:
 
         target_parent_node, children = best_group
         p_name = target_parent_node["name"]
-        children.sort(key=lambda x: (x.get("level", 3), x.get("code", "")))
+        children.sort(key=lambda x: (
+            x.get("level", 3),
+            (0, str(x.get("created_date"))) if x.get("created_date") else (1, x.get("code", "")),
+        ))
 
         return {
             "status": "SUCCESS",
@@ -4715,9 +4934,9 @@ class DuckDBSemanticCatalog:
         """
         try:
             hier_rows = self.conn.execute("""
-                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value
+                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
                 FROM catalog_criteria_hierarchy
-                ORDER BY level ASC, name ASC;
+                ORDER BY level ASC, created_date ASC, id ASC;
             """).fetchall()
         except Exception:
             hier_rows = []
@@ -4794,7 +5013,7 @@ class DuckDBSemanticCatalog:
         roots: List[str] = []
 
         for r in hier_rows:
-            cid, code, name, pid, pname, rid, rname, lvl, is_leaf, mname, oname, lval = r
+            cid, code, name, pid, pname, rid, rname, lvl, is_leaf, mname, oname, lval = r[:12]
             mission_has_facts = mission_facts_map.get(mname.strip().lower(), True) if mname else True
             if not mission_has_facts and cid not in present_cids:
                 continue

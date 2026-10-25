@@ -772,6 +772,24 @@ class WarehouseLangGraphAgent:
 
         # 1. Tiền kiểm phạm vi an toàn ScopePrechecker (chặn sớm CCCD, thời tiết, chính trị, sáng tác, định tính, tính toán)
         is_out, out_msg, _ = ScopePrechecker.check_scope(clean_text)
+        if not is_out:
+            import re
+            is_math = bool(re.search(r'(?:\b\d+\s*(?:mũ|\^)\s*\d+\b|\b(?:tính|giải)\s+(?:toán|biểu\s+thức|phép\s+tính|phương\s+trình|kết\s+quả)\b|\b\d+\s*(?:nhân|chia\s+cho|cộng|trừ)\s*\d+\b|\bcăn\s+bậc\s+\d+\b)', clean_text, re.IGNORECASE))
+            if is_math:
+                is_out = True
+                out_msg = (
+                    "Yêu cầu tính toán biểu thức số học thuần túy nằm ngoài phạm vi phục vụ của Hệ thống Trợ lý ảo Tra cứu Kho DWH tỉnh Lâm Đồng. "
+                    "Hệ thống chuyên trách tra cứu các báo cáo, chỉ tiêu điều hành và nhiệm vụ công vụ đã được phê duyệt."
+                )
+            else:
+                is_admin_proc = bool(re.search(r'\b(?:thủ\s+tục|giấy\s+tờ|hồ\s+sơ|hướng\s+dẫn\s+làm|xin\s+cấp|đăng\s+ký)\b.*\b(?:sổ\s+đỏ|kết\s+hôn|khai\s+sinh|hộ\s+chiếu|cccd|căn\s+cước|giấy\s+phép\s+lái\s+xe|gplx|hộ\s+khẩu)\b', clean_text, re.IGNORECASE))
+                if is_admin_proc:
+                    is_out = True
+                    out_msg = (
+                        "Thông tin phạm vi: Câu hỏi của đồng chí thuộc nhóm Thủ tục Hành chính Công (Dịch vụ công trực tuyến). "
+                        "Hệ thống hiện tại chuyên trách tra cứu Kho Dữ Liệu Báo Cáo Điều Hành (DWH). "
+                        "Đồng chí vui lòng tra cứu thủ tục này tại Cổng Dịch vụ công Quốc gia (dichvucong.gov.vn) hoặc Hệ thống Thông tin Giải quyết Thủ tục Hành chính tỉnh Lâm Đồng."
+                    )
         if is_out:
             logger.info("Chặn câu hỏi ngoài phạm vi DWH: '%s' -> %s", clean_text, out_msg[:60])
             return {
@@ -1232,6 +1250,40 @@ class WarehouseLangGraphAgent:
                 is_clarification = True
                 clarification_msg = f"Đồng chí vui lòng cho biết cụ thể chỉ tiêu kinh tế - xã hội hoặc đơn vị cần tra cứu số liệu năm {inherited_year}?"
 
+        if not is_clarification and not is_dimension_plane and not candidates and not norm_frame.canonical_metric_names and not inherited_metric:
+            out_ans = (
+                "Yêu cầu tra cứu nằm ngoài phạm vi dữ liệu kho DWH điều hành kinh tế - xã hội tỉnh Lâm Đồng. "
+                "Hệ thống chỉ hỗ trợ tra cứu các chỉ tiêu kinh tế - xã hội, báo cáo định kỳ và danh mục nhiệm vụ đã được phê duyệt."
+            )
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "ℹ️ Yêu cầu tra cứu ngoài phạm vi dữ liệu DWH...",
+                "is_out_of_scope": True,
+                "out_of_scope_answer": out_ans,
+                "final_answer": out_ans,
+                "is_clarification_needed": False,
+                "is_capability_query": False,
+                "inherited_tenant": inherited_tenant or "68",
+                "inherited_year": inherited_year or "2026",
+                "inherited_department": None,
+                "inherited_metric": None,
+                "candidates": None,
+                "selected_candidate": None,
+                "is_non_additive": False,
+                "is_temporal_query": False,
+                "target_department_code": None,
+                "canonical_frame": (
+                    norm_frame.model_dump(mode='json')
+                    if hasattr(norm_frame, "model_dump")
+                    else norm_frame
+                ),
+                "quick_action_chips": (
+                    self.catalog.get_sample_quick_chips(inherited_tenant or "68", year=inherited_year or "2026")
+                    if hasattr(self.catalog, "get_sample_quick_chips")
+                    else []
+                ),
+            }
+
         if norm_frame.intent in (
             CanonicalIntentEnum.METADATA_EXPLORATION,
             CanonicalIntentEnum.DIMENSION_LISTING,
@@ -1331,6 +1383,15 @@ class WarehouseLangGraphAgent:
         """
         Node 3: Biên dịch câu lệnh SQL động và kiểm định an toàn AST Guardrail.
         """
+        # Kiểm tra nếu câu hỏi đã được xác định ngoài phạm vi ở parse_context
+        if state.get("is_out_of_scope"):
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "ℹ️ Yêu cầu tra cứu ngoài phạm vi...",
+                "generated_sql": None,
+                "execution_result": None,
+            }
+
         query = state["user_query"]
         inherited_year = state.get("inherited_year", "2026")
         inherited_tenant = state.get("inherited_tenant", "68")
@@ -1496,9 +1557,13 @@ class WarehouseLangGraphAgent:
                             c_name_escaped = c_cand[0]["name"].replace("'", "''")
                             cand_conditions = f"TRIM(rf.name) ILIKE TRIM('{c_name_escaped}')"
                         else:
-                            core_phrase = self.normalizer._extract_core_metric_phrase(clean_prompt)
-                            core_escaped = core_phrase.replace("'", "''") if core_phrase else ""
-                            cand_conditions = f"rf.name ILIKE '%{core_escaped}%'" if core_escaped else "1=1"
+                            return {
+                                "current_stage": "SYNTHESIZING",
+                                "stage_message": "ℹ️ Yêu cầu tra cứu ngoài phạm vi...",
+                                "is_out_of_scope": True,
+                                "generated_sql": None,
+                                "execution_result": None,
+                            }
                     generated_sql = (
                         f"WITH ranked_facts AS (\n"
                         f"    SELECT f.name, f.department_code, f.report_date, f.value, f.office_id, f.mission_name,\n"
@@ -1535,9 +1600,13 @@ class WarehouseLangGraphAgent:
                             c_name_escaped = c_cand[0]["name"].replace("'", "''")
                             cand_conditions = f"TRIM(f.name) ILIKE TRIM('{c_name_escaped}')"
                         else:
-                            core_phrase = self.normalizer._extract_core_metric_phrase(clean_prompt)
-                            core_escaped = core_phrase.replace("'", "''") if core_phrase else ""
-                            cand_conditions = f"f.name ILIKE '%{core_escaped}%'" if core_escaped else "1=1"
+                            return {
+                                "current_stage": "SYNTHESIZING",
+                                "stage_message": "ℹ️ Yêu cầu tra cứu ngoài phạm vi...",
+                                "is_out_of_scope": True,
+                                "generated_sql": None,
+                                "execution_result": None,
+                            }
                     generated_sql = (
                         f"WITH ranked_facts AS (\n"
                         f"    SELECT f.name, f.value, f.report_date, f.version, f.office_id, f.mission_name,\n"
@@ -2223,7 +2292,7 @@ class WarehouseLangGraphAgent:
                 or getattr(norm_frame, "month_filter", None)
             )
         )
-        if not has_temporal_ticket_r3 and hasattr(self.catalog, "resolve_hierarchy_breakdown"):
+        if hasattr(self.catalog, "resolve_hierarchy_breakdown"):
             breakdown_res = self.catalog.resolve_hierarchy_breakdown(
                 clean_prompt,
                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
@@ -2234,6 +2303,25 @@ class WarehouseLangGraphAgent:
                 p_name = p_node["name"]
                 r_name = breakdown_res.get("root_name") or p_name
                 children = breakdown_res["children"]
+
+                if has_temporal_ticket_r3 and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
+                    temporal_child_map = self.catalog.get_children_values_at_temporal_scope(
+                        children,
+                        year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year),
+                        tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                        specific_date=getattr(norm_frame, "specific_date", None) if norm_frame else None,
+                        date_from=getattr(norm_frame, "date_from", None) if norm_frame else None,
+                        date_to=getattr(norm_frame, "date_to", None) if norm_frame else None,
+                        month_filter=getattr(norm_frame, "month_filter", None) if norm_frame else None,
+                    )
+                    for ch in children:
+                        ch_id_k = str(ch.get("id") or "").lower()
+                        ch_nm_k = str(ch.get("name") or "").strip().lower()
+                        t_entry = temporal_child_map.get(ch_id_k) or temporal_child_map.get(ch_nm_k)
+                        if t_entry and t_entry.get("value") is not None:
+                            ch["latest_value"] = t_entry.get("value")
+                            ch["report_date"] = t_entry.get("report_date")
+
                 c_count = len(children)
                 c_names = [c["name"] for c in children]
                 c_names_str = ", ".join([f"**{nm}**" for nm in c_names])
@@ -2242,11 +2330,15 @@ class WarehouseLangGraphAgent:
                 if not _is_empty_or_dash(p_val_raw):
                     p_summary_header = f"- **Chỉ tiêu:** {p_name}\n- **Giá trị:** {vn_format_num(p_val_raw)}\n\n"
 
+                period_intro_lbl, period_title_lbl = _format_temporal_period_label(norm_frame, year)
+                intro_period_str = f"kèm giá trị ghi nhận {period_intro_lbl}" if has_temporal_ticket_r3 else f"kèm giá trị mới nhất theo báo cáo năm {year}"
+                table_title_str = f"Danh mục chi tiết các chỉ tiêu thuộc '{p_name}' {period_title_lbl}"
+
                 ans = (
                     f"{p_summary_header}"
                     f"Trong kho dữ liệu DWH tỉnh Lâm Đồng, hiện có **{c_count}** phân nhóm/chỉ tiêu con "
                     f"trực thuộc nhóm **'{p_name}'** (thuộc **{r_name}**) gồm: {c_names_str}.\n\n"
-                    f"Dưới đây là bảng thống kê chi tiết các chỉ tiêu kèm giá trị mới nhất theo báo cáo năm {year}:\n\n"
+                    f"Dưới đây là bảng thống kê chi tiết các chỉ tiêu {intro_period_str}:\n\n"
                     f"| STT | Tên chỉ tiêu | Nhóm chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
                     f"| :---: | :--- | :--- | :---: | :--- | :--- |\n"
                 )
@@ -2271,7 +2363,7 @@ class WarehouseLangGraphAgent:
                     })
 
                 tabular_data = {
-                    "title": f"Danh mục chi tiết các chỉ tiêu thuộc '{p_name}' năm {year}",
+                    "title": table_title_str,
                     "columns": [
                         {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
                         {"key": "item", "label": "Tên chỉ tiêu", "align": "left", "data_type": "text"},
@@ -2294,7 +2386,7 @@ class WarehouseLangGraphAgent:
                         {
                             "id": f"chip_{i+1}",
                             "label": f"🔘 [{c['name']}]",
-                            "query_text": f"Chỉ tiêu {c['name']} thuộc {p_name} năm {year} là bao nhiêu?"
+                            "query_text": f"Chỉ tiêu {c['name']} thuộc {p_name} {temporal_meta['query_suffix']} là bao nhiêu?"
                         }
                         for i, c in enumerate(children[:4])
                     ],
@@ -2729,9 +2821,9 @@ class WarehouseLangGraphAgent:
                         p_lvl = (h_info_parent.get("parent_level") if h_info_parent else None) or 1
                         r_name = (h_info_parent.get("root_name") if h_info_parent else None) or parent_disp
                         if int(p_lvl) <= 1 or r_name == parent_disp:
-                            hier_suffix = " *(Chỉ tiêu cha - Cấp 1)*"
+                            hier_suffix = " *(Chỉ tiêu cha (nhóm chỉ tiêu) - Cấp 1)*"
                         else:
-                            hier_suffix = f" *(Chỉ tiêu cha thuộc nhóm: {r_name} - Cấp {p_lvl})*"
+                            hier_suffix = f" *(Chỉ tiêu cha (nhóm chỉ tiêu) thuộc nhóm: {r_name} - Cấp {p_lvl})*"
 
                         intro_line = date_prefix if date_prefix else "Thông tin số liệu mới nhất của chỉ tiêu đồng chí tra cứu:\n"
                         ans = (
@@ -3429,7 +3521,6 @@ class WarehouseLangGraphAgent:
                             f"| STT | Tên chỉ tiêu | Nhóm chỉ tiêu (Cấp) | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
                             f"| :---: | :--- | :--- | :---: | :--- | :--- |\n"
                         )
-                        bullet_lines = []
                         for b_idx, br in enumerate(branches, 1):
                             b_id_str = str(br.get("id") or "")
                             matched_row = next(
@@ -3461,9 +3552,6 @@ class WarehouseLangGraphAgent:
                             b_off = (matched_row.get("ten_van_phong") if matched_row else None) or br.get("office_name") or office_str
                             b_mis = (matched_row.get("ten_nhiem_vu") if matched_row else None) or br.get("mission_name") or mission_str
                             ans += f"| {b_idx} | {b_name} | {cat_disp} | **{b_fmt}** | {b_off} | {b_mis} |\n"
-                            bullet_lines.append(
-                                f"- **{b_name}** ({cat_disp}): **{b_fmt}** — Đơn vị thực hiện: {b_off}, Nhiệm vụ trọng tâm: {b_mis}"
-                            )
                             multi_rows.append({
                                 "stt": b_idx,
                                 "item": b_name,
@@ -3474,7 +3562,6 @@ class WarehouseLangGraphAgent:
                                 "report_date": date_str,
                                 "_raw_value": b_raw,
                             })
-                        ans += "\n" + "\n".join(bullet_lines) + temporal_shift_bullet
                         tabular_data = {
                             "title": f"Đối chiếu chỉ tiêu '{ten_chi_tieu}' theo các nhóm chỉ tiêu cha {dup_title_period}",
                             "columns": [

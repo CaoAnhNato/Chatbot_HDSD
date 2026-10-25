@@ -188,19 +188,8 @@ export const SingleMetricSliderCard: React.FC<SingleMetricSliderCardProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <Calendar className="w-4 h-4 text-blue-700 shrink-0" />
           <span className="text-xs sm:text-sm font-bold text-slate-800">
-            Kỳ báo cáo đối chiếu ({snapshots.length} mốc phê duyệt năm 2026):
+            Kỳ báo cáo:
           </span>
-          {(card.parent_name || card.hierarchy_label || card.hierarchy_badge) && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white text-slate-700 text-xs font-medium border border-slate-200">
-              {card.parent_name ? (
-                <>
-                  Nhóm gốc: <strong>{card.parent_name}</strong>
-                </>
-              ) : (
-                card.hierarchy_label || card.hierarchy_badge
-              )}
-            </span>
-          )}
         </div>
 
         {onPinItem && (
@@ -252,24 +241,6 @@ export const SingleMetricSliderCard: React.FC<SingleMetricSliderCardProps> = ({
               );
             })}
           </div>
-
-          {snapshots.length > 1 && (
-            <input
-              type="range"
-              data-testid="metric-timeline-range"
-              min={0}
-              max={snapshots.length - 1}
-              step={1}
-              value={selectedIdx >= 0 ? selectedIdx : snapshots.length - 1}
-              onChange={(e) => {
-                const newIdx = Number(e.target.value);
-                setSelectedIdx(newIdx);
-                setLocalShiftNotice(null);
-                onTimelineChange?.(snapshots[newIdx], null);
-              }}
-              className="w-full h-1.5 bg-blue-100 rounded-lg appearance-none cursor-pointer accent-blue-600"
-            />
-          )}
 
           {/* Ô chọn ngày tùy chỉnh tinh giản */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-blue-100/60 text-xs text-slate-600">
