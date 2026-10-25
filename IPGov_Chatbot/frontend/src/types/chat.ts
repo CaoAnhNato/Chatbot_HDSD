@@ -74,6 +74,10 @@ export interface TabularData {
   draft_criteria_rows?: Record<string, any>[];
   draft_vs_approved_diff?: Record<string, any>[];
   blocked_draft_access?: boolean;
+  tree_modal?: Record<string, any>;
+  trees_by_root_id?: Record<string, any>;
+  level1_rows?: Record<string, any>[];
+  period_snapshots?: Record<string, Record<string, any>[]>;
 }
 
 export interface PinnedDrawerItem {

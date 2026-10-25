@@ -1681,7 +1681,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
   );
 
   // R2.2 & R2.4: Cập nhật giá trị các dòng bảng hoặc lọc theo kỳ báo cáo tại chỗ (0ms Client-side)
-  const periodAdjustedRows = useMemo(() => {
+  const periodAdjustedRows = useMemo((): Record<string, any>[] => {
     if (!rows || rows.length === 0) return rows;
 
     // 1. Nếu tabularData có period_snapshots:

@@ -972,3 +972,18 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ✅ **ALWAYS:**
     Triển khai bộ phân loại sớm Regex Out-of-Scope (toán học số học, thủ tục hành chính ngoài DWH) ngay tại đầu pipeline normalizer/router. Khi phát hiện câu hỏi OOS, thiết lập ngay `is_out_of_scope = True`, `sql = None` và trả về thông báo từ chối an toàn (Polite Refusal), triệt tiêu hoàn toàn việc sinh SQL giả.
 
+---
+
+### [TRAP-094] Bẫy Suy Diễn Kiểu `any` Lan Truyền Qua `useMemo` (`TS7006`) Và Quét File Test Trong Next.js Production Build Trên Render
+- **Môi trường & Công nghệ:** Next.js 14 (`next build`) / TypeScript Strict Mode / `SmartTable.tsx` / `tsconfig.json` / Render Cloud Build
+- **Triệu chứng:**
+  Khi deploy `ipgov-chatbot-frontend` lên Render (`npm install && npm run build`), bước `Checking validity of types ...` thất bại với lỗi `Type error: Parameter 'r' implicitly has an 'any' type` tại `SmartTable.tsx:1987` và các lỗi kiểm tra kiểu trên các file kiểm thử trong `src/components/chat/__tests__/`.
+- **Nguyên nhân gốc rễ:**
+  1. Trong `SmartTable.tsx`, biến `periodSnapshots = (tabularData as any)?.period_snapshots` có kiểu `any`. Khi `periodAdjustedRows = useMemo(() => { ... return periodSnapshots[activePeriod]; })` không khai báo kiểu trả về tường minh, TypeScript suy diễn kiểu của `periodAdjustedRows` thành `any` thay vì `Record<string, any>[]`, kéo theo toàn bộ các hàm `.filter((r) => ...)` phía sau bị mất kiểu của `r` và vi phạm `noImplicitAny`.
+  2. `tsconfig.json` để `"include": ["**/*.ts", "**/*.tsx"]` mà chưa loại trừ `"**/__tests__/**"` và `"**/*.test.tsx"` khỏi quá trình build production của Next.js.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không để `useMemo` trả về giá trị truy cập từ biến `as any` mà không khai báo kiểu trả về tường minh; Không để `next build` quét các file unit test nội bộ.
+  * ✅ **ALWAYS:**
+    1. Khai báo kiểu trả về tường minh `useMemo((): Record<string, any>[] => ...)` cho các mảng dữ liệu bảng.
+    2. Cập nhật đầy đủ các trường mở rộng (`tree_modal`, `trees_by_root_id`, `level1_rows`, `period_snapshots`) vào interface `TabularData` trong `src/types/chat.ts` và thêm `"**/__tests__/**"`, `"**/*.test.ts"`, `"**/*.test.tsx"` vào `exclude` của `tsconfig.json`.
+
