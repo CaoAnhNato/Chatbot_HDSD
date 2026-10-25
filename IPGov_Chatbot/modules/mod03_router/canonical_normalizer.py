@@ -363,16 +363,13 @@ class CanonicalSemanticNormalizer:
             from openai import OpenAI
             client = OpenAI(
                 api_key=api_key,
-                base_url=getattr(settings, "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-                timeout=15.0
+                base_url=getattr(settings, "OPENROUTER_BASE_URL", None) or "https://openrouter.ai/api/v1",
+                timeout=5.0,
+                max_retries=0,
             )
-            # Danh mục 4 mô hình độc quyền được phép sử dụng
-            candidate_models = [
-                getattr(settings, "OPENROUTER_ROUTER_MODEL", "google/gemini-2.5-flash-lite"),
-                "google/gemini-3.1-flash-lite",
-                "google/gemini-3.5-flash-lite",
-                "deepseek/deepseek-v4.1-flash",
-            ]
+            primary_router_model = getattr(settings, "OPENROUTER_ROUTER_MODEL", None) or "google/gemini-2.5-flash-lite"
+            light_model = getattr(settings, "OPENROUTER_LIGHT_MODEL", None) or "google/gemini-2.5-flash-lite"
+            candidate_models = [m for m in dict.fromkeys([primary_router_model, light_model]) if m]
             for model_name in candidate_models:
                 try:
                     kwargs = {
@@ -382,26 +379,20 @@ class CanonicalSemanticNormalizer:
                             {"role": "user", "content": prompt},
                         ],
                         "temperature": 0.0,
+                        "max_tokens": 450,
+                        "response_format": {"type": "json_object"},
                     }
-                    if "deepseek" in model_name:
-                        kwargs["extra_body"] = {
-                            "provider": {
-                                "order": getattr(settings, "OPENROUTER_PLANNER_PROVIDER_ORDER", ["coreweave/fp8", "makora/fp8", "relace", "inference-net/fp8"]),
-                                "allow_fallbacks": getattr(settings, "OPENROUTER_PLANNER_ALLOW_FALLBACKS", True),
-                            },
-                            "reasoning": {
-                                "enabled": getattr(settings, "OPENROUTER_PLANNER_REASONING_ENABLED", False),
-                            },
-                        }
-                    else:
-                        kwargs["response_format"] = {"type": "json_object"}
                     resp = client.chat.completions.create(**kwargs)
-                    raw_text = resp.choices[0].message.content.strip()
+                    raw_text = (resp.choices[0].message.content or "").strip()
                     s_idx = raw_text.find("{")
-                    e_idx = raw_text.rfind("}")
-                    if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
-                        data = json.loads(raw_text[s_idx : e_idx + 1])
-                        return SemanticQueryIntentDTO(**data)
+                    if s_idx != -1:
+                        data, _ = json.JSONDecoder(strict=False).raw_decode(raw_text[s_idx:])
+                        if isinstance(data, dict):
+                            if data.get("time_filter") is not None:
+                                data["time_filter"] = str(data["time_filter"])
+                            if data.get("spatial_filter") is not None:
+                                data["spatial_filter"] = str(data["spatial_filter"])
+                            return SemanticQueryIntentDTO(**data)
                 except Exception as model_err:
                     logger.debug("NLU model %s thất bại (%s), chuyển sang model kế tiếp...", model_name, model_err)
                     continue
@@ -1603,7 +1594,7 @@ class CanonicalSemanticNormalizer:
 
         is_fact_calc = stream_a.get("is_fact_calc", False)
 
-        if stream_a["intent"] != CanonicalIntentEnum.METRIC_POINT_INQUIRY or is_fact_calc:
+        if stream_a["intent"] != CanonicalIntentEnum.METRIC_POINT_INQUIRY or is_fact_calc or stream_a.get("is_hierarchy_breakdown"):
             pass
         else:
             cand_metrics = []
@@ -1737,9 +1728,19 @@ class CanonicalSemanticNormalizer:
             resolved_dept = stream_a.get("department_code") or stream_b.get("department_code") or session_dept
 
         # 4. Phân giải chỉ tiêu (Two-Stage Hybrid Selection + Ambiguity Gate)
+        breakdown_match = None
+        if hasattr(self.catalog, "resolve_hierarchy_breakdown"):
+            try:
+                breakdown_match = self.catalog.resolve_hierarchy_breakdown(
+                    clean_query, tenant_code=resolved_tenant, year_code=resolved_year
+                )
+            except Exception:
+                breakdown_match = None
+
         clarif_triggered = False
         if (
-            hasattr(self, "clarification_engine")
+            not breakdown_match
+            and hasattr(self, "clarification_engine")
             and self.clarification_engine
             and stream_b.get("date_from") is None
             and stream_b.get("month_filter") is None
@@ -1763,7 +1764,14 @@ class CanonicalSemanticNormalizer:
             except Exception as e:
                 logger.debug("Lỗi check_clarification_needed trong _build_canonical_frame: %s", e)
 
-        if not clarif_triggered:
+        if breakdown_match and breakdown_match.get("status") == "SUCCESS":
+            p_node_b = breakdown_match["parent_node"]
+            canonical_names = [p_node_b["name"]]
+            canonical_ids = [p_node_b["code"]] if p_node_b.get("code") else []
+            ambig_status = "RESOLVED"
+            clarification_cands = []
+            stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
+        elif not clarif_triggered:
             if stream_a["intent"] in (
                 CanonicalIntentEnum.METADATA_EXPLORATION,
                 CanonicalIntentEnum.DIMENSION_LISTING,

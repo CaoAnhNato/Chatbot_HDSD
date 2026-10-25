@@ -877,3 +877,57 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ✅ **ALWAYS:**
     1. Truyền nhất quán `{mis_filter_draft}` vào cả `draft_detail_sql` lẫn hai CTE `latest_approved` và `latest_draft` của `diff_sql`.
     2. Kiểm tra loại trừ `!parentCtx.startsWith('Nhóm chỉ tiêu') && !parentCtx.startsWith('Chỉ tiêu đơn')` trước khi nối `parentCtx` vào câu hỏi drill-down trong `PinnedReferenceDrawer.tsx`.
+
+---
+
+### [TRAP-088] Bẫy Trùng Lặp Nút Gợi Ý Chỉ Tiêu Con Inline & Đứt Gãy Đồng Bộ State Thời Gian (Duplicate Inline Child Action Chips & Broken Reactive Timeline State Synchronization)
+- **Môi trường & Công nghệ:** `SingleMetricSliderCard.tsx` / `MessageItem.tsx` / `warehouse_langgraph_agent.py` (`SC-2.4`, `REQ-Q02`)
+- **Triệu chứng:**
+  1. Người dùng nhìn thấy danh sách chỉ tiêu con xuất hiện 2 lần trong cùng một phản hồi: một lần dạng văn bản thô inline (`🔘 [Tên con 1]  🔘 [Tên con 2]...`) ở cuối đoạn văn bản markdown, và một lần dạng các nút bấm tương tác (`QuickActionChips`) ở đáy tin nhắn.
+  2. Khi người dùng bấm chuyển đổi giữa các kỳ báo cáo (`31/03/2026`, `30/06/2026`, `30/09/2026` hoặc ngày tùy chỉnh) trên thẻ mốc thời gian, số liệu `Giá trị:` và `Thời điểm báo cáo:` trong đoạn văn bản 5 trường chi tiết bên dưới và huy hiệu số liệu xem trước (`preview_value`) trên các nút action chips con ở đáy không thay đổi, vẫn bị đóng băng ở kỳ báo cáo ban đầu dù thẻ thời gian đã chuyển sang kỳ mới.
+- **Nguyên nhân gốc rễ:**
+  1. Tại backend (`warehouse_langgraph_agent.py`), chuỗi `chip_md = "  ".join([c["label"] for c in chips])` được nối cứng vào văn bản `ans` trước khi trả về, trong khi frontend `MessageItem.tsx` lại tự động render `<QuickActionChips chips={message.quick_action_chips} />`.
+  2. State mốc thời gian (`selectedIdx`, `activeSnapshot`) bị cô lập cục bộ bên trong `SingleMetricSliderCard.tsx`, không phát sự kiện đồng bộ lên component cha `MessageItem`, dẫn đến khối văn bản tĩnh markdown và component `QuickActionChips` không nhận được sự kiện thay đổi mốc thời gian để cập nhật lại số liệu.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không nối chuỗi markdown inline `🔘 [...]` vào câu trả lời khi DTO đã có trường `quick_action_chips`; Không giam giữ state thời gian cục bộ trong card con khi các thành phần khác trong tin nhắn cần phản ứng theo kỳ được chọn.
+  * ✅ **ALWAYS:**
+    1. Chỉ trả về danh sách nút con qua mảng DTO `quick_action_chips`, loại bỏ hoàn toàn việc ghép chuỗi `{chip_md}` vào markdown văn bản ở backend.
+    2. Trong `MessageItem.tsx`, triển khai regex phòng vệ để lọc sạch mọi chuỗi text inline `🔘 [...]` còn sót lại, đảm bảo các nút gợi ý chỉ xuất hiện duy nhất 1 lần ở đáy tin nhắn.
+    3. Nâng state mốc thời gian lên `MessageItemComponent` thông qua prop callback `onTimelineChange(snapshot, shiftNotice)`, sử dụng regex thay thế tức thì `0ms Client-side` cho 5 trường thông tin chi tiết và cập nhật `reactiveChips` đồng bộ số liệu trên toàn bộ preview badges.
+
+---
+
+### [TRAP-089] Bẫy So Khớp Token Mờ Khi Phân Giải Chỉ Tiêu Lũy Kế & Cấu Trúc Phân Cấp (Blurry Token Overlap vs Hierarchical Cumulative Scope)
+- **Môi trường & Công nghệ:** `DuckDBSemanticCatalog` / `find_top_k_candidates` / `warehouse_langgraph_agent.py` (`SC-2.5`, `SC-2.6`, `R3`, `R4`)
+- **Triệu chứng:**
+  1. Khi người dùng hỏi chỉ tiêu tổng lũy kế (ví dụ: *"lũy kế tổng số lượng chủ thể sản phẩm..."* hoặc *"lũy kế tổng số lượng chủ thể sản phẩm OCOP..."*), thuật toán so khớp token mờ truyền thống xếp các nút lá con mang xếp hạng sao (`Số lượng chủ thể sản phẩm OCOP 5 sao`) hoặc nhóm hàng năm (`Tổng số lượng chủ thể sản phẩm OCOP trong năm`) lên vị trí Top 1 do có mật độ trùng lặp từ khóa (*"sản phẩm"*, *"OCOP"*) rất cao.
+  2. Các chỉ tiêu có tên dài hoặc có khoảng trắng đôi trong CSDL (`"Lũy kế  tổng số lượng..."`) bị rớt khỏi Top-5 ứng viên thô ban đầu (`candidate_pool_size = top_k`), khiến chúng bị cắt tỉa sớm trước khi bộ reranker có cơ hội chấm điểm.
+  3. Khi người dùng hỏi về cấu trúc phân cấp (ví dụ: *"số lĩnh vực của HTX"*, *"các mức đánh giá hiệu quả hoạt động của hợp tác xã"*, *"đang có các loại diện tích sản xuất muối gì?"*), hệ thống hiểu nhầm là truy vấn số đo tổng hợp đơn lẻ hoặc bị nuốt nhầm sang các nhánh thực thể khác có cùng tên nhóm con (như nhầm `'Hiệu quả hoạt động'` của HTX sang THT hoặc Trang trại).
+- **Nguyên nhân gốc rễ:**
+  1. Thiếu cơ chế phân biệt tính phân cực thời gian (Temporal Polarity: lũy kế vs trong năm) và không có điểm phạt cho các thuộc tính đặc thù hẹp (sao OCOP) khi người dùng không hỏi đích danh.
+  2. Kích thước tập ứng viên ban đầu quá nhỏ (`limit = top_k`), gây nghẽn cổ chai cắt tỉa sớm (Early Truncation Trap).
+  3. Thiếu cơ chế Neo Thực thể Gốc (Entity Root Anchoring) kết hợp chỉ dấu phân nhóm (aspect cues) để phân giải ngữ nghĩa câu hỏi đếm/liệt kê danh mục con.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dựa thuần túy vào độ tương đồng token Jaccard/BM25 đối với các cụm chỉ tiêu có cấu trúc đa tầng OCOP; Không cố định kích thước candidate pool bằng `top_k`; Không phân loại câu hỏi cấu trúc danh mục con thành câu hỏi lấy số đo đơn lẻ.
+  * ✅ **ALWAYS:**
+    1. Mở rộng kích thước tập ứng viên: `candidate_pool_size = max(top_k * 5, 25)` trong `find_criteria_by_name`.
+    2. Áp dụng cơ chế chấm điểm phân cực thời gian: $+25.0$ cho ứng viên lũy kế và $-30.0$ cho ứng viên hàng năm khi câu hỏi có tín hiệu lũy kế.
+    3. Áp dụng điểm phạt tính đặc thù sao OCOP: $-25.0$ cho tất cả các nút lá mang xếp hạng sao khi người dùng không hỏi cụ thể 3 sao, 4 sao hay 5 sao.
+    4. Áp dụng điểm phân cực đối tượng: $+15.0$ cho ứng viên chứa *chủ thể* khi câu hỏi hỏi về *chủ thể* mà không hỏi riêng *sản phẩm*.
+    5. Xây dựng hàm `resolve_hierarchy_breakdown` neo đúng thực thể gốc DWH (`'HTX nông nghiệp'`, `'Diêm nghiệp'`...) và dùng aspect cues (*lĩnh vực*, *hiệu quả*, *diện tích*...) để xuất đúng số lượng, tên in đậm và bảng 6 cột chuẩn hóa.
+
+---
+
+### [TRAP-090] Bẫy `getattr(settings, ...)` Trả Về `None` & Lỗi `JSONDecodeError: Extra data` Khi Parse Output LLM
+- **Môi trường & Công nghệ:** `canonical_normalizer.py` (`_parse_query_nlu_llm`), `duckdb_semantic_catalog.py` (`_llm_disambiguate`), Pydantic `Settings`
+- **Triệu chứng:**
+  1. Gọi `getattr(settings, "OPENROUTER_ROUTER_MODEL", "google/gemini-2.5-flash-lite")` trả về `None` khiến `ChatOpenAI(model=None)` định tuyến sang auto-router của OpenRouter mất 30–45 giây và làm timeout kết nối SSE.
+  2. Hàm trích xuất JSON bằng `raw_text[raw_text.find("{"):raw_text.rfind("}")+1]` ném lỗi `JSONDecodeError: Extra data: line 2 column 2` khi LLM sinh ra 2 khối JSON liên tiếp.
+- **Nguyên nhân gốc rễ:**
+  1. Thuộc tính `OPENROUTER_ROUTER_MODEL: Optional[str] = None` đã tồn tại trên class `Settings` với giá trị `None`, nên `getattr` lấy giá trị `None` thay vì giá trị mặc định.
+  2. Tìm `{` đầu tiên và `}` cuối cùng sẽ gộp cả 2 object JSON nếu LLM lặp lại câu trả lời.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `getattr(settings, "FIELD", "default")` đơn thuần cho các biến cấu hình `Optional[str] = None`; Không dùng `find("{")..rfind("}")` để cắt chuỗi JSON từ LLM.
+  * ✅ **ALWAYS:**
+    1. Dùng `getattr(settings, "OPENROUTER_ROUTER_MODEL", None) or "google/gemini-2.5-flash-lite"` kèm `timeout=5.0, max_retries=0`.
+    2. Dùng `json.JSONDecoder(strict=False).raw_decode(raw_text[s_idx:])[0]` để bóc tách chính xác object JSON hợp lệ đầu tiên.

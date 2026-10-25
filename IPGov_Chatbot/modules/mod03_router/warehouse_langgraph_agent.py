@@ -738,7 +738,8 @@ class WarehouseLangGraphAgent:
         user_ctx = state.get("user_context", {})
         history = state.get("history") or []
         stack = self.discourse_tracker.get_focus_stack(session_id)
-        if session_id == "default_session" and not history:
+        is_stateless_default = (session_id == "default_session" and not history)
+        if is_stateless_default:
             stack.frames.clear()
         turn_index = (len(history) // 2 + 1) if history else (len(stack.frames) + 1)
 
@@ -847,8 +848,8 @@ class WarehouseLangGraphAgent:
 
         # 2. Phân tích Chào hỏi & Tạm biệt (GREETING_FAREWELL) / Giới thiệu năng lực (CAPABILITY_INTRO)
         # Sử dụng Cognitive Planner / Canonical Normalizer thay vì heuristic đếm từ và regex
-        prev_state_year = state.get("inherited_year")
-        prev_state_tenant = state.get("inherited_tenant")
+        prev_state_year = None if is_stateless_default else state.get("inherited_year")
+        prev_state_tenant = None if is_stateless_default else state.get("inherited_tenant")
         norm_preview_early = self.normalizer.normalize_query(
             query=clean_text,
             session_tenant=prev_state_tenant or "68",
@@ -1011,10 +1012,15 @@ class WarehouseLangGraphAgent:
 
         # 6. Kế thừa thông minh các Slot
         frame_tenant = frame.spatial_slot if (frame and frame.spatial_slot and frame.spatial_slot != "68") else None
-        inherited_tenant = explicit_tenant or frame_tenant or state.get("inherited_tenant") or user_ctx.get("tenant_code") or "68"
+        prev_state_tenant = None if is_stateless_default else state.get("inherited_tenant")
+        prev_state_year = None if is_stateless_default else state.get("inherited_year")
+        prev_state_dept = None if is_stateless_default else state.get("inherited_department")
+        prev_state_metric = None if is_stateless_default else state.get("inherited_metric")
+
+        inherited_tenant = explicit_tenant or frame_tenant or prev_state_tenant or user_ctx.get("tenant_code") or "68"
         
         frame_year = frame.temporal_slot if (frame and frame.temporal_slot) else None
-        prev_year = frame_year or state.get("inherited_year")
+        prev_year = frame_year or prev_state_year
         has_temporal_cue = False
         
         if explicit_year:
@@ -1026,8 +1032,8 @@ class WarehouseLangGraphAgent:
         else:
             inherited_year = None
 
-        inherited_dept = explicit_dept or (frame.department_slot if frame else None) or state.get("inherited_department") or user_ctx.get("department_code")
-        inherited_metric = frame.metric_attribute or frame.topic_entity or state.get("inherited_metric")
+        inherited_dept = explicit_dept or (frame.department_slot if frame else None) or prev_state_dept or user_ctx.get("department_code")
+        inherited_metric = frame.metric_attribute or frame.topic_entity or prev_state_metric
 
         # 7. Khởi tạo mặc định và chuẩn hóa toàn diện qua CanonicalSemanticNormalizer
         if inherited_tenant is None:
@@ -1170,7 +1176,7 @@ class WarehouseLangGraphAgent:
         if not is_clarification and not is_dimension_plane:
             try:
                 admin_scope = self.catalog.resolve_administrative_scope(effective_query)
-                if admin_scope.get("department_code"):
+                if admin_scope and admin_scope.get("type") == "department" and admin_scope.get("department_code"):
                     target_dept = admin_scope["department_code"]
             except Exception as e:
                 logger.warning("Lỗi phân giải phạm vi hành chính: %s", e)
@@ -2188,6 +2194,114 @@ class WarehouseLangGraphAgent:
             except Exception as e:
                 logger.debug("Catalog fallback on empty rows failed: %s", e)
 
+        # Hàm trích xuất tên chỉ tiêu và giá trị từ hàng bất kỳ
+        def _get_metric_name(r: dict) -> str:
+            return (r.get("ten_chi_tieu") or r.get("name") or "").strip()
+
+        def _get_metric_val(r: dict) -> Any:
+            for k in ["gia_tri_moi_nhat", "tong_gia_tri", "gia_tri", "value", "doanh_thu_binh_quan"]:
+                if r.get(k) is not None:
+                    return r.get(k)
+            return None
+
+        def _is_empty_or_dash(val: Any) -> bool:
+            if val is None:
+                return True
+            if isinstance(val, str) and val.strip() in ("", "-", "None", "null", "N/A"):
+                return True
+            return False
+
+        # --------------------------------------------------------------------------
+        # R3: Kiểm tra câu hỏi Phân rã Cấu trúc / Liệt kê Danh mục con (Zero Hardcoding)
+        # Đặt trước kiểm tra `if not rows:` để đảm bảo hoạt động ngay cả khi nhóm cha không có dòng riêng trong fact
+        # (Chỉ áp dụng khi không phải câu hỏi có neo thời gian điểm/khoảng đặc thù của SC-2.4)
+        # --------------------------------------------------------------------------
+        has_temporal_ticket_r3 = bool(
+            norm_frame and (
+                getattr(norm_frame, "specific_date", None)
+                or getattr(norm_frame, "date_from", None)
+                or getattr(norm_frame, "month_filter", None)
+            )
+        )
+        if not has_temporal_ticket_r3 and hasattr(self.catalog, "resolve_hierarchy_breakdown"):
+            breakdown_res = self.catalog.resolve_hierarchy_breakdown(
+                clean_prompt,
+                tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                year_code=str(year or "2026")
+            )
+            if breakdown_res and breakdown_res.get("status") == "SUCCESS":
+                p_node = breakdown_res["parent_node"]
+                p_name = p_node["name"]
+                r_name = breakdown_res.get("root_name") or p_name
+                children = breakdown_res["children"]
+                c_count = len(children)
+                c_names = [c["name"] for c in children]
+                c_names_str = ", ".join([f"**{nm}**" for nm in c_names])
+                p_val_raw = p_node.get("latest_value")
+                p_summary_header = ""
+                if not _is_empty_or_dash(p_val_raw):
+                    p_summary_header = f"- **Chỉ tiêu:** {p_name}\n- **Giá trị:** {vn_format_num(p_val_raw)}\n\n"
+
+                ans = (
+                    f"{p_summary_header}"
+                    f"Trong kho dữ liệu DWH tỉnh Lâm Đồng, hiện có **{c_count}** phân nhóm/chỉ tiêu con "
+                    f"trực thuộc nhóm **'{p_name}'** (thuộc **{r_name}**) gồm: {c_names_str}.\n\n"
+                    f"Dưới đây là bảng thống kê chi tiết các chỉ tiêu kèm giá trị mới nhất theo báo cáo năm {year}:\n\n"
+                    f"| STT | Tên chỉ tiêu | Nhóm chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
+                    f"| :---: | :--- | :--- | :---: | :--- | :--- |\n"
+                )
+
+                table_rows = []
+                for idx, ch in enumerate(children, 1):
+                    val_raw = ch.get("latest_value")
+                    val_fmt = "Chưa có số liệu (-)" if _is_empty_or_dash(val_raw) else vn_format_num(val_raw)
+                    off_str = ch.get("office_name") or "Chi cục"
+                    mis_str = ch.get("mission_name") or "-"
+                    cat_str = f"{r_name} > {p_name}" if r_name != p_name else p_name
+
+                    ans += f"| {idx} | {ch['name']} | {cat_str} | **{val_fmt}** | {off_str} | {mis_str} |\n"
+                    table_rows.append({
+                        "stt": idx,
+                        "item": ch["name"],
+                        "category": cat_str,
+                        "value": val_fmt,
+                        "office": off_str,
+                        "mission": mis_str,
+                        "_raw_value": val_raw,
+                    })
+
+                tabular_data = {
+                    "title": f"Danh mục chi tiết các chỉ tiêu thuộc '{p_name}' năm {year}",
+                    "columns": [
+                        {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                        {"key": "item", "label": "Tên chỉ tiêu", "align": "left", "data_type": "text"},
+                        {"key": "category", "label": "Nhóm chỉ tiêu", "align": "left", "data_type": "text"},
+                        {"key": "value", "label": "Giá trị mới nhất", "align": "right", "data_type": "text"},
+                        {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                        {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+                    ],
+                    "rows": table_rows,
+                    "total_records": len(table_rows),
+                    "temporal_scope": temporal_meta,
+                }
+
+                ans = _append_collapsible_sql(ans, sql)
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "✍️ Đang hoàn tất câu trả lời...",
+                    "final_answer": ans,
+                    "quick_action_chips": [
+                        {
+                            "id": f"chip_{i+1}",
+                            "label": f"🔘 [{c['name']}]",
+                            "query_text": f"Chỉ tiêu {c['name']} thuộc {p_name} năm {year} là bao nhiêu?"
+                        }
+                        for i, c in enumerate(children[:4])
+                    ],
+                    "tabular_data": tabular_data,
+                    "inherited_parent_criterion": p_name,
+                }
+
         # Nếu tập kết quả rỗng
         if not rows:
             # SC-3.2: Lĩnh vực không tồn tại trong dwh_internal.scope
@@ -2392,23 +2506,6 @@ class WarehouseLangGraphAgent:
                 "final_answer": ans,
                 "quick_action_chips": chips,
             }
-
-        # Hàm trích xuất tên chỉ tiêu và giá trị từ hàng bất kỳ
-        def _get_metric_name(r: dict) -> str:
-            return (r.get("ten_chi_tieu") or r.get("name") or "").strip()
-
-        def _get_metric_val(r: dict) -> Any:
-            for k in ["gia_tri_moi_nhat", "tong_gia_tri", "gia_tri", "value", "doanh_thu_binh_quan"]:
-                if r.get(k) is not None:
-                    return r.get(k)
-            return None
-
-        def _is_empty_or_dash(val: Any) -> bool:
-            if val is None:
-                return True
-            if isinstance(val, str) and val.strip() in ("", "-", "None", "null", "N/A"):
-                return True
-            return False
 
         # Kiểm tra kịch bản SC-2.4: Chỉ tiêu Cha (Parent Criterion) hỗ trợ cả có/không có Ticket Thời Gian
         has_temporal_point_or_range = bool(
@@ -2645,8 +2742,7 @@ class WarehouseLangGraphAgent:
                             f"- **Nhiệm vụ trọng tâm:** {mission_str}\n"
                             f"- **Thời điểm báo cáo:** {date_str}"
                             f"{temporal_shift_bullet}\n\n"
-                            f"Đồng chí có thể bấm chọn một trong các **chỉ tiêu con trực thuộc** ở bên dưới để xem chi tiết:\n\n"
-                            f"{chip_md}"
+                            f"Đồng chí có thể bấm chọn một trong các **chỉ tiêu con trực thuộc** ở bên dưới để xem chi tiết."
                         )
                         parent_snaps = []
                         if hasattr(self.catalog, "get_criterion_timeline_snapshots"):
@@ -2655,7 +2751,19 @@ class WarehouseLangGraphAgent:
                                 criteria_name=parent_disp,
                                 year_code=str(year or "2026"),
                                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                                child_nodes=display_children,
                             )
+                        if parent_snaps and chips:
+                            for ch_chip in chips:
+                                chip_id_k = ch_chip.get("id")
+                                t_vals: Dict[str, str] = {}
+                                for snap_item in parent_snaps:
+                                    s_date = snap_item.get("report_date") or snap_item.get("date")
+                                    c_val_map = snap_item.get("child_values") or {}
+                                    if s_date and chip_id_k in c_val_map:
+                                        t_vals[str(s_date)] = str(c_val_map[chip_id_k])
+                                if t_vals:
+                                    ch_chip["timeline_values"] = t_vals
                         single_metric_card = {
                             "criteria_id": target_pid or "",
                             "criteria_code": str(cand_row.get("code") or "") if cand_row else "",
@@ -2710,23 +2818,20 @@ class WarehouseLangGraphAgent:
                             ans = (
                                 f"{date_prefix}"
                                 f"Chỉ tiêu **'{parent_disp}'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ tại kỳ báo cáo ngày **{date_str}**. "
-                                f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết:"
-                                f"{temporal_shift_bullet}\n\n"
-                                f"{chip_md}"
+                                f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết."
+                                f"{temporal_shift_bullet}"
                             )
                         else:
                             p_lbl, _ = _format_temporal_period_label(norm_frame, year)
                             date_note = f" (kỳ chốt số liệu ngày {date_str})" if date_str and date_str != "-" else ""
                             ans = (
                                 f"Chỉ tiêu **'{parent_disp}'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ {p_lbl}{date_note}. "
-                                f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết:\n\n"
-                                f"{chip_md}"
+                                f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết."
                             )
                     else:
                         ans = (
                             f"Chỉ tiêu **'{parent_disp}'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ. "
-                            f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết:\n\n"
-                            f"{chip_md}"
+                            f"Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết."
                         )
                     ans = _append_collapsible_sql(ans, sql)
                     return {
@@ -3969,6 +4074,13 @@ class WarehouseLangGraphAgent:
             "tabular_data": None,
         }
 
+        if session_id == "default_session" and not history:
+            init_state["inherited_tenant"] = "68"
+            init_state["inherited_year"] = "2026"
+            init_state["inherited_department"] = None
+            init_state["inherited_metric"] = None
+            init_state["inherited_parent_criterion"] = None
+
         final_state = self.graph.invoke(init_state, config=config)
         return {
             "answer": final_state.get("final_answer"),
@@ -4029,6 +4141,13 @@ class WarehouseLangGraphAgent:
             "target_department_code": None,
             "tabular_data": None,
         }
+
+        if session_id == "default_session" and not history:
+            init_state["inherited_tenant"] = "68"
+            init_state["inherited_year"] = "2026"
+            init_state["inherited_department"] = None
+            init_state["inherited_metric"] = None
+            init_state["inherited_parent_criterion"] = None
 
         def sse_event(event_type: str, data: dict) -> str:
             return f"event: {event_type}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"

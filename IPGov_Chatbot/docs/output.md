@@ -19,7 +19,7 @@ related_docs:
 | Mã loại | Nhóm câu hỏi nghiệp vụ hệ thống xử lý | Nhánh con & Ticket đính kèm | Định dạng đầu ra |
 | :---: | :--- | :--- | :--- |
 | **[`REQ-Q01`](#1-loại-1-req-q01-liệt-kê-danh-sách-các-chỉ-tiêu)** | **Liệt Kê Danh Sách Các Chỉ Tiêu** | • **Nhánh 1.1 (`REQ-Q04`):** Chỉ tiêu Cấp 1 của Nhiệm vụ<br/>• **🎫 Ticket Thời Gian:** Lọc theo Tháng / Quý / Bán niên / Khoảng tháng<br/>• **`SC-1.2` / `SC-4.2`:** Kỳ hoặc nhiệm vụ chưa có dữ liệu duyệt | Bảng 7 cột Cấp 1 + Pop-up Cây chỉ tiêu |
-| **[`REQ-Q02`](#2-loại-2-req-q02-tra-cứu-thông-tin-của-một-chỉ-tiêu)** | **Tra Cứu Thông Tin Của Một Chỉ Tiêu** | • **Mặc định:** Chỉ tiêu lá đơn lẻ (có số liệu hoặc chưa có số liệu `'-'`)<br/>• **`SC-2.1`:** Chỉ tiêu lá nằm ở nhiều nhánh cha<br/>• **`SC-2.4`:** Chỉ tiêu cha (có số liệu hoặc rỗng) + Gợi ý chỉ tiêu con kèm số liệu xem trước<br/>• **🎫 Ticket Thời Gian (`slider-time`):** Áp dụng cho cả 3 dạng trên (hỗ trợ hỏi bằng ngôn ngữ tự nhiên & điều chỉnh trực tiếp qua thanh trượt/bộ chọn mốc thời gian trên UI) | Thẻ 5 trường + Thanh `slider-time` / Bảng 6 cột / Nút gợi ý chỉ tiêu con |
+| **[`REQ-Q02`](#2-loại-2-req-q02-tra-cứu-thông-tin-của-một-chỉ-tiêu)** | **Tra Cứu Thông Tin Của Một Chỉ Tiêu** | • **Mặc định:** Chỉ tiêu lá đơn lẻ (có số liệu hoặc chưa có số liệu `'-'`)<br/>• **`SC-2.1`:** Chỉ tiêu lá nằm ở nhiều nhánh cha<br/>• **`SC-2.4`:** Chỉ tiêu cha (có số liệu hoặc rỗng) + Gợi ý chỉ tiêu con qua action chips duy nhất dưới đáy<br/>• **`SC-2.5`:** Phân cấp & Liệt kê danh mục con (Hierarchy Breakdown — R3)<br/>• **`SC-2.6`:** Phân định Lũy kế vs Trong năm vs Nút lá OCOP (NLU Disambiguation — R4)<br/>• **🎫 Ticket Thời Gian (`slider-time`):** Bộ chọn thời gian tinh gọn 50+, đồng bộ phản ứng 0ms giữa 5 trường và action chips | Thẻ 5 trường + Thanh timeline tinh gọn / Bảng 6 cột / Nút gợi ý chỉ tiêu con duy nhất |
 | **[`REQ-Q03`](#3-loại-3-req-q03-liệt-kê-các-nhiệm-vụ-trong-một-lĩnh-vực)** | **Liệt Kê Các Nhiệm Vụ Trong Một Lĩnh Vực** | • **🎫 Ticket Thời Gian:** Lọc nhiệm vụ có báo cáo trong kỳ<br/>• **`SC-3.2`:** Lĩnh vực không tồn tại | Bảng 5 cột + Nút chuyển tiếp xem chỉ tiêu Cấp 1 |
 | **[`REQ-Q05`](#4-loại-4-req-q05-kiểm-toán-báo-cáo-biểu-mẫu--phân-công-nhiệm-vụ)** | **Kiểm Toán Báo Cáo, Biểu Mẫu & Phân Công Nhiệm Vụ** | • **`SC-5.1`:** Tiến độ kỳ báo cáo & Đối chiếu bản nháp<br/>• **`SC-5.2`:** Biểu mẫu & Bộ thu thập chỉ tiêu<br/>• **`SC-5.3`:** Ma trận phân công Phòng ban & Cá nhân | Bảng 9 kỳ báo cáo / Bảng 5 bộ thu thập / Ma trận 8 nhiệm vụ |
 
@@ -183,7 +183,7 @@ flowchart LR
 > 📂 **File chứa quest:** [test_output_md_110_perturbations.py (L140-L167, L187-L198)](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_output_md_110_perturbations.py#L187-L198) · [test_req_q01_to_q04_full_spec.py (L119-L136, L308-L339)](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_req_q01_to_q04_full_spec.py#L308-L339) · [test_srs_v3_upgrades.py (L145-L191)](file:///c:/Users/Admin/HUIT%20-%20H%E1%BB%8Dc%20T%E1%BA%ADp/N%C4%83m%204/Chatbot_Project/IPGov_Chatbot/tests/test_srs_v3_upgrades.py#L145-L191)
 
 - **Trường hợp 1 (`SC-2.4a`) — Chỉ tiêu cha CÓ số liệu tổng hợp (VD: `'Tổng số lượng chủ thể sản phẩm OCOP trong năm'` có giá trị `17` tại kỳ `30/09/2026`):**
-  - Hiển thị **Thẻ 5 Trường Chuẩn** của chỉ tiêu cha kèm các **Button gợi ý các chỉ tiêu con** ngay bên dưới:
+  - Hiển thị **Thẻ 5 Trường Chuẩn** của chỉ tiêu cha kèm các **Nút gợi ý chỉ tiêu con tương tác** (`quick_action_chips`) ở đáy:
   ```markdown
   Thông tin số liệu mới nhất của chỉ tiêu đồng chí tra cứu:
   - **Chỉ tiêu:** Tổng số lượng chủ thể sản phẩm OCOP trong năm *(Thuộc nhóm: Chương trình OCOP - Cấp 2)*
@@ -192,16 +192,17 @@ flowchart LR
   - **Nhiệm vụ trọng tâm:** Phát triển nông thôn
   - **Thời điểm báo cáo:** 30/09/2026
 
-  Đồng chí có thể bấm chọn một trong các **chỉ tiêu con trực thuộc** ở bên dưới để xem chi tiết:
+  Đồng chí có thể bấm chọn một trong các **chỉ tiêu con trực thuộc** ở bên dưới để xem chi tiết.
   ```
-  > 🔘 `[Số lượng chủ thể là HTX]` &nbsp; 🔘 `[Số lượng chủ thể là Doanh nghiệp]` &nbsp; 🔘 `[Số lượng chủ thể là Cơ sở sản xuất/Hộ kinh doanh]` &nbsp; 🔘 `[Số lượng chủ thể là Tổ hợp tác]`
+  > [!NOTE]
+  > **Quy tắc hiển thị nút chỉ tiêu con duy nhất:** Các nút gợi ý chỉ tiêu con xuất hiện **duy nhất 1 lần** dưới dạng các action chips tương tác (`quick_action_chips`) đặt ở đáy tin nhắn. Tuyệt đối không chèn lặp danh sách text inline `🔘 [...]` vào cuối đoạn văn bản markdown.
 
 - **Trường hợp 2 (`SC-2.4b`) — Chỉ tiêu cha KHÔNG có số liệu tổng hợp (VD: `'Liên hiệp HTX nông nghiệp'`):**
-  > *"Chỉ tiêu **'Liên hiệp HTX nông nghiệp'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ. Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết:"*
+  > *"Chỉ tiêu **'Liên hiệp HTX nông nghiệp'** là một **chỉ tiêu cha (nhóm chỉ tiêu)** nên không có số liệu tổng hợp riêng lẻ. Đồng chí vui lòng bấm chọn một trong các **chỉ tiêu con đang có số liệu** trực thuộc nhóm này ở bên dưới để xem chi tiết."*
   >
-  > 🔘 `[Lũy kế đến thời điểm báo cáo]` &nbsp; 🔘 `[Thành lập mới]` &nbsp; 🔘 `[Đang hoạt động]` &nbsp; 🔘 `[Thành viên]` &nbsp; 🔘 `[Tổng số LHHTX phân theo lĩnh vực]`
+  > *(Các nút gợi ý chỉ tiêu con hiển thị duy nhất dạng interactive action chips ở đáy tin nhắn, không nhân bản text inline `🔘 [...]` trong văn bản).*
 
-#### 🎫 Ticket Thời Gian (`slider-time` / `Ticket-Time` cho toàn bộ `REQ-Q02`): Lọc số liệu theo ngày cụ thể, khoảng thời gian hoặc trượt chọn mốc thời gian trực tiếp
+#### 🎫 Ticket Thời Gian (`slider-time` / `Ticket-Time` cho toàn bộ `REQ-Q02`): Lọc số liệu theo ngày cụ thể, khoảng thời gian hoặc bộ chọn mốc thời gian tinh gọn
 > [!TIP]
 > **🎫 Sample Prompts khi gắn Ticket Thời Gian (`slider-time`) vào Chỉ tiêu lá đơn lẻ / Chỉ tiêu lá đa nhánh (`SC-2.1`) / Chỉ tiêu cha (`SC-2.4`):**
 > - <mark>**"Cho tôi biết số liệu chỉ tiêu tổng hộ sản xuất muối vào ngày 30/9?"**</mark> *(Chỉ tiêu lá đơn lẻ + Ngày)*
@@ -215,7 +216,72 @@ flowchart LR
 - **Cơ chế Ticket Thời Gian (`slider-time`) trên `REQ-Q02` (Áp dụng đồng nhất cho cả Chỉ tiêu lá đơn lẻ, `SC-2.1` và `SC-2.4`):**
   1. **Khi gắn mốc ngày cụ thể $a$ (trên dãy mốc báo cáo $D = [A, B, C, \dots]$):** Xác định khoảng $[A, B]$ chứa $a$, so sánh khoảng cách $\Delta_A = a - A$ và $\Delta_B = B - a$ để chọn kỳ báo cáo gần nhất (nếu $\Delta_A = \Delta_B$ thì ưu tiên cận trên $B$). *Ví dụ:* các mốc `[31/03, 30/06, 30/09]`, hỏi ngày `30/04` hoặc `23/04` $\to$ đối chiếu về kỳ báo cáo gần nhất ngày **`31/03/2026`** và thông báo rõ ngày đối chiếu.
   2. **Khi gắn khoảng thời gian (tháng, quý, nửa đầu năm, lũy kế...):** Lấy bản ghi tại kỳ báo cáo mới nhất nằm trong khoảng thời gian đó.
-  3. **Tương tác Thanh trượt / Bộ chọn Thời gian trực tiếp (`slider-time` trên UI):** Ngay trên **Thẻ 5 Trường Chuẩn** của chỉ tiêu đơn lẻ (cũng như Bảng 6 cột `SC-2.1` và Khối chỉ tiêu cha `SC-2.4`), hệ thống hiển thị thanh điều khiển **`🎫 slider-time`** cho phép người dùng trượt hoặc bấm chuyển đổi trực tiếp giữa các mốc báo cáo trong năm (`31/03/2026`, `30/06/2026`, `30/09/2026`, hoặc theo `Quý 1..4` / `Bán niên` / `Cả năm 2026`) để đối chiếu biến động số liệu của chỉ tiêu đó qua từng kỳ mà không cần gõ lại câu hỏi mới.
+  3. **Bộ chọn mốc thời gian tinh gọn tối ưu cho cán bộ cao tuổi (Senior-Friendly Unified Timeline Selector & Đồng bộ phản ứng 0ms):**
+     - Loại bỏ hoàn toàn khối 3 hộp rời rạc rườm rà phía trên (`Số liệu phê duyệt`, `Đơn vị thực hiện`, `Nhiệm vụ / Biểu mẫu`) và các nhãn dev kỹ thuật (`Ticket slider-time • 0ms`) gây phân tán thị giác cho người dùng từ 50 tuổi trở lên.
+     - Tái cấu trúc thành **Thanh điều khiển kỳ báo cáo đồng nhất** tích hợp liền khối ngay trên danh sách 5 trường chuẩn (`Chỉ tiêu`, `Giá trị`, `Đơn vị thực hiện`, `Nhiệm vụ trọng tâm`, `Thời điểm báo cáo`), thiết kế nút bấm kỳ lớn (`px-3 py-1.5`, `font-bold`), tương phản cao, ô nhập ngày tùy chỉnh và nút Ghim (`📌`).
+     - **Đồng bộ phản ứng tức thì (`0ms Reactive State Synchronization`):** Khi người dùng bấm chuyển đổi giữa các mốc báo cáo (`31/03/2026`, `30/06/2026`, `30/09/2026`, hoặc ngày tùy chỉnh), hệ thống cập nhật đồng thời trong `0ms` ở phía Client:
+       * Giá trị `- **Giá trị:**` và `- **Thời điểm báo cáo:**` (kèm lưu ý lệch ngày nếu có) trong khối văn bản 5 trường chi tiết.
+       * Huy hiệu số liệu xem trước (`preview_value` badge) trên **tất cả các nút gợi ý chỉ tiêu con** (`quick_action_chips`) ở đáy tin nhắn.
+
+#### 🔹 `SC-2.5`: Truy Vấn Phân Cấp & Liệt Kê Danh Mục Con Trực Thuộc (Hierarchy Breakdown & Enumeration Queries — R3)
+> [!TIP]
+> **🎯 Sample Prompts (`SC-2.5` — Liệt kê/đếm các lĩnh vực, phân nhóm, mức đánh giá con của một thực thể trong DWH):**
+> - <mark>**"bạn hãy cho tôi biết số lĩnh vực của HTX"**</mark> *(8 lĩnh vực của Hợp tác xã)*
+> - <mark>**"Bạn hãy cho tôi biết các mức đánh giá hiệu quả hoạt động của hợp tác xã"**</mark> *(4 mức đánh giá hiệu quả HTX)*
+> - <mark>**"Cho tôi biết đang có các loại diện tích sản xuất muối gì?"**</mark> *(2 loại diện tích làm muối)*
+> - <mark>**"Liệt kê các lĩnh vực hoạt động của tổ hợp tác nông nghiệp"**</mark> *(8 lĩnh vực của THT)*
+> - <mark>**"Cho biết các mức xếp loại hiệu quả của tổ hợp tác"**</mark> *(3 mức xếp loại THT)*
+> - <mark>**"Liên hiệp HTX nông nghiệp gồm những lĩnh vực nào?"**</mark> *(8 lĩnh vực của LHHTX)*
+> - <mark>**"Trang trại nông nghiệp phân theo những lĩnh vực gì?"**</mark> *(7 lĩnh vực của Trang trại)*
+> - <mark>**"Hiện có những loại sản lượng muối nào được thống kê?"**</mark> *(2 loại sản lượng muối)*
+
+- **Logic hoạt động (Warehouse-Grounded NLU Reasoning — Zero Regex / Zero Heuristics):**
+  1. **Nhận diện Ý định Liệt kê Danh mục Phân cấp:** Phân biệt chính xác giữa câu hỏi tra cứu giá trị số đo tổng hợp đơn lẻ (`METRIC_POINT_INQUIRY`) với câu hỏi hỏi về **số lượng và danh sách các phân nhóm / cấp bậc / loại hình / lĩnh vực** con tồn tại dưới một thực thể trong kho dữ liệu (`DIMENSION_LISTING` với cờ `is_hierarchical_breakdown=True`).
+  2. **Neo Thực thể Gốc & Phân giải Nhóm Cha (Entity Root Anchoring & Aspect Cues):**
+     - Trích xuất thực thể gốc để neo ngữ cảnh nhánh cây: `'HTX nông nghiệp'`, `'Tổ hợp tác nông nghiệp'`, `'Liên hiệp HTX nông nghiệp'`, `'Trang trại'`, `'Diêm nghiệp'`, `'Chương trình OCOP'`.
+     - Sử dụng chỉ dấu ngữ nghĩa (aspect cues: *lĩnh vực*, *hiệu quả*, *diện tích*, *sản lượng*...) để định vị chính xác nhóm cha trung gian trong nhánh đã neo (tránh nhầm lẫn giữa `'Hiệu quả hoạt động'` của HTX với THT hay Trang trại).
+  3. **Truy xuất Danh mục & Dữ liệu Thực thi từ Kho DWH:**
+     - Truy vấn các nút con trực thuộc từ `catalog_criteria_hierarchy` (`WHERE parent_id = matched_parent.id`).
+     - Kết nối dữ liệu báo cáo phê duyệt mới nhất từ `fact_report_criteria` theo tỉnh (`tenant_code`) và năm (`year_code`).
+  4. **Cấm tuyệt đối Anti-Pattern Heuristic:** Nghiêm cấm dùng danh sách từ khóa cố định, so khớp chuỗi regex hoặc chuỗi `if/else` để hardcode danh sách lĩnh vực hay số lượng.
+
+- **Định dạng câu trả lời (Output mẫu — Câu dẫn số lượng + Tên in đậm + Bảng 6 Cột Đầy Đủ):**
+  - **Câu dẫn tự nhiên:** Nêu rõ số lượng chính xác tìm thấy trong kho DWH và liệt kê tên in đậm của tất cả các phân nhóm/chỉ tiêu con.
+    > *"Trong kho dữ liệu DWH tỉnh Lâm Đồng, hiện có **8** phân nhóm/chỉ tiêu con trực thuộc nhóm **'Số lượng HTX phân theo lĩnh vực'** (thuộc **HTX nông nghiệp**) gồm: **Trồng trọt**, **Chăn nuôi**, **Lâm nghiệp**, **Thủy sản**, **Diêm nghiệp**, **Chế biến nông sản**, **Nước sạch NT**, **Tổng hợp**:"*
+  - **Bảng 6 Cột Đầy Đủ Thông Tin:**
+
+| STT | Tên chỉ tiêu | Nhóm chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |
+| :---: | :--- | :--- | :---: | :--- | :--- |
+| 1 | **Trồng trọt** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **26** | Chi cục | Phát triển nông thôn |
+| 2 | **Chăn nuôi** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **64** | Chi cục | Phát triển nông thôn |
+| 3 | **Lâm nghiệp** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **0** | Chi cục | Phát triển nông thôn |
+| 4 | **Thủy sản** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **2** | Chi cục | Phát triển nông thôn |
+| 5 | **Diêm nghiệp** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **0** | Chi cục | Phát triển nông thôn |
+| 6 | **Chế biến nông sản** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **0** | Chi cục | Phát triển nông thôn |
+| 7 | **Nước sạch NT** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **1** | Chi cục | Phát triển nông thôn |
+| 8 | **Tổng hợp** | Số lượng HTX phân theo lĩnh vực *(Cấp 2)* | **45** | Chi cục | Phát triển nông thôn |
+
+  - **Cấu trúc DTO kèm theo:** Trả về `tabular_data` chuẩn hóa (6 cột) và mảng `quick_action_chips` chứa các nút con để người dùng bấm tra cứu sâu hơn (chỉ hiển thị ở đáy, không nhân bản text inline).
+
+#### 🔹 `SC-2.6`: Phân Định Ngữ Nghĩa Chỉ Tiêu Lũy Kế vs Trong Năm vs Nút Lá OCOP (Cumulative vs Annual vs Leaf Disambiguation — R4)
+> [!TIP]
+> **🎯 Sample Prompts (`SC-2.6` — Phân định rõ chỉ tiêu lũy kế với chỉ tiêu trong năm hoặc các hạng sao OCOP lá con):**
+> - <mark>**"bạn hãy cho tôi biết lũy kế tổng số lượng chủ thể sản phẩm theo dữ liệu mới nhất"**</mark> *(Phân giải về `Lũy kế  tổng số lượng chủ thể đến thời điểm báo cáo`)*
+> - <mark>**"bạn hãy cho tôi biết lũy kế tổng số lượng chủ thể sản phẩm OCOP theo dữ liệu mới nhất"**</mark> *(Phân giải về `Lũy kế  tổng số lượng sản phẩm OCOP đến thời điểm báo cáo`)*
+> - <mark>**"Tổng số lượng chủ thể OCOP lũy kế đến thời điểm báo cáo là bao nhiêu?"**</mark>
+> - <mark>**"Số lượng sản phẩm OCOP lũy kế đến thời điểm báo cáo là bao nhiêu?"**</mark>
+
+- **Logic hoạt động (Semantic Scoring & Candidate Pool Sizing — Khắc phục Bẫy Token Overlap):**
+  1. **Thách thức:** Các chỉ tiêu OCOP chia sẻ mật độ từ khóa rất cao (*chủ thể*, *sản phẩm*, *OCOP*, *tổng số lượng*), dễ khiến cơ chế so khớp token mờ truyền thống xếp nhầm các nút lá con (`Số lượng chủ thể sản phẩm OCOP 5 sao`) hoặc nhóm hàng năm (`Tổng số lượng chủ thể sản phẩm OCOP trong năm`) lên vị trí đầu.
+  2. **Mở rộng Kích thước Tập Ứng viên (Candidate Pool Sizing):** Thiết lập `candidate_pool_size = max(top_k * 5, 25)` trong bước truy hồi DuckDB Catalog (`find_criteria_by_name`), ngăn chặn việc cắt tỉa ứng viên quá sớm trước khi chuyển sang bộ xếp hạng tinh (reranker). Các chỉ tiêu có khoảng trắng đôi trong CSDL (`"Lũy kế  tổng số lượng..."`) được bảo toàn trọn vẹn trong pool.
+  3. **Chấm điểm Phân cực Thời gian (Temporal Polarity Scoring):**
+     - Khi câu hỏi mang tín hiệu lũy kế (*lũy kế*, *đến thời điểm báo cáo*): Ứng viên lũy kế nhận điểm thưởng $\Delta_{\text{temporal}} = +25.0$; ứng viên hàng năm (*trong năm*) nhận điểm phạt $\Delta_{\text{temporal}} = -30.0$.
+     - Khi câu hỏi mang tín hiệu hàng năm (*trong năm*): Ứng viên hàng năm nhận $+25.0$; ứng viên lũy kế nhận $-30.0$.
+  4. **Phạt Tính Đặc thù Xếp hạng Sao OCOP (Star Rating Specificity Penalty):**
+     - Khi câu hỏi của người dùng **KHÔNG** yêu cầu tường minh thứ hạng sao (*"3 sao"*, *"4 sao"*, *"5 sao"*), tất cả các chỉ tiêu lá con mang xếp hạng sao đều nhận điểm phạt $\Delta_{\text{star}} = -25.0$. Cơ chế này ngăn chặn việc nhóm chỉ tiêu tổng quát bị nuốt nhầm vào một nút lá 5 sao.
+  5. **Phân cực Đối tượng Thực thể (Entity Subject vs Product Polarity):**
+     - Khi câu hỏi hỏi về *chủ thể* mà không hỏi riêng *sản phẩm*: Ứng viên chứa từ khóa *chủ thể* nhận $+15.0$, ứng viên chỉ chứa *sản phẩm* nhận $-15.0$.
+  6. **Kết quả Đầu ra:** Hệ thống giải quyết chính xác về nhóm chỉ tiêu cha lũy kế tương ứng (`Lũy kế  tổng số lượng chủ thể đến thời điểm báo cáo` hoặc `Lũy kế  tổng số lượng sản phẩm OCOP đến thời điểm báo cáo`), xuất Thẻ 5 trường chuẩn kèm các nút gợi ý chỉ tiêu con tương tác ở đáy (`quick_action_chips`).
 
 ---
 
@@ -334,9 +400,9 @@ Hệ thống tích hợp **5 tính năng Generative UI / Hybrid Chat-GUI** giúp
 
 | STT | Mã Tính Năng | Tên Tính Năng Generative UI | Thành Phần Backend & Frontend | Cơ Chế Vận Hành & Tương Tác (`data-testid`) |
 | :---: | :---: | :--- | :--- | :--- |
-| 1 | **`GP 1.3`** | **Adaptive Criteria Tree Modal** *(Sơ đồ cây thích ứng)* | `SmartTable.tsx` (`InteractiveCriteriaTreeModal`, `InteractiveCriteriaTreeCanvas`) | • **Sticky Root (`data-testid="tree-sticky-root-column"`):** Cột gốc Cấp 1 ghim cố định `sticky top-4` khi cuộn dọc.<br/>• **Sub-Grid 2 cột Cấp 3:** Tự động thu gọn nhánh Cấp 3 khi tổng con $> 7$; khi mở rộng sẽ gom Cấp 3 vào khung lưới 2 cột nối bằng 1 đường cong SVG Cubic Bezier.<br/>• **Tìm kiếm giữ nhánh cha (`data-testid="tree-search-input"`):** Hỗ trợ gõ tiếng Việt không dấu, tô vàng từ khóa khớp (`data-testid="tree-search-highlight"`) và nút đặt lại (`data-testid="tree-empty-reset-button"`).<br/>• **Bộ lọc trạng thái (`data-testid="tree-status-filter"`):** `[Tất cả]`, `[⚡ Đã có số liệu]`, `[Chưa có số liệu (-)]`.<br/>• **Chuyển chế độ xem (`data-testid="tree-view-switcher"`):** `[🌳 Sơ đồ cây \| 📋 Bảng thu gọn]`. |
+| 1 | **`GP 1.3`** | **Adaptive Criteria Tree Modal** *(Sơ đồ cây thích ứng)* | `SmartTable.tsx` (`InteractiveCriteriaTreeModal`, `InteractiveCriteriaTreeCanvas`) | • **Sticky Root (`data-testid="tree-sticky-root-column"`):** Cột gốc Cấp 1 ghim cố định `sticky top-4` khi cuộn dọc.<br/>• **Sub-Grid 2 cột Cấp 3:** Tự động thu gọn nhánh Cấp 3 khi tổng con $> 7$; khi mở rộng sẽ gom Cấp 3 vào khung lưới 2 cột nối bằng 1 đường cong SVG Cubic Bezier.<br/>• **Tìm kiếm giữ nhánh cha (`data-testid="tree-search-input"`):** Hỗ trợ gõ tiếng Việt không dấu, tô vàng từ khóa khớp (`data-testid="tree-search-highlight"`) và nút đặt lại (`data-testid="tree-empty-reset-button"`).<br/>• **Bộ lọc trạng thái (`data-testid="tree-status-filter"`):** `[Tất cả]`, `[⚡ Đã có số liệu]`, `[Chưa có số liệu (-)]`.<br/>• **Chuyển chế độ xem (`data-testid="tree-view-switcher"`):** Nhãn nút chuyển đổi là `[Sơ đồ luồng chỉ tiêu \| 📋 Bảng chi tiết]`, mặc định mở ở chế độ `'compact_table'` (`'📋 Bảng chi tiết'`). |
 | 2 | **`GP 2.3` + `Đề xuất 3`** | **Kiến Trúc 2 Tầng Chống Ping-Pong** *(In-Modal Comparison Tray + Split-Screen Pinned Drawer)* | `SmartTable.tsx`, `PinnedReferenceDrawer.tsx`, `ChatContainer.tsx` | • **Tầng 1 — Khay Đối Chiếu Tại Chỗ (`data-testid="tree-comparison-tray"`, `0ms`, `0 request`):** Bấm chọn 1–4 chỉ tiêu con để dựng 1–4 Thẻ 5 Trường Chuẩn kèm thanh **Sparkbar** so sánh tỷ lệ ngay dưới đáy Modal; tự động thay thế FIFO khi chọn thẻ thứ 5; nút `💬 Đẩy bảng đối chiếu ra luồng Chat` (`data-testid="push-comparison-to-chat"`).<br/>• **Tầng 2 — Khay Ghim Tham Chiếu Bên Phải (`data-testid="pinned-reference-drawer"`, tối đa 3 Tab):** Nút `📌 Ghim` (`data-testid="pin-item-button"`) trên Bảng / Cây / Thẻ chỉ tiêu giúp ghim cố định sang cột phải màn hình, hỗ trợ tìm kiếm nhanh trong khay (`data-testid="pinned-drawer-search-input"`) và drill-down bảo toàn `temporal_scope.query_suffix` (`data-testid="pinned-table-drilldown-0"`). |
 | 3 | **`Đề xuất 4`** | **Value-Preview Action Chips** *(Chip gợi ý kèm số liệu xem trước cho `SC-2.4`)* | `warehouse_langgraph_agent.py`, `QuickActionChips.tsx` | • Làm giàu `quick_action_chips` của `SC-2.4a` và `SC-2.4b` với `preview_value`, `child_count`, `is_parent_group`.<br/>• Hiển thị huy hiệu số liệu (`data-testid="chip-preview-badge"`), huy hiệu nhóm con (`data-testid="chip-group-badge"`) hoặc trạng thái (`data-testid="chip-status-badge"`), tôn trọng bộ lọc thời gian đang áp dụng và giữ nguyên nhóm cha trung gian (`Tổng số LHHTX phân theo lĩnh vực · 🌳 3 chỉ tiêu con`). |
-| 4 | **`Đề xuất 5 Mở rộng`** | **Ticket `slider-time` & Context Ticket Bar** *(Thanh trượt kỳ báo cáo `0ms` & Khung ngữ cảnh bảng)* | `duckdb_semantic_catalog.py` (`get_criterion_timeline_snapshots`), `SingleMetricSliderCard.tsx`, `SmartTable.tsx` | • **Thẻ Đơn Chỉ Tiêu (`REQ-Q02`, `SC-2.4a`):** Đính kèm `single_metric_card` chứa `timeline_snapshots` (sắp xếp tăng dần kèm `delta_prev`, `delta_pct`), cảnh báo trượt thời gian (`data-testid="slider-temporal-shift-notice"`), kéo thanh trượt `0ms` (`data-testid="metric-timeline-range"`) hoặc chọn ngày tùy chỉnh theo thuật toán Dual-Bound Snapshot (`data-testid="slider-custom-date-input"` + `data-testid="slider-custom-date-apply"`).<br/>• **Context Ticket Bar trên Bảng (`SC-2.1`, `REQ-Q01`, `REQ-Q03`, `REQ-Q04`):** Hiển thị thanh vé ngữ cảnh (`data-testid="smart-table-context-ticket-bar"`) với các nút chuyển kỳ `[Năm 2026 (Mới nhất)]`, `[Quý 1]`, `[Quý 2]`, `[Quý 3]` và chọn ngày tùy chỉnh (`data-testid="context-ticket-date-input"`). |
+| 4 | **`Đề xuất 5 Mở rộng`** | **Ticket `slider-time` & Context Ticket Bar** *(Thanh trượt kỳ báo cáo `0ms` & Khung ngữ cảnh bảng)* | `duckdb_semantic_catalog.py` (`get_criterion_timeline_snapshots`), `SingleMetricSliderCard.tsx`, `MessageItem.tsx`, `SmartTable.tsx` | • **Thẻ Đơn & Cha Tinh Gọn 50+ (`REQ-Q02`, `SC-2.4a`):** Loại bỏ lưới 3 hộp rườm rà và nhãn dev; thay thế bằng **Thanh điều khiển kỳ báo cáo đồng nhất** với nút kỳ lớn, tương phản cao, ô chọn ngày và nút Ghim (`📌`). Cơ chế **Đồng bộ phản ứng 0ms (`0ms Client-side Reactive State Synchronization`)**: khi chọn kỳ (`31/03`, `30/06`, `30/09` hoặc ngày tùy chỉnh), cập nhật tức thì đồng thời cả 5 trường chi tiết (`- **Giá trị:**`, `- **Thời điểm báo cáo:**`) và huy hiệu số liệu xem trước (`preview_value`) trên toàn bộ các nút action chips con ở đáy tin nhắn.<br/>• **Context Ticket Bar trên Bảng (`SC-2.1`, `REQ-Q01`, `REQ-Q03`, `REQ-Q04`):** Hiển thị thanh vé ngữ cảnh (`data-testid="smart-table-context-ticket-bar"`) với các nút chuyển kỳ `[Năm 2026 (Mới nhất)]`, `[Quý 1]`, `[Quý 2]`, `[Quý 3]` và chọn ngày tùy chỉnh (`data-testid="context-ticket-date-input"`). |
 | 5 | **`Đề xuất 6`** | **1-Click Quick Filter Toggle Pills** *(Bộ lọc 1 chạm trên `SmartTable`)* | `SmartTable.tsx` (`data-testid="smart-table-quick-filters"`) | • **Bảng Chỉ tiêu (`REQ-Q01`, `REQ-Q04`):** `[Tất cả]`, `[⚡ Đã có số liệu]`, `[🌳 Có chỉ tiêu con]`.<br/>• **Bảng Kiểm toán (`REQ-Q05` / `SC-5.1`, `SC-5.2`):** `[Tất cả]`, `[⚡ Chỉ hiện dòng có chênh lệch]`, `[⚠️ Bản nháp chưa nộp]`. |
 

@@ -3,7 +3,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { ChatMessage, PinnedDrawerItem } from '@/types/chat';
+import { ChatMessage, PinnedDrawerItem, TimelineSnapshotItem } from '@/types/chat';
 import { User, Bot, ExternalLink, ZoomIn, ChevronRight, Copy, Check, Terminal } from 'lucide-react';
 import { YouTubeEmbed } from './YouTubeEmbed';
 import { ContactCard } from './ContactCard';
@@ -84,6 +84,15 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
 }) => {
   const isUser = message.role === 'user';
 
+  // [R2.4] Timeline snapshot & temporal shift notice state for 0ms reactive sync
+  const [activeSnapshot, setActiveSnapshot] = React.useState<TimelineSnapshotItem | null>(null);
+  const [activeShiftNotice, setActiveShiftNotice] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setActiveSnapshot(null);
+    setActiveShiftNotice(null);
+  }, [message.id]);
+
   // Animation settlement state: if message is not streaming when mounted (e.g. historical messages),
   // it is settled immediately. If streaming, it stays active until FluidTextStream drains completely.
   const [isAnimationSettled, setIsAnimationSettled] = React.useState(!message.isStreaming);
@@ -113,8 +122,82 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
       });
     }
 
+    // [R2.3] KHỬ TRÙNG LẶP NÚT GỢI Ý CHỈ TIÊU CON TRONG ĐOẠN VĂN:
+    // Loại bỏ hoàn toàn dòng danh sách văn bản thô "🔘 [Tên chỉ tiêu con]..."
+    // để chỉ tiêu con CHỈ xuất hiện DUY NHẤT một lần dạng nút bấm QuickActionChips ở đáy
+    text = text.replace(/(?:\r?\n\s*)*\r?\n*(?:[-*]\s*)?(?:🔘\s*`?\[[^\]\r\n]+\]`?\s*)+$/gm, '');
+    text = text.replace(/\r?\n*\s*(?:[-*]\s*)?(?:🔘\s*`?\[[^\]\r\n]+\]`?\s*)+(?=\r?\n|$)/g, '');
+
+    // [R2.4] ĐỒNG BỘ PHẢN ỨNG 0MS THẺ 5 TRƯỜNG KHI CHUYỂN KỲ BÁO CÁO:
+    if (activeSnapshot) {
+      const targetVal = String(activeSnapshot.value || '').trim();
+      const targetDate = String(activeSnapshot.report_date || activeSnapshot.date || '').trim();
+
+      // Đồng bộ trường Giá trị
+      text = text.replace(
+        /(- \*\*Giá trị:\*\* )[^\n]+/,
+        `$1${targetVal}`
+      );
+      // Đồng bộ trường Thời điểm báo cáo
+      text = text.replace(
+        /(- \*\*Thời điểm báo cáo:\*\* )[^\n]+/,
+        `$1${targetDate}`
+      );
+      // Đồng bộ trường Đơn vị thực hiện nếu snapshot có đơn vị khác
+      if (activeSnapshot.office) {
+        text = text.replace(
+          /(- \*\*Đơn vị thực hiện:\*\* )[^\n]+/,
+          `$1${activeSnapshot.office}`
+        );
+      }
+      // Đồng bộ lưu ý mốc thời gian nếu có cảnh báo lệch ngày
+      if (activeShiftNotice) {
+        if (text.includes('- **Lưu ý mốc thời gian:**')) {
+          text = text.replace(
+            /(- \*\*Lưu ý mốc thời gian:\*\* )[^\n]+/,
+            `$1${activeShiftNotice}`
+          );
+        } else {
+          text = text.replace(
+            /(- \*\*Thời điểm báo cáo:\*\* [^\n]+)/,
+            `$1\n- **Lưu ý mốc thời gian:** ${activeShiftNotice}`
+          );
+        }
+      } else {
+        text = text.replace(/\n- \*\*Lưu ý mốc thời gian:\*\* [^\n]+/, '');
+      }
+    }
+
     return text;
-  }, [message.content, message.images, message.youtube_links]);
+  }, [message.content, message.images, message.youtube_links, activeSnapshot, activeShiftNotice]);
+
+  // [R2.4] Đồng bộ huy hiệu preview_value trên QuickActionChips theo kỳ đang chọn (0ms Client-side)
+  const reactiveChips = React.useMemo(() => {
+    if (!message.quick_action_chips || message.quick_action_chips.length === 0) return [];
+    if (!activeSnapshot) return message.quick_action_chips;
+
+    const snapDate = activeSnapshot.report_date || activeSnapshot.date;
+    const childVals = (activeSnapshot as any)?.child_values || {};
+
+    return message.quick_action_chips.map((chip) => {
+      let nextPreviewVal = chip.preview_value;
+      const cleanName = chip.label.replace(/^🔘\s*\[?|\]?$/g, '').trim();
+
+      // Đối chiếu theo id hoặc tên chỉ tiêu con trong snapshot
+      if (childVals[chip.id] !== undefined) {
+        nextPreviewVal = String(childVals[chip.id]);
+      } else if (childVals[cleanName] !== undefined) {
+        nextPreviewVal = String(childVals[cleanName]);
+      } else if ((chip as any).timeline_values && snapDate && (chip as any).timeline_values[snapDate] !== undefined) {
+        nextPreviewVal = String((chip as any).timeline_values[snapDate]);
+      }
+
+      return {
+        ...chip,
+        preview_value: nextPreviewVal,
+      };
+    });
+  }, [message.quick_action_chips, activeSnapshot]);
 
   // Parse markdown vs <details> collapsible blocks
   const contentSegments = React.useMemo(() => {
@@ -246,12 +329,16 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
           <div className="prose prose-slate prose-base max-w-none space-y-2 text-slate-800 text-[15px]">
             {message.contact_support && <ContactCard info={message.contact_support} />}
 
-            {/* Feature 4 (Đề xuất 5 Mở rộng): Ticket slider-time cho chỉ tiêu đơn lẻ REQ-Q02 / SC-2.4a */}
+            {/* Feature 4: Senior-Friendly timeline control bar cho chỉ tiêu đơn lẻ REQ-Q02 / SC-2.4a */}
             {message.tabular_data?.single_metric_card && (
               <SingleMetricSliderCard
                 card={message.tabular_data.single_metric_card}
                 onSelectChip={onSelectChip}
                 onPinItem={onPinItem}
+                onTimelineChange={(snapshot, shiftNotice) => {
+                  setActiveSnapshot(snapshot);
+                  setActiveShiftNotice(shiftNotice);
+                }}
               />
             )}
 
@@ -267,13 +354,14 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
                 contentSegments.map((seg, idx) =>
                   seg.type === 'details' ? (
                     <React.Fragment key={`details-${idx}`}>
-                      {message.quick_action_chips &&
+                      {reactiveChips &&
+                        reactiveChips.length > 0 &&
                         onSelectChip &&
-                        message.quick_action_chips.some(
+                        reactiveChips.some(
                           (c) => c.id?.startsWith('chip_alt_') || c.label?.startsWith('🔘')
                         ) && (
                           <QuickActionChips
-                            chips={message.quick_action_chips}
+                            chips={reactiveChips}
                             onSelect={onSelectChip}
                           />
                         )}
@@ -302,16 +390,17 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
               </div>
             ) : null}
 
-            {message.quick_action_chips &&
+            {reactiveChips &&
+              reactiveChips.length > 0 &&
               onSelectChip &&
               !(
                 isAnimationSettled &&
                 contentSegments.some((s) => s.type === 'details') &&
-                message.quick_action_chips.some(
+                reactiveChips.some(
                   (c) => c.id?.startsWith('chip_alt_') || c.label?.startsWith('🔘')
                 )
               ) && (
-                <QuickActionChips chips={message.quick_action_chips} onSelect={onSelectChip} />
+                <QuickActionChips chips={reactiveChips} onSelect={onSelectChip} />
               )}
           </div>
         )}

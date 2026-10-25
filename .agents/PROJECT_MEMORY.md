@@ -408,3 +408,35 @@ Trong CSDL có 4 trạng thái: `approved` (1.780 dòng), `pending` (618 dòng),
    - Hiển thị thanh trượt / bộ chọn mốc thời gian trực tiếp (`slider-time`) ngay trên Thẻ 5 trường chuẩn và Header của `SmartTable` để chuyển đổi nhanh giữa các kỳ báo cáo (`31/03/2026`, `30/06/2026`, `30/09/2026`, `Quý 1..4`, `Bán niên`, `Cả năm 2026`) và bảo toàn Ticket thời gian khi drill-down.
 5. **Hạng mục 5 (`Đề xuất 6` — Chế độ Lọc Nhanh Dòng Chênh Lệch / Đã Có Số Liệu trên `SmartTable`):**
    - Bổ sung các nút gạt 1-Click trên Header của `SmartTable`: `[Tất cả]`, `[⚡ Đã có số liệu]`, `[🌳 Có chỉ tiêu con]` (cho `REQ-Q01`/`REQ-Q04`) và `[⚠️ Bản nháp chưa nộp]`, `[⚡ Có chênh lệch số liệu]` (cho `REQ-Q05`/`SC-5.1`).
+
+---
+
+## 20. [2026-10-24] QUY CHUẨN GIAO DIỆN TỐI ƯU CÁN BỘ CAO TUỔI (50+), ĐỒNG BỘ THỜI GIAN PHẢN ỨNG 0MS, TRIỆT TIÊU TRÙNG LẶP NÚT CON & BẢO TOÀN NGỮ NGHĨA DWH PHÂN CẤP / LŨY KẾ OCOP (MILESTONE 1-3 UPGRADES)
+1. **Thiết Kế Giao Diện Tinh Gọn Cho Cán Bộ Cao Tuổi (Senior-Friendly UI for 50+ Users):**
+   - **Xóa bỏ phân mảnh thông tin:** Loại bỏ hoàn toàn khối 3 hộp thẻ rời rạc phía trên (`grid-cols-1 sm:grid-cols-3` hiển thị `Số liệu phê duyệt`, `Đơn vị thực hiện`, `Nhiệm vụ / Biểu mẫu`) trong `SingleMetricSliderCard.tsx` và xóa nhãn kỹ thuật nội bộ (`Ticket slider-time • 0ms`).
+   - **Bảo toàn Test Attributes:** Giữ lại các thẻ trợ năng `<span data-testid="slider-active-value" className="sr-only">` và `slider-delta-badge` trong DOM để phục vụ CI/E2E test mà không gây rác màn hình.
+   - **Thanh điều khiển kỳ báo cáo đồng nhất (Unified Senior-Friendly Timeline Selector):** Tái cấu trúc thành thanh điều khiển liền khối đặt trực tiếp trên Thẻ 5 trường chuẩn, trang bị các nút bấm kỳ lớn (`px-3 py-1.5`, `font-bold`), độ tương phản cao (`bg-blue-700 text-white`), ô chọn ngày tùy chỉnh (`slider-custom-date-input`, `slider-custom-date-apply`) và nút Ghim (`pin-item-button`).
+   - **Modal Cây Chỉ tiêu:** Đổi nhãn bộ chuyển đổi sang `'Sơ đồ luồng chỉ tiêu'` và `'📋 Bảng chi tiết'`, mặc định mở ở tab `'compact_table'` (`📋 Bảng chi tiết`) để cán bộ xem ngay bảng số liệu mà không cần bấm thêm.
+
+2. **Cơ Chế Đồng Bộ Trạng Thái Thời Gian Phản Ứng Tức Thì (`0ms Client-Side Reactive State Synchronization`):**
+   - **Nâng State lên MessageItem:** Quản lý `activeSnapshot` và `activeShiftNotice` tập trung tại `MessageItemComponent`, nhận sự kiện chuyển mốc thời gian qua callback `onTimelineChange(snapshot, shiftNotice)`.
+   - **Cập nhật đồng thời 5 trường chuẩn:** Sử dụng client-side regex thay thế tức thì giá trị `- **Giá trị:**` và `- **Thời điểm báo cáo:**` trong văn bản markdown ngay khi người dùng bấm chọn kỳ (`31/03/2026`, `30/06/2026`, `30/09/2026` hoặc ngày tùy chỉnh).
+   - **Đồng bộ huy hiệu xem trước của nút con (`reactiveChips`):** Tự động ánh xạ `child_values` từ snapshot để cập nhật số liệu trên huy hiệu `preview_value` của toàn bộ các nút gợi ý chỉ tiêu con tương ứng trong `0ms`.
+
+3. **Triệt Tiêu Hoàn Toàn Trùng Lặp Nút Gợi Ý Chỉ Tiêu Con (Duplicate Action Chips Elimination):**
+   - **Nguyên tắc hiển thị duy nhất (Single Interactive Chips Surface):** Các nút gợi ý chỉ tiêu con (`SC-2.4`) chỉ được phép hiển thị **duy nhất một lần** dưới dạng các action chips tương tác (`quick_action_chips`) đặt ở đáy tin nhắn.
+   - **Khử bỏ text inline trong Markdown:** Xóa bỏ việc format chuỗi `🔘 [Tên chỉ tiêu con 1]  🔘 [Tên chỉ tiêu con 2]` vào cuối chuỗi markdown `ans` tại `warehouse_langgraph_agent.py`; đồng thời `MessageItem.tsx` áp dụng bộ lọc regex phòng vệ để triệt tiêu mọi chuỗi inline nút bấm còn sót lại trong văn bản.
+
+4. **NLU Phân Cấp & Liệt Kê Danh Mục Con Dựa Trên Kho DWH (DWH-Grounded Hierarchy Breakdown — R3):**
+   - **Nhận diện Ý định Bóc tách Phân cấp:** Nhận diện câu hỏi hỏi về số lượng và danh mục con (*lĩnh vực*, *hiệu quả*, *loại diện tích*, *sản lượng*...) của một thực thể (HTX, THT, LHHTX, Trang trại, Diêm nghiệp, OCOP) thuộc `IntentEnum.DIMENSION_LISTING` với `is_hierarchical_breakdown=True`.
+   - **Cơ chế Neo Thực Thể Gốc & Cues Ngữ Nghĩa (Entity Root Anchoring & Aspect Cues):** Xác định thực thể gốc (`'HTX nông nghiệp'`, `'Tổ hợp tác nông nghiệp'`, `'Diêm nghiệp'`...) để neo nhánh cây, sau đó dùng aspect cues (*lĩnh vực*, *hiệu quả*, *diện tích*...) để định vị nhóm cha trung gian.
+   - **Định dạng Phản hồi Chuẩn Hóa:** Xuất câu dẫn tự nhiên nêu rõ số lượng chính xác và tên in đậm của các nút con trực thuộc, kèm **Bảng 6 cột đầy đủ** (`STT`, `Tên chỉ tiêu`, `Nhóm chỉ tiêu`, `Giá trị mới nhất`, `Đơn vị thực hiện`, `Nhiệm vụ trọng tâm`) và đối tượng DTO `tabular_data`.
+   - **Quy tắc Bất biến Zero-Heuristic:** Nghiêm cấm dùng danh sách từ khóa cố định, chuỗi regex cứng hoặc điều kiện `if/else` để hardcode danh sách con.
+
+5. **Phân Định Ngữ Nghĩa Chỉ Tiêu Lũy Kế vs Trong Năm vs Nút Lá OCOP (Cumulative vs Annual vs Leaf Disambiguation — R4):**
+   - **Chấm điểm Phân cực Thời gian (Temporal Polarity Scoring):** Khi câu hỏi mang tín hiệu lũy kế (*lũy kế*, *đến thời điểm báo cáo*), ứng viên lũy kế nhận điểm thưởng $\Delta_{\text{temporal}} = +25.0$, ứng viên hàng năm (*trong năm*) bị trừ $\Delta_{\text{temporal}} = -30.0$.
+   - **Phạt Tính Đặc thù Xếp hạng Sao OCOP (Star Rating Specificity Penalty):** Nếu câu hỏi KHÔNG hỏi cụ thể thứ hạng sao (*"3 sao"*, *"4 sao"*, *"5 sao"*), tất cả các nút lá mang sao đều bị phạt $\Delta_{\text{star}} = -25.0$, ngăn chặn việc nhóm lũy kế tổng bị nuốt nhầm vào nút lá 5 sao.
+   - **Phân cực Đối tượng Thực thể (Entity Subject vs Product Polarity):** Nếu câu hỏi chứa *chủ thể* mà không chứa *sản phẩm*, ứng viên chứa *chủ thể* nhận $+15.0$, ứng viên chỉ chứa *sản phẩm* nhận $-15.0$.
+
+6. **Mở Rộng Kích Thước Tập Ứng Viên Catalog (Candidate Pool Sizing):**
+   - Thiết lập `candidate_pool_size = max(top_k * 5, 25)` trong `find_top_k_candidates` khi gọi `find_criteria_by_name`. Đảm bảo các chỉ tiêu có tên dài hoặc có khoảng trắng đôi trong CSDL (`"Lũy kế  tổng số lượng..."`) không bị cắt tỉa sớm ở vòng lọc thô RRF/BM25 trước khi bước vào bộ reranker tính điểm ngữ nghĩa.

@@ -1426,7 +1426,7 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
 }) => {
   const [treeSearchTerm, setTreeSearchTerm] = useState('');
   const [treeStatusFilter, setTreeStatusFilter] = useState<'all' | 'has_value' | 'no_value'>('all');
-  const [viewMode, setViewMode] = useState<'tree' | 'compact_table'>('tree');
+  const [viewMode, setViewMode] = useState<'tree' | 'compact_table'>('compact_table');
   const modalTemporalLabel = temporalScope?.label || temporalScope?.period_label || null;
 
   useEffect(() => {
@@ -1485,7 +1485,7 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {/* View Switcher (GP 1.3) */}
+            {/* View Switcher (GP 1.3 / R1) */}
             <div
               data-testid="tree-view-switcher"
               className="inline-flex items-center rounded-lg bg-slate-100 p-0.5 border border-slate-200"
@@ -1500,7 +1500,7 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                🌳 Sơ đồ cây
+                Sơ đồ luồng chỉ tiêu
               </button>
               <button
                 type="button"
@@ -1512,7 +1512,7 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                📋 Bảng thu gọn
+                📋 Bảng chi tiết
               </button>
             </div>
 

@@ -203,9 +203,32 @@
               <p id="criteria-tree-modal-subtitle" class="text-[11px] text-slate-500">Cuộn xuống để xem toàn bộ nhánh chỉ tiêu con và số liệu chi tiết</p>
             </div>
           </div>
-          <button id="criteria-tree-modal-close" type="button" onclick="closeCriteriaTreeModal()" title="Đóng cửa sổ (X)" class="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center font-bold text-sm transition cursor-pointer">
-            ✕
-          </button>
+          <div class="flex items-center gap-2">
+            <!-- View Switcher (R1) -->
+            <div data-testid="tree-view-switcher" class="inline-flex items-center rounded-lg bg-slate-200/80 p-0.5 border border-slate-300">
+              <button
+                type="button"
+                id="bench-tree-view-mode-diagram"
+                data-testid="tree-view-mode-diagram"
+                onclick="setBenchTreeModalViewMode('tree')"
+                class="px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer text-slate-600 hover:text-slate-900"
+              >
+                Sơ đồ luồng chỉ tiêu
+              </button>
+              <button
+                type="button"
+                id="bench-tree-view-mode-table"
+                data-testid="tree-view-mode-table"
+                onclick="setBenchTreeModalViewMode('compact_table')"
+                class="px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer bg-white text-indigo-700 shadow-2xs"
+              >
+                📋 Bảng chi tiết
+              </button>
+            </div>
+            <button id="criteria-tree-modal-close" type="button" onclick="closeCriteriaTreeModal()" title="Đóng cửa sổ (X)" class="w-8 h-8 rounded-lg bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 flex items-center justify-center font-bold text-sm transition cursor-pointer">
+              ✕
+            </button>
+          </div>
         </div>
         <!-- Modal Scrollable Body (Horizontal Left-to-Right Tree) -->
         <div id="criteria-tree-modal-body" class="p-5 max-h-[80vh] overflow-y-auto overflow-x-auto space-y-4 bg-slate-50/60 flex-1">
@@ -961,25 +984,86 @@
       return allRoots;
     }
 
-    function openCriteriaTreeModal(rootId) {
-      const modal = document.getElementById("criteria-tree-modal");
-      const body = document.getElementById("criteria-tree-modal-body");
-      const titleEl = document.getElementById("criteria-tree-modal-title");
-      const treeMap = window.__latestTreeModalData || {};
-      const entries = findMatchingTreeNode(treeMap, rootId);
+    let benchTreeModalViewMode = "compact_table";
+    let benchCurrentTreeEntries = [];
 
-      if (titleEl) {
-        if (entries.length === 1 && entries[0] && entries[0].name) {
-          titleEl.textContent = `Sơ đồ cây phân cấp chỉ tiêu: ${entries[0].name} (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)`;
+    function setBenchTreeModalViewMode(mode) {
+      benchTreeModalViewMode = mode;
+      const btnDiagram = document.getElementById("bench-tree-view-mode-diagram");
+      const btnTable = document.getElementById("bench-tree-view-mode-table");
+      if (btnDiagram && btnTable) {
+        if (mode === "tree") {
+          btnDiagram.className = "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer bg-white text-indigo-700 shadow-2xs";
+          btnTable.className = "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer text-slate-600 hover:text-slate-900";
         } else {
-          titleEl.textContent = "Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)";
+          btnTable.className = "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer bg-white text-indigo-700 shadow-2xs";
+          btnDiagram.className = "px-2.5 py-1 rounded-md text-xs font-semibold transition cursor-pointer text-slate-600 hover:text-slate-900";
         }
       }
+      renderBenchTreeModalBody();
+    }
 
+    function renderBenchTreeModalBody() {
+      const body = document.getElementById("criteria-tree-modal-body");
+      if (!body) return;
+      const entries = benchCurrentTreeEntries;
       if (!entries || entries.length === 0) {
         body.innerHTML = `
           <div class="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500">
             Chưa có dữ liệu sơ đồ cây phân cấp chỉ tiêu cho truy vấn hiện tại.
+          </div>
+        `;
+        return;
+      }
+
+      if (benchTreeModalViewMode === "compact_table") {
+        let tableRows = "";
+        entries.forEach(rootNode => {
+          (rootNode.children || []).forEach(l2 => {
+            const l2Val = (l2.value !== null && l2.value !== undefined && l2.value !== "") ? escapeHtml(String(l2.value)) : "-";
+            tableRows += `
+              <tr class="bg-indigo-50/30 hover:bg-indigo-50/70 border-b border-slate-100">
+                <td class="py-2 px-3 font-mono font-bold text-indigo-700">Cấp 2</td>
+                <td class="py-2 px-3 font-bold text-slate-900">${escapeHtml(l2.name || "")}</td>
+                <td class="py-2 px-3 text-slate-600">${escapeHtml(rootNode.name || "")}</td>
+                <td class="py-2 px-3 text-right font-mono font-bold text-emerald-700">${l2Val}</td>
+                <td class="py-2 px-3 text-slate-600">${escapeHtml(l2.report_date || rootNode.report_date || "2026")}</td>
+                <td class="py-2 px-3 text-slate-700">${escapeHtml(l2.office_name || rootNode.office_name || "Chi cục")}</td>
+              </tr>
+            `;
+            (l2.children || []).forEach(l3 => {
+              const l3Val = (l3.value !== null && l3.value !== undefined && l3.value !== "") ? escapeHtml(String(l3.value)) : "-";
+              tableRows += `
+                <tr class="hover:bg-slate-50 border-b border-slate-100">
+                  <td class="py-1.5 px-3 pl-6 font-mono text-slate-500">↳ Cấp 3</td>
+                  <td class="py-1.5 px-3 pl-6 text-slate-800">${escapeHtml(l3.name || "")}</td>
+                  <td class="py-1.5 px-3 text-slate-500">${escapeHtml(l2.name || "")}</td>
+                  <td class="py-1.5 px-3 text-right font-mono font-bold text-emerald-700">${l3Val}</td>
+                  <td class="py-1.5 px-3 text-slate-600">${escapeHtml(l3.report_date || l2.report_date || rootNode.report_date || "2026")}</td>
+                  <td class="py-1.5 px-3 text-slate-700">${escapeHtml(l3.office_name || l2.office_name || rootNode.office_name || "Chi cục")}</td>
+                </tr>
+              `;
+            });
+          });
+        });
+
+        body.innerHTML = `
+          <div data-testid="tree-compact-table-view" class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-xs">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead class="bg-slate-100 border-b border-slate-200 text-slate-700">
+                <tr>
+                  <th class="py-2 px-3 font-bold">Cấp bậc</th>
+                  <th class="py-2 px-3 font-bold">Tên chỉ tiêu phân cấp</th>
+                  <th class="py-2 px-3 font-bold">Nhóm cha</th>
+                  <th class="py-2 px-3 font-bold text-right">Số liệu phê duyệt</th>
+                  <th class="py-2 px-3 font-bold">Kỳ báo cáo</th>
+                  <th class="py-2 px-3 font-bold">Đơn vị thực hiện</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                ${tableRows || `<tr><td colspan="6" class="p-4 text-center text-slate-400">Không có chỉ tiêu con</td></tr>`}
+              </tbody>
+            </table>
           </div>
         `;
       } else {
@@ -993,6 +1077,25 @@
           </div>
         `).join("");
       }
+    }
+
+    function openCriteriaTreeModal(rootId) {
+      const modal = document.getElementById("criteria-tree-modal");
+      const titleEl = document.getElementById("criteria-tree-modal-title");
+      const treeMap = window.__latestTreeModalData || {};
+      const entries = findMatchingTreeNode(treeMap, rootId);
+
+      if (titleEl) {
+        if (entries.length === 1 && entries[0] && entries[0].name) {
+          titleEl.textContent = `Sơ đồ cây phân cấp chỉ tiêu: ${entries[0].name} (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)`;
+        } else {
+          titleEl.textContent = "Sơ đồ cây phân cấp chỉ tiêu (Cấp 1 ➔ Cấp 2 ➔ Cấp 3)";
+        }
+      }
+
+      benchCurrentTreeEntries = entries;
+      setBenchTreeModalViewMode("compact_table");
+
       modal.classList.remove("hidden");
       modal.classList.add("flex");
     }

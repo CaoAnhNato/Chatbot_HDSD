@@ -880,6 +880,94 @@ ALLOWED_SEMANTIC_LEXICON_SEED = (
     ("SCOPE_STOP_TOKEN", "quản lý", "STOP", 1.0),
     ("SCOPE_STOP_TOKEN", "quan ly", "STOP", 1.0),
     ("SCOPE_STOP_TOKEN", "?", "STOP", 1.0),
+
+    # Structural Breakdown & Enumeration Aspects (R3)
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "lĩnh vực", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "linh vuc", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "phân theo lĩnh vực", "ASPECT_FIELD", 1.2),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "phan theo linh vuc", "ASPECT_FIELD", 1.2),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "mô hình", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "mo hinh", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "ngành nghề", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "nganh nghe", "ASPECT_FIELD", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "mức đánh giá", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "muc danh gia", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "mức hiệu quả", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "muc hieu qua", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "mức xếp loại", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "muc xep loai", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "xếp loại hiệu quả", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "xep loai hieu qua", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "đánh giá hiệu quả", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "danh gia hieu qua", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hiệu quả hoạt động", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hieu qua hoat dong", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "cấp độ", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "cap do", "ASPECT_LEVEL", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "loại diện tích", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "loai dien tich", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hình thức diện tích", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hinh thuc dien tich", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "loại sản lượng", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "loai san luong", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "phân loại", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "phan loai", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hình thức", "ASPECT_TYPE", 1.0),
+    ("STRUCTURAL_BREAKDOWN_ASPECT", "hinh thuc", "ASPECT_TYPE", 1.0),
+
+    # Breakdown Question Triggers (R3)
+    ("BREAKDOWN_TRIGGER", "có các loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "co cac loai", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "có những loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "co nhung loai", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các mức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "cac muc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những mức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "nhung muc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "mấy mức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "may muc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "bao nhiêu mức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "bao nhieu muc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "số lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "so linh vuc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "cac linh vuc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "nhung linh vuc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "bao nhiêu lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "bao nhieu linh vuc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "mấy lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "may linh vuc", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "gồm những lĩnh vực", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những lĩnh vực nào", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những ngành nghề", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các ngành nghề", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các mô hình", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những mô hình", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "cac loai", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "nhung loai", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những loại nào", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "có những loại nào", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "có mấy loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "mấy loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "bao nhiêu loại", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "các hình thức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những hình thức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "phân theo những", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "phân bổ theo những", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "gồm các mức", "TRIGGER_BREAKDOWN", 1.0),
+    ("BREAKDOWN_TRIGGER", "những mức nào", "TRIGGER_BREAKDOWN", 1.0),
+
+    # Temporal Polarity Cues (R4)
+    ("TEMPORAL_POLARITY", "lũy kế", "CUMULATIVE", 1.2),
+    ("TEMPORAL_POLARITY", "luy ke", "CUMULATIVE", 1.2),
+    ("TEMPORAL_POLARITY", "đến thời điểm báo cáo", "CUMULATIVE", 1.2),
+    ("TEMPORAL_POLARITY", "tích lũy", "CUMULATIVE", 1.0),
+    ("TEMPORAL_POLARITY", "trong năm", "ANNUAL", 1.2),
+    ("TEMPORAL_POLARITY", "trong nam", "ANNUAL", 1.2),
+    ("TEMPORAL_POLARITY", "hàng năm", "ANNUAL", 1.0),
 )
 
 
@@ -2113,9 +2201,9 @@ class DuckDBSemanticCatalog:
             raw = resp.choices[0].message.content or ""
             raw_clean = raw.strip()
             s_idx = raw_clean.find("{")
-            e_idx = raw_clean.rfind("}")
-            if s_idx != -1 and e_idx != -1 and e_idx > s_idx:
-                raw_clean = raw_clean[s_idx : e_idx + 1]
+            if s_idx != -1:
+                parsed_obj, _ = json.JSONDecoder(strict=False).raw_decode(raw_clean[s_idx:])
+                return parsed_obj
             return json.loads(raw_clean, strict=False)
         except Exception as e:
             logger.warning("Lỗi LLM Disambiguation: %s", e)
@@ -2145,16 +2233,32 @@ class DuckDBSemanticCatalog:
             return []
 
         # 1. Tra cứu trực tiếp khớp tên chỉ tiêu lá (is_leaf = TRUE) trong DuckDB RAM
+        # Chỉ short-circuit khi chỉ tiêu lá chứa ít nhất 2 từ nội dung chuyên biệt (tránh khớp chỉ tiêu phụ trợ 'Lũy kế đến thời điểm báo cáo', 'Đang hoạt động' khi câu hỏi có nêu tên thực thể cụ thể như OCOP, HTX...)
+        stop_exact_leaf = {
+            "đến", "thời", "điểm", "báo", "cáo", "trong", "năm", "số", "lượng",
+            "tổng", "lũy", "kế", "đang", "hoạt", "động", "thành", "lập", "mới", "viên"
+        }
         exact_name_matches = self.conn.execute("""
             SELECT code, name, length(name) as len_n, created_date
             FROM catalog_criteria
             WHERE is_leaf = TRUE AND length(name) >= 4 AND INSTR(?, LOWER(name)) > 0;
         """, (q_clean,)).fetchall()
 
-        if exact_name_matches:
+        is_cumul_q = any(w in q_clean for w in ("lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"))
+        specific_exact_matches = [
+            r for r in exact_name_matches
+            if r[1].strip().lower() not in ("số", "th", "th1", "th2", "th3", "test")
+            and (
+                not is_cumul_q
+                or r[1].strip().lower() == q_clean
+                or len([w for w in r[1].strip().lower().split() if w not in stop_exact_leaf]) >= 2
+            )
+        ]
+
+        if specific_exact_matches:
             import datetime
             min_dt = datetime.datetime.min
-            exact_name_matches.sort(
+            specific_exact_matches.sort(
                 key=lambda r: (
                     r[2],
                     r[3] if r[3] is not None else min_dt,
@@ -2162,7 +2266,7 @@ class DuckDBSemanticCatalog:
                 ),
                 reverse=True
             )
-            exact_name_match = exact_name_matches[0]
+            exact_name_match = specific_exact_matches[0]
             return [{
                 "code": exact_name_match[0],
                 "name": exact_name_match[1],
@@ -2398,11 +2502,12 @@ class DuckDBSemanticCatalog:
         if self.is_dimension_query(norm_q, "criteria"):
             return ([], False, 0.0)
 
-        # 1. Tra cứu qua find_criteria_by_name với top_k_candidates mở rộng
+        # 1. Tra cứu qua find_criteria_by_name với candidate pool mở rộng (tối thiểu 25)
+        candidate_pool_size = max(top_k * 5, 25)
         raw_res = self.find_criteria_by_name(
             query=q_clean,
-            limit=top_k,
-            top_k_candidates=max(top_k * 2, 10),
+            limit=candidate_pool_size,
+            top_k_candidates=candidate_pool_size,
             use_llm_disambiguation=False,
             tenant_code=tenant_code
         )
@@ -2412,6 +2517,27 @@ class DuckDBSemanticCatalog:
             all_candidates = raw_res[0]["candidates"]
         elif raw_res:
             all_candidates = raw_res
+
+        # Tiền nạp bảng viết tắt và từ vựng nhánh con từ DuckDB RAM phục vụ đối chiếu ngữ nghĩa kho dữ liệu
+        acr_map_topk: Dict[str, str] = {}
+        parent_children_blob: Dict[str, str] = {}
+        try:
+            for acr, full_f in self.conn.execute("SELECT LOWER(acronym), LOWER(full_form) FROM catalog_acronyms;").fetchall():
+                acr_map_topk[acr.strip()] = full_f.strip()
+            for ch_name, p_name_h in self.conn.execute(
+                "SELECT LOWER(name), LOWER(COALESCE(parent_name, '')) FROM catalog_criteria_hierarchy WHERE parent_name IS NOT NULL;"
+            ).fetchall():
+                p_k = " ".join((p_name_h or "").split())
+                if p_k:
+                    parent_children_blob[p_k] = parent_children_blob.get(p_k, "") + " " + " ".join((ch_name or "").split())
+        except Exception:
+            pass
+
+        stop_toks_topk = {
+            "đến", "thời", "điểm", "báo", "cáo", "trong", "năm", "số", "lượng", "tổng",
+            "của", "các", "những", "theo", "dữ", "liệu", "mới", "nhất", "bạn", "hãy",
+            "cho", "tôi", "biết", "xem", "về", "là", "bao", "nhiêu"
+        }
 
         # 2. Lọc và chuẩn hóa score kết hợp
         valid_candidates = []
@@ -2423,19 +2549,93 @@ class DuckDBSemanticCatalog:
                 comb_score = round(d_score * 0.6 + s_score * 0.4, 2) if s_score > 0 else round(d_score, 2)
             else:
                 comb_score = round(raw_c_score, 2) if raw_c_score > 0 else 85.0
-            c_name = unicodedata.normalize('NFC', c["name"].strip())
 
-            # Thưởng điểm nếu khớp tuyệt đối
-            if c_name.lower() == q_lower:
+            import re
+            c_name = unicodedata.normalize('NFC', c["name"].strip())
+            c_name_clean = re.sub(r'\s+', ' ', c_name)
+            c_low = c_name_clean.lower()
+
+            # BẢO VỆ TRAP-081: Chống va chạm từ đơn rác ('Số', 'TH', 'test')
+            is_short_dummy = len(c_low) <= 3 or c_low in ("số", "th", "th1", "th2", "th3", "test")
+            if is_short_dummy and c_low != q_lower:
+                continue  # Bỏ qua chỉ tiêu rác
+
+            # PHÂN CỰC THỜI GIAN (R4: LŨY KẾ VS TRONG NĂM)
+            q_is_cumul = any(w in q_lower for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"])
+            q_is_annual = any(w in q_lower for w in ["trong năm", "trong nam", "hàng năm"])
+
+            c_content_toks = [w for w in c_low.split() if w not in stop_toks_topk]
+            if c_low == q_lower:
                 comb_score = 100.0
-            elif c_name.lower() in q_lower:
+            elif not (q_is_cumul or q_is_annual) and not is_short_dummy and c_low in q_lower:
                 comb_score = max(comb_score, 85.0)
+            elif (q_is_cumul or q_is_annual) and not is_short_dummy and len(c_content_toks) >= 3 and f" {c_low} " in f" {q_lower} ":
+                comb_score = max(comb_score, 85.0)
+
+            if q_is_cumul or q_is_annual:
+                c_is_cumul = any(w in c_low for w in ["lũy kế", "luy ke", "đến thời điểm báo cáo"])
+                c_is_annual = any(w in c_low for w in ["trong năm", "trong nam"])
+
+                if q_is_cumul:
+                    if c_is_cumul:
+                        comb_score += 25.0
+                    elif c_is_annual:
+                        comb_score -= 30.0
+                elif q_is_annual:
+                    if c_is_annual:
+                        comb_score += 25.0
+                    elif c_is_cumul:
+                        comb_score -= 30.0
+
+                # PHẠT ĐẶC THÙ NÚT LÁ SAO (R4: CHỐNG NHẢY VÀO 3 SAO, 4 SAO, 5 SAO KHI HỎI TỔNG THỂ)
+                q_has_star = any(w in q_lower for w in ["3 sao", "4 sao", "5 sao", "ba sao", "bốn sao", "năm sao"])
+                c_has_star = any(w in c_low for w in ["3 sao", "4 sao", "5 sao"])
+
+                if not q_has_star and c_has_star:
+                    comb_score -= 25.0  # Phạt nặng các nút lá sao khi câu hỏi hỏi tổng thể
+
+                # ĐỐI CHIẾU ĐỘ PHỦ TỪ VỰNG THỰC THỂ & CỤM TỪ LIỀN KỀ KHO DỮ LIỆU (R4 - Zero Hardcode)
+                if c_content_toks:
+                    matched_toks = [
+                        w for w in c_content_toks
+                        if f" {w} " in f" {norm_q} "
+                        or (w in acr_map_topk and acr_map_topk[w] in norm_q)
+                    ]
+                    comb_score += len(matched_toks) * 6.5
+                    comb_score += (len(matched_toks) / len(c_content_toks)) * 8.0
+
+                    for idx_t in range(len(c_content_toks) - 1):
+                        bg = f"{c_content_toks[idx_t]} {c_content_toks[idx_t + 1]}"
+                        if bg in norm_q:
+                            comb_score += 5.0
+
+                    # Phạt nếu ứng viên chứa từ viết tắt chuyên ngành (VD: OCOP, HTX, THT...) không xuất hiện trong câu hỏi
+                    for w in c_content_toks:
+                        if w in acr_map_topk:
+                            full_f = acr_map_topk[w]
+                            if f" {w} " not in f" {norm_q} " and full_f not in norm_q:
+                                comb_score -= 20.0
+
+                    # Cộng điểm liên kết cấu trúc cha-con nếu cụm danh từ trong câu hỏi khớp với từ vựng các nút con trực thuộc
+                    ch_blob = parent_children_blob.get(c_low, "")
+                    if ch_blob:
+                        q_content_toks = [w for w in norm_q.split() if w not in stop_toks_topk]
+                        for idx_q in range(len(q_content_toks) - 2):
+                            tri_q = f"{q_content_toks[idx_q]} {q_content_toks[idx_q + 1]} {q_content_toks[idx_q + 2]}"
+                            if tri_q in ch_blob and tri_q not in c_low:
+                                comb_score += 8.0
+                                break
+                else:
+                    # Ứng viên chỉ gồm các từ chung (VD: 'Lũy kế đến thời điểm báo cáo' hoặc 'Đang hoạt động' thiếu tên chủ thể)
+                    q_domain_only = [w for w in norm_q.split() if w not in stop_toks_topk and w not in ("lũy", "kế", "đạt", "mức")]
+                    if len(q_domain_only) >= 2:
+                        comb_score -= 18.0
 
             if comb_score >= score_cutoff:
                 valid_candidates.append({
                     "code": c.get("code"),
-                    "name": c_name,
-                    "score": comb_score,
+                    "name": c_name_clean,
+                    "score": round(comb_score, 2),
                     "dense_score": round(d_score, 2),
                     "sparse_score": round(s_score, 2),
                 })
@@ -2662,6 +2862,9 @@ class DuckDBSemanticCatalog:
         t_clean_norm = t_clean.replace("hóa", "hoá")
         for oid, name, dcode, t_code in off_rows:
             name_low = name.lower()
+            has_explicit_off_prefix = name_low.startswith(("phòng ", "văn phòng", "chi cục", "ban ", "trung tâm"))
+            if not has_explicit_off_prefix and not has_office_indicator:
+                continue
             if name_low.startswith("phòng ") and "phòng " not in t_clean and "phong " not in t_clean:
                 continue
             if name_low.startswith("văn phòng") and "văn phòng" not in t_clean and "van phong" not in t_clean:
@@ -2688,6 +2891,9 @@ class DuckDBSemanticCatalog:
         for item in self._alias_registry:
             if item.get("type") == "office" or item.get("target_table") == "dwh_internal.office":
                 al = item.get("alias", "").lower()
+                has_explicit_al_prefix = al.startswith(("phòng ", "văn phòng", "chi cục", "ban ", "trung tâm")) or al == "ptnt"
+                if not has_explicit_al_prefix and not has_office_indicator:
+                    continue
                 if al == "ptnt" and has_dept_indicator and "chi cục" not in t_clean:
                     continue
                 if al in tokens or (len(al) > 3 and al in t_clean) or fuzz.token_set_ratio(t_clean, al) >= 90.0:
@@ -3026,6 +3232,69 @@ class DuckDBSemanticCatalog:
                     t = t.replace(d_unacc, " ")
         return t
 
+    def _is_mission_shadowed_by_criterion(self, norm_query: str, unacc_query: str, m_low: str, m_unacc: str) -> bool:
+        """
+        Kiểm tra xem chuỗi khớp tên nhiệm vụ `m_low` trong câu hỏi có thực chất là tên chỉ tiêu (hoặc một phần tên chỉ tiêu)
+        khi người dùng không nêu từ khóa định danh nhiệm vụ (MISSION_ENTITY_MARKER) hay không.
+        """
+        if not m_low:
+            return False
+        if (
+            f"chỉ tiêu {m_low}" in norm_query
+            or f"tiêu chí {m_low}" in norm_query
+            or (m_unacc and (f"chi tieu {m_unacc}" in unacc_query or f"tieu chi {m_unacc}" in unacc_query))
+            or "trong nhóm đó" in norm_query
+            or "trong nhom do" in unacc_query
+        ):
+            return True
+
+        has_mission_marker = (
+            self.has_lexicon_term(norm_query, "MISSION_ENTITY_MARKER")
+            or self.has_lexicon_term(unacc_query, "MISSION_ENTITY_MARKER")
+        )
+        has_officer_marker = any(
+            w in norm_query for w in ("phụ trách", "phân công", "đảm nhiệm", "cán bộ", "chuyên viên")
+        )
+        if has_mission_marker or has_officer_marker:
+            return False
+
+        try:
+            crit_rows = self.conn.execute(
+                "SELECT DISTINCT LOWER(TRIM(name)) FROM catalog_criteria WHERE INSTR(LOWER(name), ?) > 0;",
+                [m_low],
+            ).fetchall()
+        except Exception:
+            crit_rows = []
+
+        if not crit_rows:
+            return False
+
+        m_toks = set(m_low.split())
+        q_toks = set("".join(ch if ch.isalnum() else " " for ch in norm_query).split())
+
+        for (c_name,) in crit_rows:
+            if not c_name:
+                continue
+            if c_name != m_low:
+                other_toks = {w for w in c_name.split() if len(w) >= 3 and w not in m_toks}
+                if other_toks & q_toks:
+                    return True
+            else:
+                if q_toks & {"htx", "tht", "lhhtx", "trang", "trại", "số", "lượng", "bao", "nhiêu", "giá", "trị"}:
+                    return True
+                try:
+                    md_row = self.conn.execute(
+                        "SELECT BOOL_OR(has_approved_facts) FROM catalog_missions_detail WHERE LOWER(TRIM(name)) = ?;",
+                        [m_low],
+                    ).fetchone()
+                    has_facts = bool(md_row and md_row[0])
+                except Exception:
+                    has_facts = True
+                if not has_facts:
+                    return True
+
+        return False
+
     def resolve_mission(self, term: str) -> Optional[str]:
         """
         Tra cứu động nhiệm vụ trọng tâm từ catalog_missions trong DuckDB RAM.
@@ -3043,6 +3312,9 @@ class DuckDBSemanticCatalog:
             m_low = m_name.lower().strip()
             if m_low.startswith("nhiệm vụ ") and m_low.replace("nhiệm vụ", "").strip().isdigit():
                 continue
+            m_unacc = self._remove_accents(m_low)
+            if self._is_mission_shadowed_by_criterion(t_clean, t_unacc, m_low, m_unacc):
+                continue
             # 1. Khớp chính xác cụm từ có ranh giới từ hợp lệ (có dấu hoặc không dấu)
             if m_low in t_clean:
                 idx = t_clean.find(m_low)
@@ -3050,7 +3322,6 @@ class DuckDBSemanticCatalog:
                 after_ok = (idx + len(m_low) == len(t_clean) or not t_clean[idx + len(m_low)].isalnum())
                 if before_ok and after_ok:
                     return m_name
-            m_unacc = self._remove_accents(m_low)
             if m_unacc and len(m_unacc) >= 5 and m_unacc in t_unacc:
                 idx = t_unacc.find(m_unacc)
                 before_ok = (idx == 0 or not t_unacc[idx - 1].isalnum())
@@ -3249,8 +3520,15 @@ class DuckDBSemanticCatalog:
                 if has_crit and not is_archetype_listing:
                     return False
                 m_input = self._strip_dept_noise(norm_input)
+                m_unacc = self._remove_accents(m_input)
                 mission_rows = self.conn.execute("SELECT DISTINCT LOWER(name) FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
-                mission_names = [r[0] for r in mission_rows if r[0] and not (r[0].startswith("nhiệm vụ ") and r[0].replace("nhiệm vụ", "").strip().isdigit())]
+                mission_names = [
+                    r[0]
+                    for r in mission_rows
+                    if r[0]
+                    and not (r[0].startswith("nhiệm vụ ") and r[0].replace("nhiệm vụ", "").strip().isdigit())
+                    and not self._is_mission_shadowed_by_criterion(m_input, m_unacc, r[0], self._remove_accents(r[0]))
+                ]
 
                 matches_mission = any(f" {m} " in f" {m_input} " for m in mission_names)
                 return matches_mission or is_mission_concept or is_archetype_listing
@@ -3627,6 +3905,8 @@ class DuckDBSemanticCatalog:
         for m in missions:
             m_name_low = unicodedata.normalize("NFC", m["name"]).lower().strip()
             m_unacc = self._remove_accents(m_name_low)
+            if self._is_mission_shadowed_by_criterion(clean_mission_input, unacc_mission_input, m_name_low, m_unacc):
+                continue
             if m_name_low and (m_name_low in clean_mission_input or (m_unacc and m_unacc in unacc_mission_input)):
                 return {
                     "status": "MATCH",
@@ -3775,8 +4055,10 @@ class DuckDBSemanticCatalog:
         # Chuẩn bị danh sách bản ghi hierarchy (chuẩn hóa khoảng trắng kép trong DB như 'Lũy kế  tổng...')
         items = []
         for r in rows:
-            c_name = unicodedata.normalize("NFC", (r[2] or "").strip())
-            c_low = " ".join(c_name.lower().split())
+            c_name = " ".join(unicodedata.normalize("NFC", (r[2] or "").strip()).split())
+            p_name_clean = " ".join(unicodedata.normalize("NFC", (r[4] or "").strip()).split()) if r[4] else None
+            r_name_clean = " ".join(unicodedata.normalize("NFC", (r[6] or "").strip()).split()) if r[6] else None
+            c_low = c_name.lower()
             c_unacc = self._remove_accents(c_low)
             items.append({
                 "id": r[0],
@@ -3785,10 +4067,10 @@ class DuckDBSemanticCatalog:
                 "name_low": c_low,
                 "name_unaccent": c_unacc,
                 "parent_id": r[3],
-                "parent_name": r[4],
+                "parent_name": p_name_clean,
                 "parent_level": max(1, int(r[7] or 2) - 1),
                 "root_id": r[5],
-                "root_name": r[6],
+                "root_name": r_name_clean,
                 "level": int(r[7] or 1),
                 "is_leaf": bool(r[8]),
                 "mission_name": r[9] or "",
@@ -3958,10 +4240,11 @@ class DuckDBSemanticCatalog:
                 if it["code"] == alias_matched_parent_code and it not in parent_matches:
                     parent_matches.append(it)
 
-        # Nếu không có leaf_matches trực tiếp nhưng matched_code từ bộ định tuyến trỏ vào một chỉ tiêu
-        if not leaf_matches and not parent_matches and matched_code:
+        # Nếu không có leaf_matches trực tiếp nhưng matched_code / matched_name từ bộ định tuyến trỏ vào một chỉ tiêu
+        if not leaf_matches and not parent_matches and (matched_code or matched_name):
+            m_name_norm = " ".join(unicodedata.normalize("NFC", (matched_name or "").lower().strip()).split())
             for it in items:
-                if it["code"] == matched_code:
+                if (matched_code and it["code"] == matched_code) or (m_name_norm and it["name_low"] == m_name_norm):
                     if it["is_leaf"]:
                         leaf_matches.append(it)
                     else:
@@ -4169,6 +4452,252 @@ class DuckDBSemanticCatalog:
             "name": matched_name,
             "matched_code": matched_code,
             "matched_name": matched_name,
+        }
+
+    def resolve_hierarchy_breakdown(
+        self,
+        query: str,
+        tenant_code: str = "68",
+        year_code: str = "2026"
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Phân giải câu hỏi cấu trúc / phân nhóm phân loại (R3 - Zero Hardcoding):
+        Đọc trực tiếp bảng phân cấp kho dữ liệu (`catalog_criteria_hierarchy`), từ viết tắt (`catalog_acronyms`)
+        và từ điển ngữ nghĩa (`semantic_lexicon`) để đối chiếu động (Root Specificity + Aspect Overlap + Child Vocab).
+        """
+        import unicodedata
+        import re
+        if not query:
+            return None
+
+        q_clean = " ".join(unicodedata.normalize('NFC', query or "").split())
+        q_low = q_clean.lower()
+        q_unacc = self._remove_accents(q_low)
+
+        # Chặn các câu hỏi tra cứu nhiệm vụ theo lĩnh vực (REQ-Q03) hoặc chỉ tiêu Cấp 1 theo nhiệm vụ (REQ-Q04)
+        if any(w in q_low for w in ["nhiệm vụ", "cấp 1", "bậc 1", "gốc cấp 1"]) or "nhiem vu" in q_unacc:
+            return None
+
+        # 1. Kiểm tra dấu hiệu câu hỏi phân nhóm qua Lexicon (cả có dấu và không dấu)
+        has_aspect = (
+            self.has_lexicon_term(q_low, "STRUCTURAL_BREAKDOWN_ASPECT")
+            or self.has_lexicon_term(q_unacc, "STRUCTURAL_BREAKDOWN_ASPECT")
+        )
+        has_trigger = (
+            self.has_lexicon_term(q_low, "BREAKDOWN_TRIGGER")
+            or self.has_lexicon_term(q_unacc, "BREAKDOWN_TRIGGER")
+        )
+        if not (has_aspect or has_trigger):
+            return None
+
+        # Chặn câu hỏi tra cứu giá trị đơn lẻ của một chỉ tiêu (REQ-Q02 / SC-2.4) khi không có BREAKDOWN_TRIGGER
+        if not has_trigger and any(
+            w in q_low
+            for w in [
+                "chỉ tiêu ",
+                "số liệu",
+                "giá trị",
+                "kết quả",
+                "là bao nhiêu",
+                "đạt bao nhiêu",
+                "thuộc nhóm",
+            ]
+        ):
+            return None
+
+        # 2. Lấy toàn bộ cây phân cấp từ DuckDB RAM
+        try:
+            rows = self.conn.execute("""
+                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value
+                FROM catalog_criteria_hierarchy;
+            """).fetchall()
+        except Exception:
+            rows = []
+        if not rows:
+            return None
+
+        hierarchy_nodes = []
+        for r in rows:
+            norm_name = re.sub(r'\s+', ' ', (r[2] or "").strip())
+            norm_parent = re.sub(r'\s+', ' ', (r[4] or "").strip()) if r[4] else None
+            norm_root = re.sub(r'\s+', ' ', (r[6] or "").strip()) if r[6] else None
+            hierarchy_nodes.append({
+                "id": str(r[0]),
+                "code": r[1],
+                "name": norm_name,
+                "parent_id": str(r[3]) if r[3] else None,
+                "parent_name": norm_parent,
+                "root_id": str(r[5]) if r[5] else None,
+                "root_name": norm_root,
+                "level": int(r[7] or 1),
+                "is_leaf": bool(r[8]),
+                "mission_name": r[9] or "Phát triển nông thôn",
+                "office_name": r[10] or "Chi cục",
+                "latest_value": r[11],
+            })
+
+        # Nếu câu hỏi nêu đích danh một chỉ tiêu lá cụ thể (độ dài >= 12 ký tự), ưu tiên luồng tra cứu chỉ tiêu đơn
+        for n in hierarchy_nodes:
+            if n["is_leaf"] and len(n["name"]) >= 12 and n["name"].lower() in q_low:
+                return None
+
+        # 3. Chuẩn hóa thực thể động từ bảng catalog_acronyms (ưu tiên cụm dài trước để không chồng lấn)
+        acr_replacements: List[Tuple[str, str]] = [
+            ("liên hiệp hợp tác xã", "lhhtx"),
+            ("lien hiep hop tac xa", "lhhtx"),
+            ("liên hiệp htx", "lhhtx"),
+            ("lien hiep htx", "lhhtx"),
+            ("lh htx", "lhhtx"),
+            ("trang trại", "tt"),
+            ("trang trai", "tt"),
+        ]
+        try:
+            db_acrs = self.conn.execute(
+                "SELECT LOWER(acronym), LOWER(full_form) FROM catalog_acronyms WHERE category = 'criteria' ORDER BY LENGTH(full_form) DESC;"
+            ).fetchall()
+            for acr_k, full_v in db_acrs:
+                acr_replacements.append((full_v.strip(), acr_k.strip()))
+                full_unacc = self._remove_accents(full_v.strip())
+                if full_unacc != full_v.strip():
+                    acr_replacements.append((full_unacc, acr_k.strip()))
+        except Exception:
+            pass
+
+        def _canonicalize_tokens(text_in: str) -> set:
+            t_norm = " " + re.sub(r'[^\w\s]', ' ', (text_in or "").lower()) + " "
+            t_norm = re.sub(r'\s+', ' ', t_norm)
+            for phrase, canon_acr in acr_replacements:
+                t_norm = re.sub(rf'(?<!\w){re.escape(phrase)}(?!\w)', f" {canon_acr} ", t_norm)
+            return {tok for tok in t_norm.split() if tok}
+
+        q_canon_tokens = _canonicalize_tokens(q_low)
+
+        # 4. Mở rộng từ vựng khía cạnh phân nhóm (Aspect Expansion) từ bảng semantic_lexicon
+        expanded_aspect_tokens = set()
+        matched_sub_intents = set()
+        try:
+            aspect_rows = self.conn.execute(
+                "SELECT term, sub_intent FROM semantic_lexicon WHERE category = 'STRUCTURAL_BREAKDOWN_ASPECT';"
+            ).fetchall()
+            for term_s, sub_int in aspect_rows:
+                if term_s in q_low or term_s in q_unacc:
+                    matched_sub_intents.add(sub_int)
+            if matched_sub_intents:
+                for term_s, sub_int in aspect_rows:
+                    if sub_int in matched_sub_intents and term_s == unicodedata.normalize("NFC", term_s):
+                        for w_a in term_s.split():
+                            if any(ord(ch) > 127 for ch in w_a) or w_a in ("linh", "vuc", "muc", "loai"):
+                                expanded_aspect_tokens.add(w_a)
+        except Exception:
+            pass
+
+        generic_root_stop = {
+            "nông", "nghiệp", "số", "lượng", "tổng", "chương", "trình", "đến", "thời",
+            "điểm", "báo", "cáo", "trong", "năm", "lũy", "kế", "phân", "theo", "của",
+            "các", "một", "được", "công", "nhận", "sản", "xuất", "nong", "nghiep",
+            "nn", "ptnt", "edit", "1", "2", "gd2", "gd23"
+        }
+        generic_aspect_stop = {
+            "số", "lượng", "tổng", "phân", "theo", "trong", "năm", "của", "các",
+            "htx", "tht", "lhhtx", "tt", "trang", "trại", "nông", "nghiệp", "nn", "ptnt", "edit", "1"
+        }
+        query_noise_stop = generic_root_stop | {
+            "bạn", "hãy", "cho", "tôi", "biết", "xem", "có", "đang", "hiện", "nay",
+            "tại", "những", "loại", "mức", "nào", "gì", "mấy", "bao", "nhiêu", "đồng", "chí"
+        }
+
+        # 5. Chấm điểm động từng nhóm cha trực tiếp của các chỉ tiêu lá (Leaf-Parent Group) trong Kho Dữ Liệu
+        best_score = -1.0
+        best_group: Optional[Tuple[Dict[str, Any], List[Dict[str, Any]]]] = None
+        q_all_aspect_toks = q_canon_tokens | expanded_aspect_tokens
+
+        for p_node in hierarchy_nodes:
+            if p_node["is_leaf"]:
+                continue
+            p_id = p_node["id"]
+            p_name = p_node["name"]
+            r_name = p_node.get("root_name") or p_name
+
+            # Nếu nút cha này còn chứa các nhóm con trung gian (non-leaf), đây là thực thể gốc Cấp 1 chứ không phải nhóm phân rã lá
+            has_non_leaf_subgroups = any(
+                (not n["is_leaf"]) and (
+                    (p_id and n["parent_id"] == p_id)
+                    or (not p_id and n["parent_name"] == p_name and (n.get("root_name") or "") == r_name)
+                )
+                for n in hierarchy_nodes
+            )
+            if has_non_leaf_subgroups:
+                continue
+
+            children = [
+                n for n in hierarchy_nodes
+                if p_id and n["parent_id"] == p_id and n["is_leaf"]
+            ]
+            if not children:
+                children = [
+                    n for n in hierarchy_nodes
+                    if n["parent_name"] == p_name and (n.get("root_name") or "") == r_name and n["is_leaf"]
+                ]
+            if len(children) < 2:
+                continue
+
+            r_toks = _canonicalize_tokens(r_name)
+            p_toks = _canonicalize_tokens(p_name)
+            ch_toks = _canonicalize_tokens(" ".join(c["name"] for c in children))
+
+            r_dist_toks = r_toks - generic_root_stop
+            if not r_dist_toks:
+                r_dist_toks = r_toks - {"tổng", "số", "lượng", "edit", "1", "2", "gd2", "gd23"}
+
+            # Điểm khớp thực thể gốc (Root Entity Specificity Score)
+            if r_dist_toks and r_dist_toks.issubset(q_canon_tokens):
+                root_score = 40.0 + len(r_dist_toks) * 8.0
+            elif r_dist_toks & q_canon_tokens:
+                missing_r = r_dist_toks - q_canon_tokens
+                root_score = (len(r_dist_toks & q_canon_tokens) * 15.0) - (len(missing_r) * 18.0)
+            else:
+                root_score = -50.0
+
+            if root_score <= 0:
+                continue
+
+            # Điểm khớp khía cạnh phân nhóm của nút cha (Parent Aspect Alignment Score)
+            p_aspect_toks = (p_toks - generic_aspect_stop) - r_dist_toks
+            if not p_aspect_toks:
+                p_aspect_toks = p_toks - {"số", "lượng", "tổng", "phân", "theo", "trong", "năm", "của", "các", "edit", "1", "2"}
+
+            matched_p_aspect = p_aspect_toks & q_all_aspect_toks
+            if not matched_p_aspect:
+                continue
+
+            aspect_score = (
+                len(matched_p_aspect) * 20.0
+                + (len(matched_p_aspect) / max(1, len(p_aspect_toks))) * 25.0
+            )
+
+            # Điểm đồng điệu từ vựng với tập chỉ tiêu con (Child Vocabulary Alignment Score)
+            q_domain_toks = q_canon_tokens - query_noise_stop
+            matched_ch = (q_domain_toks & ch_toks) - r_dist_toks
+            child_score = len(matched_ch) * 6.0
+
+            total_score = root_score + aspect_score + child_score
+            if total_score > best_score:
+                best_score = total_score
+                best_group = (p_node, children)
+
+        if not best_group or best_score < 45.0:
+            return None
+
+        target_parent_node, children = best_group
+        p_name = target_parent_node["name"]
+        children.sort(key=lambda x: (x.get("level", 3), x.get("code", "")))
+
+        return {
+            "status": "SUCCESS",
+            "parent_node": target_parent_node,
+            "root_name": target_parent_node.get("root_name") or p_name,
+            "child_count": len(children),
+            "children": children,
         }
 
     def build_criteria_tree_for_rows(
@@ -4436,10 +4965,11 @@ class DuckDBSemanticCatalog:
         parent_name: Optional[str] = None,
         year_code: str = "2026",
         tenant_code: str = "68",
+        child_nodes: Optional[List[Dict[str, Any]]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Truy xuất mảng các kỳ báo cáo đã phê duyệt trong năm của một chỉ tiêu (phục vụ Ticket slider-time 0ms).
-        Trả về danh sách sắp xếp tăng dần theo thời gian (iso_date ASC), kèm delta_prev và delta_pct.
+        Trả về danh sách sắp xếp tăng dần theo thời gian (iso_date ASC), kèm delta_prev, delta_pct và child_values.
         """
         snapshots: List[Dict[str, Any]] = []
         try:
@@ -4470,11 +5000,11 @@ class DuckDBSemanticCatalog:
                     crit_sub_conds.append("f.code = %s")
                     params.append(c_code)
             if criteria_name and not crit_sub_conds:
-                crit_sub_conds.append("LOWER(TRIM(f.name)) = LOWER(TRIM(%s))")
+                crit_sub_conds.append("REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')")
                 params.append(str(criteria_name).strip())
 
             if not crit_sub_conds and criteria_name:
-                crit_sub_conds.append("LOWER(TRIM(f.name)) = LOWER(TRIM(%s))")
+                crit_sub_conds.append("REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')")
                 params.append(str(criteria_name).strip())
 
             if not crit_sub_conds:
@@ -4483,7 +5013,7 @@ class DuckDBSemanticCatalog:
 
             conds.append("(" + " OR ".join(crit_sub_conds) + ")")
             if parent_name and not criteria_id and not criteria_code:
-                conds.append("LOWER(TRIM(COALESCE(p.name, ''))) = LOWER(TRIM(%s))")
+                conds.append("REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')")
                 params.append(str(parent_name).strip())
 
             where_sql = " AND ".join(conds)
@@ -4510,6 +5040,79 @@ class DuckDBSemanticCatalog:
             """
             cur.execute(sql, tuple(params))
             pg_rows = cur.fetchall()
+
+            # Truy xuất thêm lịch sử số liệu của các chỉ tiêu con trực thuộc (phục vụ R2.4: đồng bộ 0ms các nút gợi ý con)
+            child_history_by_id: Dict[str, List[Tuple[str, str]]] = {}
+            child_history_by_code: Dict[str, List[Tuple[str, str]]] = {}
+            child_history_by_name: Dict[str, List[Tuple[str, str]]] = {}
+            if child_nodes:
+                c_ids = [
+                    str(ch.get("id")).strip()
+                    for ch in child_nodes
+                    if ch.get("id") and len(str(ch.get("id")).strip()) == 36 and "-" in str(ch.get("id"))
+                ]
+                c_codes = [str(ch.get("code")).strip() for ch in child_nodes if ch.get("code")]
+                c_names = [
+                    " ".join(str(ch.get("ten_chi_tieu") or ch.get("name") or "").lower().split())
+                    for ch in child_nodes
+                    if (ch.get("ten_chi_tieu") or ch.get("name"))
+                ]
+                ch_or_conds = []
+                ch_params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+                if c_ids:
+                    ch_or_conds.append("f.criteria_id::text = ANY(%s)")
+                    ch_params.append(c_ids)
+                if c_codes:
+                    ch_or_conds.append("f.code = ANY(%s)")
+                    ch_params.append(c_codes)
+                if criteria_id and len(str(criteria_id).strip()) == 36 and "-" in str(criteria_id):
+                    ch_or_conds.append("f.parent_criteria_id::text = %s")
+                    ch_params.append(str(criteria_id).strip())
+                elif c_names:
+                    ch_or_conds.append("REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') = ANY(%s)")
+                    ch_params.append(c_names)
+
+                if ch_or_conds:
+                    ch_sql = f"""
+                        WITH ranked_ch AS (
+                            SELECT
+                                f.criteria_id::text AS cid,
+                                f.code AS ccode,
+                                REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') AS cname,
+                                f.report_date::date::text AS iso_date,
+                                f.value,
+                                ROW_NUMBER() OVER (
+                                    PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
+                                    ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                                ) AS rn
+                            FROM dwh_internal.fact_report_criteria f
+                            WHERE f.tenant_code = %s
+                              AND f.year_code = %s
+                              AND f.report_status = 'approved'
+                              AND ({" OR ".join(ch_or_conds)})
+                        )
+                        SELECT cid, ccode, cname, iso_date, value
+                        FROM ranked_ch
+                        WHERE rn = 1 AND iso_date IS NOT NULL
+                        ORDER BY iso_date ASC;
+                    """
+                    cur.execute(ch_sql, tuple(ch_params))
+                    for cid_r, ccode_r, cname_r, c_iso, c_raw_v in cur.fetchall():
+                        if c_raw_v is None or str(c_raw_v).strip() in ("", "-", "None", "null"):
+                            continue
+                        try:
+                            c_num = float(str(c_raw_v).strip())
+                            c_fmt = f"{int(c_num):,}".replace(",", ".") if c_num.is_integer() else f"{c_num:,.2f}"
+                        except Exception:
+                            c_fmt = str(c_raw_v).strip()
+                        c_iso_s = str(c_iso).strip()[:10]
+                        if cid_r:
+                            child_history_by_id.setdefault(str(cid_r).strip().lower(), []).append((c_iso_s, c_fmt))
+                        if ccode_r:
+                            child_history_by_code.setdefault(str(ccode_r).strip().lower(), []).append((c_iso_s, c_fmt))
+                        if cname_r:
+                            child_history_by_name.setdefault(str(cname_r).strip().lower(), []).append((c_iso_s, c_fmt))
+
             conn_pg.close()
 
             prev_num: Optional[float] = None
@@ -4550,6 +5153,33 @@ class DuckDBSemanticCatalog:
                 if clean_off.lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
                     clean_off = "Chi cục"
 
+                snap_child_values: Dict[str, str] = {}
+                if child_nodes:
+                    for ch_idx, ch_item in enumerate(child_nodes):
+                        ch_id_k = str(ch_item.get("id") or "").strip().lower()
+                        ch_code_k = str(ch_item.get("code") or "").strip().lower()
+                        ch_raw_nm = str(ch_item.get("ten_chi_tieu") or ch_item.get("name") or "").strip()
+                        ch_nm_k = " ".join(ch_raw_nm.lower().split())
+                        hist = (
+                            child_history_by_id.get(ch_id_k)
+                            or child_history_by_code.get(ch_code_k)
+                            or child_history_by_name.get(ch_nm_k)
+                            or []
+                        )
+                        chosen_c_val = "-"
+                        for h_iso, h_val in hist:
+                            if h_iso == iso_s:
+                                chosen_c_val = h_val
+                                break
+                            if h_iso <= iso_s:
+                                chosen_c_val = h_val
+                        chip_key = f"chip_alt_{ch_idx + 1}"
+                        snap_child_values[chip_key] = chosen_c_val
+                        if ch_raw_nm:
+                            snap_child_values[ch_raw_nm] = chosen_c_val
+                        if ch_id_k:
+                            snap_child_values[ch_id_k] = chosen_c_val
+
                 snapshots.append({
                     "date": rep_ddmmyyyy,
                     "report_date": rep_ddmmyyyy,
@@ -4561,6 +5191,7 @@ class DuckDBSemanticCatalog:
                     "mission": str(mis_name or "-").strip(),
                     "delta_prev": d_prev,
                     "delta_pct": d_pct,
+                    "child_values": snap_child_values,
                 })
         except Exception as e:
             logger.debug("Không thể truy vấn timeline snapshots từ PG: %s", e)

@@ -156,21 +156,20 @@ class ClarificationEngine:
                     "địa", "bàn", "thực", "hiện", "kỳ", "báo", "cáo", "đạt", "công", "nhận"
                 }
                 for c_code, c_name, is_leaf in all_crits:
-                    c_low = c_name.lower().strip()
+                    c_low = " ".join(c_name.lower().strip().split())
                     if c_low in q_norm and len(c_low) >= 10:
                         c_toks = set(c_low.split()) - stop_tokens - {"chỉ", "tiêu"}
                         if len(c_toks) >= 1:
                             has_specific_leaf = True
                             break
-                    if is_leaf:
-                        if c_low in q_norm and len(c_low) >= 6:
-                            has_specific_leaf = True
-                            break
-                        c_toks = set("".join(c if c.isalnum() else " " for c in c_low).split())
-                        content_toks = c_toks - stop_tokens
-                        if len(content_toks) >= 2 and content_toks.issubset(q_tokens):
-                            has_specific_leaf = True
-                            break
+                    c_toks = set("".join(c if c.isalnum() else " " for c in c_low).split())
+                    content_toks = c_toks - stop_tokens
+                    if len(content_toks) >= 2 and content_toks.issubset(q_tokens):
+                        has_specific_leaf = True
+                        break
+                    if is_leaf and c_low in q_norm and len(c_low) >= 6:
+                        has_specific_leaf = True
+                        break
 
                 if not has_specific_leaf:
                     acronym_rows = self.catalog.conn.execute(
