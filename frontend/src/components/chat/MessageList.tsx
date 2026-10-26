@@ -18,14 +18,23 @@ export const MessageList: React.FC<MessageListProps> = ({
   onImageClick,
   onSelectChip,
 }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    container.scrollTo({
+      top: container.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages, isLoading]);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 bg-white">
+    <div
+      ref={scrollContainerRef}
+      className="flex-1 min-h-0 relative overflow-y-auto p-4 sm:p-6 space-y-4 bg-white"
+    >
       {messages.length === 0 ? (
         <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500">
           <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-4 border border-blue-100 shadow-sm">

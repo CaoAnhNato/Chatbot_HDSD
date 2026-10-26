@@ -162,8 +162,12 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
           `$1${activeSnapshot.office}`
         );
       }
-      // Đồng bộ lưu ý mốc thời gian nếu có cảnh báo lệch ngày
+      // Đồng bộ lưu ý mốc thời gian và câu dẫn nếu có cảnh báo lệch ngày
       if (activeShiftNotice) {
+        text = text.replace(
+          /(\(ngày\s+)\d{2}\/\d{2}\/\d{4}(\):)/,
+          `$1${targetDate}$2`
+        );
         if (text.includes('- **Lưu ý mốc thời gian:**')) {
           text = text.replace(
             /(- \*\*Lưu ý mốc thời gian:\*\* )[^\n]+/,
@@ -176,6 +180,10 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
           );
         }
       } else {
+        text = text.replace(
+          /Hệ thống không ghi nhận dữ liệu báo cáo vào đúng ngày [^\n]+\(ngày\s+\d{2}\/\d{2}\/\d{4}\):/,
+          `Thông tin số liệu của chỉ tiêu đồng chí tra cứu (kỳ báo cáo ngày ${targetDate}):`
+        );
         text = text.replace(/\n- \*\*Lưu ý mốc thời gian:\*\* [^\n]+/, '');
       }
     } else if (tablePeriod && (message.tabular_data as any)?.parent_timeline_values) {

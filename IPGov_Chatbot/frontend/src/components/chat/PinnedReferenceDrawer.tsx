@@ -318,7 +318,7 @@ export const PinnedReferenceDrawer: React.FC<PinnedReferenceDrawerProps> = ({
   return (
     <aside
       data-testid="pinned-reference-drawer"
-      className="fixed inset-y-0 right-0 w-full max-w-[100vw] sm:static sm:w-96 shrink-0 border-l border-slate-200 bg-slate-50/95 flex flex-col h-full overflow-hidden shadow-lg z-30"
+      className="fixed inset-y-0 right-0 w-full max-w-[100vw] sm:static sm:w-96 shrink-0 border-l border-slate-200 bg-slate-50/95 flex flex-col h-full min-h-0 overflow-hidden shadow-lg z-30"
     >
       {/* Header */}
       <div className="px-4 py-3 bg-white border-b border-slate-200 flex items-center justify-between gap-2 shrink-0">
@@ -441,7 +441,7 @@ export const PinnedReferenceDrawer: React.FC<PinnedReferenceDrawerProps> = ({
       </div>
 
       {/* Body Content */}
-      <div className="p-3.5 overflow-y-auto flex-1 space-y-3">
+      <div className="p-3.5 overflow-y-auto flex-1 min-h-0 space-y-3">
         {activeItem.type === 'tree'
           ? renderTreePreview(activeItem)
           : activeItem.type === 'metric'

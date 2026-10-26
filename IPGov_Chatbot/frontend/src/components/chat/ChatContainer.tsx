@@ -265,7 +265,7 @@ export const ChatContainer: React.FC = () => {
         if (msgs && msgs.length > 0) {
           setMessages(msgs);
           target.messages = msgs;
-          saveSession(target);
+          saveSession(target, { preserveTimestamp: true });
         }
       } catch (err) {
         console.warn(`Could not restore messages for session ${target.id}:`, err);
@@ -303,7 +303,10 @@ export const ChatContainer: React.FC = () => {
 
   // Hàm lưu phiên hội thoại độc lập
   const persistSession = (sid: string, msgs: ChatMessage[], currentRole: UserRoleProfile) => {
-    const userMessages = msgs.filter((m) => m.role === 'user');
+    const persistableMsgs = msgs
+      .filter((m) => !String(m.id || '').startsWith('welcome-') && !(m.isStreaming && !m.content))
+      .map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m));
+    const userMessages = persistableMsgs.filter((m) => m.role === 'user');
     if (userMessages.length === 0) return;
 
     const firstUserText = userMessages[0].content;
@@ -319,7 +322,7 @@ export const ChatContainer: React.FC = () => {
       tenant_code: currentRole.tenant_code,
       createdAt: existingSession?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      messages: msgs,
+      messages: persistableMsgs,
     };
 
     saveSession(sessionObj);
@@ -380,7 +383,7 @@ export const ChatContainer: React.FC = () => {
         if (msgs && msgs.length > 0) {
           setMessages(msgs);
           session.messages = msgs;
-          saveSession(session);
+          saveSession(session, { preserveTimestamp: true });
           return;
         }
       } catch (err) {
@@ -657,8 +660,8 @@ export const ChatContainer: React.FC = () => {
         </header>
 
         {/* Khung nội dung Split-Screen: Cột Chat bên trái + Khay Tham Chiếu Đã Ghim bên phải (Feature 2 Tier 2) */}
-        <div className="flex-1 flex h-full overflow-hidden">
-          <div className="flex-1 flex flex-col h-full overflow-hidden">
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
             {/* Messages List (bọc trong ChatErrorBoundary để chống sập giao diện đa lượt) */}
             <ChatErrorBoundary>
               <MessageList

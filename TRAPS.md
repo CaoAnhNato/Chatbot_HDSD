@@ -1018,3 +1018,36 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     1. Phân tích đầy đủ `specific_date`, `month_filter`, `date_from`, `date_to` trong `initialTemporalInfo` và giữ nguyên `rows` gốc khi `!hasUserChangedPeriod && hasCustomBackendRange`.
     2. Đồng bộ `periodAdjustedRows` vào `handlePinTable`, bộ đếm bộ lọc nhanh, `activeTreeNodes`, và đồng bộ cả `preview_value` lẫn `query_text` của `QuickActionChips` theo `tablePeriod`.
     3. Cache `self._catalog` trên instance `ChatHistoryStore` và ghi nhận kết quả hydrate vào SQLite để các lần đọc sau đạt độ trễ 0ms.
+
+---
+
+### [TRAP-097] Bẫy Rò Rỉ `position: absolute` Của `.sr-only` Ra Khỏi Thẻ Con Kết Hợp `scrollIntoView()` Cuộn Khung Cha `overflow-hidden` Làm Biến Mất Khung Chat
+- **Môi trường & Công nghệ:** `SingleMetricSliderCard.tsx` / `MessageList.tsx` / `ChatContainer.tsx` / Tailwind CSS (`.sr-only`) / W3C CSSOM View (`Element.scrollIntoView`)
+- **Triệu chứng:**
+  Khi mở hoặc thực thi phiên hội thoại dài 5 lượt có chứa thẻ `SingleMetricSliderCard` ở cuối danh sách (ví dụ phiên 10 tin nhắn `"bạn hãy cho tôi biết lũy kế tổng số lượng..."` kết thúc bằng câu `"cho tôi biết số liệu chăn nuôi của liên hiệp hợp tác xã ngày 30/4"`), toàn bộ thanh `<header>` và vùng danh sách tin nhắn `<MessageList>` biến mất khỏi màn hình, chỉ còn thanh nhập liệu `<ChatInput>` bị đẩy nhảy lên sát mép trên cùng (`y = 24px`) kèm khoảng trắng rỗng 969px phía dưới.
+- **Nguyên nhân gốc rễ:**
+  1. Trong `SingleMetricSliderCard.tsx`, hai thẻ `<span className="sr-only">` (`slider-active-value` và `slider-delta-badge`) mang thuộc tính `position: absolute` với `top: auto; left: auto`. Do cả `SingleMetricSliderCard` lẫn `MessageList` đều không có `position: relative`, khối chứa định vị (containing block) của `.sr-only` bị rò rỉ ra tận khung cột phải `div.flex-1.flex.flex-col.h-full.bg-white.relative.overflow-hidden` trong `ChatContainer.tsx`. Ở tin nhắn thứ 10 (`y = 4083px`), thẻ `.sr-only` làm `scrollHeight` của khung cột phải phình từ `1080px` lên `4083px`.
+  2. Ngay sau đó, `MessageList.tsx` gọi `bottomRef.current?.scrollIntoView({ behavior: 'smooth' })`. Theo đặc tả W3C CSSOM View, `scrollIntoView()` cuộn **mọi** khung chứa tổ tiên có nội dung tràn—kể cả phần tử có `overflow: hidden` (programmatic scroll container). Khung cột phải bị cuộn tới `scrollTop = 969px`, đẩy `<header>` (`y = -969px`) và `<MessageList>` (`y = -892px..+24px`) văng hoàn toàn lên phía trên mép màn hình.
+  3. Ngoài ra, hai thẻ bọc flex dưới `<header>` trong `ChatContainer.tsx` dùng `h-full` (`height: 100%`) thay vì `min-h-0`, làm chiều cao tổng cộng vượt quá khung cha một khoảng đúng bằng chiều cao header (`77px`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không đặt phần tử `.sr-only` (`position: absolute`) bên trong component con mà không có `position: relative` trên thẻ gốc của component đó; Không dùng `bottomRef.current.scrollIntoView()` trong giao diện đa khung lồng nhau có `overflow-hidden`; Không dùng `flex-1 h-full` cho phần tử flex con nằm cùng cấp với `<header>`.
+  * ✅ **ALWAYS:**
+    1. Đặt `relative` trên thẻ gốc của `SingleMetricSliderCard` và thêm `top-0 left-0` cho mọi phần tử `.sr-only`.
+    2. Trong `MessageList.tsx`, thêm `min-h-0 relative` vào container cuộn và chỉ cuộn trực tiếp `scrollContainerRef.current.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })` thay vì `scrollIntoView()`.
+    3. Trong `ChatContainer.tsx`, dùng `flex-1 flex overflow-hidden min-h-0 relative` cho các khung flex dưới `<header>`.
+
+---
+
+### [TRAP-098] Bẫy Toán Tử Nullish Coalescing `localShiftNotice ?? card.temporal_shift_notice` Giữ Kẹt Cảnh Báo Lệch Ngày Và Bẫy Đếm Lệch `11 tin nhắn` Do Lưu Thẻ `welcome-*` Vào `localStorage`
+- **Môi trường & Công nghệ:** `SingleMetricSliderCard.tsx` / `MessageItem.tsx` / `ChatContainer.tsx` / `storage.ts`
+- **Triệu chứng:**
+  1. Ở câu hỏi tra cứu ngày lệch đợt chốt sổ (ví dụ: *"cho tôi biết số liệu chăn nuôi của liên hiệp hợp tác xã ngày 30/4"*), khi người dùng bấm chuyển sang nút kỳ báo cáo chính xác `Kỳ Q3 (30/09/2026)`, hộp cảnh báo màu vàng `"Ngày tra cứu 30/04/2026 không trùng đợt chốt sổ... đối chiếu mốc gần nhất ngày 31/03/2026"` trong `SingleMetricSliderCard` và câu dẫn `(ngày 31/03/2026):` bên dưới vẫn không biến mất, gây mâu thuẫn với dòng `- **Thời điểm báo cáo:** 30/09/2026`.
+  2. Khi thực hiện phiên hội thoại mới 5 lượt (10 tin nhắn), thanh bên `ChatSidebar` hiển thị `11 tin nhắn` (do tính luôn thẻ chào mừng `welcome-*` ở đầu mảng `messages`), và khi nhấn vào xem lại phiên cũ (`12:08`), hàm `saveSession(target)` ghi đè `updatedAt = new Date().toISOString()` làm mốc thời gian của phiên cũ bị biến đổi thành giờ hiện tại.
+- **Nguyên nhân gốc rễ:**
+  1. `SingleMetricSliderCard.tsx` dùng biểu thức `const effectiveShiftNotice = localShiftNotice ?? card.temporal_shift_notice ?? null;`. Vì toán tử `??` trong JavaScript/TypeScript rơi về vế phải khi vế trái là `null` hoặc `undefined`, lệnh `setLocalShiftNotice(null)` khi bấm nút chọn kỳ báo cáo hoàn toàn vô tác dụng (vẫn trả về `card.temporal_shift_notice`).
+  2. `persistSession` trong `ChatContainer.tsx` và `safeWriteSessions`/`mergeSessions` trong `storage.ts` chưa lọc bỏ phần tử `welcome-*` và phần tử chờ stream rỗng (`isStreaming && !content`), đồng thời `saveSession` luôn ép `updatedAt = new Date().toISOString()` ngay cả khi chỉ khôi phục lịch sử.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dùng `localState ?? propValue` khi `null` là giá trị hợp lệ dùng để xóa trạng thái; Không lưu thẻ chào mừng `welcome-*` vào mảng `session.messages`; Không ghi đè `updatedAt` khi chỉ đọc/khôi phục phiên hội thoại cũ.
+  * ✅ **ALWAYS:**
+    1. Khởi tạo `localShiftNotice` trực tiếp từ `card.temporal_shift_notice ?? null` và gán `effectiveShiftNotice = localShiftNotice`, đồng thời cập nhật câu dẫn ngày trong `MessageItem.tsx` khi chuyển kỳ.
+    2. Lọc bỏ `welcome-*` và `isStreaming && !content` qua `isPersistableMessage` trong `storage.ts` và `persistSession`, đồng thời truyền `{ preserveTimestamp: true }` vào `saveSession` khi khôi phục phiên từ SQLite.

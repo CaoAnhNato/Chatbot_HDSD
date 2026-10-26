@@ -591,7 +591,134 @@ export async function runChallengerM1StressSuite() {
     r3SpecDateHtml.includes('>56<') && r3SpecDateHtml.includes('>50<') && r3SpecDateHtml.includes('>16<') && r3SpecDateHtml.includes('>0<') && !r3SpecDateHtml.includes('>55<'),
     'Specific-date (31/03/2026) SmartTable must preserve 56; 50; 16; 0 and not overwrite with year values'
   );
-  console.log('- R3 Hierarchy Breakdown SmartTable render across Year (56;55;16;3), Q2 (57;55;16;0), and Specific Date 31/03/2026 (56;50;16;0) verified.');
+  console.log('- R3 Hierarchy Breakdown SmartTable render across Year (56;55;16;3), Q2 (57;55;16;0), and Specific Date 31/03/2026 (56;50;26;0) verified.');
+
+  // =========================================================================
+  // 6. VERIFICATION: Layout Containment Invariant (Prevent sr-only / scrollIntoView Frame Collapse)
+  // =========================================================================
+  console.log('\n--- 6. Testing Layout Containment Invariants (SingleMetricSliderCard & MessageList) ---');
+  assert.ok(
+    cardMarkup.includes('data-testid="metric-slider-time" class="relative '),
+    'SingleMetricSliderCard root must have position: relative to contain absolute .sr-only spans'
+  );
+  assert.ok(
+    cardMarkup.includes('class="sr-only top-0 left-0"'),
+    'SingleMetricSliderCard .sr-only spans must have top-0 left-0'
+  );
+  assert.ok(
+    state3Html.includes('flex-1 min-h-0 relative overflow-y-auto'),
+    'MessageList scroll container must have min-h-0 and relative'
+  );
+  console.log('- Layout containment invariants verified.');
+
+  // =========================================================================
+  // 7. VERIFICATION: Dual-Layer Session Persistence & Timestamp Invariants
+  // =========================================================================
+  console.log('\n--- 7. Testing Dual-Layer Session Merge & Timestamp Preservation ---');
+  clearAllSessions();
+  const historicalTs = '2026-10-26T05:08:20.421900+00:00';
+  const rawLocalMsgs: ChatMessage[] = [
+    {
+      id: 'welcome-role_l0_lamdong',
+      role: 'assistant',
+      content: 'Xin chào đồng chí!',
+      timestamp: historicalTs,
+    },
+    {
+      id: 'u-1',
+      role: 'user',
+      content: 'Câu hỏi 1',
+      timestamp: historicalTs,
+    },
+    {
+      id: 'b-1',
+      role: 'assistant',
+      content: 'Trả lời 1',
+      timestamp: historicalTs,
+      isStreaming: true,
+    },
+    {
+      id: 'b-pending',
+      role: 'assistant',
+      content: '',
+      timestamp: historicalTs,
+      isStreaming: true,
+    },
+  ];
+
+  saveSession(
+    {
+      id: 'session-test-merge',
+      title: 'Câu hỏi 1',
+      role: 'role_l0_lamdong',
+      level: 0,
+      tenant_code: '68',
+      createdAt: historicalTs,
+      updatedAt: historicalTs,
+      messages: rawLocalMsgs,
+    },
+    { preserveTimestamp: true }
+  );
+
+  const loadedAfterPreserve = loadSessions();
+  assert.equal(loadedAfterPreserve.length, 1);
+  assert.equal(
+    loadedAfterPreserve[0].updatedAt,
+    historicalTs,
+    'saveSession with preserveTimestamp: true must preserve historical updatedAt'
+  );
+  assert.equal(
+    loadedAfterPreserve[0].messages.length,
+    2,
+    'welcome-* and empty streaming placeholders must be filtered out on persist/load'
+  );
+  assert.equal(
+    loadedAfterPreserve[0].messages[1].isStreaming,
+    false,
+    'Persisted messages must have isStreaming reset to false'
+  );
+
+  const cloudSession: ChatSession = {
+    id: 'session-test-merge',
+    title: 'Câu hỏi 1',
+    role: 'role_l0_lamdong',
+    level: 0,
+    tenant_code: '68',
+    createdAt: historicalTs,
+    updatedAt: historicalTs,
+    messages: [
+      { id: 'u-1', role: 'user', content: 'Câu hỏi 1', timestamp: historicalTs },
+      {
+        id: 'b-1',
+        role: 'assistant',
+        content: 'Trả lời 1',
+        timestamp: historicalTs,
+        tabular_data: {
+          columns: [{ key: 'name', label: 'Tên' }],
+          rows: [{ name: 'HTX', timeline_values: { year: 10, q1: 5 } }],
+          trees_by_root_id: { root1: { id: 'root1', name: 'HTX' } } as any,
+        },
+      },
+    ],
+  };
+
+  const mergedResult = mergeSessions(
+    [
+      {
+        ...loadedAfterPreserve[0],
+        updatedAt: '2026-10-26T05:25:00.000Z',
+        messages: rawLocalMsgs,
+      },
+    ],
+    [cloudSession]
+  );
+  assert.equal(mergedResult[0].messages.length, 2, 'Merged session must have 2 real messages');
+  assert.equal(
+    mergedResult[0].updatedAt,
+    historicalTs,
+    'Merged session must preserve authoritative cloud updatedAt when message counts match'
+  );
+  console.log('- Dual-layer session merge, welcome-filtering, and timestamp preservation verified.');
 
   console.log('\n=== ALL CHALLENGER M1 EMPIRICAL STRESS TESTS PASSED (100%) ===\n');
 }

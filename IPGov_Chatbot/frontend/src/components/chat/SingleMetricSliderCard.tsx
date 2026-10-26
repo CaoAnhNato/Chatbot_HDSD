@@ -48,11 +48,13 @@ export const SingleMetricSliderCard: React.FC<SingleMetricSliderCardProps> = ({
 
   const [selectedIdx, setSelectedIdx] = useState<number>(initialIdx);
   const [customDate, setCustomDate] = useState<string>('');
-  const [localShiftNotice, setLocalShiftNotice] = useState<string | null>(null);
+  const [localShiftNotice, setLocalShiftNotice] = useState<string | null>(
+    card.temporal_shift_notice ?? null
+  );
 
   useEffect(() => {
     setSelectedIdx(initialIdx);
-    setLocalShiftNotice(null);
+    setLocalShiftNotice(card.temporal_shift_notice ?? null);
   }, [initialIdx, card.temporal_shift_notice]);
 
   const activeSnap =
@@ -62,7 +64,7 @@ export const SingleMetricSliderCard: React.FC<SingleMetricSliderCardProps> = ({
   const displayDate = activeSnap ? activeSnap.report_date || activeSnap.date || baseActiveDate : baseActiveDate || '-';
   const displayOffice = activeSnap?.office || baseOffice;
   const displayMission = activeSnap?.mission || baseMission;
-  const effectiveShiftNotice = localShiftNotice ?? card.temporal_shift_notice ?? null;
+  const effectiveShiftNotice = localShiftNotice;
 
   const handlePin = () => {
     if (!onPinItem) return;
@@ -171,14 +173,14 @@ export const SingleMetricSliderCard: React.FC<SingleMetricSliderCardProps> = ({
   return (
     <div
       data-testid="metric-slider-time"
-      className="not-prose my-2.5 rounded-2xl border border-blue-200/90 bg-gradient-to-r from-blue-50/60 via-indigo-50/30 to-slate-50 p-3.5 shadow-xs"
+      className="relative not-prose my-2.5 rounded-2xl border border-blue-200/90 bg-gradient-to-r from-blue-50/60 via-indigo-50/30 to-slate-50 p-3.5 shadow-xs"
     >
       {/* Ẩn giá trị active và delta badge để bảo toàn backward compatibility cho e2e tests */}
-      <span data-testid="slider-active-value" className="sr-only">
+      <span data-testid="slider-active-value" className="sr-only top-0 left-0">
         {displayValue}
       </span>
       {activeSnap?.delta_prev !== null && activeSnap?.delta_prev !== undefined && (
-        <span data-testid="slider-delta-badge" className="sr-only">
+        <span data-testid="slider-delta-badge" className="sr-only top-0 left-0">
           {activeSnap.delta_prev > 0 ? `+${activeSnap.delta_prev}` : activeSnap.delta_prev}
         </span>
       )}

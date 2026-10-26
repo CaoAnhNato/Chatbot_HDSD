@@ -17,10 +17,12 @@ export const cleanSessionTitle = (rawTitle: string): string => {
 };
 
 export const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
-  const cleanMsg =
-    msg.role === 'user' && msg.content
+  const cleanMsg: ChatMessage = {
+    ...(msg.role === 'user' && msg.content
       ? { ...msg, content: stripTenantContextPrefix(msg.content) }
-      : msg;
+      : msg),
+    isStreaming: false,
+  };
   if (!cleanMsg.tabular_data) return cleanMsg;
   const td: any = { ...cleanMsg.tabular_data };
 
@@ -46,12 +48,21 @@ export const compactMessageForStorage = (msg: ChatMessage): ChatMessage => {
   };
 };
 
+const isPersistableMessage = (m: ChatMessage | undefined | null): m is ChatMessage => {
+  if (!m) return false;
+  if (String(m.id || '').startsWith('welcome-')) return false;
+  if (m.isStreaming && !m.content) return false;
+  return true;
+};
+
 const safeWriteSessions = (sessions: ChatSession[]): void => {
   if (typeof window === 'undefined') return;
   let list = sessions.slice(0, MAX_SAVED_SESSIONS).map((s) => ({
     ...s,
     title: cleanSessionTitle(s.title),
-    messages: Array.isArray(s.messages) ? s.messages.map(compactMessageForStorage) : [],
+    messages: Array.isArray(s.messages)
+      ? s.messages.filter(isPersistableMessage).map(compactMessageForStorage)
+      : [],
   }));
 
   while (list.length > 0) {
@@ -105,11 +116,12 @@ export const loadSessions = (): ChatSession[] => {
             ...s,
             title: cleanSessionTitle(s.title),
             messages: Array.isArray(s.messages)
-              ? s.messages.map((m) =>
-                  m.role === 'user' && m.content
+              ? s.messages.filter(isPersistableMessage).map((m) => ({
+                  ...(m.role === 'user' && m.content
                     ? { ...m, content: stripTenantContextPrefix(m.content) }
-                    : m
-                )
+                    : m),
+                  isStreaming: false,
+                }))
               : [],
           }))
           .sort(
@@ -135,20 +147,24 @@ export const mergeSessions = (
     byId.set(ls.id, {
       ...ls,
       title: cleanSessionTitle(ls.title),
+      messages: Array.isArray(ls.messages) ? ls.messages.filter(isPersistableMessage) : [],
     });
   }
 
   for (const cs of cloudSessions || []) {
     if (!cs || !cs.id) continue;
     const existing = byId.get(cs.id);
+    const cloudMsgs = Array.isArray(cs.messages) ? cs.messages.filter(isPersistableMessage) : [];
     if (!existing) {
       byId.set(cs.id, {
         ...cs,
         title: cleanSessionTitle(cs.title),
+        messages: cloudMsgs,
       });
     } else {
-      const localMsgs = existing.messages || [];
-      const cloudMsgs = cs.messages || [];
+      const localMsgs = Array.isArray(existing.messages)
+        ? existing.messages.filter(isPersistableMessage)
+        : [];
       const cloudHasTimeline = cloudMsgs.some((m) =>
         Array.isArray((m.tabular_data as any)?.rows) &&
         (m.tabular_data as any).rows.some((r: any) => Boolean(r?.timeline_values))
@@ -161,16 +177,18 @@ export const mergeSessions = (
         cloudMsgs.length >= localMsgs.length || (cloudHasTimeline && !localHasTimeline)
           ? cloudMsgs
           : localMsgs;
-      const newerUpdated =
-        new Date(cs.updatedAt || cs.createdAt || 0).getTime() >
-        new Date(existing.updatedAt || existing.createdAt || 0).getTime()
+      const chosenUpdated =
+        cloudMsgs.length >= localMsgs.length && cs.updatedAt
+          ? cs.updatedAt
+          : new Date(cs.updatedAt || cs.createdAt || 0).getTime() >
+            new Date(existing.updatedAt || existing.createdAt || 0).getTime()
           ? cs.updatedAt
           : existing.updatedAt;
       byId.set(cs.id, {
         ...existing,
         ...cs,
         title: cleanSessionTitle(cs.title || existing.title),
-        updatedAt: newerUpdated || new Date().toISOString(),
+        updatedAt: chosenUpdated || new Date().toISOString(),
         messages: chosenMsgs,
       });
     }
@@ -185,7 +203,10 @@ export const mergeSessions = (
   return merged;
 };
 
-export const saveSession = (session: ChatSession): void => {
+export const saveSession = (
+  session: ChatSession,
+  options?: { preserveTimestamp?: boolean }
+): void => {
   if (typeof window === 'undefined') return;
   try {
     const sessions = loadSessions();
@@ -194,7 +215,10 @@ export const saveSession = (session: ChatSession): void => {
     const updatedSession: ChatSession = {
       ...session,
       title: cleanSessionTitle(session.title),
-      updatedAt: new Date().toISOString(),
+      updatedAt:
+        options?.preserveTimestamp && session.updatedAt
+          ? session.updatedAt
+          : new Date().toISOString(),
     };
 
     if (existingIndex >= 0) {

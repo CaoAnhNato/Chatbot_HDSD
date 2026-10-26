@@ -169,7 +169,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             </div>
 
             {/* Session List */}
-            <div className="flex-1 overflow-y-auto p-2 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-4">
               {filteredSessions.length === 0 ? (
                 <div className="text-center py-12 px-4">
                   <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
