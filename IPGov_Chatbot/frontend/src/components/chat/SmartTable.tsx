@@ -1410,6 +1410,9 @@ interface InteractiveCriteriaTreeModalProps {
   activeTreeNodes: any[];
   expandAllCounter: number;
   temporalScope?: TemporalScopeMeta;
+  temporalLabelOverride?: string | null;
+  activePeriod?: string;
+  onSelectPeriod?: (periodId: string, phrase: string) => void;
   onExpandAll: () => void;
   onClose: () => void;
   onSelectChip?: (chip: string) => void;
@@ -1420,6 +1423,9 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
   activeTreeNodes,
   expandAllCounter,
   temporalScope,
+  temporalLabelOverride,
+  activePeriod = 'year',
+  onSelectPeriod,
   onExpandAll,
   onClose,
   onSelectChip,
@@ -1428,7 +1434,8 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
   const [treeSearchTerm, setTreeSearchTerm] = useState('');
   const [treeStatusFilter, setTreeStatusFilter] = useState<'all' | 'has_value' | 'no_value'>('all');
   const [viewMode, setViewMode] = useState<'tree' | 'compact_table'>('compact_table');
-  const modalTemporalLabel = temporalScope?.label || temporalScope?.period_label || null;
+  const modalTemporalLabel =
+    temporalLabelOverride || temporalScope?.label || temporalScope?.period_label || null;
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1445,7 +1452,7 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
     const firstRoot = activeTreeNodes[0];
     const rootName = cleanDisplayString(firstRoot?.name, 'Sơ đồ cây chỉ tiêu');
     onPinItem({
-      id: `pin-tree-${firstRoot?.id || rootName}-${temporalScope?.query_suffix || '2026'}`,
+      id: `pin-tree-${firstRoot?.id || rootName}-${modalTemporalLabel || temporalScope?.query_suffix || '2026'}`,
       type: 'tree',
       title: `Cây: ${rootName}`,
       subtitle: `${firstRoot?.office_name || 'Cấp tỉnh'} • ${modalTemporalLabel || 'Năm 2026'}`,
@@ -1549,9 +1556,9 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
           </div>
         </div>
 
-        {/* Sub-Toolbar: Ancestor-Preserving Quick Search + Status Filter Pills (GP 1.3) */}
+        {/* Sub-Toolbar: Ancestor-Preserving Quick Search + Period Selector + Status Filter Pills (GP 1.3) */}
         <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="relative flex-1 min-w-[220px] max-w-sm">
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
             <input
               type="text"
               data-testid="tree-search-input"
@@ -1571,6 +1578,41 @@ const InteractiveCriteriaTreeModal: React.FC<InteractiveCriteriaTreeModalProps> 
               </button>
             )}
           </div>
+
+          {onSelectPeriod && (
+            <div
+              data-testid="tree-modal-period-bar"
+              className="flex flex-wrap items-center gap-1"
+            >
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-700 mr-1">
+                <Clock className="w-3 h-3" />
+                Kỳ báo cáo:
+              </span>
+              {[
+                { id: 'year', label: 'Năm 2026 (Mới nhất)', phrase: 'năm 2026' },
+                { id: 'q1', label: 'Quý 1', phrase: 'trong Quý 1 năm 2026' },
+                { id: 'q2', label: 'Quý 2', phrase: 'trong Quý 2 năm 2026' },
+                { id: 'q3', label: 'Quý 3', phrase: 'trong Quý 3 năm 2026' },
+              ].map((tk) => {
+                const isTkActive = activePeriod === tk.id;
+                return (
+                  <button
+                    key={tk.id}
+                    type="button"
+                    data-testid={`tree-modal-period-${tk.id}`}
+                    onClick={() => onSelectPeriod(tk.id, tk.phrase)}
+                    className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border transition cursor-pointer ${
+                      isTkActive
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:border-indigo-300'
+                    }`}
+                  >
+                    {tk.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           <div
             data-testid="tree-status-filter"
@@ -2352,6 +2394,11 @@ export const SmartTable: React.FC<SmartTableProps> = ({
           nextVal = resolved;
         }
       }
+      let nextReportDate = node.report_date;
+      if (activePeriod === 'q1') nextReportDate = '31/03/2026';
+      else if (activePeriod === 'q2') nextReportDate = '30/06/2026';
+      else if (activePeriod === 'q3') nextReportDate = '30/09/2026';
+      else if (activePeriod === 'custom' && customPeriodDate) nextReportDate = customPeriodDate;
       const nextChildren = Array.isArray(node.children)
         ? node.children.map(applyPeriodToNode)
         : node.children;
@@ -2359,6 +2406,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
         ...node,
         value: nextVal,
         latest_value: nextVal,
+        report_date: nextReportDate,
         children: nextChildren,
       };
     };
@@ -2804,6 +2852,9 @@ export const SmartTable: React.FC<SmartTableProps> = ({
           activeTreeNodes={activeTreeNodes}
           expandAllCounter={expandAllCounter}
           temporalScope={temporalScope}
+          temporalLabelOverride={temporalLabel}
+          activePeriod={activePeriod}
+          onSelectPeriod={dispatchContextTicket}
           onExpandAll={() => setExpandAllCounter((c) => c + 1)}
           onClose={() => setActiveTreeRootId(null)}
           onSelectChip={onSelectChip}

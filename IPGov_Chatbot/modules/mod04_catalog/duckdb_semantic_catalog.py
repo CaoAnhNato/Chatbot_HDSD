@@ -5039,6 +5039,7 @@ class DuckDBSemanticCatalog:
                 "code": code,
                 "name": name,
                 "parent_id": pid,
+                "parent_name": pname,
                 "root_id": rid,
                 "level": int(lvl or 1),
                 "is_leaf": bool(is_leaf),
@@ -5052,6 +5053,34 @@ class DuckDBSemanticCatalog:
                 children_by_parent.setdefault(pid, []).append(cid)
             else:
                 roots.append(cid)
+
+        tree_period_map: Dict[str, Dict[str, str]] = {}
+        if nodes_by_id and hasattr(self, "get_batch_period_values"):
+            try:
+                tree_period_map = self.get_batch_period_values(
+                    list(nodes_by_id.values()),
+                    year_code="2026",
+                    tenant_code="68",
+                )
+            except Exception:
+                tree_period_map = {}
+
+        for cid, nd in nodes_by_id.items():
+            cid_k = str(cid or "").strip().lower()
+            ccode_k = str(nd.get("code") or "").strip().lower()
+            cname_k = " ".join(str(nd.get("name") or "").lower().split())
+            pname_k = " ".join(str(nd.get("parent_name") or "").lower().split())
+            combo_k = f"{cname_k}||{pname_k}" if (cname_k and pname_k) else ""
+            nd_p_vals = (
+                tree_period_map.get(cid_k)
+                or tree_period_map.get(ccode_k)
+                or (tree_period_map.get(combo_k) if combo_k else None)
+                or tree_period_map.get(cname_k)
+            )
+            if nd_p_vals:
+                p_copy = dict(nd_p_vals)
+                nd["timeline_values"] = p_copy
+                nd["period_values"] = p_copy
 
         def _build_subtree(node_id: str) -> Dict[str, Any]:
             node = dict(nodes_by_id[node_id])
@@ -5105,7 +5134,7 @@ class DuckDBSemanticCatalog:
                 struct_type = f"Nhóm chỉ tiêu ({desc_count} chỉ tiêu con)"
                 child_action = "- (Xem chi tiết con)" if desc_count > 0 else "Không có"
 
-            level1_summary_rows.append({
+            l1_entry: Dict[str, Any] = {
                 "criteria_id": rid,
                 "nhiem_vu": root_node["mission_name"],
                 "ten_chi_tieu_cap_1": root_node["name"],
@@ -5116,7 +5145,11 @@ class DuckDBSemanticCatalog:
                 "is_parent_group": not is_leaf_root,
                 "child_count": desc_count,
                 "tree_modal": root_node if not is_leaf_root else None,
-            })
+            }
+            if root_node.get("timeline_values"):
+                l1_entry["timeline_values"] = dict(root_node["timeline_values"])
+                l1_entry["period_values"] = dict(root_node["timeline_values"])
+            level1_summary_rows.append(l1_entry)
 
         return (tree_by_root_id, level1_summary_rows)
 

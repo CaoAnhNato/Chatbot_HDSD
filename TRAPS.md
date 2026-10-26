@@ -1067,3 +1067,20 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ✅ **ALWAYS:**
     1. Sau mỗi lần `git push`, chủ động gọi Render REST API (`POST /v1/services/{serviceId}/deploys`) cho cả Backend và Frontend và xác nhận trạng thái `status == "live"` đúng mã commit `HEAD`.
     2. Trong `warehouse_langgraph_agent.py` (`run_stream`), chạy `self.graph.stream()` trên worker thread qua `loop.run_in_executor` + `asyncio.Queue` (`loop.call_soon_threadsafe`) và bọc `_run_startup_warmup` trong `asyncio.to_thread` để luồng `asyncio` chính luôn phản hồi `GET /api/v1/health` trong `< 1ms`.
+
+---
+
+### [TRAP-100] Bẫy Đóng Băng Số Liệu Trong Pop-up Cây Phân Cấp (`InteractiveCriteriaTreeModal`) Khi Chuyển Kỳ Báo Cáo Và Bẫy Trùng Tên Chỉ Tiêu Lá (`Chăn nuôi`) Khi Hydrate `tabular_data.rows[0]`
+- **Môi trường & Công nghệ:** `duckdb_semantic_catalog.py` (`build_criteria_tree_for_rows`) / `warehouse_langgraph_agent.py` / `chat_history_store.py` (`_hydrate_legacy_timeline_values`) / `SmartTable.tsx` (`InteractiveCriteriaTreeModal`)
+- **Triệu chứng:**
+  1. Ở câu hỏi `REQ-Q01`/`REQ-Q04` (*"Các chỉ tiêu Cấp 1 của nhiệm vụ Phát triển nông thôn năm 2026?"*), dù `SmartTable.tsx` đã có hàm `applyPeriodToNode` đọc `node.timeline_values || node.period_values`, khi người dùng bấm chọn `[Quý 1]` hoặc `[Quý 2]` rồi mở `🌳 - Xem chi tiết các chỉ tiêu con` (`InteractiveCriteriaTreeModal`), toàn bộ số liệu Cấp 1, Cấp 2, Cấp 3 bên trong modal vẫn đóng băng ở giá trị cả năm (`Lũy kế = 138`, `Thành lập mới = 3`, `Hiệu quả hoạt động = 130`, `Tốt/Trung bình/Kém/Chưa đủ ĐK = 56/55/16/3`) và trong modal cũng thiếu thanh chọn nhanh kỳ báo cáo.
+  2. Ở câu hỏi `REQ-Q02` (*"cho tôi biết số liệu chăn nuôi của liên hiệp hợp tác xã ngày 30/4"*), `tabular_data.rows[0]` sau khi lưu vào SQLite và qua `_hydrate_legacy_timeline_values` bị gán nhầm `timeline_values = {"q1": "25", "q2": "25", "q3": "25", "year": "25"}` (số liệu của `HTX nông nghiệp > Chăn nuôi`) thay vì `{"q1": "1", "q2": "1", "q3": "0", "year": "0"}` (số liệu đúng của `Liên hiệp HTX > Chăn nuôi`, `criteria_id = 33714acb-cef0-447d-9a3b-d515da06889e`).
+- **Nguyên nhân gốc rễ:**
+  1. Hàm `build_criteria_tree_for_rows` trong `duckdb_semantic_catalog.py` dựng cây `nodes_by_id` từ bảng DuckDB `catalog_criteria_hierarchy` nhưng chưa gọi `self.get_batch_period_values(...)` để gắn `timeline_values` và `period_values` vào từng nút Cấp 1/2/3 của `tree_by_root_id` và `level1_summary_rows`. Do đó `node.timeline_values` luôn là `undefined` ở phía `SmartTable.tsx`.
+  2. Trong `warehouse_langgraph_agent.py`, khi tạo `tabular_data.rows[0]` cho câu trả lời chỉ tiêu đơn (`single_metric_card`), dict dòng chỉ chứa `{"stt": 1, "item": ..., "value": ..., "unit": ...}` mà thiếu `criteria_id` và `timeline_values`. Khi `ChatHistoryStore._hydrate_legacy_timeline_values` chạy, nó tra cứu `period_map` thuần theo tên `item = "chăn nuôi"`, dẫn đến va chạm homonym với chỉ tiêu lá cùng tên thuộc nhóm cha khác.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không dựng cây `tree_modal` (`build_criteria_tree_for_rows`) mà bỏ trống `timeline_values` trên các nút con; Không tạo dòng `tabular_data.rows[0]` cho `single_metric_card` mà thiếu `criteria_id` và `timeline_values`.
+  * ✅ **ALWAYS:**
+    1. Trong `build_criteria_tree_for_rows` (`duckdb_semantic_catalog.py`), gọi `self.get_batch_period_values(list(nodes_by_id.values()), ...)` để đính kèm `timeline_values` và `period_values` cho toàn bộ nút Cấp 1/2/3 và `level1_summary_rows`, đồng thời hiển thị thanh chọn kỳ báo cáo 0ms ngay trong `InteractiveCriteriaTreeModal`.
+    2. Trong `warehouse_langgraph_agent.py` và `ChatHistoryStore._hydrate_legacy_timeline_values`, luôn gắn `criteria_id` (lấy từ `single_metric_card.criteria_id` nếu `len(t_rows) == 1`) và `timeline_values` trích xuất từ `timeline_snaps` cho `tabular_data.rows[0]`, cũng như đệ quy hydrate `tree_modal` cho các phiên lịch sử cũ.
+

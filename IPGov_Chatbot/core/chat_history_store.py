@@ -217,13 +217,29 @@ class ChatHistoryStore:
         if not isinstance(t_rows, list) or not t_rows:
             return False
 
+        smc = td.get("single_metric_card") if isinstance(td.get("single_metric_card"), dict) else {}
+        smc_cid = str(smc.get("criteria_id") or "").strip()
+
+        tree_modal = td.get("tree_modal") or td.get("trees_by_root_id")
+        tree_nodes_to_hydrate: List[Dict[str, Any]] = []
+        if isinstance(tree_modal, dict):
+            def _collect_tree_nodes(node: Any) -> None:
+                if not isinstance(node, dict):
+                    return
+                if not node.get("timeline_values") and (node.get("id") or node.get("name")):
+                    tree_nodes_to_hydrate.append(node)
+                for ch in node.get("children") or []:
+                    _collect_tree_nodes(ch)
+            for root_node in tree_modal.values():
+                _collect_tree_nodes(root_node)
+
         needs_row_hydration = any(
             isinstance(r, dict)
             and not r.get("timeline_values")
             and (r.get("criteria_id") or r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name"))
             for r in t_rows
         )
-        if not needs_row_hydration:
+        if not needs_row_hydration and not tree_nodes_to_hydrate:
             return False
 
         try:
@@ -238,11 +254,16 @@ class ChatHistoryStore:
             for r in t_rows:
                 if not isinstance(r, dict):
                     continue
-                c_id = r.get("criteria_id") or r.get("id")
+                c_id = r.get("criteria_id") or r.get("id") or (smc_cid if len(t_rows) == 1 else None)
+                if c_id and not r.get("criteria_id"):
+                    r["criteria_id"] = c_id
                 raw_nm = r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name") or ""
                 clean_nm = str(raw_nm).replace("**", "").strip()
                 if c_id or clean_nm:
                     cand_nodes.append({"id": c_id, "name": clean_nm})
+
+            for tn in tree_nodes_to_hydrate:
+                cand_nodes.append({"id": tn.get("id"), "code": tn.get("code"), "name": tn.get("name")})
 
             p_name = str(td.get("parent_criterion_name") or "").strip()
             if not p_name and content:
@@ -269,9 +290,19 @@ class ChatHistoryStore:
                     continue
                 c_id_k = str(r.get("criteria_id") or r.get("id") or "").lower()
                 c_nm_k = str(r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name") or "").replace("**", "").strip().lower()
-                tv = period_map.get(c_id_k) or period_map.get(c_nm_k)
+                tv = period_map.get(c_id_k) or (period_map.get(c_nm_k) if not c_id_k else None)
                 if tv:
                     r["timeline_values"] = tv
+                    updated = True
+
+            for tn in tree_nodes_to_hydrate:
+                tn_id_k = str(tn.get("id") or "").strip().lower()
+                tn_code_k = str(tn.get("code") or "").strip().lower()
+                tn_nm_k = " ".join(str(tn.get("name") or "").lower().split())
+                tn_tv = period_map.get(tn_id_k) or period_map.get(tn_code_k) or period_map.get(tn_nm_k)
+                if tn_tv:
+                    tn["timeline_values"] = dict(tn_tv)
+                    tn["period_values"] = dict(tn_tv)
                     updated = True
 
             if p_name and not td.get("parent_timeline_values"):

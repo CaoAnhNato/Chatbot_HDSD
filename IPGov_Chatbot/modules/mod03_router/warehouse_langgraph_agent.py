@@ -2918,6 +2918,23 @@ class WarehouseLangGraphAgent:
                             "temporal_shift_notice": temporal_shift_bullet.replace("\n- **Lưu ý mốc thời gian:** ", "").strip() if temporal_shift_bullet else None,
                             "timeline_snapshots": parent_snaps,
                         }
+                        parent_row_tv: Dict[str, str] = {"year": fmt_val, "YEAR": fmt_val, str(year or "2026"): fmt_val}
+                        for snap_item in parent_snaps:
+                            s_date = str(snap_item.get("report_date") or snap_item.get("date") or "").strip()
+                            s_iso = str(snap_item.get("iso_date") or "").strip()
+                            s_val = str(snap_item.get("value") or "").strip()
+                            if s_val:
+                                if s_date:
+                                    parent_row_tv[s_date] = s_val
+                                if s_iso:
+                                    parent_row_tv[s_iso] = s_val
+                                    try:
+                                        m_num = int(s_iso.split("-")[1])
+                                        qk = f"q{(m_num - 1) // 3 + 1}"
+                                        parent_row_tv[qk] = s_val
+                                        parent_row_tv[qk.upper()] = s_val
+                                    except Exception:
+                                        pass
                         tabular_data = {
                             "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
                             "columns": [
@@ -2931,12 +2948,15 @@ class WarehouseLangGraphAgent:
                             "rows": [
                                 {
                                     "stt": 1,
+                                    "criteria_id": target_pid or "",
                                     "item": parent_disp,
                                     "value": fmt_val,
                                     "office": office_str,
                                     "mission": mission_str,
                                     "report_date": date_str,
                                     "_raw_value": parent_val,
+                                    "timeline_values": parent_row_tv,
+                                    "period_values": parent_row_tv,
                                 }
                             ],
                             "total_records": 1,
@@ -3693,6 +3713,23 @@ class WarehouseLangGraphAgent:
                             "temporal_shift_notice": temporal_shift_bullet.replace("\n- **Lưu ý mốc thời gian:** ", "").strip() if temporal_shift_bullet else None,
                             "timeline_snapshots": timeline_snaps,
                         }
+                        single_row_tv: Dict[str, str] = {"year": fmt_val, "YEAR": fmt_val, str(year or "2026"): fmt_val}
+                        for snap_item in timeline_snaps:
+                            s_date = str(snap_item.get("report_date") or snap_item.get("date") or "").strip()
+                            s_iso = str(snap_item.get("iso_date") or "").strip()
+                            s_val = str(snap_item.get("value") or "").strip()
+                            if s_val:
+                                if s_date:
+                                    single_row_tv[s_date] = s_val
+                                if s_iso:
+                                    single_row_tv[s_iso] = s_val
+                                    try:
+                                        m_num = int(s_iso.split("-")[1])
+                                        qk = f"q{(m_num - 1) // 3 + 1}"
+                                        single_row_tv[qk] = s_val
+                                        single_row_tv[qk.upper()] = s_val
+                                    except Exception:
+                                        pass
                         tabular_data = {
                             "title": f"Số liệu thống kê chi tiết theo báo cáo năm {year}",
                             "columns": [
@@ -3706,12 +3743,15 @@ class WarehouseLangGraphAgent:
                             "rows": [
                                 {
                                     "stt": 1,
+                                    "criteria_id": c_id_single,
                                     "item": ten_chi_tieu,
                                     "value": fmt_val,
                                     "office": office_str,
                                     "mission": mission_str,
                                     "report_date": date_str,
                                     "_raw_value": val,
+                                    "timeline_values": single_row_tv,
+                                    "period_values": single_row_tv,
                                 }
                             ],
                             "total_records": 1,
