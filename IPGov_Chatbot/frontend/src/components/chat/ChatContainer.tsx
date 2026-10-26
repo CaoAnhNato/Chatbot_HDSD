@@ -239,9 +239,26 @@ export const ChatContainer: React.FC = () => {
       setSessionId(target.id);
       saveActiveSessionId(target.id);
 
-      if (target.messages && target.messages.length > 0) {
+      const hasUnenrichedTable = (target.messages || []).some((m) => {
+        const rows = (m.tabular_data as any)?.rows;
+        return (
+          Array.isArray(rows) &&
+          rows.length > 0 &&
+          rows.some(
+            (r: any) =>
+              r &&
+              (r.criteria_id || r.ten_chi_tieu || r.item || r.criteria_name) &&
+              !r.timeline_values
+          )
+        );
+      });
+
+      if (target.messages && target.messages.length > 0 && !hasUnenrichedTable) {
         setMessages(target.messages);
         return;
+      }
+      if (target.messages && target.messages.length > 0) {
+        setMessages(target.messages);
       }
       try {
         const msgs = await fetchSessionHistory(target.id);
@@ -340,7 +357,24 @@ export const ChatContainer: React.FC = () => {
     setSessionId(session.id);
     saveActiveSessionId(session.id);
 
-    if (!session.messages || session.messages.length === 0) {
+    const hasUnenrichedTable = (session.messages || []).some((m) => {
+      const rows = (m.tabular_data as any)?.rows;
+      return (
+        Array.isArray(rows) &&
+        rows.length > 0 &&
+        rows.some(
+          (r: any) =>
+            r &&
+            (r.criteria_id || r.ten_chi_tieu || r.item || r.criteria_name) &&
+            !r.timeline_values
+        )
+      );
+    });
+
+    if (!session.messages || session.messages.length === 0 || hasUnenrichedTable) {
+      if (session.messages && session.messages.length > 0) {
+        setMessages(session.messages);
+      }
       try {
         const msgs = await fetchSessionHistory(session.id);
         if (msgs && msgs.length > 0) {

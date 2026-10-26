@@ -87,10 +87,22 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   // [R2.4] Timeline snapshot & temporal shift notice state for 0ms reactive sync
   const [activeSnapshot, setActiveSnapshot] = React.useState<TimelineSnapshotItem | null>(null);
   const [activeShiftNotice, setActiveShiftNotice] = React.useState<string | null>(null);
+  const [tablePeriod, setTablePeriod] = React.useState<{
+    periodId: string;
+    customDate?: string | null;
+  } | null>(null);
+
+  const handleTablePeriodChange = React.useCallback(
+    (periodId: string, customDate?: string | null) => {
+      setTablePeriod({ periodId, customDate });
+    },
+    []
+  );
 
   React.useEffect(() => {
     setActiveSnapshot(null);
     setActiveShiftNotice(null);
+    setTablePeriod(null);
   }, [message.id]);
 
   // Animation settlement state: if message is not streaming when mounted (e.g. historical messages),
@@ -166,38 +178,152 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
       } else {
         text = text.replace(/\n- \*\*Lưu ý mốc thời gian:\*\* [^\n]+/, '');
       }
+    } else if (tablePeriod && (message.tabular_data as any)?.parent_timeline_values) {
+      const pMap = (message.tabular_data as any).parent_timeline_values as Record<string, any>;
+      let parentTargetVal: any = undefined;
+      if (tablePeriod.periodId === 'custom' && tablePeriod.customDate) {
+        const trimmed = tablePeriod.customDate.trim();
+        const slashParts = trimmed.split('/');
+        const dashParts = trimmed.split('-');
+        const isoCustom =
+          slashParts.length === 3
+            ? `${slashParts[2]}-${slashParts[1].padStart(2, '0')}-${slashParts[0].padStart(2, '0')}`
+            : trimmed;
+        const vnCustom =
+          dashParts.length === 3 && dashParts[0].length === 4
+            ? `${dashParts[2].padStart(2, '0')}/${dashParts[1].padStart(2, '0')}/${dashParts[0]}`
+            : trimmed;
+        parentTargetVal = pMap[trimmed] ?? pMap[isoCustom] ?? pMap[vnCustom];
+        if (parentTargetVal === undefined) {
+          const isoKeys = Object.keys(pMap)
+            .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+            .sort();
+          const leKeys = isoKeys.filter((k) => k <= isoCustom);
+          if (leKeys.length > 0) {
+            parentTargetVal = pMap[leKeys[leKeys.length - 1]];
+          } else if (isoKeys.length > 0) {
+            parentTargetVal = pMap[isoKeys[0]];
+          }
+        }
+      } else {
+        parentTargetVal =
+          pMap[tablePeriod.periodId] ??
+          pMap[tablePeriod.periodId.toUpperCase()] ??
+          (tablePeriod.periodId === 'year' ? pMap['year'] ?? pMap['all'] ?? pMap['2026'] : undefined);
+      }
+
+      if (parentTargetVal !== undefined && parentTargetVal !== null) {
+        text = text.replace(/(- \*\*Giá trị:\*\* )[^\n]+/, `$1${String(parentTargetVal).trim()}`);
+      }
     }
 
     return text;
-  }, [message.content, message.images, message.youtube_links, activeSnapshot, activeShiftNotice]);
+  }, [
+    message.content,
+    message.images,
+    message.youtube_links,
+    message.tabular_data,
+    activeSnapshot,
+    activeShiftNotice,
+    tablePeriod,
+  ]);
 
-  // [R2.4] Đồng bộ huy hiệu preview_value trên QuickActionChips theo kỳ đang chọn (0ms Client-side)
+  // [R2.4] Đồng bộ huy hiệu preview_value và query_text trên QuickActionChips theo kỳ đang chọn (0ms Client-side)
   const reactiveChips = React.useMemo(() => {
     if (!message.quick_action_chips || message.quick_action_chips.length === 0) return [];
-    if (!activeSnapshot) return message.quick_action_chips;
+    if (!activeSnapshot && !tablePeriod) return message.quick_action_chips;
 
-    const snapDate = activeSnapshot.report_date || activeSnapshot.date;
+    const snapDate = activeSnapshot?.report_date || activeSnapshot?.date;
     const childVals = (activeSnapshot as any)?.child_values || {};
+
+    const resolveFromTimelineMap = (
+      cMap: Record<string, any>,
+      periodId: string,
+      customDate?: string | null
+    ): any => {
+      if (periodId === 'custom' && customDate) {
+        const trimmed = customDate.trim();
+        const slashParts = trimmed.split('/');
+        const dashParts = trimmed.split('-');
+        const isoCustom =
+          slashParts.length === 3
+            ? `${slashParts[2]}-${slashParts[1].padStart(2, '0')}-${slashParts[0].padStart(2, '0')}`
+            : trimmed;
+        const vnCustom =
+          dashParts.length === 3 && dashParts[0].length === 4
+            ? `${dashParts[2].padStart(2, '0')}/${dashParts[1].padStart(2, '0')}/${dashParts[0]}`
+            : trimmed;
+        let pVal = cMap[trimmed] ?? cMap[isoCustom] ?? cMap[vnCustom];
+        if (pVal === undefined) {
+          const isoKeys = Object.keys(cMap)
+            .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+            .sort();
+          const leKeys = isoKeys.filter((k) => k <= isoCustom);
+          if (leKeys.length > 0) {
+            pVal = cMap[leKeys[leKeys.length - 1]];
+          } else if (isoKeys.length > 0) {
+            pVal = cMap[isoKeys[0]];
+          }
+        }
+        return pVal;
+      }
+      return (
+        cMap[periodId] ??
+        cMap[periodId.toUpperCase()] ??
+        (periodId === 'year' ? cMap['year'] ?? cMap['all'] ?? cMap['2026'] : undefined)
+      );
+    };
 
     return message.quick_action_chips.map((chip) => {
       let nextPreviewVal = chip.preview_value;
+      let nextQueryText = chip.query_text;
       const cleanName = chip.label.replace(/^🔘\s*\[?|\]?$/g, '').trim();
 
-      // Đối chiếu theo id hoặc tên chỉ tiêu con trong snapshot
-      if (childVals[chip.id] !== undefined) {
-        nextPreviewVal = String(childVals[chip.id]);
-      } else if (childVals[cleanName] !== undefined) {
-        nextPreviewVal = String(childVals[cleanName]);
-      } else if ((chip as any).timeline_values && snapDate && (chip as any).timeline_values[snapDate] !== undefined) {
-        nextPreviewVal = String((chip as any).timeline_values[snapDate]);
+      if (activeSnapshot) {
+        if (childVals[chip.id] !== undefined) {
+          nextPreviewVal = String(childVals[chip.id]);
+        } else if (childVals[cleanName] !== undefined) {
+          nextPreviewVal = String(childVals[cleanName]);
+        } else if (
+          (chip as any).timeline_values &&
+          snapDate &&
+          (chip as any).timeline_values[snapDate] !== undefined
+        ) {
+          nextPreviewVal = String((chip as any).timeline_values[snapDate]);
+        }
+      } else if (tablePeriod) {
+        if ((chip as any).timeline_values) {
+          const cMap = (chip as any).timeline_values as Record<string, any>;
+          const pVal = resolveFromTimelineMap(cMap, tablePeriod.periodId, tablePeriod.customDate);
+          if (pVal !== undefined && pVal !== null && nextPreviewVal !== undefined) {
+            nextPreviewVal = String(pVal);
+          }
+        }
+        if (nextQueryText) {
+          const targetPhrase =
+            tablePeriod.periodId === 'q1'
+              ? 'trong Quý 1 năm 2026'
+              : tablePeriod.periodId === 'q2'
+              ? 'trong Quý 2 năm 2026'
+              : tablePeriod.periodId === 'q3'
+              ? 'trong Quý 3 năm 2026'
+              : tablePeriod.periodId === 'custom' && tablePeriod.customDate
+              ? `ngày ${tablePeriod.customDate}`
+              : 'năm 2026';
+          nextQueryText = nextQueryText.replace(
+            /(?:trong\s+)?(?:Quý\s+[1-4](?:\/|\s+năm\s+)\d{4}|6\s+tháng\s+(?:đầu|cuối)\s+năm\s+\d{4}|tháng\s+\d{1,2}\/\d{4}|ngày\s+\d{1,2}\/\d{1,2}\/\d{4}|từ\s+ngày\s+\d{1,2}\/\d{1,2}\/\d{4}\s+đến\s+ngày\s+\d{1,2}\/\d{1,2}\/\d{4}|năm\s+\d{4})/i,
+            targetPhrase
+          );
+        }
       }
 
       return {
         ...chip,
         preview_value: nextPreviewVal,
+        query_text: nextQueryText,
       };
     });
-  }, [message.quick_action_chips, activeSnapshot]);
+  }, [message.quick_action_chips, activeSnapshot, tablePeriod]);
 
   // Parse markdown vs <details> collapsible blocks
   const contentSegments = React.useMemo(() => {
@@ -240,6 +366,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
             tabularData={message.tabular_data}
             onSelectChip={onSelectChip}
             onPinItem={onPinItem}
+            onPeriodChange={handleTablePeriodChange}
           >
             {children}
           </SmartTable>

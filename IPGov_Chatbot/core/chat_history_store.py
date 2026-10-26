@@ -205,6 +205,109 @@ class ChatHistoryStore:
             logger.warning("Failed to list chat sessions: %s", exc)
             return []
 
+    def _hydrate_legacy_timeline_values(
+        self,
+        conn: sqlite3.Connection,
+        msg_id: str,
+        content: str,
+        td: Dict[str, Any],
+        chips: Optional[List[Dict[str, Any]]],
+    ) -> bool:
+        t_rows = td.get("rows")
+        if not isinstance(t_rows, list) or not t_rows:
+            return False
+
+        needs_row_hydration = any(
+            isinstance(r, dict)
+            and not r.get("timeline_values")
+            and (r.get("criteria_id") or r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name"))
+            for r in t_rows
+        )
+        if not needs_row_hydration:
+            return False
+
+        try:
+            if not hasattr(self, "_catalog") or self._catalog is None:
+                from IPGov_Chatbot.modules.mod04_catalog.duckdb_semantic_catalog import DuckDBSemanticCatalog
+                self._catalog = DuckDBSemanticCatalog()
+            catalog = self._catalog
+            if not hasattr(catalog, "get_batch_period_values"):
+                return False
+
+            cand_nodes: List[Dict[str, Any]] = []
+            for r in t_rows:
+                if not isinstance(r, dict):
+                    continue
+                c_id = r.get("criteria_id") or r.get("id")
+                raw_nm = r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name") or ""
+                clean_nm = str(raw_nm).replace("**", "").strip()
+                if c_id or clean_nm:
+                    cand_nodes.append({"id": c_id, "name": clean_nm})
+
+            p_name = str(td.get("parent_criterion_name") or "").strip()
+            if not p_name and content:
+                import re
+                m_parent = re.search(r"- \*\*Chỉ tiêu:\*\*\s*([^\n]+)", content)
+                if m_parent:
+                    p_name = m_parent.group(1).strip()
+                    td["parent_criterion_name"] = p_name
+            if p_name:
+                cand_nodes.append({"name": p_name})
+
+            if not cand_nodes:
+                return False
+
+            ts = td.get("temporal_scope") or {}
+            y_code = str(ts.get("year") or "2026")
+            period_map = catalog.get_batch_period_values(cand_nodes, year_code=y_code, tenant_code="68")
+            if not period_map:
+                return False
+
+            updated = False
+            for r in t_rows:
+                if not isinstance(r, dict) or r.get("timeline_values"):
+                    continue
+                c_id_k = str(r.get("criteria_id") or r.get("id") or "").lower()
+                c_nm_k = str(r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name") or "").replace("**", "").strip().lower()
+                tv = period_map.get(c_id_k) or period_map.get(c_nm_k)
+                if tv:
+                    r["timeline_values"] = tv
+                    updated = True
+
+            if p_name and not td.get("parent_timeline_values"):
+                p_tv = period_map.get(p_name.lower())
+                if p_tv:
+                    td["parent_timeline_values"] = p_tv
+                    updated = True
+
+            if isinstance(chips, list):
+                for ch in chips:
+                    if not isinstance(ch, dict) or ch.get("timeline_values"):
+                        continue
+                    lbl = str(ch.get("label") or "").replace("🔘", "").replace("[", "").replace("]", "").strip().lower()
+                    if lbl and period_map.get(lbl):
+                        ch["timeline_values"] = period_map[lbl]
+                        updated = True
+
+            if updated:
+                conn.execute(
+                    """
+                    UPDATE chat_messages
+                    SET tabular_data_json = ?, quick_action_chips_json = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        json.dumps(td, ensure_ascii=False),
+                        json.dumps(chips, ensure_ascii=False) if chips is not None else None,
+                        msg_id,
+                    ),
+                )
+                conn.commit()
+            return updated
+        except Exception as exc:
+            logger.debug("Lazy hydration of timeline_values skipped for msg %s: %s", msg_id, exc)
+            return False
+
     def _fetch_messages_conn(self, conn: sqlite3.Connection, session_id: str) -> List[Dict[str, Any]]:
         rows = conn.execute(
             """
@@ -233,6 +336,14 @@ class ChatHistoryStore:
                     item["quick_action_chips"] = json.loads(m["quick_action_chips_json"])
                 except Exception:
                     pass
+            if isinstance(item.get("tabular_data"), dict):
+                self._hydrate_legacy_timeline_values(
+                    conn,
+                    m["id"],
+                    m["content"] or "",
+                    item["tabular_data"],
+                    item.get("quick_action_chips"),
+                )
             msgs.append(item)
         return msgs
 

@@ -2303,17 +2303,25 @@ class WarehouseLangGraphAgent:
                 p_name = p_node["name"]
                 r_name = breakdown_res.get("root_name") or p_name
                 children = breakdown_res["children"]
+                r3_year_str = str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026")
+                r3_tenant_str = str(norm_frame.tenant_code or "68") if norm_frame else "68"
 
                 if has_temporal_ticket_r3 and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
                     temporal_child_map = self.catalog.get_children_values_at_temporal_scope(
-                        children,
-                        year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year),
-                        tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                        [p_node] + list(children),
+                        year_code=r3_year_str,
+                        tenant_code=r3_tenant_str,
                         specific_date=getattr(norm_frame, "specific_date", None) if norm_frame else None,
                         date_from=getattr(norm_frame, "date_from", None) if norm_frame else None,
                         date_to=getattr(norm_frame, "date_to", None) if norm_frame else None,
                         month_filter=getattr(norm_frame, "month_filter", None) if norm_frame else None,
                     )
+                    p_id_k = str(p_node.get("id") or "").lower()
+                    p_nm_k = str(p_node.get("name") or "").strip().lower()
+                    p_t_entry = temporal_child_map.get(p_id_k) or temporal_child_map.get(p_nm_k)
+                    if p_t_entry and p_t_entry.get("value") is not None:
+                        p_node["latest_value"] = p_t_entry.get("value")
+                        p_node["report_date"] = p_t_entry.get("report_date")
                     for ch in children:
                         ch_id_k = str(ch.get("id") or "").lower()
                         ch_nm_k = str(ch.get("name") or "").strip().lower()
@@ -2322,13 +2330,34 @@ class WarehouseLangGraphAgent:
                             ch["latest_value"] = t_entry.get("value")
                             ch["report_date"] = t_entry.get("report_date")
 
+                batch_period_map: Dict[str, Dict[str, str]] = {}
+                if hasattr(self.catalog, "get_batch_period_values"):
+                    batch_period_map = self.catalog.get_batch_period_values(
+                        [p_node] + list(children),
+                        year_code=r3_year_str,
+                        tenant_code=r3_tenant_str,
+                    )
+
+                p_id_lookup = str(p_node.get("id") or "").strip().lower()
+                p_code_lookup = str(p_node.get("code") or "").strip().lower()
+                p_name_lookup = " ".join(str(p_name or "").lower().split())
+                parent_period_vals = dict(
+                    batch_period_map.get(p_id_lookup)
+                    or batch_period_map.get(p_code_lookup)
+                    or batch_period_map.get(p_name_lookup)
+                    or {}
+                )
+
                 c_count = len(children)
                 c_names = [c["name"] for c in children]
                 c_names_str = ", ".join([f"**{nm}**" for nm in c_names])
                 p_val_raw = p_node.get("latest_value")
                 p_summary_header = ""
                 if not _is_empty_or_dash(p_val_raw):
-                    p_summary_header = f"- **Chỉ tiêu:** {p_name}\n- **Giá trị:** {vn_format_num(p_val_raw)}\n\n"
+                    p_val_fmt = vn_format_num(p_val_raw)
+                    if "year" not in parent_period_vals:
+                        parent_period_vals["year"] = p_val_fmt
+                    p_summary_header = f"- **Chỉ tiêu:** {p_name}\n- **Giá trị:** {p_val_fmt}\n\n"
 
                 period_intro_lbl, period_title_lbl = _format_temporal_period_label(norm_frame, year)
                 intro_period_str = f"kèm giá trị ghi nhận {period_intro_lbl}" if has_temporal_ticket_r3 else f"kèm giá trị mới nhất theo báo cáo năm {year}"
@@ -2351,15 +2380,32 @@ class WarehouseLangGraphAgent:
                     mis_str = ch.get("mission_name") or "-"
                     cat_str = f"{r_name} > {p_name}" if r_name != p_name else p_name
 
+                    ch_id_lookup = str(ch.get("id") or "").strip().lower()
+                    ch_code_lookup = str(ch.get("code") or "").strip().lower()
+                    ch_name_lookup = " ".join(str(ch.get("name") or "").lower().split())
+                    ch_combo_lookup = f"{ch_name_lookup}||{p_name_lookup}" if (ch_name_lookup and p_name_lookup) else ""
+                    ch_period_vals = dict(
+                        batch_period_map.get(ch_id_lookup)
+                        or batch_period_map.get(ch_code_lookup)
+                        or (batch_period_map.get(ch_combo_lookup) if ch_combo_lookup else None)
+                        or batch_period_map.get(ch_name_lookup)
+                        or {}
+                    )
+                    if "year" not in ch_period_vals:
+                        ch_period_vals["year"] = val_fmt
+
                     ans += f"| {idx} | {ch['name']} | {cat_str} | **{val_fmt}** | {off_str} | {mis_str} |\n"
                     table_rows.append({
                         "stt": idx,
+                        "criteria_id": ch.get("id"),
                         "item": ch["name"],
                         "category": cat_str,
                         "value": val_fmt,
                         "office": off_str,
                         "mission": mis_str,
                         "_raw_value": val_raw,
+                        "timeline_values": ch_period_vals,
+                        "period_values": ch_period_vals,
                     })
 
                 tabular_data = {
@@ -2375,6 +2421,8 @@ class WarehouseLangGraphAgent:
                     "rows": table_rows,
                     "total_records": len(table_rows),
                     "temporal_scope": temporal_meta,
+                    "parent_criterion_name": p_name,
+                    "parent_timeline_values": parent_period_vals,
                 }
 
                 ans = _append_collapsible_sql(ans, sql)
@@ -2386,7 +2434,8 @@ class WarehouseLangGraphAgent:
                         {
                             "id": f"chip_{i+1}",
                             "label": f"🔘 [{c['name']}]",
-                            "query_text": f"Chỉ tiêu {c['name']} thuộc {p_name} {temporal_meta['query_suffix']} là bao nhiêu?"
+                            "query_text": f"Chỉ tiêu {c['name']} thuộc {p_name} {temporal_meta['query_suffix']} là bao nhiêu?",
+                            "timeline_values": table_rows[i].get("timeline_values") if i < len(table_rows) else None,
                         }
                         for i, c in enumerate(children[:4])
                     ],
@@ -3506,6 +3555,13 @@ class WarehouseLangGraphAgent:
                     if h_info_leaf and h_info_leaf.get("classification") == "duplicate_leaf" and len(h_info_leaf.get("branches", [])) > 1:
                         branches = h_info_leaf["branches"]
                         multi_rows = []
+                        dup_batch_period_map: Dict[str, Dict[str, str]] = {}
+                        if hasattr(self.catalog, "get_batch_period_values"):
+                            dup_batch_period_map = self.catalog.get_batch_period_values(
+                                branches,
+                                year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
+                                tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                            )
                         if norm_frame and getattr(norm_frame, "specific_date", None):
                             dup_period_note = f" tại kỳ báo cáo ngày **{date_str}**" if date_str and date_str != "-" else ""
                             dup_title_period = f"kỳ báo cáo ngày {date_str}" if date_str and date_str != "-" else f"năm {year}"
@@ -3551,9 +3607,23 @@ class WarehouseLangGraphAgent:
                             b_fmt = "Chưa có số liệu phê duyệt (-)" if _is_empty_or_dash(b_raw) else vn_format_num(b_raw)
                             b_off = (matched_row.get("ten_van_phong") if matched_row else None) or br.get("office_name") or office_str
                             b_mis = (matched_row.get("ten_nhiem_vu") if matched_row else None) or br.get("mission_name") or mission_str
+                            b_id_k = b_id_str.strip().lower()
+                            b_code_k = str(br.get("code") or "").strip().lower()
+                            b_nm_k = " ".join(str(b_name or "").lower().split())
+                            b_pnm_k = " ".join(str(p_name or "").lower().split())
+                            b_combo_k = f"{b_nm_k}||{b_pnm_k}" if (b_nm_k and b_pnm_k) else ""
+                            br_period_vals = dict(
+                                dup_batch_period_map.get(b_id_k)
+                                or dup_batch_period_map.get(b_code_k)
+                                or (dup_batch_period_map.get(b_combo_k) if b_combo_k else None)
+                                or {}
+                            )
+                            if "year" not in br_period_vals:
+                                br_period_vals["year"] = b_fmt
                             ans += f"| {b_idx} | {b_name} | {cat_disp} | **{b_fmt}** | {b_off} | {b_mis} |\n"
                             multi_rows.append({
                                 "stt": b_idx,
+                                "criteria_id": b_id_str,
                                 "item": b_name,
                                 "category": cat_disp,
                                 "value": b_fmt,
@@ -3561,6 +3631,8 @@ class WarehouseLangGraphAgent:
                                 "mission": b_mis,
                                 "report_date": date_str,
                                 "_raw_value": b_raw,
+                                "timeline_values": br_period_vals,
+                                "period_values": br_period_vals,
                             })
                         tabular_data = {
                             "title": f"Đối chiếu chỉ tiêu '{ten_chi_tieu}' theo các nhóm chỉ tiêu cha {dup_title_period}",
@@ -3877,6 +3949,14 @@ class WarehouseLangGraphAgent:
                         if not rnode.get("is_leaf", True) or rnode.get("children")
                     }
 
+                    l1_batch_period_map: Dict[str, Dict[str, str]] = {}
+                    if l1_raw and hasattr(self.catalog, "get_batch_period_values"):
+                        l1_batch_period_map = self.catalog.get_batch_period_values(
+                            l1_raw,
+                            year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
+                            tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                        )
+
                     l1_formatted = []
                     for l1_idx, l1_item in enumerate(l1_raw, 1):
                         is_p_l1 = bool(l1_item.get("is_parent_group") if "is_parent_group" in l1_item else l1_item.get("is_parent"))
@@ -3892,10 +3972,22 @@ class WarehouseLangGraphAgent:
                         if not child_act:
                             child_act = "- (Xem chi tiết con)" if (is_p_l1 and l1_item.get("child_count", 0) > 0) else "Không có"
 
+                        l1_id_k = str(l1_item.get("criteria_id") or l1_item.get("tree_root_id") or l1_item.get("id") or "").strip().lower()
+                        l1_code_k = str(l1_item.get("code") or "").strip().lower()
+                        l1_nm_str = l1_item.get("ten_chi_tieu_cap_1") or l1_item.get("name") or f"Chỉ tiêu Cấp 1 ({l1_idx})"
+                        l1_nm_k = " ".join(str(l1_nm_str).lower().split())
+                        l1_p_vals = (
+                            l1_batch_period_map.get(l1_id_k)
+                            or l1_batch_period_map.get(l1_code_k)
+                            or l1_batch_period_map.get(l1_nm_k)
+                        )
+                        is_tree_trigger_val = "xem chi tiết" in str(val_disp_l1).lower()
+                        row_period_vals = dict(l1_p_vals) if (l1_p_vals and not is_tree_trigger_val) else None
+
                         l1_formatted.append({
                             "stt": l1_idx,
                             "mission": l1_item.get("nhiem_vu") or l1_item.get("mission_name") or "-",
-                            "item": l1_item.get("ten_chi_tieu_cap_1") or l1_item.get("name") or f"Chỉ tiêu Cấp 1 ({l1_idx})",
+                            "item": l1_nm_str,
                             "structure_type": l1_item.get("loai_cau_truc_cap_1") or l1_item.get("structure_type") or ("Nhóm chỉ tiêu cha" if is_p_l1 else "Chỉ tiêu đơn (Cấp 1)"),
                             "category": l1_item.get("loai_cau_truc_cap_1") or l1_item.get("structure_type") or ("Nhóm chỉ tiêu cha" if is_p_l1 else "Chỉ tiêu đơn (Cấp 1)"),
                             "value": val_disp_l1,
@@ -3904,6 +3996,8 @@ class WarehouseLangGraphAgent:
                             "is_parent": is_p_l1,
                             "tree_root_id": l1_item.get("criteria_id") or l1_item.get("tree_root_id"),
                             "child_count": l1_item.get("child_count", 0),
+                            "timeline_values": row_period_vals,
+                            "period_values": row_period_vals,
                         })
 
                     is_mission_l1_view = bool(
@@ -4007,6 +4101,13 @@ class WarehouseLangGraphAgent:
                             "raw_fact_count": len(rows),
                             "temporal_scope": temporal_meta,
                         }
+                        flat_batch_period_map: Dict[str, Dict[str, str]] = {}
+                        if rows and hasattr(self.catalog, "get_batch_period_values"):
+                            flat_batch_period_map = self.catalog.get_batch_period_values(
+                                rows,
+                                year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
+                                tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                            )
                         for idx, r in enumerate(rows, 1):
                             name = (
                                 r.get("ten_chi_tieu")
@@ -4021,6 +4122,17 @@ class WarehouseLangGraphAgent:
                             fmt_val = vn_format_num(raw_val)
                             off = r.get("ten_van_phong") or r.get("ten_phong_ban") or r.get("office_name") or "Cấp tỉnh"
                             mis = r.get("ten_nhiem_vu") or r.get("mission_name") or "-"
+                            r_id_k = str(r.get("criteria_id") or r.get("id") or "").strip().lower()
+                            r_code_k = str(r.get("ma_chi_tieu") or r.get("code") or "").strip().lower()
+                            r_nm_k = " ".join(str(name or "").lower().split())
+                            r_p_vals = dict(
+                                flat_batch_period_map.get(r_id_k)
+                                or flat_batch_period_map.get(r_code_k)
+                                or flat_batch_period_map.get(r_nm_k)
+                                or {}
+                            )
+                            if r_p_vals and "year" not in r_p_vals:
+                                r_p_vals["year"] = fmt_val
                             ans += f"| {idx} | **{name}** | {category} | **{fmt_val}** | Không có | {off} | {mis} |\n"
                             tabular_data["rows"].append({
                                 "stt": idx,
@@ -4033,6 +4145,8 @@ class WarehouseLangGraphAgent:
                                 "is_parent": False,
                                 "tree_root_id": None,
                                 "_raw_value": raw_val,
+                                "timeline_values": r_p_vals or None,
+                                "period_values": r_p_vals or None,
                             })
                 else:
                     ans = f"Dưới đây là số liệu thống kê chi tiết theo báo cáo năm **{year}**:\n\n"

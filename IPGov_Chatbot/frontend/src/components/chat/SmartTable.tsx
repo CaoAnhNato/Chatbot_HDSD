@@ -26,6 +26,7 @@ interface SmartTableProps {
   children?: React.ReactNode;
   onSelectChip?: (chip: string) => void;
   onPinItem?: (item: PinnedDrawerItem) => void;
+  onPeriodChange?: (periodId: string, customDate?: string | null) => void;
 }
 
 // Hàm bỏ dấu tiếng Việt phục vụ tìm kiếm không dấu (GP 1.3)
@@ -1658,6 +1659,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
   children,
   onSelectChip,
   onPinItem,
+  onPeriodChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortKey, setSortKey] = useState<string | null>(null);
@@ -1671,13 +1673,108 @@ export const SmartTable: React.FC<SmartTableProps> = ({
   >('all');
   const [contextCustomDate, setContextCustomDate] = useState<string>('');
   // R2.2 & R2.4: In-Place Table Period Filtering (0ms Client-side)
-  const [activePeriod, setActivePeriod] = useState<string>('year');
-  const [customPeriodDate, setCustomPeriodDate] = useState<string | null>(null);
+  const initialTemporalInfo = useMemo(() => {
+    const ts = (tabularData as any)?.temporal_scope;
+    const lbl = String(ts?.label || ts?.period_label || ts?.query_suffix || '').toLowerCase();
+    const mf =
+      ts?.month_filter !== undefined && ts?.month_filter !== null ? Number(ts.month_filter) : null;
+    const sp = ts?.specific_date ? String(ts.specific_date).slice(0, 10) : null;
+    const df = ts?.date_from ? String(ts.date_from).slice(0, 10) : null;
+    const dt = ts?.date_to ? String(ts.date_to).slice(0, 10) : null;
+
+    if (
+      lbl.includes('quý 1') ||
+      lbl.includes('q1') ||
+      (mf !== null && mf >= 1 && mf <= 3) ||
+      (df === '2026-01-01' && dt === '2026-03-31')
+    ) {
+      return { period: 'q1', customDate: null as string | null, isoDate: '' };
+    }
+    if (
+      lbl.includes('quý 2') ||
+      lbl.includes('q2') ||
+      lbl.includes('6 tháng đầu năm') ||
+      lbl.includes('nửa đầu năm') ||
+      (mf !== null && mf >= 4 && mf <= 6) ||
+      dt === '2026-06-30'
+    ) {
+      return { period: 'q2', customDate: null as string | null, isoDate: '' };
+    }
+    if (
+      lbl.includes('quý 3') ||
+      lbl.includes('q3') ||
+      lbl.includes('9 tháng đầu năm') ||
+      (mf !== null && mf >= 7 && mf <= 9) ||
+      dt === '2026-09-30'
+    ) {
+      return { period: 'q3', customDate: null as string | null, isoDate: '' };
+    }
+    if (sp) {
+      const parts = sp.split('-');
+      const vnDate = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : sp;
+      return { period: 'custom', customDate: vnDate, isoDate: sp };
+    }
+    return { period: 'year', customDate: null as string | null, isoDate: '' };
+  }, [tabularData]);
+
+  const [activePeriod, setActivePeriod] = useState<string>(initialTemporalInfo.period);
+  const [customPeriodDate, setCustomPeriodDate] = useState<string | null>(
+    initialTemporalInfo.customDate
+  );
+  const [hasUserChangedPeriod, setHasUserChangedPeriod] = useState<boolean>(false);
+
+  useEffect(() => {
+    setActivePeriod(initialTemporalInfo.period);
+    setCustomPeriodDate(initialTemporalInfo.customDate);
+    if (initialTemporalInfo.isoDate) {
+      setContextCustomDate(initialTemporalInfo.isoDate);
+    }
+    setHasUserChangedPeriod(false);
+  }, [initialTemporalInfo]);
 
   // Xác định cấu trúc cột và dòng
   const { columns, rows, title, treeModal, isPrimaryTable } = useMemo(
     () => resolveSmartTableData(tabularData, children),
     [tabularData, children]
+  );
+
+  const resolvePeriodValueFromMap = useCallback(
+    (pMap: Record<string, any> | undefined, period: string, customDate: string | null): any => {
+      if (!pMap || typeof pMap !== 'object') return undefined;
+      if (period === 'custom' && customDate) {
+        const trimmed = customDate.trim();
+        const slashParts = trimmed.split('/');
+        const dashParts = trimmed.split('-');
+        const isoCustom =
+          slashParts.length === 3
+            ? `${slashParts[2]}-${slashParts[1].padStart(2, '0')}-${slashParts[0].padStart(2, '0')}`
+            : trimmed;
+        const vnCustom =
+          dashParts.length === 3 && dashParts[0].length === 4
+            ? `${dashParts[2].padStart(2, '0')}/${dashParts[1].padStart(2, '0')}/${dashParts[0]}`
+            : trimmed;
+
+        let targetVal = pMap[trimmed] ?? pMap[isoCustom] ?? pMap[vnCustom];
+        if (targetVal === undefined) {
+          const isoKeys = Object.keys(pMap)
+            .filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k))
+            .sort();
+          const leKeys = isoKeys.filter((k) => k <= isoCustom);
+          if (leKeys.length > 0) {
+            targetVal = pMap[leKeys[leKeys.length - 1]];
+          } else if (isoKeys.length > 0) {
+            targetVal = pMap[isoKeys[0]];
+          }
+        }
+        return targetVal;
+      }
+      return (
+        pMap[period] ??
+        pMap[period.toUpperCase()] ??
+        (period === 'year' ? pMap['year'] ?? pMap['all'] ?? pMap['2026'] : undefined)
+      );
+    },
+    []
   );
 
   // R2.2 & R2.4: Cập nhật giá trị các dòng bảng hoặc lọc theo kỳ báo cáo tại chỗ (0ms Client-side)
@@ -1690,23 +1787,38 @@ export const SmartTable: React.FC<SmartTableProps> = ({
       return periodSnapshots[activePeriod];
     }
 
+    // Nếu người dùng chưa bấm đổi kỳ báo cáo và câu hỏi gốc có bộ lọc khoảng ngày đặc thù,
+    // giữ nguyên giá trị gốc do Backend tính toán để không ghi đè sai bằng 'year'
+    const ts = (tabularData as any)?.temporal_scope;
+    const hasCustomBackendRange = Boolean(ts?.specific_date || ts?.date_from || ts?.month_filter);
+    if (!hasUserChangedPeriod && hasCustomBackendRange && activePeriod === 'year') {
+      return rows;
+    }
+
     // 2. Nếu các dòng có timeline_values hoặc period_values:
     const hasRowPeriodValues = rows.some(
       (r) => r.timeline_values || r.period_values || r.snapshots
     );
     if (hasRowPeriodValues) {
+      const valColKey =
+        columns.find((c) => {
+          const kl = String(c.key || '').toLowerCase();
+          const ll = String(c.label || '').toLowerCase();
+          return (
+            kl.includes('gia_tri') ||
+            kl.includes('value') ||
+            ll.includes('giá trị') ||
+            ll.includes('số lượng')
+          );
+        })?.key || 'value';
+
       return rows.map((r) => {
         const pMap = r.timeline_values || r.period_values || r.snapshots;
         if (!pMap) return r;
-        const targetVal =
-          pMap[activePeriod] ??
-          (activePeriod === 'year' ? (pMap['year'] || pMap['all'] || pMap['2026']) : null);
+
+        const targetVal = resolvePeriodValueFromMap(pMap, activePeriod, customPeriodDate);
+
         if (targetVal !== undefined && targetVal !== null) {
-          const valColKey =
-            columns.find((c) => {
-              const kl = String(c.key || '').toLowerCase();
-              return kl.includes('gia_tri') || kl.includes('value');
-            })?.key || 'value';
           return {
             ...r,
             [valColKey]: typeof targetVal === 'object' ? targetVal.value || targetVal.val : targetVal,
@@ -1775,10 +1887,25 @@ export const SmartTable: React.FC<SmartTableProps> = ({
     }
 
     return rows;
-  }, [rows, tabularData, activePeriod, customPeriodDate, columns]);
+  }, [
+    rows,
+    tabularData,
+    activePeriod,
+    customPeriodDate,
+    columns,
+    hasUserChangedPeriod,
+    resolvePeriodValueFromMap,
+  ]);
 
   const temporalScope: TemporalScopeMeta | undefined = (tabularData as any)?.temporal_scope;
-  const temporalLabel = temporalScope?.label || temporalScope?.period_label || null;
+  const temporalLabel = useMemo(() => {
+    if (activePeriod === 'q1') return 'Quý 1/2026';
+    if (activePeriod === 'q2') return 'Quý 2/2026';
+    if (activePeriod === 'q3') return 'Quý 3/2026';
+    if (activePeriod === 'custom' && customPeriodDate) return `Ngày ${customPeriodDate}`;
+    if (hasUserChangedPeriod && activePeriod === 'year') return 'Năm 2026';
+    return temporalScope?.label || temporalScope?.period_label || null;
+  }, [activePeriod, customPeriodDate, temporalScope, hasUserChangedPeriod]);
   const contextQueryTemplate: string | undefined = (tabularData as any)?.context_query_template;
 
   // Nhận diện loại bảng để hiển thị đúng bộ Quick Filter Pills (Feature 5 - Đề xuất 6)
@@ -1969,14 +2096,13 @@ export const SmartTable: React.FC<SmartTableProps> = ({
       else if (pid.includes('ngày') || pid === 'custom') pid = 'custom';
       else if (pid.includes('năm') || pid === 'year') pid = 'year';
 
+      setHasUserChangedPeriod(true);
       setActivePeriod(pid);
-      if (pid === 'custom') {
-        setCustomPeriodDate(customDateStr || null);
-      } else {
-        setCustomPeriodDate(null);
-      }
+      const nextCustomDate = pid === 'custom' ? customDateStr || null : null;
+      setCustomPeriodDate(nextCustomDate);
+      onPeriodChange?.(pid, nextCustomDate);
     },
-    []
+    [onPeriodChange]
   );
 
   // Lọc dữ liệu theo Quick Filter Pills (Feature 5) + từ khóa tìm kiếm (hỗ trợ không dấu)
@@ -2184,14 +2310,14 @@ export const SmartTable: React.FC<SmartTableProps> = ({
     if (!onPinItem) return;
     const tableTitle = title || 'Bảng số liệu thống kê';
     onPinItem({
-      id: `pin-table-${tableTitle}-${temporalScope?.query_suffix || rows.length}`,
+      id: `pin-table-${tableTitle}-${temporalLabel || temporalScope?.query_suffix || periodAdjustedRows.length}`,
       type: 'table',
       title: tableTitle,
-      subtitle: `${rows.length} bản ghi • ${temporalLabel || 'Năm 2026'}`,
+      subtitle: `${periodAdjustedRows.length} bản ghi • ${temporalLabel || 'Năm 2026'}`,
       temporal_scope: temporalScope,
       payload: {
         columns,
-        rows,
+        rows: periodAdjustedRows,
       },
       pinnedAt: new Date().toISOString(),
     });
@@ -2200,21 +2326,45 @@ export const SmartTable: React.FC<SmartTableProps> = ({
   const activeTreeNodes = useMemo(() => {
     if (!activeTreeRootId) return [];
     const mapObj = treeModal || {};
+    let baseNodes: any[] = [];
     if (mapObj && mapObj[activeTreeRootId]) {
-      return [mapObj[activeTreeRootId]];
+      baseNodes = [mapObj[activeTreeRootId]];
+    } else {
+      const vals: any[] = Object.values(mapObj || {});
+      const targetClean = cleanDisplayString(activeTreeRootId).toLowerCase();
+      const byIdOrName = vals.filter((n) => {
+        if (!n) return false;
+        const nId = cleanDisplayString(n.id).toLowerCase();
+        const nCode = cleanDisplayString(n.code).toLowerCase();
+        const nName = cleanDisplayString(n.name).toLowerCase();
+        return nId === targetClean || nCode === targetClean || nName === targetClean;
+      });
+      baseNodes = byIdOrName.length > 0 ? byIdOrName : vals.length > 0 ? vals : [];
     }
-    const vals: any[] = Object.values(mapObj || {});
-    const targetClean = cleanDisplayString(activeTreeRootId).toLowerCase();
-    const byIdOrName = vals.filter((n) => {
-      if (!n) return false;
-      const nId = cleanDisplayString(n.id).toLowerCase();
-      const nCode = cleanDisplayString(n.code).toLowerCase();
-      const nName = cleanDisplayString(n.name).toLowerCase();
-      return nId === targetClean || nCode === targetClean || nName === targetClean;
-    });
-    if (byIdOrName.length > 0) return byIdOrName;
-    return vals.length > 0 ? vals : [];
-  }, [activeTreeRootId, treeModal]);
+
+    const applyPeriodToNode = (node: any): any => {
+      if (!node || typeof node !== 'object') return node;
+      let nextVal = node.value ?? node.latest_value;
+      const pMap = node.timeline_values || node.period_values;
+      if (pMap) {
+        const resolved = resolvePeriodValueFromMap(pMap, activePeriod, customPeriodDate);
+        if (resolved !== undefined && resolved !== null) {
+          nextVal = resolved;
+        }
+      }
+      const nextChildren = Array.isArray(node.children)
+        ? node.children.map(applyPeriodToNode)
+        : node.children;
+      return {
+        ...node,
+        value: nextVal,
+        latest_value: nextVal,
+        children: nextChildren,
+      };
+    };
+
+    return baseNodes.map(applyPeriodToNode);
+  }, [activeTreeRootId, treeModal, activePeriod, customPeriodDate, resolvePeriodValueFromMap]);
 
   if (columns.length === 0) {
     return (
@@ -2396,7 +2546,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
                   : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
               }`}
             >
-              Tất cả ({rows.length})
+              Tất cả ({periodAdjustedRows.length})
             </button>
 
             {tableFilterCategory === 'criteria' && (
@@ -2587,13 +2737,21 @@ export const SmartTable: React.FC<SmartTableProps> = ({
                               type="button"
                               data-testid={`drilldown-mission-${rIdx}`}
                               data-mission-name={cleanVal}
-                              onClick={() =>
+                              onClick={() => {
+                                const activeSuffix =
+                                  activePeriod === 'q1'
+                                    ? 'trong Quý 1 năm 2026'
+                                    : activePeriod === 'q2'
+                                    ? 'trong Quý 2 năm 2026'
+                                    : activePeriod === 'q3'
+                                    ? 'trong Quý 3 năm 2026'
+                                    : activePeriod === 'custom' && customPeriodDate
+                                    ? `ngày ${customPeriodDate}`
+                                    : temporalScope?.query_suffix || 'năm 2026';
                                 onSelectChip?.(
-                                  `Hiển thị các chỉ tiêu cấp 1 của nhiệm vụ ${cleanVal} ${
-                                    temporalScope?.query_suffix || 'năm 2026'
-                                  }?`
-                                )
-                              }
+                                  `Hiển thị các chỉ tiêu cấp 1 của nhiệm vụ ${cleanVal} ${activeSuffix}?`
+                                );
+                              }}
                               title={`Xem các chỉ tiêu Cấp 1 của nhiệm vụ ${cleanVal}`}
                               aria-label={`Xem chỉ tiêu Cấp 1 của nhiệm vụ ${cleanVal}`}
                               className="group inline-flex flex-wrap items-center gap-2 text-left py-0.5 px-1.5 -mx-1.5 rounded-lg hover:bg-indigo-50/80 transition cursor-pointer"
@@ -2629,7 +2787,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
                         }}
                         className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-semibold hover:bg-indigo-100 transition cursor-pointer not-italic"
                       >
-                        Khôi phục toàn bộ ({rows.length} dòng)
+                        Khôi phục toàn bộ ({periodAdjustedRows.length} dòng)
                       </button>
                     )}
                   </div>

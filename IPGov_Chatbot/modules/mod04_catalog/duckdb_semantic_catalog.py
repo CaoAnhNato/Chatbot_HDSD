@@ -5575,6 +5575,172 @@ class DuckDBSemanticCatalog:
 
         return result_map
 
+    def get_batch_period_values(
+        self,
+        nodes: List[Any],
+        year_code: str = "2026",
+        tenant_code: str = "68",
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Truy xuất hàng loạt giá trị theo các kỳ báo cáo (year, q1, q2, q3, q4 và ngày cụ thể)
+        của danh sách chỉ tiêu (nodes) từ PostgreSQL dwh_internal.fact_report_criteria.
+        Phục vụ chuyển đổi kỳ báo cáo tại chỗ 0ms trên SmartTable (R2.2 & R2.4).
+        """
+        if not nodes:
+            return {}
+
+        c_ids: List[str] = []
+        c_codes: List[str] = []
+        c_names: List[str] = []
+        for item in nodes:
+            if isinstance(item, dict):
+                raw_id = str(
+                    item.get("id")
+                    or item.get("criteria_id")
+                    or item.get("tree_root_id")
+                    or ""
+                ).strip()
+                raw_code = str(item.get("code") or item.get("ma_chi_tieu") or "").strip()
+                raw_nm = " ".join(
+                    str(
+                        item.get("name")
+                        or item.get("ten_chi_tieu")
+                        or item.get("ten_chi_tieu_cap_1")
+                        or item.get("item")
+                        or ""
+                    )
+                    .lower()
+                    .split()
+                )
+                if len(raw_id) == 36 and "-" in raw_id:
+                    c_ids.append(raw_id)
+                if raw_code:
+                    c_codes.append(raw_code)
+                if raw_nm:
+                    c_names.append(raw_nm)
+            else:
+                raw_s = str(item or "").strip()
+                if len(raw_s) == 36 and "-" in raw_s:
+                    c_ids.append(raw_s)
+                elif raw_s:
+                    c_names.append(" ".join(raw_s.lower().split()))
+
+        if not c_ids and not c_codes and not c_names:
+            return {}
+
+        result_map: Dict[str, Dict[str, str]] = {}
+        try:
+            import psycopg2
+            conn_pg = psycopg2.connect(
+                host=settings.DWH_HOST,
+                port=settings.DWH_PORT,
+                dbname=settings.DWH_DB,
+                user=settings.DWH_USER,
+                password=settings.DWH_PASSWORD,
+                connect_timeout=2,
+            )
+            conn_pg.autocommit = True
+            cur = conn_pg.cursor()
+
+            or_conds: List[str] = []
+            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+            if c_ids:
+                or_conds.append("f.criteria_id::text = ANY(%s)")
+                params.append(list(dict.fromkeys(c_ids)))
+            if c_codes:
+                or_conds.append("f.code = ANY(%s)")
+                params.append(list(dict.fromkeys(c_codes)))
+            if c_names:
+                or_conds.append("REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') = ANY(%s)")
+                params.append(list(dict.fromkeys(c_names)))
+
+            sql = f"""
+                WITH ranked_ch AS (
+                    SELECT
+                        f.criteria_id::text AS cid,
+                        f.code AS ccode,
+                        REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') AS cname,
+                        REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') AS pname,
+                        f.report_date::date::text AS iso_date,
+                        f.value,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
+                            ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                        ) AS rn
+                    FROM dwh_internal.fact_report_criteria f
+                    LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
+                    WHERE f.tenant_code = %s
+                      AND f.year_code = %s
+                      AND f.report_status = 'approved'
+                      AND ({" OR ".join(or_conds)})
+                )
+                SELECT cid, ccode, cname, pname, iso_date, value
+                FROM ranked_ch
+                WHERE rn = 1 AND iso_date IS NOT NULL
+                ORDER BY iso_date ASC;
+            """
+            cur.execute(sql, tuple(params))
+            pg_rows = cur.fetchall()
+            conn_pg.close()
+
+            by_instance: Dict[str, Dict[str, str]] = {}
+            instance_keys_map: Dict[str, List[str]] = {}
+
+            for cid_r, ccode_r, cname_r, pname_r, c_iso, c_raw_v in pg_rows:
+                if c_raw_v is None or str(c_raw_v).strip() in ("", "-", "None", "null"):
+                    continue
+                try:
+                    c_num = float(str(c_raw_v).strip())
+                    c_fmt = f"{int(c_num):,}".replace(",", ".") if c_num.is_integer() else f"{c_num:,.2f}"
+                except Exception:
+                    c_fmt = str(c_raw_v).strip()
+
+                iso_s = str(c_iso).strip()[:10]
+                parts = iso_s.split("-")
+                ddmmyyyy = f"{parts[2]}/{parts[1]}/{parts[0]}" if len(parts) == 3 else iso_s
+                try:
+                    m_num = int(parts[1]) if len(parts) == 3 else 1
+                except Exception:
+                    m_num = 1
+                q_key = f"q{(m_num - 1) // 3 + 1}"
+
+                cid_k = str(cid_r or "").strip().lower()
+                ccode_k = str(ccode_r or "").strip().lower()
+                cname_k = " ".join(str(cname_r or "").lower().split())
+                pname_k = " ".join(str(pname_r or "").lower().split())
+                combo_k = f"{cname_k}||{pname_k}" if (cname_k and pname_k) else ""
+
+                inst_id = cid_k or ccode_k or combo_k or cname_k
+                if not inst_id:
+                    continue
+
+                p_dict = by_instance.setdefault(inst_id, {})
+                p_dict[iso_s] = c_fmt
+                p_dict[ddmmyyyy] = c_fmt
+                p_dict[q_key] = c_fmt
+                p_dict[q_key.upper()] = c_fmt
+                p_dict["year"] = c_fmt
+                p_dict["YEAR"] = c_fmt
+                p_dict[str(year_code)] = c_fmt
+
+                lookup_keys = instance_keys_map.setdefault(inst_id, [])
+                for k in (cid_k, ccode_k, combo_k, cname_k):
+                    if k and k not in lookup_keys:
+                        lookup_keys.append(k)
+
+            for inst_id, p_dict in by_instance.items():
+                for q_default in ("q1", "q2", "q3"):
+                    if q_default not in p_dict:
+                        p_dict[q_default] = "Chưa có số liệu (-)"
+                for k in instance_keys_map.get(inst_id, []):
+                    if k not in result_map or k == inst_id:
+                        result_map[k] = p_dict
+        except Exception as e:
+            logger.debug("Không thể truy vấn batch period values từ PG: %s", e)
+
+        return result_map
+
+
 
 
 

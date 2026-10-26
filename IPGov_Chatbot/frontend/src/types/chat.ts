@@ -78,6 +78,8 @@ export interface TabularData {
   trees_by_root_id?: Record<string, any>;
   level1_rows?: Record<string, any>[];
   period_snapshots?: Record<string, Record<string, any>[]>;
+  parent_criterion_name?: string;
+  parent_timeline_values?: Record<string, string>;
 }
 
 export interface PinnedDrawerItem {
@@ -115,6 +117,7 @@ export interface QuickActionChip {
   unit_or_status?: string | null;
   child_count?: number;
   is_parent_group?: boolean;
+  timeline_values?: Record<string, string>;
 }
 
 export interface ContactSupportInfo {

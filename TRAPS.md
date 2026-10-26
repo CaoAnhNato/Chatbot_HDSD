@@ -987,3 +987,34 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     1. Khai báo kiểu trả về tường minh `useMemo((): Record<string, any>[] => ...)` cho các mảng dữ liệu bảng.
     2. Cập nhật đầy đủ các trường mở rộng (`tree_modal`, `trees_by_root_id`, `level1_rows`, `period_snapshots`) vào interface `TabularData` trong `src/types/chat.ts` và thêm `"**/__tests__/**"`, `"**/*.test.ts"`, `"**/*.test.tsx"` vào `exclude` của `tsconfig.json`.
 
+---
+
+### [TRAP-095] Bẫy Bỏ Quên Hydrate `timeline_values` / `period_values` Từ Backend Cho Các Dòng `SmartTable` Khi Chuyển Đổi Ticket Kỳ Báo Cáo 0ms Tại Chỗ
+- **Môi trường & Công nghệ:** `SmartTable.tsx` (`periodAdjustedRows`) / `MessageItem.tsx` / `warehouse_langgraph_agent.py` (`resolve_hierarchy_breakdown`, `duplicate_leaf`, `l1_formatted`) / `duckdb_semantic_catalog.py` (`get_batch_period_values`)
+- **Triệu chứng:**
+  Khi người dùng hỏi các mức đánh giá hiệu quả hoạt động của HTX (nhánh R3 `resolve_hierarchy_breakdown` hoặc SC-2.1 `duplicate_leaf`), bảng `SmartTable` hiển thị số liệu năm 2026 (`56; 55; 16; 3`, giá trị cha `130`). Khi người dùng bấm vào các nút ticket kỳ báo cáo (`Quý 1`, `Quý 2`, `Quý 3`) trên thanh `smart-table-context-ticket-bar`, nút chuyển sang trạng thái active nhưng các con số trong bảng vẫn đứng yên ở `56; 55; 16; 3` thay vì đổi tại chỗ thành `57; 55; 16; 0` (Quý 2) hoặc `56; 50; 16; 0` (Quý 1).
+- **Nguyên nhân gốc rễ:**
+  `SmartTable.tsx` đã chuyển sang cơ chế lọc kỳ báo cáo tại chỗ 0ms client-side (`periodAdjustedRows`) dựa trên `r.timeline_values` hoặc `r.period_values` của từng dòng (và test unit chỉ mock sẵn `timeline_values` trong fixture). Tuy nhiên, `warehouse_langgraph_agent.py` khi đóng gói `table_rows` (R3), `multi_rows` (SC-2.1), và `l1_formatted` (REQ-Q01/Q04) chỉ gán `value` đơn lẻ của kỳ hiện tại mà chưa gọi truy vấn batch sang PostgreSQL `fact_report_criteria` để đính kèm `timeline_values` (`year`, `q1`, `q2`, `q3`, và ngày `YYYY-MM-DD`/`DD/MM/YYYY`) cho từng dòng và `parent_timeline_values` cho chỉ tiêu cha.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ chỉ mock `timeline_values` trong unit test frontend mà quên bơm dữ liệu thật từ tầng `DuckDBSemanticCatalog` / `WarehouseLangGraphAgent` xuống payload `tabular_data.rows`.
+  * ✅ **ALWAYS:**
+    1. Bắt buộc gọi `self.catalog.get_batch_period_values(...)` để nạp đầy đủ `timeline_values` / `period_values` (`year`, `q1`, `q2`, `q3`, `YYYY-MM-DD`, `DD/MM/YYYY`) cho từng dòng trong `table_rows`, `multi_rows`, `l1_formatted` và `parent_timeline_values` cho `tabular_data`.
+    2. Giữ tham chiếu hàm `onPeriodChange` ổn định bằng `React.useCallback(..., [])` trong `MessageItem.tsx` để `markdownComponents.table` không bị tạo lại mỗi lần bấm nút kỳ báo cáo (tránh làm React unmount và reset state `activePeriod` của `SmartTable`).
+
+---
+
+### [TRAP-096] Bẫy Ghi Đè Số Liệu Ngày Cụ Thể Bằng `pMap['year']` Khi Mount `SmartTable`, Lệch `query_text` Của `QuickActionChips`, Và Khởi Tạo Lặp `DuckDBSemanticCatalog` Khi Hydrate Lịch Sử
+- **Môi trường & Công nghệ:** `SmartTable.tsx` (`initialTemporalInfo`, `periodAdjustedRows`, `handlePinTable`) / `MessageItem.tsx` (`reactiveChips`) / `ChatHistoryStore` (`_hydrate_legacy_timeline_values`) / `storage.ts` (`mergeSessions`)
+- **Triệu chứng:**
+  1. Khi người dùng hỏi phân rã chỉ tiêu kèm ngày cụ thể hoặc tháng/khoảng ngày (ví dụ: *"các mức đánh giá hiệu quả hoạt động của hợp tác xã ngày 31/03/2026"*), Backend tính đúng `- **Giá trị:** 122` và `rows = [56, 50, 16, 0]`, nhưng `temporal_scope.period_label` là `"tính đến 31/03/2026"` (không chứa chữ `"quý 1"`). Khi `SmartTable` mount, `initialTemporalPeriod` rơi về mặc định `'year'` và `periodAdjustedRows` lập tức ghi đè `[56, 50, 16, 0]` bằng `pMap['year']` (`[56, 55, 16, 3]`), gây mâu thuẫn giữa dòng tổng hợp phía trên (`122`) và bảng phía dưới (`130`).
+  2. Khi chuyển kỳ báo cáo trên bảng sang `Quý 2` hoặc `Tùy chỉnh ngày`, `reactiveChips` trong `MessageItem.tsx` chỉ tra khớp chuỗi tuyệt đối `cMap[tablePeriod.customDate]` (bỏ sót chuẩn hóa `DD/MM/YYYY <-> YYYY-MM-DD` và mốc `<= isoCustom`), đồng thời giữ nguyên `chip.query_text` ở `"năm 2026"` thay vì cập nhật sang kỳ đang chọn, và nút `📌 Ghim` (`handlePinTable`) ghim mảng `rows` gốc thay vì `periodAdjustedRows`.
+  3. Khi tự động làm giàu (`lazy hydration`) `timeline_values` cho các phiên hội thoại cũ trong `chat_history.sqlite3`, việc gọi `DuckDBSemanticCatalog()` bên trong vòng lặp tin nhắn gây khởi tạo lặp lại DuckDB hàng chục lần.
+- **Nguyên nhân gốc rễ:**
+  1. `initialTemporalPeriod` chỉ kiểm tra chuỗi `'quý 1'|'quý 2'|'quý 3'` mà bỏ qua `specific_date`, `month_filter`, `date_from`/`date_to` trong `temporal_scope`, đồng thời `periodAdjustedRows` ghi đè ngay cả khi người dùng chưa bấm đổi kỳ (`!hasUserChangedPeriod`).
+  2. Thiếu hàm phân giải mốc thời gian thống nhất giữa `SmartTable` và `MessageItem.reactiveChips`, và thiếu cache singleton `self._catalog` trong `ChatHistoryStore`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không để `periodAdjustedRows` tự ý ghi đè giá trị dòng bằng `pMap['year']` khi câu hỏi gốc có bộ lọc thời gian đặc thù và người dùng chưa bấm chuyển kỳ; Không khởi tạo `DuckDBSemanticCatalog()` bên trong vòng lặp duyệt tin nhắn lịch sử.
+  * ✅ **ALWAYS:**
+    1. Phân tích đầy đủ `specific_date`, `month_filter`, `date_from`, `date_to` trong `initialTemporalInfo` và giữ nguyên `rows` gốc khi `!hasUserChangedPeriod && hasCustomBackendRange`.
+    2. Đồng bộ `periodAdjustedRows` vào `handlePinTable`, bộ đếm bộ lọc nhanh, `activeTreeNodes`, và đồng bộ cả `preview_value` lẫn `query_text` của `QuickActionChips` theo `tablePeriod`.
+    3. Cache `self._catalog` trên instance `ChatHistoryStore` và ghi nhận kết quả hydrate vào SQLite để các lần đọc sau đạt độ trễ 0ms.

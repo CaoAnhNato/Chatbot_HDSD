@@ -149,7 +149,18 @@ export const mergeSessions = (
     } else {
       const localMsgs = existing.messages || [];
       const cloudMsgs = cs.messages || [];
-      const chosenMsgs = cloudMsgs.length >= localMsgs.length ? cloudMsgs : localMsgs;
+      const cloudHasTimeline = cloudMsgs.some((m) =>
+        Array.isArray((m.tabular_data as any)?.rows) &&
+        (m.tabular_data as any).rows.some((r: any) => Boolean(r?.timeline_values))
+      );
+      const localHasTimeline = localMsgs.some((m) =>
+        Array.isArray((m.tabular_data as any)?.rows) &&
+        (m.tabular_data as any).rows.some((r: any) => Boolean(r?.timeline_values))
+      );
+      const chosenMsgs =
+        cloudMsgs.length >= localMsgs.length || (cloudHasTimeline && !localHasTimeline)
+          ? cloudMsgs
+          : localMsgs;
       const newerUpdated =
         new Date(cs.updatedAt || cs.createdAt || 0).getTime() >
         new Date(existing.updatedAt || existing.createdAt || 0).getTime()

@@ -502,6 +502,97 @@ export async function runChallengerM1StressSuite() {
   assert.ok(cardMarkup.includes('data-testid="slider-period-pill-1"'), 'Pill 1 present');
   console.log('- SingleMetricSliderCard confirmed senior-friendly: range input and verbose clutter eliminated.');
 
+  // =========================================================================
+  // 5. VERIFICATION: R3 Hierarchy Breakdown In-Place Period Switching (56;55;16;3 -> Q2: 57;55;16;0 -> Q1: 56;50;16;0)
+  // =========================================================================
+  console.log('\n--- 5. Testing R3 Hierarchy Breakdown In-Place Period Values (Hiệu quả hoạt động) ---');
+  const r3Tabular: TabularData = {
+    title: "Danh mục chi tiết các chỉ tiêu thuộc 'Hiệu quả hoạt động' năm 2026",
+    columns: [
+      { key: 'stt', label: 'STT', align: 'center', data_type: 'number' },
+      { key: 'item', label: 'Tên chỉ tiêu', align: 'left', data_type: 'text' },
+      { key: 'category', label: 'Nhóm chỉ tiêu', align: 'left', data_type: 'text' },
+      { key: 'value', label: 'Giá trị mới nhất', align: 'right', data_type: 'text' },
+      { key: 'office', label: 'Đơn vị thực hiện', align: 'left', data_type: 'text' },
+      { key: 'mission', label: 'Nhiệm vụ trọng tâm', align: 'left', data_type: 'text' },
+    ],
+    rows: [
+      {
+        stt: 1,
+        item: 'Số HTX nông nghiệp hoạt động hiệu quả tốt',
+        category: 'HTX nông nghiệp > Hiệu quả hoạt động',
+        value: '56',
+        office: 'Chi cục',
+        mission: 'Phát triển kinh tế tập thể, hợp tác xã',
+        timeline_values: { year: '56', q1: '56', q2: '57', q3: '56', '2026-06-30': '57', '30/06/2026': '57' },
+      },
+      {
+        stt: 2,
+        item: 'Số HTX nông nghiệp hoạt động hiệu quả trung bình',
+        category: 'HTX nông nghiệp > Hiệu quả hoạt động',
+        value: '55',
+        office: 'Chi cục',
+        mission: 'Phát triển kinh tế tập thể, hợp tác xã',
+        timeline_values: { year: '55', q1: '50', q2: '55', q3: '55', '2026-06-30': '55', '30/06/2026': '55' },
+      },
+      {
+        stt: 3,
+        item: 'Số HTX nông nghiệp hoạt động kém hiệu quả',
+        category: 'HTX nông nghiệp > Hiệu quả hoạt động',
+        value: '16',
+        office: 'Chi cục',
+        mission: 'Phát triển kinh tế tập thể, hợp tác xã',
+        timeline_values: { year: '16', q1: '16', q2: '16', q3: '16', '2026-06-30': '16', '30/06/2026': '16' },
+      },
+      {
+        stt: 4,
+        item: 'Chưa đủ điều kiện đánh giá',
+        category: 'HTX nông nghiệp > Hiệu quả hoạt động',
+        value: '3',
+        office: 'Chi cục',
+        mission: 'Phát triển kinh tế tập thể, hợp tác xã',
+        timeline_values: { year: '3', q1: '0', q2: '0', q3: '3', '2026-06-30': '0', '30/06/2026': '0' },
+      },
+    ],
+    total_records: 4,
+    parent_criterion_name: 'Hiệu quả hoạt động',
+    parent_timeline_values: { year: '130', q1: '122', q2: '128', q3: '130', '2026-06-30': '128', '30/06/2026': '128' },
+  };
+
+  // Render SmartTable for default Year scope -> must render 56, 55, 16, 3
+  const r3YearHtml = renderToStaticMarkup(<SmartTable tabularData={r3Tabular} />);
+  assert.ok(r3YearHtml.includes('>56<') && r3YearHtml.includes('>55<') && r3YearHtml.includes('>16<') && r3YearHtml.includes('>3<'), 'Year SmartTable must render 56; 55; 16; 3');
+
+  // Render SmartTable when temporal_scope is Q2 -> must render 57, 55, 16, 0
+  const r3Q2Tabular: TabularData = {
+    ...r3Tabular,
+    temporal_scope: { year: '2026', period_label: 'Quý 2/2026', query_suffix: 'Quý 2/2026' } as any,
+  };
+  const r3Q2Html = renderToStaticMarkup(<SmartTable tabularData={r3Q2Tabular} />);
+  assert.ok(r3Q2Html.includes('>57<') && r3Q2Html.includes('>55<') && r3Q2Html.includes('>16<') && r3Q2Html.includes('>0<'), 'Q2 SmartTable must render 57; 55; 16; 0');
+
+  // Render SmartTable when temporal_scope has specific_date='2026-03-31' (must NOT clobber 56; 50; 16; 0 with year's 56; 55; 16; 3!)
+  const r3SpecificDateTabular: TabularData = {
+    ...r3Tabular,
+    rows: r3Tabular.rows.map((r) => ({
+      ...r,
+      value: r.timeline_values.q1,
+      timeline_values: { ...r.timeline_values, '2026-03-31': r.timeline_values.q1, '31/03/2026': r.timeline_values.q1 },
+    })),
+    temporal_scope: {
+      year: '2026',
+      specific_date: '2026-03-31',
+      period_label: 'tính đến 31/03/2026',
+      query_suffix: 'ngày 31/03/2026',
+    } as any,
+  };
+  const r3SpecDateHtml = renderToStaticMarkup(<SmartTable tabularData={r3SpecificDateTabular} />);
+  assert.ok(
+    r3SpecDateHtml.includes('>56<') && r3SpecDateHtml.includes('>50<') && r3SpecDateHtml.includes('>16<') && r3SpecDateHtml.includes('>0<') && !r3SpecDateHtml.includes('>55<'),
+    'Specific-date (31/03/2026) SmartTable must preserve 56; 50; 16; 0 and not overwrite with year values'
+  );
+  console.log('- R3 Hierarchy Breakdown SmartTable render across Year (56;55;16;3), Q2 (57;55;16;0), and Specific Date 31/03/2026 (56;50;16;0) verified.');
+
   console.log('\n=== ALL CHALLENGER M1 EMPIRICAL STRESS TESTS PASSED (100%) ===\n');
 }
 
