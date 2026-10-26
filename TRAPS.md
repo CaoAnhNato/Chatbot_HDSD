@@ -1051,3 +1051,19 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
   * ✅ **ALWAYS:**
     1. Khởi tạo `localShiftNotice` trực tiếp từ `card.temporal_shift_notice ?? null` và gán `effectiveShiftNotice = localShiftNotice`, đồng thời cập nhật câu dẫn ngày trong `MessageItem.tsx` khi chuyển kỳ.
     2. Lọc bỏ `welcome-*` và `isStreaming && !content` qua `isPersistableMessage` trong `storage.ts` và `persistSession`, đồng thời truyền `{ preserveTimestamp: true }` vào `saveSession` khi khôi phục phiên từ SQLite.
+
+---
+
+### [TRAP-099] Bẫy Render Không Tự Deploy Khi `git push` Và Bẫy `self.graph.stream()` Đồng Bộ Chặn Event Loop Làm Chết Health Check 5s (`502 Bad Gateway`) Trên Render
+- **Môi trường & Công nghệ:** Render Cloud (`ipgov-chatbot-backend` / `ipgov-chatbot-frontend`) / FastAPI Asyncio Event Loop / LangGraph `self.graph.stream()`
+- **Triệu chứng:**
+  1. Sau khi `git commit` và `git push` bản sửa lỗi `timeline_values` (`cd7d6cd`, `66e9fb5`) lên nhánh `main` của GitHub, kiểm thử trực tiếp trên Render (`https://ipgov-chatbot-frontend.onrender.com`) vẫn không thấy số liệu nhảy khi bấm các nút Ticket thời gian (`Quý 1`, `Quý 2`, `Quý 3`).
+  2. Khi thực hiện hội thoại đa lượt liên tiếp trên Render, đến lượt thứ 2–3 thì máy chủ Backend bất ngờ trả về `502 Bad Gateway` và toàn bộ lịch sử phiên vừa tạo trong SQLite bị mất.
+- **Nguyên nhân gốc rễ:**
+  1. **Render Auto-Deploy Webhook Bị Bỏ Qua:** Mặc dù cấu hình dịch vụ trên Render để `autoDeploy: "yes"`, các lần `git push` lên GitHub không kích hoạt webhook tự động trên Render (toàn bộ lịch sử deploy trên Render đều có `"trigger": "api"` hoặc `"manual"`, không có `"new_commit"`). Do đó cả Backend lẫn Frontend trên Render vẫn chạy commit cũ trước khi sửa lỗi.
+  2. **Blocking Event Loop Làm Timeout Health Check 5s Của Render:** Trong `warehouse_langgraph_agent.py` (`run_stream`) và `main.py` (`_run_startup_warmup`), vòng lặp `for event in self.graph.stream(...)` và `DuckDBSemanticCatalog()` chạy đồng bộ trực tiếp trên luồng `asyncio` chính của FastAPI. Vì các node gọi OpenRouter, HuggingFace Embedding Space và PostgreSQL qua I/O đồng bộ (`urllib.request`, `psycopg2`), luồng chính bị khóa 12–17 giây. Load balancer của Render gửi `GET /api/v1/health` mỗi 5 giây với ngưỡng timeout 5 giây; khi bị chặn quá 15 giây, Render đánh dấu `server_failed: HTTP health check failed (timed out after 5 seconds)`, gửi `SIGTERM` (`Shutting down`) khởi động lại container, gây lỗi `502 Bad Gateway` và xóa trắng SQLite trên đĩa tạm của container.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không giả định `git push` đã tự động cập nhật dịch vụ trên Render mà không kiểm tra `commit.id` đang `live` qua Render API; Không chạy generator đồng bộ `self.graph.stream()` hoặc khởi tạo `DuckDBSemanticCatalog()` trực tiếp trên luồng `asyncio` chính của FastAPI.
+  * ✅ **ALWAYS:**
+    1. Sau mỗi lần `git push`, chủ động gọi Render REST API (`POST /v1/services/{serviceId}/deploys`) cho cả Backend và Frontend và xác nhận trạng thái `status == "live"` đúng mã commit `HEAD`.
+    2. Trong `warehouse_langgraph_agent.py` (`run_stream`), chạy `self.graph.stream()` trên worker thread qua `loop.run_in_executor` + `asyncio.Queue` (`loop.call_soon_threadsafe`) và bọc `_run_startup_warmup` trong `asyncio.to_thread` để luồng `asyncio` chính luôn phản hồi `GET /api/v1/health` trong `< 1ms`.

@@ -77,9 +77,12 @@ async def _run_startup_warmup():
 
     # 3. Warm-up DuckDB Semantic Catalog & Vector Cache
     try:
-        from IPGov_Chatbot.modules.mod04_catalog.duckdb_semantic_catalog import DuckDBSemanticCatalog
-        catalog = DuckDBSemanticCatalog()
-        await asyncio.to_thread(catalog._ensure_embeddings_indexed)
+        def _warmup_duckdb() -> None:
+            from IPGov_Chatbot.modules.mod04_catalog.duckdb_semantic_catalog import DuckDBSemanticCatalog
+            catalog = DuckDBSemanticCatalog()
+            catalog._ensure_embeddings_indexed()
+
+        await asyncio.to_thread(_warmup_duckdb)
         SYSTEM_WARMUP_STATUS["details"]["duckdb_catalog"] = "READY"
         logger.info("✅ [Warmup 3/5] DuckDB Semantic Catalog & Vector Indexes đã sẵn sàng trong RAM.")
     except Exception as e:
@@ -88,8 +91,11 @@ async def _run_startup_warmup():
 
     # 4. Pre-warm LangGraph Autonomous Warehouse Agent
     try:
-        from IPGov_Chatbot.modules.mod03_router.warehouse_langgraph_agent import warehouse_agent
-        _ = warehouse_agent.checkpointer
+        def _warmup_agent() -> None:
+            from IPGov_Chatbot.modules.mod03_router.warehouse_langgraph_agent import warehouse_agent
+            _ = warehouse_agent.checkpointer
+
+        await asyncio.to_thread(_warmup_agent)
         SYSTEM_WARMUP_STATUS["details"]["langgraph_agent"] = "READY"
         logger.info("✅ [Warmup 4/5] Warehouse LangGraph Agent & SQLite Checkpointer đã sẵn sàng.")
     except Exception as e:
@@ -99,7 +105,7 @@ async def _run_startup_warmup():
     # 5. Pre-warm SSL & API Client Gateway
     try:
         from IPGov_Chatbot.core.llm_gateway import LLMGateway
-        _ = LLMGateway()
+        await asyncio.to_thread(LLMGateway)
         SYSTEM_WARMUP_STATUS["details"]["llm_gateway"] = "READY"
         logger.info("✅ [Warmup 5/5] LLM Gateway SSL Handshake Session đã sẵn sàng.")
     except Exception as e:

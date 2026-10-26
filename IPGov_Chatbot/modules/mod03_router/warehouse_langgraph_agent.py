@@ -4366,9 +4366,29 @@ class WarehouseLangGraphAgent:
         })
         await asyncio.sleep(0.01)
 
-        # Chạy từng bước của graph và phát stage_update
+        # Chạy từng bước của graph trên worker thread để không chặn asyncio event loop (Render 5s health check)
+        loop = asyncio.get_running_loop()
+        event_queue: asyncio.Queue[Any] = asyncio.Queue()
+        _sentinel = object()
+
+        def _produce_graph_events() -> None:
+            try:
+                for ev in self.graph.stream(init_state, config=config, stream_mode="updates"):
+                    loop.call_soon_threadsafe(event_queue.put_nowait, ("event", ev))
+            except Exception as exc:
+                loop.call_soon_threadsafe(event_queue.put_nowait, ("error", exc))
+            finally:
+                loop.call_soon_threadsafe(event_queue.put_nowait, ("done", _sentinel))
+
+        producer_future = loop.run_in_executor(None, _produce_graph_events)
         final_state = {}
-        for event in self.graph.stream(init_state, config=config, stream_mode="updates"):
+        while True:
+            msg_type, payload_ev = await event_queue.get()
+            if msg_type == "done":
+                break
+            if msg_type == "error":
+                raise payload_ev
+            event = payload_ev
             for node_name, node_output in event.items():
                 if "current_stage" in node_output and "stage_message" in node_output:
                     new_stage = node_output["current_stage"]
@@ -4387,6 +4407,7 @@ class WarehouseLangGraphAgent:
                         yield sse_event("stage_update", payload)
                         await asyncio.sleep(0.01)
                 final_state.update(node_output)
+        await producer_future
 
         final_answer = final_state.get("final_answer") or "Đã hoàn thành tra cứu số liệu."
         chips = final_state.get("quick_action_chips") or []
