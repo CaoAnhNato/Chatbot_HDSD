@@ -1,0 +1,687 @@
+{
+  "spec_version": "2.0.0",
+  "total_questions": 30,
+  "max_pairwise_jaccard_limit": 0.3,
+  "avg_pairwise_jaccard_limit": 0.1,
+  "verified_max_jaccard": 0.2778,
+  "verified_avg_jaccard": 0.0322,
+  "questions": [
+    {
+      "id": "Q01",
+      "type": "SINGLE_CRITERION",
+      "question": "cho tôi biết Số lượng hợp tác xã nông nghiệp đạt hiệu quả tốt trong quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Hiệu quả hoạt động",
+        "criterion_name": "Số HTX nông nghiệp hoạt động hiệu quả tốt",
+        "expected_value": "56",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q02",
+      "type": "SINGLE_CRITERION",
+      "question": "cho biết Số lượng hợp tác xã nông nghiệp mới được cấp phép trong quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "HTX nông nghiệp",
+        "criterion_name": "Thành lập mới",
+        "expected_value": "2",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q03",
+      "type": "SINGLE_CRITERION",
+      "question": "Số lượng các thành viên tham gia vào hợp tác xã nông nghiệp trong quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "HTX nông nghiệp",
+        "criterion_name": "Thành viên",
+        "expected_value": "5208",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q04",
+      "type": "SINGLE_CRITERION",
+      "question": "Diện tích đồng muối canh tác theo phương thức công nghiệp vào tháng 6 năm 2026",
+      "time_filter": {
+        "period_type": "month",
+        "month": 6,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng diện tích sản xuất muối",
+        "criterion_name": "Diện tích muối sản xuất công nghiệp",
+        "expected_value": "520",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q05",
+      "type": "SINGLE_CRITERION",
+      "question": "Quy mô ruộng muối kết tinh bằng phương pháp truyền thống thủ công ngày 15/06/2026",
+      "time_filter": {
+        "period_type": "day",
+        "date": "2026-06-15",
+        "as_of_date": "2026-06-15"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng diện tích sản xuất muối",
+        "criterion_name": "Diện tích muối sản xuất thủ công",
+        "expected_value": "1000",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q06",
+      "type": "SINGLE_CRITERION",
+      "question": "Khối lượng hạt muối thu hoạch từ dây chuyền công nghiệp hiện đại trong quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng sản lượng muối edit 1",
+        "criterion_name": "Sản lượng muối sản xuất công nghiệp",
+        "expected_value": "0",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q07",
+      "type": "SINGLE_CRITERION",
+      "question": "Các tổ hợp tác nông thôn được cấp đăng ký mới tại quý 1 năm 2026",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổ hợp tác nông nghiệp",
+        "criterion_name": "Thành lập mới",
+        "expected_value": "15",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q08",
+      "type": "SINGLE_CRITERION",
+      "question": "Mức thu nhập doanh số bình quân của mỗi chủ trang trại trong năm 2026",
+      "time_filter": {
+        "period_type": "year",
+        "year": 2026,
+        "as_of_date": "2026-12-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Trang trại",
+        "criterion_name": "Doanh thu bình quân trong năm của một Trang trại nông nghiệp",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q09",
+      "type": "SINGLE_CRITERION",
+      "question": "Tổng số hộ diêm dân bám nghề làm muối tính đến quý 3 năm 2026",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 3,
+        "year": 2026,
+        "as_of_date": "2026-09-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Diêm nghiệp",
+        "criterion_name": "Tổng hộ sản xuất muối",
+        "expected_value": "0",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q10",
+      "type": "SINGLE_CRITERION",
+      "question": "Chủ thể sở hữu sản phẩm đạt chuẩn 4 sao chương trình mỗi xã một sản phẩm lũy kế đến quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30",
+        "is_cumulative": true
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Lũy kế tổng số lượng chủ thể đến thời điểm báo cáo",
+        "criterion_name": "Số lượng chủ thể sản phẩm OCOP 4 sao",
+        "expected_row_count": 1
+      }
+    },
+    {
+      "id": "Q11",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Tình hình liên kết sản xuất của hợp tác xã nông nghiệp ở quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Liên kết sản xuất",
+        "expected_children_count": 2,
+        "expected_children": [
+          "Số HTX nông nghiệp có liên kết sản xuất ổn định",
+          "Số HTX nông nghiệp có liên kết không ổn định, thường xuyên"
+        ]
+      }
+    },
+    {
+      "id": "Q12",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Phân loại các lĩnh vực hoạt động của khu vực HTX trong quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Số lượng HTX phân theo lĩnh vực",
+        "expected_children_count": 8,
+        "expected_children": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Thủy sản",
+          "Diêm nghiệp",
+          "Chế biến nông sản",
+          "Nước sạch NT",
+          "Tổng hợp"
+        ]
+      }
+    },
+    {
+      "id": "Q13",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Xếp hạng các bậc đánh giá hiệu quả vận hành của khối HTX vào quý 2 năm 2026",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Hiệu quả hoạt động",
+        "expected_children_count": 4,
+        "expected_children": [
+          "Số HTX nông nghiệp hoạt động hiệu quả tốt",
+          "Số HTX nông nghiệp hoạt động hiệu quả trung bình",
+          "Số HTX nông nghiệp hoạt động kém hiệu quả",
+          "Chưa đủ điều kiện đánh giá"
+        ]
+      }
+    },
+    {
+      "id": "Q14",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Cơ cấu các loại hình ruộng cấu thành tổng diện tích sản xuất muối đến tháng 6/2026",
+      "time_filter": {
+        "period_type": "month",
+        "month": 6,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng diện tích sản xuất muối",
+        "expected_children_count": 2,
+        "expected_children": [
+          "Diện tích muối sản xuất thủ công",
+          "Diện tích muối sản xuất công nghiệp"
+        ]
+      }
+    },
+    {
+      "id": "Q15",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Phân bổ các lĩnh vực canh tác bên khối tổ hợp tác trong quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng số THT phân theo lĩnh vực",
+        "expected_children_count": 8,
+        "expected_children": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Thủy sản",
+          "Diêm nghiệp",
+          "Chế biến nông sản",
+          "Nước sạch NT",
+          "Tổng hợp"
+        ]
+      }
+    },
+    {
+      "id": "Q16",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Các mảng lĩnh vực chuyên ngành thuộc liên hiệp hợp tác xã tại quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng số LHHTX phân theo lĩnh vực",
+        "expected_children_count": 8,
+        "expected_children": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Thủy sản",
+          "Diêm nghiệp",
+          "Chế biến nông sản",
+          "Nước sạch NT",
+          "Tổng hợp"
+        ]
+      }
+    },
+    {
+      "id": "Q17",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Cơ cấu tổng đàn vật nuôi gia súc trên địa bàn tỉnh trong quý 1 năm 2026",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Số lượng gia súc",
+        "expected_children_count": 2,
+        "expected_children": [
+          "Số lượng trâu",
+          "Số lượng bò"
+        ]
+      }
+    },
+    {
+      "id": "Q18",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Phân nhóm các chuyên ngành sản xuất thuộc kinh tế trang trại vào quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng số lượng TT phân theo lĩnh vực",
+        "expected_children_count": 7,
+        "expected_children": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Nuôi trồng thủy sản",
+          "Sản xuất muôi",
+          "Chế biến nông sản",
+          "Tổng hợp"
+        ]
+      }
+    },
+    {
+      "id": "Q19",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Tỷ trọng tổng sản lượng muối thu hoạch theo từng phương pháp ngày 30/04/2026",
+      "time_filter": {
+        "period_type": "day",
+        "date": "2026-04-30",
+        "as_of_date": "2026-04-30"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng sản lượng muối edit 1",
+        "expected_children_count": 2,
+        "expected_children": [
+          "Sản lượng muối sản xuất thủ công",
+          "Sản lượng muối sản xuất công nghiệp"
+        ]
+      }
+    },
+    {
+      "id": "Q20",
+      "type": "PARENT_CHILDREN_BREAKDOWN",
+      "question": "Phân hạng cấp độ sao của các sản phẩm OCOP được thẩm định trong năm 2026",
+      "time_filter": {
+        "period_type": "year",
+        "year": 2026,
+        "as_of_date": "2026-12-31"
+      },
+      "warehouse_ground_truth": {
+        "parent_name": "Tổng số lượng sản phẩm OCOP trong năm",
+        "expected_children_count": 3,
+        "expected_children": [
+          "Sản phẩm OCOP 3 sao",
+          "Sản phẩm OCOP 4 sao",
+          "Sản phẩm OCOP 5 sao"
+        ]
+      }
+    },
+    {
+      "id": "Q21",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Đối chiếu số đơn vị mới thành lập giữa các mô hình kinh tế tập thể trong năm 2026",
+      "time_filter": {
+        "period_type": "year",
+        "year": 2026,
+        "as_of_date": "2026-12-31"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Thành lập mới",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "HTX nông nghiệp",
+            "value": "3"
+          },
+          {
+            "branch": "Liên hiệp HTX nông nghiệp",
+            "value": "0"
+          },
+          {
+            "branch": "Tổ hợp tác nông nghiệp",
+            "value": "15"
+          },
+          {
+            "branch": "Trang trại",
+            "value": "5"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q22",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "So sánh quy mô mảng chăn nuôi giữa các loại hình tổ chức nông nghiệp ngày 30/04/2026",
+      "time_filter": {
+        "period_type": "day",
+        "date": "2026-04-30",
+        "as_of_date": "2026-04-30"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Chăn nuôi",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số lượng TT phân theo lĩnh vực"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q23",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Thống kê chuyên ngành trồng trọt qua từng loại hình đơn vị kinh doanh ở quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Trồng trọt",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực",
+            "value": "25"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực",
+            "value": "1"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực",
+            "value": "178"
+          },
+          {
+            "branch": "Tổng số lượng TT phân theo lĩnh vực",
+            "value": "26"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q24",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Tổng hợp lực lượng thành viên góp vốn giữa các khối kinh tế hợp tác tại quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Thành viên",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "HTX nông nghiệp",
+            "value": "5208"
+          },
+          {
+            "branch": "Liên hiệp HTX nông nghiệp",
+            "value": "30"
+          },
+          {
+            "branch": "Tổ hợp tác nông nghiệp",
+            "value": "1400"
+          },
+          {
+            "branch": "Trang trại",
+            "value": "575"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q25",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Đặt lên bàn cân mảng thủy sản ở các mô hình tổ chức trong quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Thủy sản",
+        "expected_branches_count": 3,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực",
+            "value": "15"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực",
+            "value": "0"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực",
+            "value": "71"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q26",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Khảo sát số cơ sở đang duy trì hoạt động qua các định chế kinh tế vào quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Đang hoạt động",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "HTX nông nghiệp",
+            "value": "130"
+          },
+          {
+            "branch": "Liên hiệp HTX nông nghiệp",
+            "value": "4"
+          },
+          {
+            "branch": "Tổ hợp tác nông nghiệp",
+            "value": "515"
+          },
+          {
+            "branch": "Trang trại",
+            "value": "110"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q27",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Đối sánh lĩnh vực lâm nghiệp giữa các khối tổ chức nông thôn trong quý 1 năm 2026",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Lâm nghiệp",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số lượng TT phân theo lĩnh vực"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q28",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Rà soát mảng chế biến nông sản qua từng hệ thống đơn vị tập thể ở quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Chế biến nông sản",
+        "expected_branches_count": 4,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số lượng TT phân theo lĩnh vực"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q29",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "So chiếu mảng cung cấp nước sạch NT giữa các nhóm chủ thể quản lý tại quý 1",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 1,
+        "year": 2026,
+        "as_of_date": "2026-03-31"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Nước sạch NT",
+        "expected_branches_count": 3,
+        "expected_branches": [
+          {
+            "branch": "Số lượng HTX phân theo lĩnh vực",
+            "value": "15"
+          },
+          {
+            "branch": "Tổng số LHHTX phân theo lĩnh vực"
+          },
+          {
+            "branch": "Tổng số THT phân theo lĩnh vực"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Q30",
+      "type": "CROSS_BRANCH_COMPARISON",
+      "question": "Bức tranh nghề truyền thống được công nhận giữa số phát sinh và lũy kế trong quý 2",
+      "time_filter": {
+        "period_type": "quarter",
+        "quarter": 2,
+        "year": 2026,
+        "as_of_date": "2026-06-30"
+      },
+      "warehouse_ground_truth": {
+        "criterion_name": "Nghề truyền thống",
+        "expected_branches_count": 2,
+        "expected_branches": [
+          {
+            "branch": "Tổng số làng nghề, làng nghề truyền thống, nghề truyền thống được công nhận trong năm"
+          },
+          {
+            "branch": "Lũy kế Số làng nghề, làng nghề truyền thống, nghề truyền thống được công nhận"
+          }
+        ]
+      }
+    }
+  ]
+}

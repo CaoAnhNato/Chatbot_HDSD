@@ -1770,7 +1770,7 @@ class CanonicalSemanticNormalizer:
             canonical_ids = [p_node_b["code"]] if p_node_b.get("code") else []
             ambig_status = "RESOLVED"
             clarification_cands = []
-            stream_a["intent"] = CanonicalIntentEnum.METRIC_POINT_INQUIRY
+            stream_a["intent"] = CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN
         elif not clarif_triggered:
             if stream_a["intent"] in (
                 CanonicalIntentEnum.METADATA_EXPLORATION,
@@ -2676,6 +2676,38 @@ class CanonicalSemanticNormalizer:
                 f"SELECT r.report_date, r.status, r.department_code\n"
                 f"FROM dwh_internal.report AS r\n"
                 f"WHERE r.tenant_code = '{frame.tenant_code}' AND r.year_code = '{frame.year_code}'{limit_clause}"
+            )
+
+        # 7. PARENT_CHILDREN_BREAKDOWN
+        if frame.intent == CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN:
+            t_code = (frame.tenant_code or "68").replace("'", "''")
+            y_code = (frame.year_code or "2026").replace("'", "''")
+            crit_filter = ""
+            if frame.canonical_metric_names:
+                names_esc = "', '".join(n.replace("'", "''") for n in frame.canonical_metric_names)
+                crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM dwh_internal.criteria WHERE name IN ('{names_esc}')))\n"
+            return (
+                f"SELECT DISTINCT ON (f.name) f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat, f.report_date AS thoi_diem_bao_cao\n"
+                f"FROM dwh_internal.fact_report_criteria f\n"
+                f"WHERE f.tenant_code = '{t_code}' AND f.year_code = '{y_code}' AND f.report_status = 'approved'\n"
+                f"{crit_filter}"
+                f"ORDER BY f.name, f.report_date DESC NULLS LAST{limit_clause}"
+            )
+
+        # 8. CROSS_BRANCH_COMPARISON
+        if frame.intent == CanonicalIntentEnum.CROSS_BRANCH_COMPARISON:
+            t_code = (frame.tenant_code or "68").replace("'", "''")
+            y_code = (frame.year_code or "2026").replace("'", "''")
+            crit_filter = ""
+            if frame.canonical_metric_names:
+                names_esc = "', '".join(n.replace("'", "''") for n in frame.canonical_metric_names)
+                crit_filter = f"  AND f.name IN ('{names_esc}')\n"
+            return (
+                f"SELECT f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat, f.report_date AS thoi_diem_bao_cao, f.parent_criteria_id\n"
+                f"FROM dwh_internal.fact_report_criteria f\n"
+                f"WHERE f.tenant_code = '{t_code}' AND f.year_code = '{y_code}' AND f.report_status = 'approved'\n"
+                f"{crit_filter}"
+                f"ORDER BY f.report_date DESC NULLS LAST{limit_clause}"
             )
 
         # Fallback

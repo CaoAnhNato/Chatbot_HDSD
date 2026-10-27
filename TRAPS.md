@@ -1084,3 +1084,36 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     1. Trong `build_criteria_tree_for_rows` (`duckdb_semantic_catalog.py`), gọi `self.get_batch_period_values(list(nodes_by_id.values()), ...)` để đính kèm `timeline_values` và `period_values` cho toàn bộ nút Cấp 1/2/3 và `level1_summary_rows`, đồng thời hiển thị thanh chọn kỳ báo cáo 0ms ngay trong `InteractiveCriteriaTreeModal`.
     2. Trong `warehouse_langgraph_agent.py` và `ChatHistoryStore._hydrate_legacy_timeline_values`, luôn gắn `criteria_id` (lấy từ `single_metric_card.criteria_id` nếu `len(t_rows) == 1`) và `timeline_values` trích xuất từ `timeline_snaps` cho `tabular_data.rows[0]`, cũng như đệ quy hydrate `tree_modal` cho các phiên lịch sử cũ.
 
+---
+
+### [TRAP-101] Bẫy Biến Dạng Truy Vấn Độc Lập Đa Lượt Trong CQR (`state["user_query"] = cqr_res.rewritten_query`) Và Bẫy Cổng Từ Khóa Tĩnh `BREAKDOWN_TRIGGER` Khi Người Dùng Paraphrase Tên Chỉ Tiêu
+- **Môi trường & Công nghệ:** `warehouse_langgraph_agent.py` (`node_parse_context`) / `discourse_state_tracker.py` (`classify_turn_transition`) / `neural_cqr_engine.py` / `duckdb_semantic_catalog.py` (`_resolve_paraphrased_criterion_from_kb`)
+- **Triệu chứng:**
+  1. Khi hỏi đơn lẻ `"cho tôi biết số lượng lĩnh vực của hợp tác xã nông nghiệp"`, hệ thống trả về đúng bảng 8 lĩnh vực của HTX. Nhưng nếu hỏi ngay sau câu `"cho tôi biết số lĩnh vực của HTX nông nghiệp"`, câu thứ hai lại bị biến dạng sang truy vấn liệt kê chỉ tiêu Cấp 1 toàn kho.
+  2. Khi người dùng paraphrase tên chỉ tiêu theo ngữ nghĩa định nghĩa (ví dụ: `"Số lượng hợp tác xã nông nghiệp mới được cấp phép trong quý 1"` cho `'Thành lập mới'`, hoặc `"Tình hình liên kết sản xuất của hợp tác xã nông nghiệp ở quý 2"` cho `'Liên kết sản xuất'`), các cổng từ khóa tĩnh (`ALLOWED_SEMANTIC_LEXICON_SEED` / `BREAKDOWN_TRIGGER`) trượt khớp và rơi về danh sách Cấp 1 mặc định.
+- **Nguyên nhân gốc rễ:**
+  1. Trong `discourse_state_tracker.py`, câu thứ hai có độ tương đồng Jaccard cao với lượt 1 nên không nhảy vào `TOPIC_SHIFT`, rơi xuống nhánh nối ghép lịch sử (`SLOT_UPDATE`) dù bản thân câu thứ hai đã đầy đủ chủ ngữ/vị ngữ và không chứa đại từ quy chiếu. Nghiêm trọng hơn, `warehouse_langgraph_agent.py` ghi đè trực tiếp `state["user_query"] = cqr_res.rewritten_query` trước khi chạy `resolve_hierarchy_breakdown`.
+  2. Hệ thống cũ dựa vào danh sách từ khóa tĩnh thay vì đối chiếu độ phủ IDF và ngữ cảnh phân cấp trên Kho Tri thức Định nghĩa Chỉ tiêu (`criterion_definitions_kb.json` / `catalog_definitions`).
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không dùng danh sách từ khóa tĩnh (`ALLOWED_SEMANTIC_LEXICON_SEED`, `BREAKDOWN_TRIGGER`, `seed_aliases`) để chặn cổng phân loại phân cấp; Không cho phép CQR nối ghép ngữ cảnh cũ vào câu hỏi đã tự chủ ngữ nghĩa (self-contained query without anaphora); Không ghi đè chuỗi gốc `raw_user_query` khi truyền vào `resolve_hierarchy_breakdown`.
+  * ✅ **ALWAYS:**
+    1. Kiểm tra tính tự chủ ngữ nghĩa (`is_self_contained and not has_anaphora`) trong `DiscourseStateTracker` và `NeuralCQREngine` để giữ nguyên câu hỏi độc lập (`rewritten_query = current_query`, `confidence = 0.0`).
+    2. Bảo toàn `raw_user_query` trong `node_parse_context` và phân giải paraphrase thông qua bộ chấm điểm IDF động kết hợp khử nhiễu thực thể gốc (`parent_core_toks`) trên bảng DuckDB `catalog_definitions` (`155/155` định nghĩa chuẩn hóa).
+
+---
+
+### [TRAP-102] Bẫy Va Chạm Chuỗi Con `"cơ sở"` vs `"sở "` Trong `resolve_administrative_scope` Và Bẫy Mất Chữ Số Đơn (`3 sao`, `4 sao`, `5 sao`) Khi Lọc Token `len(w) >= 2`
+- **Môi trường & Công nghệ:** `duckdb_semantic_catalog.py` (`resolve_administrative_scope`, `_resolve_paraphrased_criterion_from_kb`, `classify_criterion_hierarchy`)
+- **Triệu chứng:**
+  1. Khi câu hỏi chứa cụm từ `"Khảo sát số cơ sở đang duy trì hoạt động qua các định chế kinh tế vào quý 2"` (`Q26`), hàm `resolve_administrative_scope` gán nhầm `department_code = '68-1-06'`, khiến truy vấn liên nhánh `'Đang hoạt động'` trả về 0 bản ghi.
+  2. Khi câu hỏi hỏi nhóm cha `"Phân hạng cấp độ sao của các sản phẩm OCOP được thẩm định trong năm 2026"` (`Q20`, không nêu số sao cụ thể), nếu bộ tách từ dùng điều kiện `len(w) >= 2`, các chữ số đơn `"3"`, `"4"`, `"5"` trong tên chỉ tiêu lá `'Sản phẩm OCOP 3 sao'` bị loại bỏ, làm biến mất token phân biệt giữa chỉ tiêu lá và nhóm cha `'Tổng số lượng sản phẩm OCOP trong năm'`.
+- **Nguyên nhân gốc rễ:**
+  1. Trong `resolve_administrative_scope`, biểu thức `has_dept_indicator` kiểm tra `"sở " in t_clean`. Từ ghép `"cơ sở "` kết thúc bằng `"sở "` nên kích hoạt nhầm cờ tìm kiếm Sở/Ngành cấp tỉnh.
+  2. Bộ lọc độ dài token `len(w) >= 2` vô tình xóa các chữ số đơn (`"1"`..`"9"`) đóng vai trò định danh cấp/bậc/hạng sao của chỉ tiêu lá.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không kiểm tra chuỗi con `"sở "` trước khi loại bỏ từ ghép `"cơ sở"` (`\b(cơ\s+sở|co\s+so)\b`); Không lọc bỏ chữ số đơn bằng `len(w) >= 2` đơn thuần trong bộ phân giải ngữ nghĩa chỉ tiêu.
+  * ✅ **ALWAYS:**
+    1. Trong `resolve_administrative_scope`, luôn xóa `\b(cơ\s+sở|co\s+so)\b` khỏi chuỗi kiểm tra `t_dept_check` trước khi xét `has_dept_indicator`.
+    2. Trong `_resolve_paraphrased_criterion_from_kb`, luôn giữ lại chữ số bằng điều kiện `len(w) >= 2 or w.isdigit()` để bảo toàn token phân biệt cấp độ/hạng sao (`3`, `4`, `5`) giữa chỉ tiêu lá và nhóm chỉ tiêu cha.
+
+

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from IPGov_Chatbot.config import settings
-from IPGov_Chatbot.modules.mod03_router.discourse_state_tracker import DialogueStateFrame
+from IPGov_Chatbot.modules.mod03_router.discourse_state_tracker import DialogueStateFrame, is_self_contained_query
 
 logger = logging.getLogger("ipgov.mod03.neural_cqr_engine")
 
@@ -85,14 +85,15 @@ class NeuralCQREngine:
             CQRReformulationResult: Đối tượng Pydantic chứa câu hỏi độc lập đã hòa mạng.
         """
         q_clean = query.strip()
-        if not context_frame or not context_frame.topic_entity:
-            # Lượt 1 hoặc không có ngữ cảnh trước -> Trả về nguyên trạng độc lập
+        current_turn = (getattr(context_frame, "turn_index", 1) + 1) if context_frame else 1
+        if not context_frame or not context_frame.topic_entity or is_self_contained_query(q_clean, current_turn=current_turn):
+            # Lượt 1 hoặc câu hỏi tự đầy đủ ngữ nghĩa (Self-Contained) -> Trả về nguyên trạng độc lập
             return CQRReformulationResult(
                 is_dependent=False,
                 standalone_query=q_clean,
                 target_domain=context_frame.domain if context_frame else "fact_criteria",
                 missing_slots=[],
-                fusion_rationale="Lượt hỏi đầu tiên hoặc câu hỏi độc lập không có ngữ cảnh phụ thuộc.",
+                fusion_rationale="Lượt hỏi đầu tiên hoặc câu hỏi tự đầy đủ ngữ nghĩa (Self-Contained), bỏ qua tái cấu trúc.",
                 confidence_score=1.0,
             )
 
@@ -109,6 +110,7 @@ class NeuralCQREngine:
             "- Nếu người dùng hỏi 'vậy có bao nhiêu hộ' sau khi đã hỏi về 'muối': câu viết lại BẮT BUỘC là 'Tổng số hộ sản xuất muối năm <năm> là bao nhiêu?'.\n"
             "- Nếu người dùng hỏi 'diện tích là bao nhiêu' sau khi hỏi về 'muối': câu viết lại BẮT BUỘC là 'Diện tích sản xuất muối năm <năm> là bao nhiêu ha?'.\n"
             "- Tuyệt đối KHÔNG gộp sai chủ đề (ví dụ: không được ghép 'diện tích' vào 'tai nạn lao động' nếu chủ đề là tai nạn).\n"
+            "- Tuyệt đối KHÔNG tiêm các từ khóa vô hướng ('là bao nhiêu', 'kết quả là', 'giá trị là bao nhiêu', 'chỉ tiêu đơn') vào các câu hỏi liệt kê danh mục, phân rã cấp bậc (breakdown/enumeration) như hỏi về các lĩnh vực, các loại, các mức đánh giá.\n"
             "- Trả về kết quả thuần túy dưới dạng JSON theo đúng schema sau (không thêm văn bản ngoài JSON):\n"
             "{\n"
             '  "is_dependent": true,\n'

@@ -241,7 +241,8 @@ WAREHOUSE_TABLES_SCHEMA = {
 class AgentState(TypedDict):
     """Trạng thái toàn trình của StateGraph."""
     session_id: str
-    user_query: str
+    user_query: str                  # Bất biến: câu hỏi gốc ban đầu của người dùng
+    effective_query: Optional[str]   # Câu hỏi sau khi hòa mạng ngữ cảnh / tái cấu trúc
     history: List[Dict[str, str]]
     user_context: Dict[str, Any]
 
@@ -1003,14 +1004,17 @@ class WarehouseLangGraphAgent:
             CanonicalIntentEnum.METADATA_EXPLORATION,
             CanonicalIntentEnum.CAPABILITY_INTRO,
             CanonicalIntentEnum.GREETING_FAREWELL,
+            CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN,
+            CanonicalIntentEnum.CROSS_BRANCH_COMPARISON,
         )
 
         effective_query = clean_text
         if (
             turn_index > 1
             and not is_child_followup_under_parent
-            and res_level != "NEW_TOPIC"
+            and res_level not in ("NEW_TOPIC", "SELF_CONTAINED")
             and not is_standalone_non_metric
+            and not (hasattr(self.discourse_tracker, "is_self_contained") and self.discourse_tracker.is_self_contained(clean_text, turn_index))
         ):
             cqr_res = self.cqr_engine.reformulate(
                 query=clean_text,
@@ -1302,7 +1306,8 @@ class WarehouseLangGraphAgent:
         return {
             "current_stage": "THINKING",
             "stage_message": "🔍 Đang phân tích câu hỏi & đối chiếu ngữ cảnh...",
-            "user_query": effective_query,
+            "user_query": raw_query,
+            "effective_query": effective_query,
             "is_out_of_scope": False,
             "out_of_scope_answer": None,
             "inherited_tenant": inherited_tenant,
@@ -1477,6 +1482,8 @@ class WarehouseLangGraphAgent:
             CanonicalIntentEnum.METADATA_EXPLORATION,
             CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
             CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+            CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN,
+            CanonicalIntentEnum.CROSS_BRANCH_COMPARISON,
         ):
             # Nếu là METRIC_POINT_INQUIRY, dùng trực tiếp khi đã có canonical_metric_names
             if norm_frame.intent != CanonicalIntentEnum.METRIC_POINT_INQUIRY or norm_frame.canonical_metric_names:
@@ -1771,7 +1778,7 @@ class WarehouseLangGraphAgent:
                 "quick_action_chips": state.get("quick_action_chips") or chips,
             }
 
-        if state.get("sql_error"):
+        if state.get("sql_error") and not (norm_frame and norm_frame.intent == CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN):
             ans = f"⚠️ Yêu cầu tra cứu không thể hoàn tất do lỗi cơ sở dữ liệu: {state['sql_error']}"
             ans = _append_collapsible_sql(ans, sql)
             return {
@@ -4290,6 +4297,7 @@ class WarehouseLangGraphAgent:
         init_state = {
             "session_id": session_id,
             "user_query": query,
+            "effective_query": query,
             "history": history or [],
             "user_context": user_context or {"role_level": 0, "tenant_code": "68"},
             "is_clarification_needed": False,
@@ -4315,7 +4323,7 @@ class WarehouseLangGraphAgent:
             "tabular_data": None,
         }
 
-        if session_id == "default_session" and not history:
+        if not history:
             init_state["inherited_tenant"] = "68"
             init_state["inherited_year"] = "2026"
             init_state["inherited_department"] = None
@@ -4324,6 +4332,8 @@ class WarehouseLangGraphAgent:
 
         final_state = self.graph.invoke(init_state, config=config)
         return {
+            "user_query": final_state.get("user_query") or query,
+            "effective_query": final_state.get("effective_query") or query,
             "answer": final_state.get("final_answer"),
             "final_answer": final_state.get("final_answer"),
             "sql": final_state.get("generated_sql"),
@@ -4358,6 +4368,7 @@ class WarehouseLangGraphAgent:
         init_state = {
             "session_id": session_id,
             "user_query": query,
+            "effective_query": query,
             "history": history or [],
             "user_context": user_context or {"role_level": 0, "tenant_code": "68"},
             "is_clarification_needed": False,
@@ -4383,7 +4394,7 @@ class WarehouseLangGraphAgent:
             "tabular_data": None,
         }
 
-        if session_id == "default_session" and not history:
+        if not history:
             init_state["inherited_tenant"] = "68"
             init_state["inherited_year"] = "2026"
             init_state["inherited_department"] = None

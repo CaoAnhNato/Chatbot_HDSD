@@ -1,0 +1,250 @@
+{
+  "suite_name": "IPGov_Render_UI_10_Quests_Single_Session",
+  "target_frontend_url": "https://ipgov-chatbot-frontend.onrender.com/",
+  "target_backend_url": "https://ipgov-chatbot-backend.onrender.com",
+  "hard_limits": {
+    "max_ui_quests": 10,
+    "max_backend_quests": 20,
+    "single_session_required": true,
+    "browser_zoom_percent": 80,
+    "collapse_left_history_sidebar": true
+  },
+  "ui_quests": [
+    {
+      "quest_index": 1,
+      "quest_id": "UI-01",
+      "ref_code": "REQ-Q01 + FB1-UI-01",
+      "prompt": "Hệ thống hiện đang thu thập những chỉ tiêu nào trong năm 2026?",
+      "buttons_to_test": [
+        "Bấm nút '- (Xem chi tiết con)' ở dòng 'HTX nông nghiệp' để mở Pop-up cây chỉ tiêu con (kiểm tra mặc định mở '📋 Bảng chi tiết' và có nút 'Sơ đồ luồng chỉ tiêu'), sau đó đóng Pop-up",
+        "Bấm button ticket thời gian 'Quý 2' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Năm 2026' trên bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "REQ-Q01_ROOT_CRITERIA_TABLE",
+        "expected_root_count": 9,
+        "key_values_2026_09_30": {
+          "Tổng hộ sản xuất muối": "660",
+          "Tổng diện tích sản xuất muối": "1.520",
+          "Tổng sản lượng muối": "27.000"
+        },
+        "popup_default_tab": "📋 Bảng chi tiết",
+        "popup_alt_tab": "Sơ đồ luồng chỉ tiêu"
+      }
+    },
+    {
+      "quest_index": 2,
+      "quest_id": "UI-02",
+      "ref_code": "REQ-Q02 + FB1-UI-02 + FB2-UI-03",
+      "prompt": "Cho tôi biết tổng hộ sản xuất muối năm 2026 là bao nhiêu?",
+      "buttons_to_test": [
+        "Bấm button mốc thời gian '30/06/2026' trong hộp Kỳ báo cáo đối chiếu",
+        "Bấm button mốc thời gian '31/03/2026' trong hộp Kỳ báo cáo đối chiếu",
+        "Bấm button mốc thời gian '30/09/2026' trong hộp Kỳ báo cáo đối chiếu"
+      ],
+      "warehouse_expectation": {
+        "type": "SINGLE_METRIC_SLIDER_CARD",
+        "criterion_name": "Tổng hộ sản xuất muối",
+        "period_values": {
+          "30/09/2026": "660",
+          "30/06/2026": "600",
+          "31/03/2026": "650"
+        },
+        "office": "Chi cục",
+        "mission": "Diêm nghiệp"
+      }
+    },
+    {
+      "quest_index": 3,
+      "quest_id": "UI-03",
+      "ref_code": "SC-2.5 + FB2-LOG-01 + CUR-BUG-01",
+      "prompt": "có bao nhiêu mức đánh giá hiệu quả hoạt động của hợp tác xã nông nghiệp ?",
+      "buttons_to_test": [
+        "Bấm button ticket thời gian 'Quý 2' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Quý 1' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Năm 2026' trên bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "R3_HIERARCHY_BREAKDOWN",
+        "parent_name": "Hiệu quả hoạt động",
+        "canonical_order": [
+          "Số HTX nông nghiệp hoạt động hiệu quả tốt",
+          "Số HTX nông nghiệp hoạt động hiệu quả trung bình",
+          "Số HTX nông nghiệp hoạt động kém hiệu quả",
+          "Chưa đủ điều kiện đánh giá"
+        ],
+        "vectors_by_period": {
+          "Năm 2026": ["56", "55", "16", "3"],
+          "Quý 2": ["57", "55", "16", "0"],
+          "Quý 1": ["56", "50", "16", "0"]
+        }
+      }
+    },
+    {
+      "quest_index": 4,
+      "quest_id": "UI-04",
+      "ref_code": "SC-2.5 + FB2-LOG-02 + CUR-BUG-03a",
+      "prompt": "cho tôi biết số lĩnh vực của HTX nông nghiệp",
+      "buttons_to_test": [
+        "Bấm button ticket thời gian 'Quý 1' trên bảng (hoặc button gợi ý đầu tiên nếu hệ thống hiển thị SC-2.4b)",
+        "Bấm button ticket thời gian 'Quý 2' trên bảng (nếu có bảng SmartTable)"
+      ],
+      "warehouse_expectation": {
+        "type": "R3_HIERARCHY_BREAKDOWN",
+        "parent_name": "Số lượng HTX phân theo lĩnh vực",
+        "canonical_order": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Thủy sản",
+          "Diêm nghiệp",
+          "Chế biến nông sản",
+          "Nước sạch NT",
+          "Tổng hợp"
+        ],
+        "vectors_by_period": {
+          "Năm 2026": ["25", "25", "15", "15", "10", "15", "15", "18"],
+          "Quý 2": ["25", "25", "15", "15", "7", "15", "15", "18"],
+          "Quý 1": ["25", "25", "15", "15", "7", "15", "15", "13"]
+        }
+      }
+    },
+    {
+      "quest_index": 5,
+      "quest_id": "UI-05",
+      "ref_code": "SC-2.5 + CUR-BUG-03b",
+      "prompt": "cho tôi biết số lượng lĩnh vực của hợp tác xã nông nghiệp",
+      "buttons_to_test": [
+        "Bấm button ticket thời gian 'Quý 1' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Quý 2' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Năm 2026' trên bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "R3_HIERARCHY_BREAKDOWN",
+        "parent_name": "Số lượng HTX phân theo lĩnh vực",
+        "canonical_order": [
+          "Trồng trọt",
+          "Chăn nuôi",
+          "Lâm nghiệp",
+          "Thủy sản",
+          "Diêm nghiệp",
+          "Chế biến nông sản",
+          "Nước sạch NT",
+          "Tổng hợp"
+        ],
+        "vectors_by_period": {
+          "Năm 2026": ["25", "25", "15", "15", "10", "15", "15", "18"],
+          "Quý 2": ["25", "25", "15", "15", "7", "15", "15", "18"],
+          "Quý 1": ["25", "25", "15", "15", "7", "15", "15", "13"]
+        }
+      }
+    },
+    {
+      "quest_index": 6,
+      "quest_id": "UI-06",
+      "ref_code": "SC-2.1 + FB2-UI-05",
+      "prompt": "Chăn nuôi ngày 30/4",
+      "buttons_to_test": [
+        "Bấm button ticket thời gian 'Quý 2' trên bảng SmartTable",
+        "Bấm button ticket thời gian 'Năm 2026' trên bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "SC_2_1_MULTI_BRANCH_TABLE",
+        "criterion_name": "Chăn nuôi",
+        "branch_count": 4,
+        "no_trailing_text_after_table": true,
+        "values_at_2026_03_31": {
+          "Trang trại": "58",
+          "HTX nông nghiệp": "25",
+          "Tổ hợp tác nông nghiệp": "135",
+          "Liên hiệp HTX nông nghiệp": "1"
+        },
+        "values_at_2026_09_30": {
+          "Trang trại": "58",
+          "HTX nông nghiệp": "64",
+          "Tổ hợp tác nông nghiệp": "135",
+          "Liên hiệp HTX nông nghiệp": "0"
+        }
+      }
+    },
+    {
+      "quest_index": 7,
+      "quest_id": "UI-07",
+      "ref_code": "SC-2.1b + FB2-LOG-05",
+      "prompt": "cho tôi biết số liệu chăn nuôi của liên hiệp hợp tác xã ngày 30/4",
+      "buttons_to_test": [
+        "Bấm button mốc thời gian '30/06/2026' trong hộp Kỳ báo cáo đối chiếu",
+        "Bấm button mốc thời gian '30/09/2026' trong hộp Kỳ báo cáo đối chiếu"
+      ],
+      "warehouse_expectation": {
+        "type": "SC_2_1B_BRANCH_SCOPED_SINGLE_CARD",
+        "criterion_name": "Chăn nuôi",
+        "parent_group": "Tổng số LHHTX phân theo lĩnh vực",
+        "period_values": {
+          "31/03/2026": "1",
+          "30/06/2026": "0",
+          "30/09/2026": "0"
+        }
+      }
+    },
+    {
+      "quest_index": 8,
+      "quest_id": "UI-08",
+      "ref_code": "SC-2.6 + FB1-LOG-02",
+      "prompt": "bạn hãy cho tôi biết lũy kế tổng số lượng chủ thể sản phẩm OCOP theo dữ liệu mới nhất",
+      "buttons_to_test": [
+        "Bấm button mốc thời gian '31/03/2026' hoặc '30/06/2026' trên thẻ (nếu có)",
+        "Bấm 1 button gợi ý chỉ tiêu con ở dưới đáy tin nhắn"
+      ],
+      "warehouse_expectation": {
+        "type": "SC_2_6_OCOP_CUMULATIVE",
+        "expected_criterion_candidates": [
+          "Lũy kế  tổng số lượng sản phẩm OCOP đến thời điểm báo cáo",
+          "Lũy kế  tổng số lượng chủ thể đến thời điểm báo cáo"
+        ],
+        "must_not_match": [
+          "Tổng số lượng sản phẩm OCOP trong năm",
+          "Tổng số lượng chủ thể sản phẩm OCOP trong năm",
+          "5 sao",
+          "4 sao",
+          "3 sao"
+        ]
+      }
+    },
+    {
+      "quest_index": 9,
+      "quest_id": "UI-09",
+      "ref_code": "REQ-Q04 + Ticket-Time",
+      "prompt": "Trong quý 3, nhiệm vụ Diêm nghiệp có những chỉ tiêu cấp 1 nào được báo cáo?",
+      "buttons_to_test": [
+        "Bấm nút '- (Xem chi tiết con)' của dòng 'Tổng diện tích sản xuất muối' rồi đóng Pop-up",
+        "Bấm button lọc nhanh '⚡ Đã có số liệu' trên bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "REQ_Q04_MISSION_ROOT_CRITERIA",
+        "mission_name": "Diêm nghiệp",
+        "expected_criteria": {
+          "Tổng hộ sản xuất muối": "660",
+          "Tổng diện tích sản xuất muối": "1.520",
+          "Tổng sản lượng muối": "27.000"
+        }
+      }
+    },
+    {
+      "quest_index": 10,
+      "quest_id": "UI-10",
+      "ref_code": "REQ-Q05 + SC-5.1a",
+      "prompt": "Liệt kê trạng thái các kỳ báo cáo năm 2026, ngày nộp và những báo cáo nào đang ở trạng thái nháp chưa nộp?",
+      "buttons_to_test": [
+        "Bấm button lọc nhanh '⚠️ Bản nháp chưa nộp' trên Header bảng SmartTable",
+        "Bấm button lọc nhanh 'Tất cả' trên Header bảng SmartTable"
+      ],
+      "warehouse_expectation": {
+        "type": "SC_5_1A_REPORT_AUDIT_TABLE",
+        "total_reports": 9,
+        "approved_count": 6,
+        "draft_count": 3
+      }
+    }
+  ]
+}

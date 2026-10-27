@@ -102,6 +102,8 @@ class TemporalSlotSpec(BaseModel):
 class CanonicalIntentEnum(str, Enum):
     """Các bài toán nghiệp vụ DWH chuẩn tắc."""
     METRIC_POINT_INQUIRY = "METRIC_POINT_INQUIRY"     # Tra cứu giá trị 1 hoặc nhiều chỉ tiêu tại điểm thời gian
+    PARENT_CHILDREN_BREAKDOWN = "PARENT_CHILDREN_BREAKDOWN" # Liệt kê/phân rã danh mục chỉ tiêu con trực thuộc chỉ tiêu cha
+    CROSS_BRANCH_COMPARISON = "CROSS_BRANCH_COMPARISON"     # So sánh/liệt kê chỉ tiêu con trên nhiều nhánh cha khác nhau
     METRIC_NUMERIC_CALCULATION = "METRIC_NUMERIC_CALCULATION" # Tính toán / tổng hợp số liệu chỉ tiêu KTXH
     METRIC_TOP_K = "METRIC_TOP_K"                     # Xếp hạng Top-K, DENSE_RANK chỉ tiêu cao nhất/thấp nhất
     METRIC_GROWTH_YOY = "METRIC_GROWTH_YOY"           # So sánh tăng trưởng giữa 2 đợt hoặc 2 năm (YoY, QoQ)
@@ -132,6 +134,8 @@ class SemanticQueryIntentDTO(BaseModel):
     intent: Literal[
         "METRIC_NUMERIC_CALCULATION",
         "METRIC_POINT_INQUIRY",
+        "PARENT_CHILDREN_BREAKDOWN",
+        "CROSS_BRANCH_COMPARISON",
         "ENTITY_ATTRIBUTE_LOOKUP",
         "RELATIONAL_EXPLORATION",
         "METADATA_EXPLORATION",

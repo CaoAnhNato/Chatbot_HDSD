@@ -1,0 +1,50 @@
+name: Render Scheduled Automation Test Suite (IPGov Chatbot)
+
+on:
+  schedule:
+    # Chạy tự động tại 07:30, 12:30, 17:30, 23:30 giờ Việt Nam (UTC+7 -> 00:30, 05:30, 10:30, 16:30 UTC)
+    - cron: "30 0,5,10,16 * * *"
+  workflow_dispatch:
+    inputs:
+      render_backend_url:
+        description: "Render Backend URL"
+        required: false
+        default: "https://ipgov-chatbot-backend.onrender.com"
+      render_frontend_url:
+        description: "Render Frontend URL"
+        required: false
+        default: "https://ipgov-chatbot-frontend.onrender.com"
+
+jobs:
+  render-scheduled-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      RENDER_BACKEND_URL: ${{ github.event.inputs.render_backend_url || 'https://ipgov-chatbot-backend.onrender.com' }}
+      RENDER_FRONTEND_URL: ${{ github.event.inputs.render_frontend_url || 'https://ipgov-chatbot-frontend.onrender.com' }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests duckdb rapidfuzz
+
+      - name: Run Warehouse Ground-Truth Snapshot & 20 Backend Quests against Render
+        run: |
+          python -m IPGov_Chatbot.tests.render_automation.warehouse_ground_truth_checker
+          python -m IPGov_Chatbot.tests.render_automation.backend_20_quests_runner
+
+      - name: Upload Render Automation Audit Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-automation-audit-reports
+          path: IPGov_Chatbot/data/reports/render_automation/
+          retention-days: 14

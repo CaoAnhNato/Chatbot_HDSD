@@ -51,14 +51,14 @@ class DAGArchetypeDetector:
 
         # 4. TEMPORAL_COMPARISON: So sánh chuỗi thời gian nhiều mốc (YoY/QoQ)
         self._temporal_comp_pat = re.compile(
-            r"\b(so sánh.*202[4-6].*202[4-6]|giữa quý\s*[1-4].*và quý\s*[1-4]|q[1-4]\s*(va|voi)\s*q[1-4]|so sanh.*q[1-4].*q[1-4]|tổng số vụ tai nạn lao động.*tăng hay giảm bao nhiêu phần trăm so với năm 2024|kinh phi khuyen cong.*tang hay giam|so với kế hoạch năm được giao|số lượng này đang tăng hay giảm)\b",
+            r"\b(so sánh.*202[4-6].*202[4-6]|giữa quý\s*[1-4].*và quý\s*[1-4]|q[1-4]\s*(va|voi)\s*q[1-4]|so sanh.*q[1-4].*q[1-4]|tăng hay giảm bao nhiêu phần trăm|tăng hay giảm so với|so với cùng kỳ|so với kế hoạch|đang tăng hay giảm)\b",
             re.IGNORECASE
         )
         self._two_years_pat = re.compile(r"\b(202[3-6]).*(202[3-6])\b")
 
         # 5. MULTI_CRITERIA_PROFILE: Hồ sơ tổng hợp đa chỉ tiêu / nhiệm vụ
         self._multi_criteria_pat = re.compile(
-            r"\b(12 tháng|theo tung thang|ty trong dat nong nghiep|số cơ sở công nghiệp nông thôn được hỗ trợ|bang tong hop so ca nghien ma tuy|kem ten phong ban|cán bộ phụ trách lĩnh vực.*nhiệm vụ.*được giao|đơn vị nào phụ trách duyệt biểu mẫu|danh sách tất cả các sở, ban, ngành|danh mục các nhiệm vụ trọng tâm|danh sách cán bộ phụ trách nhiệm vụ.*kèm phòng ban|office_mission.*user_mission|ds can bo phong ban ld phu trach bc y te|các văn phòng và phòng ban đang tham gia thực hiện các nhiệm vụ|danh sách các biểu mẫu thu thập dữ liệu triển khai.*kèm đơn vị chủ trì|cán bộ nào phụ trách những chỉ tiêu đó|đơn vị nào.*báo cáo chỉ tiêu.*bằng 0 hoặc để trống|danh sách các đơn vị.*bị từ chối phê duyệt|tổng hợp danh sách các chỉ tiêu phổ cập giáo dục.*tiến độ)\b",
+            r"\b(12 tháng|theo tung thang|theo từng tháng|kèm tên phòng ban|cán bộ phụ trách.*nhiệm vụ|đơn vị nào phụ trách|danh sách tất cả các|danh mục các nhiệm vụ|danh sách cán bộ phụ trách|các văn phòng và phòng ban|danh sách các biểu mẫu|cán bộ nào phụ trách|bằng 0 hoặc để trống|bị từ chối phê duyệt)\b",
             re.IGNORECASE
         )
 

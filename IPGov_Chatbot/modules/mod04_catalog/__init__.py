@@ -8,9 +8,22 @@ from IPGov_Chatbot.modules.mod04_catalog.steiner_tree_builder import SteinerTree
 from IPGov_Chatbot.modules.mod04_catalog.capability_discovery_engine import CapabilityDiscoveryEngine
 from IPGov_Chatbot.modules.mod04_catalog.schema_pruner import SchemaPruner
 
+from IPGov_Chatbot.modules.mod04_catalog.dynamic_criterion_ingestor import (
+    DynamicCriterionIngestor,
+    FiveGateValidator,
+    FiveGateValidationError,
+    sync_definitions_to_duckdb,
+    ingest_new_criterion,
+)
+
 __all__ = [
     "DuckDBSemanticCatalog",
     "SteinerTreeBuilder",
     "CapabilityDiscoveryEngine",
     "SchemaPruner",
+    "DynamicCriterionIngestor",
+    "FiveGateValidator",
+    "FiveGateValidationError",
+    "sync_definitions_to_duckdb",
+    "ingest_new_criterion",
 ]

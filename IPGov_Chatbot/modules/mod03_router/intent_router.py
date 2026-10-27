@@ -40,6 +40,7 @@ from IPGov_Chatbot.modules.mod03_router.hdft_dialogue_tracker import (
 from IPGov_Chatbot.modules.mod03_router.persona_classifier import PersonaClassifier
 from IPGov_Chatbot.modules.mod03_router.dashscope_router_client import DashScopeRouterClient
 from IPGov_Chatbot.modules.mod03_router.redis_session_manager import RedisSessionManager
+from IPGov_Chatbot.modules.mod04_catalog.capability_discovery_engine import CapabilityDiscoveryEngine
 from IPGov_Chatbot.schemas.structured_router_schema import (
     LLMRouterStructuredOutput,
     TemporalScopeDTO,
@@ -61,72 +62,7 @@ class IntentRouter:
         self.persona_classifier = PersonaClassifier()
         self.router_client = DashScopeRouterClient()
         self.groq_client = self.router_client  # Alias tương thích ngược
-        self._compile_discovery_patterns()
-
-    def _compile_discovery_patterns(self) -> None:
-        """Biên dịch các mẫu câu hỏi khám phá năng lực & danh mục hệ thống (DISC_01 -> DISC_10)."""
-        self._discovery_patterns = [
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(chức năng gì|hệ thống này làm được gì|tiện ích gì|chức năng nào)\b", re.IGNORECASE),
-                "Hệ thống là Trợ lý ảo khai thác kho dữ liệu công vụ tập trung, hỗ trợ 4 tiện ích cốt lõi: (1) Tra cứu thống kê các chỉ tiêu KTXH; (2) So sánh biến động cùng kỳ (YoY); (3) Theo dõi tiến độ duyệt báo cáo tác nghiệp; (4) Xuất bảng số liệu đối soát ra Excel/Word.",
-                ["📊 Báo cáo KTXH tổng hợp toàn tỉnh", "💰 Tiến độ giải ngân vốn đầu tư công", "⚡ Chỉ đạo điều hành & An toàn lao động"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(ngành, lĩnh vực nào|lĩnh vực nào|theo dõi số liệu của những ngành)\b", re.IGNORECASE),
-                "Hệ thống hiện đang quản lý và theo dõi số liệu của 8 lĩnh vực quản lý nhà nước: (1) Nội vụ & Lao động, (2) Xây dựng, (3) Công thương, (4) Y tế, (5) Giáo dục & Đào tạo, (6) Văn hóa - Xã hội, (7) Nông nghiệp & PTNT, (8) Tài nguyên & Môi trường.",
-                ["💼 Lĩnh vực Lao động & Nội vụ", "🏗️ Lĩnh vực Xây dựng", "⚡ Lĩnh vực Công thương", "🏥 Lĩnh vực Y tế"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(từ năm nào đến năm nào|mốc thời gian|chu kỳ dữ liệu)\b", re.IGNORECASE),
-                "Kho dữ liệu công vụ hiện tại sau đợt cập nhật lưu trữ số liệu báo cáo của năm 2026 (tỉnh Lâm Đồng), các năm trước đang được đồng bộ bổ sung từ phần mềm tác nghiệp.",
-                ["📊 Tra cứu số liệu năm 2026", "🔄 Kiểm tra tiến độ đồng bộ ETL", "📋 Xem danh mục chỉ tiêu"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(được tính như thế nào|công thức tính|định nghĩa chỉ tiêu)\b", re.IGNORECASE),
-                "Chỉ tiêu Tỷ lệ giải ngân kinh phí khuyến công (%) = (Kinh phí khuyến công đã thực tế giải ngân / Tổng dự toán kinh phí được phê duyệt giao trong kỳ) * 100%. Áp dụng cho các đề án khuyến công địa phương và quốc gia căn cứ từ báo cáo chính thức.",
-                ["💰 Xem chi tiết kinh phí 2025", "🏢 Phân rã theo cấp huyện", "📥 Tải hướng dẫn hạch toán"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(những loại biểu mẫu báo cáo nào|danh mục biểu mẫu|loại biểu mẫu nào đang áp dụng)\b", re.IGNORECASE),
-                "Hệ thống hiện áp dụng các nhóm biểu mẫu thu thập số liệu: Biểu mẫu ATVSLĐ (Sở LĐTBXH), Biểu mẫu khuyến công (Sở Công thương), Biểu mẫu trật tự xây dựng (Sở Xây dựng), Biểu mẫu y tế xã đạt chuẩn (Sở Y tế).",
-                ["📋 Biểu mẫu Phòng Xây dựng", "📋 Biểu mẫu Khuyến công", "📋 Biểu mẫu Lao động"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(chuyên viên cấp phòng thì tôi tra cứu được|quyền hạn|hbac|phân quyền)\b", re.IGNORECASE),
-                "Theo chính sách HBAC hình cây: Tài khoản chuyên viên cấp phòng được toàn quyền tra cứu mọi số liệu và trạng thái báo cáo (Approved, Pending, Draft) thuộc nội bộ phòng ban mình phụ trách, đồng thời xem được số liệu tổng hợp công khai của tỉnh.",
-                ["🏢 Số liệu nội bộ phòng", "📊 Thống kê công khai toàn tỉnh"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(xuất dữ liệu ra bảng excel|file pdf|định dạng xuất)\b", re.IGNORECASE),
-                "Hệ thống hỗ trợ xuất dữ liệu ra bảng tính Excel (.xlsx) cho bảng số liệu chi tiết, xuất dự thảo báo cáo Word (.docx) và in trực quan định dạng PDF. Đồng chí chỉ cần gõ 'Xuất bảng này ra Excel' sau khi nhận kết quả.",
-                ["📥 Xuất tóm tắt phiên ra Excel", "📄 Tạo dự thảo báo cáo Word"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(những trạng thái duyệt nào|trạng thái nào là số liệu chính thức|vòng đời báo cáo)\b", re.IGNORECASE),
-                "Báo cáo gồm 4 trạng thái: (1) Đã phê duyệt (Approved) - Số liệu chính thức có giá trị pháp lý; (2) Đang chờ duyệt (Pending) - Tham khảo nội bộ; (3) Bản nháp (Draft) - Lưu tạm; (4) Bị từ chối (Rejected) - Cần hoàn thiện lại.",
-                ["✅ Tra cứu số liệu đã duyệt 2025", "⏳ Xem báo cáo đang chờ duyệt"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(cập nhật.*kho|dữ liệu báo cáo hôm nay đã được cập nhật|freshness|tươi mới)\b", re.IGNORECASE),
-                "Tiến trình đồng bộ ETL đã hoàn tất thành công vào lúc 00:00 sáng nay. Dữ liệu tra cứu hiện tại phản ánh đầy đủ toàn bộ các báo cáo đã được phê duyệt tính đến thời điểm này.",
-                ["🔄 Kiểm tra trạng thái ETL", "📊 Tra cứu dữ liệu mới nhất"],
-            ),
-            (
-                IntentEnum.META_CAPABILITY,
-                re.compile(r"\b(cán bộ mới thì nên bắt đầu|hướng dẫn cán bộ mới|hướng dẫn sử dụng chatbot)\b", re.IGNORECASE),
-                "Chào mừng đồng chí cán bộ mới! Đồng chí có thể bắt đầu tra cứu nhanh qua 3 bước: (1) Nhập câu hỏi nêu rõ chỉ tiêu, đơn vị, năm; (2) Nhấp vào các nút Action Chips gợi ý sẵn; (3) Yêu cầu so sánh tăng/giảm hoặc xuất bảng Excel.",
-                ["📊 Thử tra cứu số vụ tai nạn lao động 2025", "💰 Thử xem giải ngân khuyến công", "❓ Xem danh mục chỉ tiêu"],
-            ),
-        ]
+        self.capability_discovery = CapabilityDiscoveryEngine()
 
     def _fallback_local_in_memory_parsed(
         self,
@@ -328,32 +264,33 @@ class IntentRouter:
         is_fact_or_stat_query = (has_year or has_fact_operator) and not is_definition_query
 
         if not is_fact_or_stat_query:
-            for intent_enum, pat, answer, chips in self._discovery_patterns:
-                if pat.search(text) or pat.search(effective_text):
-                    latency_ms = (time.perf_counter() - start_time) * 1000.0
-                    res = RouterOutputDTO(
-                        session_id=session_id,
-                        query_sanitized=text,
-                        route=RouteTypeEnum.CATALOG_DISCOVERY,
-                        routing_track="CATALOG_DISCOVERY",
-                        intent=intent_enum,
-                        persona=persona,
-                        confidence_score=1.0,
-                        tokens_used=0,
-                        zero_llm_token=True,
-                        zero_sql=True,
-                        safety_timeout_seconds=5.0,
-                        sla_max_latency_ms=50.0,
-                        latency_ms=round(latency_ms, 3),
-                        active_quest=curr_quest,
-                        active_quest_preserved=True if curr_quest else False,
-                        active_quest_action=QuestActionEnum.INIT,
-                        bypass_response=answer,
-                        action_chips=chips,
-                        missing_slots=[],
-                        clarification_options=[],
-                    )
-                    return self._finalize_output(res, session_id, effective_text, is_first_turn)
+            disc_match = self.capability_discovery.match_capability_query(text) or self.capability_discovery.match_capability_query(effective_text)
+            if disc_match:
+                disc_id, answer, chips = disc_match
+                latency_ms = (time.perf_counter() - start_time) * 1000.0
+                res = RouterOutputDTO(
+                    session_id=session_id,
+                    query_sanitized=text,
+                    route=RouteTypeEnum.CATALOG_DISCOVERY,
+                    routing_track="CATALOG_DISCOVERY",
+                    intent=IntentEnum.META_CAPABILITY,
+                    persona=persona,
+                    confidence_score=1.0,
+                    tokens_used=0,
+                    zero_llm_token=True,
+                    zero_sql=True,
+                    safety_timeout_seconds=5.0,
+                    sla_max_latency_ms=50.0,
+                    latency_ms=round(latency_ms, 3),
+                    active_quest=curr_quest,
+                    active_quest_preserved=True if curr_quest else False,
+                    active_quest_action=QuestActionEnum.INIT,
+                    bypass_response=answer,
+                    action_chips=chips,
+                    missing_slots=[],
+                    clarification_options=[],
+                )
+                return self._finalize_output(res, session_id, effective_text, is_first_turn)
 
         # ==============================================================================
         # 3. TIER 1: SSOT DASHSCOPE LLM STRUCTURED OUTPUTS ROUTER (with Dual-Context & Circuit Breaker)

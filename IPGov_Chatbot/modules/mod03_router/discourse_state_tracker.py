@@ -158,6 +158,80 @@ class HierarchicalFocusStack:
         return None
 
 
+def is_self_contained_query(query: str, current_turn: int = 1, catalog: Any = None) -> bool:
+    """
+    Xác định câu hỏi có tự đầy đủ ngữ nghĩa (Self-Contained) hay không (SSOT).
+    Căn cứ: PROJECT.md, ORIGINAL_REQUEST.md §R3.2
+    
+    Quy tắc:
+    1. current_turn <= 1 -> Luôn là câu hỏi độc lập (True).
+    2. Câu hỏi rỗng -> False.
+    3. Nếu câu hỏi bắt đầu hoặc chứa các từ nối/đại từ tỉnh lược mang tính phụ thuộc:
+       ("thế còn", "vậy còn", "vậy thì", "thì sao", "thế thì", "còn...", "của nó", "nhóm đó", "ở đó") -> False.
+    4. Nếu câu hỏi chứa thực thể chủ đề rõ ràng (topic entity) VÀ không chứa từ nối tỉnh lược:
+       - Có nhắc đến thực thể tổ chức/ngành: HTX, hợp tác xã, liên hiệp, tổ hợp tác, trang trại, muối, OCOP...
+       - Hoặc có cấu trúc câu hỏi phân cấp/phân rã (lĩnh vực, mức đánh giá, loại diện tích, phân theo...)
+       - Hoặc khớp một chỉ tiêu độc lập trong Catalog
+       -> True.
+    5. Nếu câu hỏi chỉ gồm thuộc tính đo lường đơn thuần ("diện tích là bao nhiêu", "sản lượng bao nhiêu") -> False.
+    """
+    if current_turn <= 1:
+        return True
+    if not query or not query.strip():
+        return False
+
+    q_lower = query.strip().lower()
+
+    # Dấu hiệu tỉnh lược / phụ thuộc ngữ cảnh rõ ràng
+    dependent_prefixes = ("thế còn", "vậy còn", "vậy thì", "thì sao", "thế thì", "còn ")
+    if q_lower.startswith(dependent_prefixes):
+        return False
+    
+    if "thì sao" in q_lower or ("thế nào" in q_lower and len(q_lower.split()) <= 4):
+        return False
+
+    # Dấu hiệu đại từ thay thế khi không có danh từ chủ thể đi kèm
+    pronoun_markers = ("của nó", "ở đó", "chúng nó", "nhóm đó", "chỉ tiêu này", "ở đấy")
+    if any(p in q_lower for p in pronoun_markers):
+        return False
+
+    # Kiểm tra thực thể chủ đề hoặc chỉ tiêu hoàn chỉnh
+    known_entities = (
+        "hợp tác xã", "htx", "liên hiệp", "lhhtx", "tổ hợp tác", "tht",
+        "trang trại", "muối", "sản xuất muối", "diêm nghiệp", "ocop",
+        "lao động", "an toàn lao động", "tai nạn", "cán bộ", "báo cáo",
+        "doanh thu", "lợi nhuận"
+    )
+    has_known_entity = any(e in q_lower for e in known_entities)
+
+    breakdown_aspects = (
+        "lĩnh vực", "mức đánh giá", "hiệu quả hoạt động", "loại diện tích",
+        "loại hình", "phân theo", "các loại", "các mức", "số lượng lĩnh vực",
+        "tổng hộ", "sản lượng", "diện tích"
+    )
+    has_aspect = any(a in q_lower for a in breakdown_aspects)
+
+    if has_known_entity and has_aspect:
+        return True
+
+    if has_known_entity and not q_lower.startswith(("vậy", "thế")):
+        return True
+
+    # Tra cứu catalog nếu có
+    if catalog:
+        if hasattr(catalog, "resolve_metric_id") and catalog.resolve_metric_id(query.strip()):
+            return True
+        if hasattr(catalog, "resolve_topic_entity") and catalog.resolve_topic_entity(query.strip()):
+            return True
+
+    # Câu hỏi vắn tắt chỉ hỏi số đo
+    pure_metric_words = ("diện tích", "sản lượng", "bao nhiêu", "kinh phí", "số hộ", "mấy hộ")
+    if all(w in pure_metric_words or len(w) <= 3 for w in q_lower.split()):
+        return False
+
+    return False
+
+
 class DiscourseStateTracker:
     """
     Bộ quản trị trạng thái hội thoại 3 cấp độ (HFS-DSF).
@@ -224,6 +298,10 @@ class DiscourseStateTracker:
                 return False
         return True
 
+    def is_self_contained(self, query: str, current_turn: int = 1, catalog: Any = None) -> bool:
+        """Kiểm tra câu hỏi có tự đầy đủ ngữ nghĩa (Self-Contained) hay không (SSOT)."""
+        return is_self_contained_query(query, current_turn=current_turn, catalog=catalog or getattr(self, "catalog", None))
+
     def process_turn(
         self,
         session_id: str,
@@ -243,7 +321,7 @@ class DiscourseStateTracker:
         Returns:
             Tuple[DialogueStateFrame, str, Optional[str]]:
                 - frame: DialogueStateFrame hiện hành (đã hòa mạng hoặc cập nhật).
-                - resolution_level: "LEVEL_1_CONTIGUOUS_PIVOT" | "LEVEL_2_INTERLEAVED_RETURN" | "LEVEL_3_RESUMPTION" | "NEW_TOPIC"
+                - resolution_level: "LEVEL_1_CONTIGUOUS_PIVOT" | "LEVEL_2_INTERLEAVED_RETURN" | "LEVEL_3_RESUMPTION" | "NEW_TOPIC" | "SELF_CONTAINED"
                 - standalone_hint: Gợi ý câu hỏi độc lập được kiến tạo.
         """
         stack = self.get_focus_stack(session_id)
@@ -280,6 +358,29 @@ class DiscourseStateTracker:
         effective_dept = dept_from_planner or explicit_dept
 
         # ----------------------------------------------------------------------
+        # SELF-CONTAINED QUERY PROTECTION: Bảo toàn câu hỏi tự đầy đủ ngữ nghĩa
+        # ----------------------------------------------------------------------
+        if active_frame and turn_index > 1 and self.is_self_contained(q_clean, turn_index, catalog=catalog):
+            topic = explicit_topic or (metric_attr if metric_attr else q_clean[:50])
+            self_frame = DialogueStateFrame(
+                turn_index=turn_index,
+                topic_entity=topic,
+                metric_attribute=metric_attr,
+                temporal_slot=effective_year or (active_frame.temporal_slot if active_frame else None),
+                spatial_slot=effective_tenant or (active_frame.spatial_slot if active_frame else "68"),
+                department_slot=effective_dept or (active_frame.department_slot if active_frame else None),
+                office_slot=office_from_planner or (active_frame.office_slot if active_frame else None),
+                mission_slot=mission_from_planner or (active_frame.mission_slot if active_frame else None),
+                domain=domain_from_planner or "fact_criteria",
+                raw_query=q_clean,
+                keywords=[topic] if topic else [],
+                metadata={"resolution": "SELF_CONTAINED"}
+            )
+            stack.push(self_frame)
+            logger.info("[Self-Contained Bypass] Preserved autonomous query at Turn %d: '%s'", turn_index, q_clean)
+            return (self_frame, "SELF_CONTAINED", q_clean)
+
+        # ----------------------------------------------------------------------
         # LEVEL 1: Contiguous Attribute Pivoting (Q1 -> Q2 -> Q3)
         # ----------------------------------------------------------------------
         if active_frame and metric_attr and (not explicit_topic or explicit_topic == active_frame.topic_entity):
@@ -305,7 +406,9 @@ class DiscourseStateTracker:
                     metadata={"parent_turn": active_frame.turn_index, "resolution": "LEVEL_1_CONTIGUOUS_PIVOT"}
                 )
                 stack.push(fused_frame)
-                standalone_hint = f"{metric_attr} {active_frame.topic_entity} năm {fused_frame.temporal_slot or '2026'}"
+                aspect_kws = [w for w in ("lĩnh vực", "hiệu quả", "đánh giá", "mức", "loại") if w in q_clean.lower()]
+                aspect_str = (" " + " ".join(aspect_kws)) if aspect_kws and not any(w in (metric_attr or "").lower() for w in aspect_kws) else ""
+                standalone_hint = f"{metric_attr}{aspect_str} {active_frame.topic_entity} năm {fused_frame.temporal_slot or '2026'}"
                 logger.info("[Level 1 Pivot] Fused attribute '%s' into active topic '%s'", metric_attr, active_frame.topic_entity)
                 return (fused_frame, "LEVEL_1_CONTIGUOUS_PIVOT", standalone_hint)
 
