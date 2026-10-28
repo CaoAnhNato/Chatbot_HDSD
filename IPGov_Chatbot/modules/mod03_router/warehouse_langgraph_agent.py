@@ -62,6 +62,17 @@ ALLOWED_WAREHOUSE_TABLES = [
     "mission",
 ]
 
+# Danh mục các bảng công khai trong kho dwh_public (không bao gồm office, deparment, user, user_mission)
+PUBLIC_WAREHOUSE_TABLES = [
+    "fact_report_criteria",
+    "criteria",
+    "report",
+    "mission",
+    "scope",
+    "province",
+    "criteria_group",
+]
+
 # Danh mục đầy đủ các bảng được phép truy vấn trong kho DWH (bao gồm dimension và criteria_group)
 ALLOWED_CATALOG_TABLES = set(ALLOWED_WAREHOUSE_TABLES) | {
     "criteria_group",
@@ -281,6 +292,14 @@ class AgentState(TypedDict):
     out_of_scope_answer: Optional[str]
     canonical_frame: Optional[CanonicalQueryFrameDTO]
     is_empty_year: bool
+
+    # Tier 1 Pre-SQL Authorization & Schema Routing (Milestone 1)
+    is_permission_denied: bool
+    permission_denied_reason: Optional[str]
+    violation_type: Optional[str]
+    requested_mission: Optional[str]
+    assigned_missions: Optional[List[str]]
+    active_schema: Optional[str]
 
 
 def _strip_bracketed_tags(raw_content: str) -> str:
@@ -1303,6 +1322,172 @@ class WarehouseLangGraphAgent:
         if candidates and candidates[0].get("aggregation_type") == "NON_ADDITIVE":
             is_non_add = True
 
+        # Tier 1 Defense: Pre-SQL Refusal Gate (Mission-Scoped Authorization & Dual-Schema Switching)
+        raw_schema = str(state.get("active_schema") or (user_ctx or {}).get("schema") or "dwh_internal").strip().lower()
+        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
+        is_unrestricted = bool((user_ctx or {}).get("is_unrestricted", False))
+        u_name = str((user_ctx or {}).get("name") or (user_ctx or {}).get("user_name") or "").strip()
+        u_username = str((user_ctx or {}).get("username") or "").strip().lower()
+        u_level = int((user_ctx or {}).get("role_level", 0) or 0)
+        if u_name == "Lãnh đạo" or u_username == "boss" or (u_level == 4 and u_name == "Lãnh đạo"):
+            is_unrestricted = True
+
+        assigned_mission_ids = [str(m).strip() for m in ((user_ctx or {}).get("assigned_mission_ids") or []) if str(m).strip()]
+        assigned_mission_names = [str(m).strip() for m in ((user_ctx or {}).get("assigned_mission_names") or []) if str(m).strip()]
+
+        managing_mission_id = None
+        managing_mission_name = None
+
+        if active_schema == "dwh_internal" and not is_unrestricted:
+            req_metric = (
+                (norm_frame.canonical_metric_names[0] if norm_frame and norm_frame.canonical_metric_names else None)
+                or selected_cand
+                or (candidates[0]["name"] if candidates else None)
+            )
+            req_mission = norm_frame.target_mission if norm_frame and norm_frame.target_mission else None
+
+            # 1. Tra cứu mission từ DuckDB catalog_criteria_hierarchy
+            if req_metric and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+                try:
+                    c_row = self.catalog.conn.execute(
+                        "SELECT mission_name FROM catalog_criteria_hierarchy WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND mission_name IS NOT NULL LIMIT 1;",
+                        [req_metric],
+                    ).fetchone()
+                    if c_row and c_row[0]:
+                        managing_mission_name = c_row[0]
+                    else:
+                        c_row2 = self.catalog.conn.execute(
+                            "SELECT mission_name FROM catalog_criteria_hierarchy WHERE INSTR(LOWER(name), LOWER(?)) > 0 AND mission_name IS NOT NULL LIMIT 1;",
+                            [req_metric],
+                        ).fetchone()
+                        if c_row2 and c_row2[0]:
+                            managing_mission_name = c_row2[0]
+                except Exception as ex:
+                    logger.debug("Lỗi tra cứu DuckDB catalog_criteria_hierarchy: %s", ex)
+
+            # 2. Fallback tra cứu PostgreSQL dwh_internal.fact_report_criteria
+            if not managing_mission_name and req_metric and hasattr(self, "catalog") and getattr(self.catalog, "pg_pool", None):
+                try:
+                    with self.catalog.pg_pool.get_connection() as conn:
+                        with conn.cursor() as cur:
+                            cur.execute(
+                                "SELECT mission_id, mission_name FROM dwh_internal.fact_report_criteria WHERE name ILIKE %s AND mission_name IS NOT NULL LIMIT 1;",
+                                (f"%{req_metric}%",),
+                            )
+                            row = cur.fetchone()
+                            if row:
+                                managing_mission_id = str(row[0])
+                                managing_mission_name = str(row[1])
+                except Exception as ex:
+                    logger.debug("Lỗi tra cứu PostgreSQL fact_report_criteria: %s", ex)
+
+            # 3. Hoặc từ req_mission nếu người dùng trực tiếp hỏi về nhiệm vụ
+            if not managing_mission_name and req_mission:
+                managing_mission_name = req_mission
+
+            # 3.1. Hoặc quét trực tiếp từ danh mục catalog_missions trong DuckDB nếu câu hỏi chứa tên nhiệm vụ
+            if not managing_mission_name and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+                try:
+                    m_rows = self.catalog.conn.execute("SELECT id, name FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
+                    for mid, mname in m_rows:
+                        if mname and mname.lower().strip() in clean_text_lower:
+                            managing_mission_id = str(mid)
+                            managing_mission_name = str(mname)
+                            break
+                except Exception as ex:
+                    logger.debug("Lỗi tra cứu catalog_missions từ query: %s", ex)
+
+            # 4. Tra cứu mission_id từ DuckDB catalog_missions
+            if managing_mission_name and not managing_mission_id and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+                try:
+                    m_row = self.catalog.conn.execute(
+                        "SELECT id FROM catalog_missions WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR INSTR(LOWER(name), LOWER(?)) > 0 LIMIT 1;",
+                        [managing_mission_name, managing_mission_name],
+                    ).fetchone()
+                    if m_row and m_row[0] is not None:
+                        managing_mission_id = str(m_row[0])
+                except Exception as ex:
+                    logger.debug("Lỗi tra cứu DuckDB catalog_missions: %s", ex)
+
+            # Quyết định từ chối:
+            is_denied = False
+            denial_reason = None
+            has_no_missions = (len(assigned_mission_ids) == 0 and len(assigned_mission_names) == 0)
+
+            # Trường hợp 1: Người dùng Level 0 (0 nhiệm vụ)
+            if has_no_missions and (u_name or (user_ctx or {}).get("user_id")):
+                is_denied = True
+                denial_reason = (
+                    f"⛔ **Truy cập bị từ chối (Tier 1: Pre-SQL Refusal Gate)**: "
+                    f"Tài khoản **{u_name or 'người dùng'}** hiện tại chưa được phân công phụ trách bất kỳ nhiệm vụ nào trong Kho nội bộ (**dwh_internal**). "
+                    f"Đồng chí không có thẩm quyền tra cứu chỉ tiêu '**{req_metric or clean_text}**'.\n\n"
+                    f"💡 **Hướng giải quyết**:\n"
+                    f"- Chuyển sang tài khoản **Lãnh đạo** để xem toàn bộ dữ liệu nội bộ không giới hạn.\n"
+                    f"- Hoặc chuyển sang chế độ **Dữ liệu công khai (dwh_public)** để tra cứu thông tin chung."
+                )
+            # Trường hợp 2: Có nhiệm vụ quản lý chỉ tiêu nhưng nằm ngoài nhiệm vụ được phân công
+            elif managing_mission_id or managing_mission_name:
+                match_id = managing_mission_id and (managing_mission_id in assigned_mission_ids)
+                match_name = False
+                if managing_mission_name:
+                    m_norm = managing_mission_name.strip().lower()
+                    for am in assigned_mission_names:
+                        am_norm = am.strip().lower()
+                        if am_norm in m_norm or m_norm in am_norm:
+                            match_name = True
+                            break
+
+                if not match_id and not match_name:
+                    is_denied = True
+                    assigned_str = ", ".join(f"**{m}**" for m in assigned_mission_names) if assigned_mission_names else "Chưa có"
+                    denial_reason = (
+                        f"⛔ **Truy cập bị từ chối (Tier 1: Pre-SQL Refusal Gate)**: "
+                        f"Chỉ tiêu '**{req_metric or 'được yêu cầu'}**' thuộc quyền quản lý của nhiệm vụ **{managing_mission_name or 'chuyên ngành khác'}**.\n\n"
+                        f"- **Tài khoản**: {u_name or 'Cán bộ'}\n"
+                        f"- **Nhiệm vụ được phân công**: {assigned_str}\n"
+                        f"- **Phạm vi vi phạm**: `MISSION_SCOPE_VIOLATION` (Không có thẩm quyền truy cập nhiệm vụ này trong `dwh_internal`).\n\n"
+                        f"💡 **Hướng giải quyết**:\n"
+                        f"- Chuyển sang tài khoản **Lãnh đạo** để xem dữ liệu liên phòng ban / toàn tỉnh.\n"
+                        f"- Hoặc chuyển sang chế độ **Dữ liệu công khai (dwh_public)** để tra cứu số liệu công bố chung."
+                    )
+
+            if is_denied:
+                logger.warning(
+                    "TIER 1 REFUSAL: User '%s' blocked from metric '%s' (managing mission: '%s'). Assigned: %s",
+                    u_name, req_metric, managing_mission_name, assigned_mission_names,
+                )
+                denial_chips = [
+                    {"id": "chip_switch_public", "label": "🌐 Tra cứu Dữ liệu công khai (dwh_public)", "query_text": f"[schema=dwh_public] {clean_text}"},
+                    {"id": "chip_switch_boss", "label": "👑 Chuyển sang Lãnh đạo", "query_text": f"[user=lanhdao] {clean_text}"},
+                ]
+                return {
+                    "current_stage": "SYNTHESIZING",
+                    "stage_message": "🛡️ Từ chối truy cập theo chính sách phân quyền...",
+                    "is_permission_denied": True,
+                    "permission_denied_reason": denial_reason,
+                    "violation_type": "MISSION_SCOPE_VIOLATION",
+                    "requested_mission": managing_mission_name,
+                    "assigned_missions": assigned_mission_names,
+                    "active_schema": active_schema,
+                    "is_out_of_scope": True,
+                    "out_of_scope_answer": denial_reason,
+                    "final_answer": denial_reason,
+                    "is_clarification_needed": False,
+                    "is_capability_query": False,
+                    "inherited_tenant": inherited_tenant or "68",
+                    "inherited_year": inherited_year or "2026",
+                    "inherited_department": None,
+                    "inherited_metric": None,
+                    "candidates": candidates,
+                    "selected_candidate": selected_cand,
+                    "is_non_additive": False,
+                    "is_temporal_query": False,
+                    "target_department_code": None,
+                    "quick_action_chips": denial_chips,
+                    "canonical_frame": norm_frame.model_dump(mode='json') if hasattr(norm_frame, "model_dump") else norm_frame,
+                    "is_empty_year": norm_frame.is_empty_year if norm_frame else False,
+                }
+
         return {
             "current_stage": "THINKING",
             "stage_message": "🔍 Đang phân tích câu hỏi & đối chiếu ngữ cảnh...",
@@ -1327,6 +1512,12 @@ class WarehouseLangGraphAgent:
             "target_department_code": target_dept,
             "canonical_frame": norm_frame.model_dump(mode='json') if hasattr(norm_frame, "model_dump") else norm_frame,
             "is_empty_year": norm_frame.is_empty_year,
+            "is_permission_denied": False,
+            "permission_denied_reason": None,
+            "violation_type": None,
+            "requested_mission": managing_mission_name,
+            "assigned_missions": assigned_mission_names,
+            "active_schema": active_schema,
         }
 
     def node_explore_warehouse(self, state: AgentState) -> Dict[str, Any]:
@@ -1375,6 +1566,12 @@ class WarehouseLangGraphAgent:
                 target_tables.append("criteria")
 
 
+        raw_schema = str(state.get("active_schema") or (state.get("user_context") or {}).get("schema") or "dwh_internal").strip().lower()
+        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
+        if active_schema == "dwh_public":
+            public_allowed = {"fact_report_criteria", "criteria", "mission", "province", "scope", "criteria_group", "report"}
+            target_tables = [t for t in target_tables if t in public_allowed] or ["fact_report_criteria"]
+
         schema_info = self.describe_tables(target_tables)
 
         return {
@@ -1401,9 +1598,15 @@ class WarehouseLangGraphAgent:
         inherited_year = state.get("inherited_year", "2026")
         inherited_tenant = state.get("inherited_tenant", "68")
         target_tables = state.get("target_tables", ["fact_report_criteria"])
-        candidates = state.get("candidates") or []
-        selected_candidate = state.get("selected_candidate")
-        is_non_add = state.get("is_non_additive", False)
+
+        u_ctx_gen = state.get("user_context") or {}
+        raw_schema = str(state.get("active_schema") or u_ctx_gen.get("schema") or "dwh_internal").strip().lower()
+        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
+        is_pub_schema = (active_schema == "dwh_public")
+
+        candidates = state.get("candidates") or state.get("candidate_metrics") or []
+        selected_candidate = state.get("selected_candidate") or (candidates[0]["name"] if candidates else None)
+        is_non_add = state.get("is_non_additive", False) or (bool(candidates) and candidates[0].get("aggregation_type") == "NON_ADDITIVE")
         target_dept = state.get("target_department_code")
 
         # Trích xuất từ khóa tìm kiếm
@@ -1424,25 +1627,40 @@ class WarehouseLangGraphAgent:
         dept_clause_llm = f"AND f.department_code = '{target_dept}'" if target_dept else ""
         non_add_note = "LƯU Ý: Đây là chỉ tiêu tỷ lệ / bình quân (Non-additive), TUYỆT ĐỐI KHÔNG dùng SUM(value) gộp nhiều đơn vị!" if is_non_add else ""
 
+        # Chỉ thị cô lập schema và cấu trúc bảng
+        if is_pub_schema:
+            schema_isolation_rule = (
+                f"   - CHẾ ĐỘ DWH CÔNG KHAI (SCHEMA: {active_schema}):\n"
+                f"     + BẮT BUỘC dùng tiền tố '{active_schema}.' cho TẤT CẢ các bảng (ví dụ: {active_schema}.fact_report_criteria, {active_schema}.criteria, {active_schema}.mission).\n"
+                f"     + TUYỆT ĐỐI KHÔNG DÙNG tiền tố dwh_internal.\n"
+                f"     + TUYỆT ĐỐI KHÔNG JOIN bảng office và TUYỆT ĐỐI KHÔNG truy vấn cột office_id (bảng office không tồn tại trong schema {active_schema}).\n"
+            )
+        else:
+            schema_isolation_rule = (
+                f"   - CHẾ ĐỘ DWH NỘI BỘ (SCHEMA: {active_schema}):\n"
+                f"     + Sử dụng tiền tố '{active_schema}.' cho các bảng nội bộ.\n"
+            )
+
         # Tạo prompt sinh SQL
         sys_prompt = (
             "Bạn là trợ lý Text-to-SQL chuyên nghiệp cho CSDL PostgreSQL DWH chính quyền tỉnh Lâm Đồng.\n"
             "CÁC QUY TẮC BẮT BUỘC:\n"
             "1. Chỉ viết câu lệnh SQL thuần túy bắt đầu bằng SELECT hoặc WITH. Không viết giải thích.\n"
             "2. LỰA CHỌN BẢNG THEO ĐÚNG ĐỐI TƯỢNG:\n"
-            "   - Chỉ tiêu KTXH / Nông nghiệp / Muối / OCOP / HTX: bảng dwh_internal.fact_report_criteria (f).\n"
+            f"{schema_isolation_rule}"
+            f"   - Chỉ tiêu KTXH / Nông nghiệp / Muối / OCOP / HTX: bảng {active_schema}.fact_report_criteria (f).\n"
             "     Cột: f.name (tên chỉ tiêu), f.year_code, f.value (TEXT -> ép kiểu NULLIF(TRIM(f.value), '')::numeric), f.mission_name, f.department_code, f.report_date, f.version.\n"
             f"     Điều kiện bắt buộc KHI truy vấn bảng fact: f.tenant_code = '{inherited_tenant}' AND f.report_status = 'approved' AND f.year_code = '{inherited_year}' {dept_clause_llm}.\n"
             "     QUY TẮC TÍNH TOÁN:\n"
             "     - Với chỉ tiêu cộng dồn (Tổng, Số lượng, Sản lượng, Diện tích, Hộ, Kinh phí...): BẮT BUỘC SELECT f.name AS ten_chi_tieu, SUM(NULLIF(TRIM(f.value), '')::numeric) AS tong_gia_tri ... GROUP BY f.name (Luôn luôn đưa cột tên chỉ tiêu f.name AS ten_chi_tieu vào mệnh đề SELECT).\n"
             "     - Với chỉ tiêu tỷ lệ, bình quân (Non-additive): BẮT BUỘC SELECT f.name AS ten_chi_tieu, f.value ... dùng CTE Window Function ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) lấy rn = 1 để lấy kỳ báo cáo mới nhất của từng chỉ tiêu.\n"
             "     LỌC TÊN CHỈ TIÊU: NẾU CÓ CHỈ TIÊU ĐƯỢC CHỌN TỪ DANH MỤC DWH, BẮT BUỘC dùng CHÍNH XÁC tên chỉ tiêu đó trong mệnh đề WHERE (ví dụ: TRIM(f.name) ILIKE TRIM('<Tên chỉ tiêu được chọn>')). TUYỆT ĐỐI KHÔNG dùng chuỗi thô từ Yêu cầu tra cứu để lọc.\n"
-            "   - Báo cáo / Đợt nộp: bảng dwh_internal.report (r). Cột: r.id, r.report_date, r.status, r.department_code, r.year_code, r.tenant_code. LƯU Ý: Mã đơn vị của Sở Nông nghiệp và PTNT / Chi cục Nông nghiệp trong kho là '68-1-01'. TUYỆT ĐỐI KHÔNG tự bịa mã phòng ban như 'NN'.\n"
-            "   - Biểu mẫu thu thập: bảng dwh_internal.collection_form (cf). Cột: cf.id, cf.code, cf.name, cf.department_code, cf.status (status là enum 'active' hoặc 'deprecated', KHÔNG dùng 'approved').\n"
-            "   - Nhiệm vụ / Đề án: bảng dwh_internal.mission (m) hoặc trích xuất f.mission_name từ fact_report_criteria. Cột: m.id, m.mission_code, m.mission_name, m.department_code, m.mission_status (kiểu BOOLEAN: m.mission_status = true hoặc m.mission_status = false, TUYỆT ĐỐI KHÔNG so sánh chuỗi 'active'). LƯU Ý: Không tồn tại mã đơn vị '68-0-00'. Khi hỏi nhiệm vụ của toàn tỉnh hoặc của tỉnh Lâm Đồng, chỉ cần lọc m.mission_status = true VÀ m.year_code = '2026', TUYỆT ĐỐI KHÔNG lọc m.department_code = '68-0-00' hay m.department_code = '68'.\n"
+            f"   - Báo cáo / Đợt nộp: bảng {active_schema}.report (r). Cột: r.id, r.report_date, r.status, r.department_code, r.year_code, r.tenant_code. LƯU Ý: Mã đơn vị của Sở Nông nghiệp và PTNT / Chi cục Nông nghiệp trong kho là '68-1-01'. TUYỆT ĐỐI KHÔNG tự bịa mã phòng ban như 'NN'.\n"
+            f"   - Biểu mẫu thu thập: bảng {active_schema}.collection_form (cf). Cột: cf.id, cf.code, cf.name, cf.department_code, cf.status (status là enum 'active' hoặc 'deprecated', KHÔNG dùng 'approved').\n"
+            f"   - Nhiệm vụ / Đề án: bảng {active_schema}.mission (m) hoặc trích xuất f.mission_name từ fact_report_criteria. Cột: m.id, m.mission_code, m.mission_name, m.department_code, m.mission_status (kiểu BOOLEAN: m.mission_status = true hoặc m.mission_status = false, TUYỆT ĐỐI KHÔNG so sánh chuỗi 'active'). LƯU Ý: Không tồn tại mã đơn vị '68-0-00'. Khi hỏi nhiệm vụ của toàn tỉnh hoặc của tỉnh Lâm Đồng, chỉ cần lọc m.mission_status = true VÀ m.year_code = '2026', TUYỆT ĐỐI KHÔNG lọc m.department_code = '68-0-00' hay m.department_code = '68'.\n"
             "   - Cán bộ / Chuyên viên / Người dùng: bảng dwh_internal.\"user\" (u). Cột: u.id, u.name, u.username, u.position, u.department_code (KHÔNG có cột is_admin). Để tìm cán bộ quản trị: u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%'. BẮT BUỘC có dấu nháy kép \"user\".\n"
             "   - Phân công nhiệm vụ: bảng dwh_internal.user_mission (um) gồm các cột: um.id, um.user_id, um.mission_id, um.mission_name, um.office_name, um.department_code, um.tenant_code. LƯU Ý BẢNG user_mission KHÔNG CÓ cột mission_code VÀ KHÔNG CÓ cột year_code! Bảng \"user\" cũng KHÔNG CÓ cột year_code! TUYỆT ĐỐI KHÔNG lọc um.year_code hay u.year_code! Để tra cứu cán bộ phụ trách nhiệm vụ, JOIN: dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_name ILIKE '%<tên nhiệm vụ>%' (hoặc JOIN dwh_internal.mission m ON um.mission_id = m.id). SELECT các cột: u.name, u.position, um.office_name, um.mission_name (TUYỆT ĐỐI KHÔNG tự ý alias đổi tên các cột này). ĐẶC BIỆT LƯU Ý: Để lọc đơn vị / phòng ban / chi cục của cán bộ, BẮT BUỘC dùng um.office_name (ví dụ: um.office_name NOT ILIKE '%phòng%' hoặc um.office_name ILIKE '%chi cục%'), TUYỆT ĐỐI KHÔNG lọc trên u.position! Nếu người dùng hỏi lọc theo nhiệm vụ cụ thể (ví dụ: 'phát triển nông thôn'), BẮT BUỘC phải có điều kiện lọc um.mission_name ILIKE '%phát triển nông thôn%'. QUAN TRỌNG: Mã phòng ban luôn có định dạng '68-X-YY' (ví dụ '68-1-01', '68-2-01'). TUYỆT ĐỐI KHÔNG lọc department_code = '68' (vì '68' là tenant_code cấp tỉnh, không phải mã phòng ban) và TUYỆT ĐỐI KHÔNG tự bịa u.department_code = '68-1-01' trừ khi câu hỏi đích danh một sở cụ thể.\n"
-            "3. Bảng criteria là dwh_internal.criteria (c).\n"
+            f"3. Bảng criteria là {active_schema}.criteria (c).\n"
             "4. Cột năm là year_code (VARCHAR), KHÔNG được dùng year.\n"
             "5. TUYỆT ĐỐI KHÔNG JOIN bảng deparment vì bảng đó 0 dòng (Zero-JOIN). Sử dụng trực tiếp department_code.\n"
             "6. TUYỆT ĐỐI KHÔNG truy vấn bảng pipeline_logs.\n"
@@ -1451,18 +1669,19 @@ class WarehouseLangGraphAgent:
 
         user_prompt = (
             f"Yêu cầu tra cứu: \"{clean_prompt}\"\n"
+            f"Schema kho dữ liệu hiện hành: {active_schema}\n"
             f"Năm cần lấy: {inherited_year}\n"
             f"Địa phương tenant: {inherited_tenant}\n"
             f"{cand_directive}\n"
             f"{non_add_note}\n"
             f"Các bảng khả dụng: {list(state.get('tables_schema', {}).keys())}\n"
+            f"LƯU Ý BẮT BUỘC: Sử dụng tiền tố schema '{active_schema}.' cho mọi bảng trong câu lệnh SQL.\n"
             "Hãy viết câu lệnh SQL tối ưu nhất để trả lời yêu cầu."
         )
 
         # 1. Ưu tiên biên dịch tất định từ CanonicalSemanticNormalizer (Khử giòn ngôn ngữ)
         norm_frame_raw = state.get("canonical_frame")
         norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
-        u_ctx_gen = state.get("user_context") or {}
         role_lvl_gen = int(u_ctx_gen.get("role_level", 0) or 0)
         role_name_gen = str(u_ctx_gen.get("role") or "").strip().lower()
         is_public_guest_gen = role_lvl_gen >= 3 or role_name_gen in ("public", "citizen", "public_citizen", "guest", "khach", "congdan")
@@ -1487,7 +1706,7 @@ class WarehouseLangGraphAgent:
         ):
             # Nếu là METRIC_POINT_INQUIRY, dùng trực tiếp khi đã có canonical_metric_names
             if norm_frame.intent != CanonicalIntentEnum.METRIC_POINT_INQUIRY or norm_frame.canonical_metric_names:
-                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame, target_schema=active_schema)
 
         if canonical_sql:
             generated_sql = canonical_sql
@@ -1501,24 +1720,24 @@ class WarehouseLangGraphAgent:
                 CanonicalIntentEnum.RELATIONAL_EXPLORATION,
                 CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
             ):
-                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame, target_schema=active_schema)
                 generated_sql = canonical_sql
             dept_clause = f"AND f.department_code = '{target_dept}' " if target_dept else ""
             if "province" in target_tables:
-                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame) if norm_frame else None
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame, target_schema=active_schema) if norm_frame else None
                 generated_sql = canonical_sql or (
-                    "SELECT p.code, p.name, p.is_activated FROM dwh_internal.province AS p "
+                    f"SELECT p.code, p.name, p.is_activated FROM {active_schema}.province AS p "
                     "WHERE p.is_activated = true ORDER BY p.name ASC;"
                 )
             elif "criteria" in target_tables and norm_frame and norm_frame.intent == CanonicalIntentEnum.METADATA_EXPLORATION:
-                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame)
+                canonical_sql = self.normalizer.compile_canonical_sql(norm_frame, target_schema=active_schema)
                 generated_sql = canonical_sql or (
-                    "SELECT c.code, c.name, c.level FROM dwh_internal.criteria AS c "
+                    f"SELECT c.code, c.name, c.level FROM {active_schema}.criteria AS c "
                     "WHERE c.deleted_date IS NULL ORDER BY c.level ASC, c.code ASC;"
                 )
             elif "mission" in target_tables:
                 generated_sql = (
-                    f"SELECT m.mission_name FROM dwh_internal.mission AS m "
+                    f"SELECT m.mission_name FROM {active_schema}.mission AS m "
                     f"WHERE m.year_code = '{inherited_year}' AND m.mission_status = true;"
                 )
             elif "collection_form" in target_tables:
@@ -1539,7 +1758,7 @@ class WarehouseLangGraphAgent:
             elif "report" in target_tables:
                 generated_sql = (
                     f"SELECT r.report_date, r.status, r.department_code "
-                    f"FROM dwh_internal.report AS r "
+                    f"FROM {active_schema}.report AS r "
                     f"WHERE r.tenant_code = '{inherited_tenant}' AND r.year_code = '{inherited_year}';"
                 )
 
@@ -1571,14 +1790,20 @@ class WarehouseLangGraphAgent:
                                 "generated_sql": None,
                                 "execution_result": None,
                             }
+                    fb_table = "dwh_public.fact_report_criteria" if is_pub_schema else "dwh_internal.fact_report_criteria"
+                    fb_office_sel = "" if is_pub_schema else "f.office_id, "
+                    fb_rn_part = "PARTITION BY TRIM(LOWER(f.name))" if is_pub_schema else "PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)"
+                    fb_van_phong = "'Dữ liệu công khai' AS ten_van_phong" if is_pub_schema else "COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong"
+                    fb_office_join = "" if is_pub_schema else "LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+
                     generated_sql = (
                         f"WITH ranked_facts AS (\n"
-                        f"    SELECT f.name, f.department_code, f.report_date, f.value, f.office_id, f.mission_name,\n"
+                        f"    SELECT f.name, f.department_code, f.report_date, f.value, {fb_office_sel}f.mission_name,\n"
                         f"           ROW_NUMBER() OVER (\n"
-                        f"               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
+                        f"               {fb_rn_part}\n"
                         f"               ORDER BY f.report_date DESC, f.version DESC\n"
                         f"           ) as rn\n"
-                        f"    FROM dwh_internal.fact_report_criteria f\n"
+                        f"    FROM {fb_table} f\n"
                         f"    WHERE f.tenant_code = '{inherited_tenant}'\n"
                         f"      {temporal_sub}\n"
                         f"      AND f.report_status = 'approved'\n"
@@ -1589,9 +1814,9 @@ class WarehouseLangGraphAgent:
                         f"       CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END AS gia_tri,\n"
                         f"       rf.report_date AS ngay_bao_cao,\n"
                         f"       rf.mission_name AS ten_nhiem_vu,\n"
-                        f"       COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong\n"
+                        f"       {fb_van_phong}\n"
                         f"FROM ranked_facts rf\n"
-                        f"LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+                        f"{fb_office_join}"
                         f"WHERE rf.rn = 1\n"
                         f"  AND ({cand_conditions})\n"
                         f"ORDER BY tong_gia_tri DESC NULLS LAST;"
@@ -1614,14 +1839,20 @@ class WarehouseLangGraphAgent:
                                 "generated_sql": None,
                                 "execution_result": None,
                             }
+                    fb_table = "dwh_public.fact_report_criteria" if is_pub_schema else "dwh_internal.fact_report_criteria"
+                    fb_office_sel = "" if is_pub_schema else "f.office_id, "
+                    fb_rn_part = "PARTITION BY TRIM(LOWER(f.name))" if is_pub_schema else "PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)"
+                    fb_van_phong_agg = "'Dữ liệu công khai' AS ten_van_phong" if is_pub_schema else "COALESCE(MAX(o.office_name), 'Cấp tỉnh') AS ten_van_phong"
+                    fb_office_join = "" if is_pub_schema else "LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+
                     generated_sql = (
                         f"WITH ranked_facts AS (\n"
-                        f"    SELECT f.name, f.value, f.report_date, f.version, f.office_id, f.mission_name,\n"
+                        f"    SELECT f.name, f.value, f.report_date, f.version, {fb_office_sel}f.mission_name,\n"
                         f"           ROW_NUMBER() OVER (\n"
-                        f"               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
+                        f"               {fb_rn_part}\n"
                         f"               ORDER BY f.report_date DESC, f.version DESC\n"
                         f"           ) AS rn\n"
-                        f"    FROM dwh_internal.fact_report_criteria f\n"
+                        f"    FROM {fb_table} f\n"
                         f"    WHERE f.tenant_code = '{inherited_tenant}'\n"
                         f"      {temporal_sub}\n"
                         f"      AND f.report_status = 'approved'\n"
@@ -1633,9 +1864,9 @@ class WarehouseLangGraphAgent:
                         f"       SUM(CASE WHEN TRIM(rf.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(rf.value)::numeric ELSE NULL END) AS gia_tri,\n"
                         f"       MAX(rf.report_date) AS ngay_bao_cao,\n"
                         f"       MAX(rf.mission_name) AS ten_nhiem_vu,\n"
-                        f"       COALESCE(MAX(o.office_name), 'Cấp tỉnh') AS ten_van_phong\n"
+                        f"       {fb_van_phong_agg}\n"
                         f"FROM ranked_facts rf\n"
-                        f"LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+                        f"{fb_office_join}"
                         f"WHERE rf.rn = 1\n"
                         f"GROUP BY rf.name\n"
                         f"ORDER BY tong_gia_tri DESC NULLS LAST;"
@@ -1644,6 +1875,7 @@ class WarehouseLangGraphAgent:
         cleaned_sql = _clean_sql_code(generated_sql) if generated_sql else None
         if cleaned_sql:
             effective_ctx = dict(state.get("user_context") or {})
+            effective_ctx["schema"] = active_schema
             effective_ctx["tenant_code"] = inherited_tenant
             if str(effective_ctx.get("department_code") or "").strip().lower() in ("", "all", "*"):
                 effective_ctx["department_code"] = None
@@ -1734,6 +1966,23 @@ class WarehouseLangGraphAgent:
                 {"id": "chip_3", "label": "🧂 Diện tích sản xuất muối", "query_text": "Thế còn diện tích sản xuất muối năm 2026?"},
             ]
 
+
+        if state.get("is_permission_denied"):
+            ans = state.get("permission_denied_reason") or (
+                "⚠️ **Từ chối truy cập do giới hạn phân quyền nhiệm vụ (Scope Violation)**: "
+                "Tài khoản hiện tại không được phân công phụ trách nhiệm vụ chứa chỉ tiêu này. "
+                "Đồng chí vui lòng chuyển sang vai trò **Lãnh đạo** hoặc chuyển sang kho dữ liệu công khai (**dwh_public**) để tra cứu."
+            )
+            denial_chips = state.get("quick_action_chips") or [
+                {"id": "chip_switch_public", "label": "🌐 Chuyển sang Dữ liệu Công khai (dwh_public)", "query_text": f"[schema=dwh_public] {clean_prompt}"},
+                {"id": "chip_switch_boss", "label": "👑 Chuyển sang Lãnh đạo", "query_text": f"[user=lanhdao] {clean_prompt}"},
+            ]
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "🛡️ Từ chối truy cập theo chính sách phân quyền...",
+                "final_answer": ans,
+                "quick_action_chips": denial_chips,
+            }
 
         if state.get("is_out_of_scope"):
             ans = state.get("out_of_scope_answer") or (
@@ -4264,7 +4513,13 @@ class WarehouseLangGraphAgent:
         builder.add_edge(START, "parse_context")
 
         def route_after_parse(state: AgentState):
-            if state.get("is_capability_query") or state.get("is_clarification_needed") or state.get("is_temporal_query") or state.get("is_out_of_scope"):
+            if (
+                state.get("is_capability_query")
+                or state.get("is_clarification_needed")
+                or state.get("is_temporal_query")
+                or state.get("is_out_of_scope")
+                or state.get("is_permission_denied")
+            ):
                 return "synthesize_response"
             return "explore_warehouse"
 
@@ -4321,6 +4576,12 @@ class WarehouseLangGraphAgent:
             "is_temporal_query": False,
             "target_department_code": None,
             "tabular_data": None,
+            "is_permission_denied": False,
+            "permission_denied_reason": None,
+            "violation_type": None,
+            "requested_mission": None,
+            "assigned_missions": None,
+            "active_schema": (user_context or {}).get("schema", "dwh_internal") or "dwh_internal",
         }
 
         if not history:
@@ -4347,6 +4608,12 @@ class WarehouseLangGraphAgent:
             "clarification_question": final_state.get("clarification_question"),
             "is_capability_query": final_state.get("is_capability_query", False),
             "is_out_of_scope": final_state.get("is_out_of_scope", False),
+            "is_permission_denied": bool(final_state.get("is_permission_denied")),
+            "permission_denied_reason": final_state.get("permission_denied_reason"),
+            "violation_type": final_state.get("violation_type"),
+            "requested_mission": final_state.get("requested_mission"),
+            "assigned_missions": final_state.get("assigned_missions"),
+            "active_schema": final_state.get("active_schema"),
         }
 
     chat = run
@@ -4392,6 +4659,12 @@ class WarehouseLangGraphAgent:
             "is_temporal_query": False,
             "target_department_code": None,
             "tabular_data": None,
+            "is_permission_denied": False,
+            "permission_denied_reason": None,
+            "violation_type": None,
+            "requested_mission": None,
+            "assigned_missions": None,
+            "active_schema": (user_context or {}).get("schema", "dwh_internal") or "dwh_internal",
         }
 
         if not history:
@@ -4462,6 +4735,30 @@ class WarehouseLangGraphAgent:
 
         final_answer = final_state.get("final_answer") or "Đã hoàn thành tra cứu số liệu."
         chips = final_state.get("quick_action_chips") or []
+
+        # Nếu bị từ chối truy cập bởi Tier 1 Pre-SQL Refusal Gate
+        if final_state.get("is_permission_denied"):
+            yield sse_event("guardrail_blocked", {
+                "violation_type": final_state.get("violation_type") or "MISSION_SCOPE_VIOLATION",
+                "error_code": 403,
+                "assigned_missions": final_state.get("assigned_missions") or [],
+                "requested_mission": final_state.get("requested_mission"),
+                "message": final_state.get("permission_denied_reason") or "Truy cập bị từ chối do vượt phạm vi nhiệm vụ được phân công.",
+            })
+            yield sse_event("token", {"content": final_answer})
+            yield sse_event("done", {
+                "session_id": session_id,
+                "status": "blocked_by_guardrail",
+                "route": "SECURITY_DENIAL",
+                "full_answer": final_answer,
+                "tabular_data": None,
+                "target_tables": [],
+                "quick_action_chips": chips,
+                "metrics": {
+                    "total_time_ms": 100.0,
+                },
+            })
+            return
 
         # Phát câu trả lời và khối dữ liệu Warehouse ngay lập tức không trễ ms từng dòng
         yield sse_event("token", {"content": final_answer})

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { ChatApiResponse, ChatSession, ChatMessage } from "@/types/chat";
+import { PRESET_ROLES, UserRoleProfile } from "@/components/RoleSelector";
 
 export const getApiBaseUrl = (): string => {
   let envUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -94,6 +95,42 @@ export const clearAllChatSessionsApi = async (): Promise<void> => {
   }
 };
 
+export const fetchUserAccounts = async (): Promise<UserRoleProfile[]> => {
+  try {
+    const response = await apiClient.get("/users");
+    if (response.data && Array.isArray(response.data.users)) {
+      return response.data.users.map((u: any) => ({
+        id: u.id,
+        user_id: u.id,
+        username: u.username,
+        name: u.name,
+        label: u.name,
+        badge: u.badge_label || `Level ${u.role_level}`,
+        badge_label: u.badge_label || `Level ${u.role_level}`,
+        tenant_code: u.tenant_code || (u.department_code ? u.department_code.slice(0, 2) : "68"),
+        tenant_name: u.department_name || "UBND Tỉnh Lâm Đồng",
+        department_code: u.department_code || null,
+        department_name: u.department_name,
+        position: u.position,
+        office_id: null,
+        role_level: Number(u.role_level ?? 0),
+        is_unrestricted: Boolean(u.is_unrestricted),
+        assigned_mission_ids: Array.isArray(u.assigned_mission_ids) ? u.assigned_mission_ids : [],
+        assigned_mission_names: Array.isArray(u.assigned_mission_names) ? u.assigned_mission_names : [],
+        mission_count:
+          u.mission_count !== undefined
+            ? Number(u.mission_count)
+            : Array.isArray(u.assigned_mission_ids)
+            ? u.assigned_mission_ids.length
+            : 0,
+      }));
+    }
+  } catch (err) {
+    console.warn("Could not fetch user accounts from backend, using fallback PRESET_ROLES:", err);
+  }
+  return PRESET_ROLES;
+};
+
 export const sendMessageToBot = async (
   query: string,
   sessionId?: string,
@@ -102,7 +139,10 @@ export const sendMessageToBot = async (
   collection?: string,
   level?: number,
   tenant_code?: string,
-  token?: string
+  token?: string,
+  schema: string = "dwh_internal",
+  userId?: string,
+  userName?: string
 ): Promise<ChatApiResponse> => {
   const headers: Record<string, string> = {};
   if (token) {
@@ -120,6 +160,9 @@ export const sendMessageToBot = async (
       level,
       tenant_code,
       collection,
+      schema,
+      user_id: userId,
+      user_name: userName,
     },
     { headers }
   );
@@ -155,7 +198,10 @@ export const sendMessageStream = async (
   collection?: string,
   level?: number,
   tenant_code?: string,
-  token?: string
+  token?: string,
+  schema: string = "dwh_internal",
+  userId?: string,
+  userName?: string
 ) => {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -177,6 +223,9 @@ export const sendMessageStream = async (
       level,
       tenant_code,
       collection,
+      schema,
+      user_id: userId,
+      user_name: userName,
     }),
   });
 

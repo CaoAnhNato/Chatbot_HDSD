@@ -55,6 +55,21 @@ class RecursiveScopeVisitor:
         Level 2 (Phòng): tenant_code + department_code + office_id
         Level 3 (Công dân/Public): tenant_code + cưỡng chế tuyệt đối status = 'approved'
         """
+        # 0. Xác định schema và trạng thái miễn trừ toàn quyền
+        raw_schema = str(getattr(self.user_ctx, "schema", "dwh_internal") or "dwh_internal").strip().lower()
+        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
+        display_name = str(
+            getattr(self.user_ctx, "name", "")
+            or getattr(self.user_ctx, "user_name", "")
+            or getattr(self.user_ctx, "username", "")
+        ).strip()
+        is_boss_or_unrestricted = (
+            getattr(self.user_ctx, "is_unrestricted", False)
+            or display_name == "Lãnh đạo"
+            or getattr(self.user_ctx, "username", "") == "boss"
+            or (getattr(self.user_ctx, "role_level", 0) == 4 and display_name == "Lãnh đạo")
+        )
+
         conditions: List[str] = []
 
         # 1. Cưỡng chế phân vùng địa bàn tỉnh (tenant_code) nếu câu lệnh chưa tự định danh phạm vi
@@ -74,18 +89,31 @@ class RecursiveScopeVisitor:
         wants_non_approved = any(s in ("draft", "pending", "rejected", "all") for s in req_statuses)
         authorized_non_approved = self.is_authorized_for_non_approved()
 
-        # 2. Cưỡng chế phân quyền cấp cơ quan (department_code) cho Level 1 & 2 (khi không ở chế độ kiểm toán toàn tỉnh)
-        if self.user_ctx.role_level in (1, 2) and self.user_ctx.department_code:
+        # 2. Cưỡng chế phân quyền cấp cơ quan (department_code) cho Level 1 & 2 (bỏ qua khi dwh_public)
+        if active_schema != "dwh_public" and self.user_ctx.role_level in (1, 2) and self.user_ctx.department_code:
             if not req_statuses or self.user_ctx.department_code == "68-1-01":
                 dept_safe = self.user_ctx.department_code.replace("'", "''")
                 conditions.append(f"{table_ref}.department_code = '{dept_safe}'")
 
-        # 3. Cưỡng chế phân quyền cấp phòng ban chuyên môn (office_id) cho Level 2
-        if self.user_ctx.role_level == 2 and self.user_ctx.office_id and not req_statuses and table_name != "report":
+        # 3. Cưỡng chế phân quyền cấp phòng ban chuyên môn (office_id) cho Level 2 (bỏ qua khi dwh_public)
+        if active_schema != "dwh_public" and self.user_ctx.role_level == 2 and self.user_ctx.office_id and not req_statuses and table_name != "report":
             office_safe = self.user_ctx.office_id.replace("'", "''")
             conditions.append(f"{table_ref}.office_id = '{office_safe}'")
 
-        # 4. Cưỡng chế bộ lọc trạng thái báo cáo (status / report_status) có điều kiện
+        # 4. Cưỡng chế phân quyền theo nhiệm vụ (Mission-Scoped Invariant - Tier 2 Defense)
+        # Khi schema == 'dwh_internal' và không phải 'Lãnh đạo': tiêm f.mission_id IN (...)
+        # Khi schema == 'dwh_public' hoặc name == 'Lãnh đạo': bỏ qua (bypass hoàn toàn)
+        if active_schema == "dwh_internal" and table_name == "fact_report_criteria" and not is_boss_or_unrestricted:
+            assigned_mids = getattr(self.user_ctx, "assigned_mission_ids", []) or []
+            if assigned_mids:
+                cleaned_mids = [f"'{str(m)}'" for m in assigned_mids]
+                joined_mids = ", ".join(cleaned_mids)
+                conditions.append(f"{table_ref}.mission_id IN ({joined_mids})")
+            elif getattr(self.user_ctx, "name", None) or getattr(self.user_ctx, "user_name", None):
+                # Tài khoản đã định danh trong hệ thống nhưng không có nhiệm vụ nào được phân công -> Chặn 1 = 0
+                conditions.append("1 = 0")
+
+        # 5. Cưỡng chế bộ lọc trạng thái báo cáo (status / report_status) có điều kiện
         status_col = "report_status" if table_name == "fact_report_criteria" else "status"
         if not authorized_non_approved:
             # Người dùng cấp 3 (Công dân/Khách) cố tình truy vấn draft/pending vượt thẩm quyền -> Cưỡng chế chỉ lấy approved

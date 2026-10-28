@@ -1899,14 +1899,26 @@ class CanonicalSemanticNormalizer:
     # --------------------------------------------------------------------------
     # DETERMINISTIC SQL SYNTHESIS (TẦNG 2: BIÊN DỊCH AST TẤT ĐỊNH)
     # --------------------------------------------------------------------------
-    def compile_canonical_sql(self, frame: CanonicalQueryFrameDTO) -> str:
+    def compile_canonical_sql(
+        self,
+        frame: CanonicalQueryFrameDTO,
+        target_schema: Optional[str] = None,
+    ) -> str:
         """
         Biên dịch CanonicalQueryFrameDTO thành câu lệnh SQL PostgreSQL 16 tất định duy nhất 100%.
         Triệt tiêu hoàn toàn tính giòn ngôn ngữ.
+        Hỗ trợ đa lược đồ (Dual-Schema Switching): dwh_internal và dwh_public.
         """
         # 0. OUT_OF_SCOPE / GREETING_FAREWELL: Không sinh SQL
         if frame.intent in (CanonicalIntentEnum.OUT_OF_SCOPE, CanonicalIntentEnum.GREETING_FAREWELL) or frame.is_out_of_scope:
             return ""
+
+        eff_schema = (target_schema or getattr(frame, "target_schema", None) or "dwh_internal").strip()
+        if eff_schema not in ("dwh_internal", "dwh_public"):
+            eff_schema = "dwh_internal"
+        is_public = (eff_schema == "dwh_public")
+        fact_tbl = f"{eff_schema}.fact_report_criteria"
+        crit_tbl = f"{eff_schema}.criteria"
 
         limit_clause = f"\nLIMIT {frame.limit};" if frame.limit else ";"
 
@@ -2244,14 +2256,14 @@ class CanonicalSemanticNormalizer:
             if frame.aggregation_function == "COUNT":
                 return (
                     f"SELECT COUNT(DISTINCT f.name) AS tong_so_chi_tieu, COUNT(f.fact_sk) AS tong_ban_ghi\n"
-                    f"FROM dwh_internal.fact_report_criteria f\n"
+                    f"FROM {fact_tbl} f\n"
                     f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
                     f"  AND f.report_status = 'approved'\n"
                     f"{temporal_clause};\n"
                 ).strip()
 
             office_filter_clause = ""
-            if frame.target_office:
+            if frame.target_office and not is_public:
                 off_esc = frame.target_office.replace("'", "''")
                 office_filter_clause = (
                     f"  AND (\n"
@@ -2281,6 +2293,15 @@ class CanonicalSemanticNormalizer:
             else:
                 dept_clause_dl = ""
 
+            dl_office_col = "" if is_public else "           f.office_id,\n"
+            dl_partition = "PARTITION BY f.criteria_id" if is_public else "PARTITION BY f.criteria_id, f.office_id"
+            dl_van_phong = "'Dữ liệu công khai' AS ten_van_phong" if is_public else "COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong"
+            dl_office_join = "" if is_public else "LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
+            dl_dept_join = "" if is_public else "LEFT JOIN (SELECT DISTINCT department_code, department_name FROM dwh_internal.\"user\") d ON rf.department_code = d.department_code\n"
+            dl_co_quan = "COALESCE(rf.department_code, 'Toàn tỉnh') AS ten_co_quan" if is_public else "d.department_name AS ten_co_quan"
+            dl_nhom_chi_tieu = "COALESCE(p.mission_name, 'Chỉ tiêu công khai') AS nhom_chi_tieu" if is_public else "COALESCE(p.name, 'Chỉ tiêu chung') AS nhom_chi_tieu"
+            dl_order_parent = "TRIM(LOWER(COALESCE(p.mission_name, ''))) ASC" if is_public else "TRIM(LOWER(COALESCE(p.name, ''))) ASC"
+
             return (
                 f"WITH ranked_facts AS (\n"
                 f"    SELECT f.criteria_id,\n"
@@ -2289,13 +2310,13 @@ class CanonicalSemanticNormalizer:
                 f"           f.value AS gia_tri_moi_nhat,\n"
                 f"           f.report_date AS ngay_bao_cao_moi_nhat,\n"
                 f"           f.mission_name AS ten_nhiem_vu,\n"
-                f"           f.office_id,\n"
+                f"{dl_office_col}"
                 f"           f.department_code,\n"
                 f"           ROW_NUMBER() OVER (\n"
-                f"               PARTITION BY f.criteria_id, f.office_id\n"
+                f"               {dl_partition}\n"
                 f"               ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST\n"
                 f"           ) AS rn\n"
-                f"    FROM dwh_internal.fact_report_criteria f\n"
+                f"    FROM {fact_tbl} f\n"
                 f"    WHERE f.tenant_code = '{frame.tenant_code}'\n"
                 f"      AND f.report_status = 'approved'\n"
                 f"{temporal_clause}"
@@ -2306,18 +2327,18 @@ class CanonicalSemanticNormalizer:
                 f"SELECT rf.criteria_id,\n"
                 f"       rf.parent_criteria_id,\n"
                 f"       rf.ten_chi_tieu,\n"
-                f"       COALESCE(p.name, 'Chỉ tiêu chung') AS nhom_chi_tieu,\n"
+                f"       {dl_nhom_chi_tieu},\n"
                 f"       rf.gia_tri_moi_nhat,\n"
                 f"       rf.ngay_bao_cao_moi_nhat,\n"
                 f"       rf.ten_nhiem_vu,\n"
-                f"       COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
-                f"       d.department_name AS ten_co_quan\n"
+                f"       {dl_van_phong},\n"
+                f"       {dl_co_quan}\n"
                 f"FROM ranked_facts rf\n"
-                f"LEFT JOIN dwh_internal.criteria p ON rf.parent_criteria_id = p.id\n"
-                f"LEFT JOIN dwh_internal.office o ON rf.office_id = o.id\n"
-                f"LEFT JOIN (SELECT DISTINCT department_code, department_name FROM dwh_internal.\"user\") d ON rf.department_code = d.department_code\n"
+                f"LEFT JOIN {crit_tbl} p ON rf.parent_criteria_id = p.id\n"
+                f"{dl_office_join}"
+                f"{dl_dept_join}"
                 f"WHERE rf.rn = 1\n"
-                f"ORDER BY rf.ngay_bao_cao_moi_nhat DESC NULLS LAST, TRIM(LOWER(rf.ten_chi_tieu)) ASC, TRIM(LOWER(COALESCE(p.name, ''))) ASC{limit_clause}"
+                f"ORDER BY rf.ngay_bao_cao_moi_nhat DESC NULLS LAST, TRIM(LOWER(rf.ten_chi_tieu)) ASC, {dl_order_parent}{limit_clause}"
             )
 
         # 1. METRIC_POINT_INQUIRY (Tra cứu chỉ tiêu điểm / P-04 Single Metric Snapshot)
@@ -2368,8 +2389,14 @@ class CanonicalSemanticNormalizer:
 
             office_filter = (
                 f"\n  AND (o.office_name ILIKE '%{frame.target_office}%' OR lf.office_id IN (SELECT id FROM dwh_internal.office WHERE office_name ILIKE '%{frame.target_office}%'))"
-                if frame.target_office else ""
+                if (frame.target_office and not is_public) else ""
             )
+
+            mpi_office_col = "" if is_public else "        f.office_id,\n"
+            mpi_partition = "PARTITION BY f.criteria_id" if is_public else "PARTITION BY f.criteria_id, f.office_id"
+            mpi_van_phong = "'Dữ liệu công khai' AS ten_van_phong," if is_public else "COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,"
+            mpi_office_join = "" if is_public else "LEFT JOIN dwh_internal.office AS o ON lf.office_id = o.id\n"
+            mpi_nhom_chi_tieu = "COALESCE(p.mission_name, 'Chỉ tiêu công khai') AS nhom_chi_tieu" if is_public else "p.name AS nhom_chi_tieu"
 
             if frame.specific_date:
                 spec_d = frame.specific_date.replace("'", "''")
@@ -2389,20 +2416,20 @@ class CanonicalSemanticNormalizer:
                     f"        f.name AS ten_chi_tieu,\n"
                     f"        f.value AS gia_tri_moi_nhat,\n"
                     f"        f.mission_name AS ten_nhiem_vu,\n"
-                    f"        f.office_id,\n"
+                    f"{mpi_office_col}"
                     f"        f.report_date AS ngay_bao_cao_moi_nhat,\n"
                     f"        ABS(f.report_date::date - '{spec_d}'::date) AS do_lech_ngay,\n"
                     f"        MAX(CASE WHEN f.report_date::date <= '{spec_d}'::date THEN f.report_date END) OVER (\n"
-                    f"            PARTITION BY f.criteria_id, f.office_id\n"
+                    f"            {mpi_partition}\n"
                     f"        ) AS can_duoi_ngay,\n"
                     f"        MIN(CASE WHEN f.report_date::date >= '{spec_d}'::date THEN f.report_date END) OVER (\n"
-                    f"            PARTITION BY f.criteria_id, f.office_id\n"
+                    f"            {mpi_partition}\n"
                     f"        ) AS can_tren_ngay,\n"
                     f"        ROW_NUMBER() OVER (\n"
-                    f"            PARTITION BY f.criteria_id, f.office_id\n"
+                    f"            {mpi_partition}\n"
                     f"            {rn_order}\n"
                     f"        ) AS rn\n"
-                    f"    FROM dwh_internal.fact_report_criteria AS f\n"
+                    f"    FROM {fact_tbl} AS f\n"
                     f"{where_block}\n"
                     f")\n"
                     f"SELECT\n"
@@ -2410,15 +2437,15 @@ class CanonicalSemanticNormalizer:
                     f"    lf.ten_chi_tieu,\n"
                     f"    lf.gia_tri_moi_nhat,\n"
                     f"    lf.ten_nhiem_vu,\n"
-                    f"    COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
+                    f"    {mpi_van_phong}\n"
                     f"    lf.ngay_bao_cao_moi_nhat,\n"
                     f"    lf.do_lech_ngay,\n"
                     f"    lf.can_duoi_ngay,\n"
                     f"    lf.can_tren_ngay,\n"
-                    f"    p.name AS nhom_chi_tieu\n"
+                    f"    {mpi_nhom_chi_tieu}\n"
                     f"FROM ranked_facts AS lf\n"
-                    f"LEFT JOIN dwh_internal.office AS o ON lf.office_id = o.id\n"
-                    f"LEFT JOIN dwh_internal.criteria AS p ON lf.parent_criteria_id = p.id\n"
+                    f"{mpi_office_join}"
+                    f"LEFT JOIN {crit_tbl} AS p ON lf.parent_criteria_id = p.id\n"
                     f"WHERE lf.rn = 1{office_filter}\n"
                     f"{outer_order}{limit_clause}"
                 )
@@ -2434,13 +2461,13 @@ class CanonicalSemanticNormalizer:
                     f"        f.name AS ten_chi_tieu,\n"
                     f"        f.value AS gia_tri_moi_nhat,\n"
                     f"        f.mission_name AS ten_nhiem_vu,\n"
-                    f"        f.office_id,\n"
+                    f"{mpi_office_col}"
                     f"        f.report_date AS ngay_bao_cao_moi_nhat,\n"
                     f"        ROW_NUMBER() OVER (\n"
-                    f"            PARTITION BY f.criteria_id, f.office_id\n"
+                    f"            {mpi_partition}\n"
                     f"            {rn_order}\n"
                     f"        ) AS rn\n"
-                    f"    FROM dwh_internal.fact_report_criteria AS f\n"
+                    f"    FROM {fact_tbl} AS f\n"
                     f"{where_block}\n"
                     f")\n"
                     f"SELECT\n"
@@ -2448,12 +2475,12 @@ class CanonicalSemanticNormalizer:
                     f"    lf.ten_chi_tieu,\n"
                     f"    lf.gia_tri_moi_nhat,\n"
                     f"    lf.ten_nhiem_vu,\n"
-                    f"    COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
+                    f"    {mpi_van_phong}\n"
                     f"    lf.ngay_bao_cao_moi_nhat,\n"
-                    f"    p.name AS nhom_chi_tieu\n"
+                    f"    {mpi_nhom_chi_tieu}\n"
                     f"FROM ranked_facts AS lf\n"
-                    f"LEFT JOIN dwh_internal.office AS o ON lf.office_id = o.id\n"
-                    f"LEFT JOIN dwh_internal.criteria AS p ON lf.parent_criteria_id = p.id\n"
+                    f"{mpi_office_join}"
+                    f"LEFT JOIN {crit_tbl} AS p ON lf.parent_criteria_id = p.id\n"
                     f"WHERE lf.rn = 1{office_filter}\n"
                     f"{outer_order}{limit_clause}"
                 )
@@ -2467,22 +2494,26 @@ class CanonicalSemanticNormalizer:
 
             filter_clause = ""
             if topic_filter:
+                topk_crit_col = "mission_name" if is_public else "name"
                 filter_clause = (
                     f"      AND (\n"
                     f"          f.criteria_id IN (\n"
-                    f"              SELECT id FROM dwh_internal.criteria\n"
-                    f"              WHERE parent_id IN (SELECT id FROM dwh_internal.criteria WHERE name ILIKE '%{topic_filter}%')\n"
+                    f"              SELECT id FROM {crit_tbl}\n"
+                    f"              WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE {topk_crit_col} ILIKE '%{topic_filter}%')\n"
                     f"          )\n"
                     f"          OR f.name ILIKE '%{topic_filter}%'\n"
                     f"      )\n"
                 )
             top_k_limit = f"\nLIMIT {frame.limit};" if frame.limit else "\nLIMIT 5;"
 
+            topk_office_col = "" if is_public else " f.office_id,"
+            topk_part = "PARTITION BY TRIM(LOWER(f.name))" if is_public else "PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)"
+
             return (
                 f"WITH latest_fact AS (\n"
-                f"    SELECT f.name, f.value, f.office_id,\n"
-                f"           ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid) ORDER BY f.report_date DESC, f.version DESC) as rn\n"
-                f"    FROM dwh_internal.fact_report_criteria f\n"
+                f"    SELECT f.name, f.value,{topk_office_col}\n"
+                f"           ROW_NUMBER() OVER ({topk_part} ORDER BY f.report_date DESC, f.version DESC) as rn\n"
+                f"    FROM {fact_tbl} f\n"
                 f"    WHERE f.tenant_code = '{frame.tenant_code}'\n"
                 f"      AND f.year_code = '{frame.year_code}'\n"
                 f"      AND f.report_status = 'approved'\n"
@@ -2520,7 +2551,7 @@ class CanonicalSemanticNormalizer:
             return (
                 f"WITH rev AS (\n"
                 f"    SELECT report_date, (CASE WHEN TRIM(value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(value)::numeric ELSE NULL END) as val\n"
-                f"    FROM dwh_internal.fact_report_criteria\n"
+                f"    FROM {fact_tbl}\n"
                 f"    WHERE tenant_code = '{frame.tenant_code}' AND year_code = '{frame.year_code}' AND report_status = 'approved'\n"
                 f"{metric_cond}"
                 f")\n"
@@ -2685,10 +2716,11 @@ class CanonicalSemanticNormalizer:
             crit_filter = ""
             if frame.canonical_metric_names:
                 names_esc = "', '".join(n.replace("'", "''") for n in frame.canonical_metric_names)
-                crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM dwh_internal.criteria WHERE name IN ('{names_esc}')))\n"
+                pc_crit_col = "mission_name" if is_public else "name"
+                crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM {crit_tbl} WHERE {pc_crit_col} IN ('{names_esc}')))\n"
             return (
                 f"SELECT DISTINCT ON (f.name) f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat, f.report_date AS thoi_diem_bao_cao\n"
-                f"FROM dwh_internal.fact_report_criteria f\n"
+                f"FROM {fact_tbl} f\n"
                 f"WHERE f.tenant_code = '{t_code}' AND f.year_code = '{y_code}' AND f.report_status = 'approved'\n"
                 f"{crit_filter}"
                 f"ORDER BY f.name, f.report_date DESC NULLS LAST{limit_clause}"
@@ -2704,7 +2736,7 @@ class CanonicalSemanticNormalizer:
                 crit_filter = f"  AND f.name IN ('{names_esc}')\n"
             return (
                 f"SELECT f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat, f.report_date AS thoi_diem_bao_cao, f.parent_criteria_id\n"
-                f"FROM dwh_internal.fact_report_criteria f\n"
+                f"FROM {fact_tbl} f\n"
                 f"WHERE f.tenant_code = '{t_code}' AND f.year_code = '{y_code}' AND f.report_status = 'approved'\n"
                 f"{crit_filter}"
                 f"ORDER BY f.report_date DESC NULLS LAST{limit_clause}"
@@ -2713,7 +2745,7 @@ class CanonicalSemanticNormalizer:
         # Fallback
         return (
             f"SELECT f.name AS ten_chi_tieu, SUM(CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END) AS tong_gia_tri\n"
-            f"FROM dwh_internal.fact_report_criteria f\n"
+            f"FROM {fact_tbl} f\n"
             f"WHERE f.tenant_code = '{frame.tenant_code}' AND f.year_code = '{frame.year_code}' AND f.report_status = 'approved'\n"
             f"GROUP BY f.name{limit_clause}"
         )

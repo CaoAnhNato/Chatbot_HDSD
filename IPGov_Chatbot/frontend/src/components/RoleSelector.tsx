@@ -9,91 +9,232 @@ import React, { useState, useEffect } from "react";
 
 export interface UserRoleProfile {
   id: string;
+  user_id: string;
+  username: string;
+  name: string;
   label: string;
   badge: string;
+  badge_label: string;
   tenant_code: string;
   tenant_name: string;
   department_code: string | null;
-  office_id: string | null;
+  department_name?: string;
+  position?: string;
+  office_id?: string | null;
   role_level: number;
-  user_id: string;
-  username: string;
+  is_unrestricted: boolean;
+  assigned_mission_ids: string[];
+  assigned_mission_names: string[];
+  mission_count: number;
 }
 
 export const PRESET_ROLES: UserRoleProfile[] = [
   {
-    id: "lamdong_leader",
-    label: "Lãnh đạo UBND Tỉnh Lâm Đồng",
-    badge: "Level 0 • Tỉnh",
+    id: "035b1733-943b-4993-b50c-96ec2ece5e74",
+    user_id: "035b1733-943b-4993-b50c-96ec2ece5e74",
+    username: "boss",
+    name: "Lãnh đạo",
+    label: "Lãnh đạo",
+    badge: "Level 4 • Lãnh đạo Toàn quyền",
+    badge_label: "Level 4 • Lãnh đạo Toàn quyền",
     tenant_code: "68",
-    tenant_name: "Tỉnh Lâm Đồng",
-    department_code: null,
-    office_id: null,
-    role_level: 0,
-    user_id: "u_ld_001",
-    username: "lanhdao_ubnd_lamdong"
-  },
-  {
-    id: "hcm_leader",
-    label: "Lãnh đạo UBND TP. Hồ Chí Minh",
-    badge: "Level 0 • Tỉnh",
-    tenant_code: "79",
-    tenant_name: "TP. Hồ Chí Minh",
-    department_code: null,
-    office_id: null,
-    role_level: 0,
-    user_id: "u_hcm_001",
-    username: "lanhdao_ubnd_hcm"
-  },
-  {
-    id: "lamdong_dept_noivu",
-    label: "Lãnh đạo Sở Nội Vụ Lâm Đồng",
-    badge: "Level 1 • Sở",
-    tenant_code: "68",
-    tenant_name: "Tỉnh Lâm Đồng",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
     department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "qtv",
     office_id: null,
-    role_level: 1,
-    user_id: "u_snv_001",
-    username: "lanhdao_sonoi_vu"
+    role_level: 4,
+    is_unrestricted: true,
+    assigned_mission_ids: [],
+    assigned_mission_names: [],
+    mission_count: 0,
   },
   {
-    id: "lamdong_phong_kinhte",
-    label: "Trưởng Phòng Kinh Tế (H. Đức Trọng)",
-    badge: "Level 2 • Phòng",
+    id: "2ebf478e-f245-43c3-816b-27a0a42099ed",
+    user_id: "2ebf478e-f245-43c3-816b-27a0a42099ed",
+    username: "bacgianghia.ld",
+    name: "Phường Bắc Gia Nghĩa",
+    label: "Phường Bắc Gia Nghĩa",
+    badge: "Level 3 • Quản trị Đa nhiệm vụ",
+    badge_label: "Level 3 • Quản trị Đa nhiệm vụ",
     tenant_code: "68",
-    tenant_name: "Tỉnh Lâm Đồng",
-    department_code: "68-1-02",
-    office_id: null,
-    role_level: 2,
-    user_id: "u_pkt_001",
-    username: "truongphong_kinhte_lamdong"
-  },
-  {
-    id: "lamdong_phong_xaydung",
-    label: "Trưởng Phòng Xây Dựng (TP. Đà Lạt)",
-    badge: "Level 2 • Phòng",
-    tenant_code: "68",
-    tenant_name: "Tỉnh Lâm Đồng",
-    department_code: "68-1-03",
-    office_id: null,
-    role_level: 2,
-    user_id: "u_pxd_001",
-    username: "truongphong_xaydung_lamdong"
-  },
-  {
-    id: "public_citizen",
-    label: "Người Dân / Doanh Nghiệp (Public)",
-    badge: "Level 3 • Công Dân",
-    tenant_code: "68",
-    tenant_name: "Tỉnh Lâm Đồng",
-    department_code: null,
+    tenant_name: "Phường Bắc Gia Nghĩa",
+    department_code: "68-2-01",
+    department_name: "Phường Bắc Gia Nghĩa",
+    position: "QTV",
     office_id: null,
     role_level: 3,
-    user_id: "u_pub_999",
-    username: "congdan_tra_cuu"
-  }
+    is_unrestricted: false,
+    assigned_mission_ids: [
+      "4feb96a8-6145-4a31-a58b-3851cccd015a",
+      "78b71984-b96a-40bd-8f9d-045a7239df8e",
+      "7ee83ad6-d613-4ab3-8b74-b179b4428182",
+    ],
+    assigned_mission_names: ["Phát triển nông thôn", "Diêm nghiệp", "Trồng trọt"],
+    mission_count: 3,
+  },
+  {
+    id: "af12924c-189c-4a39-857d-f3839990a4fd",
+    user_id: "af12924c-189c-4a39-857d-f3839990a4fd",
+    username: "admin-lamdong",
+    name: "Admin Tỉnh Lâm Đồng",
+    label: "Admin Tỉnh Lâm Đồng",
+    badge: "Level 3 • Quản trị Đa nhiệm vụ",
+    badge_label: "Level 3 • Quản trị Đa nhiệm vụ",
+    tenant_code: "68",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
+    department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "QTV",
+    office_id: null,
+    role_level: 3,
+    is_unrestricted: false,
+    assigned_mission_ids: [
+      "52c54734-5bbe-4b38-a021-260818831c60",
+      "855c7f67-6029-47a2-aa83-dc60c9589698",
+      "7bb5b602-eeb7-49d5-9be6-0ae8d3ff38ac",
+    ],
+    assigned_mission_names: ["Nhiệm vụ 4 ASXH", "Nhiệm vụ 3 ASXH", "Nhiệm vụ 1 ASXH"],
+    mission_count: 3,
+  },
+  {
+    id: "c981c2b8-03ae-4a22-982c-6d84654c27c9",
+    user_id: "c981c2b8-03ae-4a22-982c-6d84654c27c9",
+    username: "hngoc",
+    name: "Hồng Ngọc",
+    label: "Hồng Ngọc",
+    badge: "Level 2 • Chuyên trách Đa ngành",
+    badge_label: "Level 2 • Chuyên trách Đa ngành",
+    tenant_code: "68",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
+    department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "qtv",
+    office_id: null,
+    role_level: 2,
+    is_unrestricted: false,
+    assigned_mission_ids: [
+      "4feb96a8-6145-4a31-a58b-3851cccd015a",
+      "0d34a260-073d-4e42-9224-97fcc8eb8b24",
+    ],
+    assigned_mission_names: ["Phát triển nông thôn", "Lao động, tiền lương"],
+    mission_count: 2,
+  },
+  {
+    id: "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+    user_id: "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+    username: "minhanh",
+    name: "Minh Anh",
+    label: "Minh Anh",
+    badge: "Level 1 • Chuyên viên Đơn nhiệm",
+    badge_label: "Level 1 • Chuyên viên Đơn nhiệm",
+    tenant_code: "68",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
+    department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "cv",
+    office_id: null,
+    role_level: 1,
+    is_unrestricted: false,
+    assigned_mission_ids: ["604c00c3-e7e2-488e-8305-6800e672e99b"],
+    assigned_mission_names: ["Công nghiệp"],
+    mission_count: 1,
+  },
+  {
+    id: "48bb6688-6c97-4239-8892-56950b416237",
+    user_id: "48bb6688-6c97-4239-8892-56950b416237",
+    username: "donggianghia.ld",
+    name: "UBND phường Đông Gia Nghĩa",
+    label: "UBND phường Đông Gia Nghĩa",
+    badge: "Level 1 • Chuyên viên Đơn nhiệm",
+    badge_label: "Level 1 • Chuyên viên Đơn nhiệm",
+    tenant_code: "68",
+    tenant_name: "Phường Đông Gia Nghĩa",
+    department_code: "68-2-02",
+    department_name: "Phường Đông Gia Nghĩa",
+    position: "QTV",
+    office_id: null,
+    role_level: 1,
+    is_unrestricted: false,
+    assigned_mission_ids: ["7ee83ad6-d613-4ab3-8b74-b179b4428182"],
+    assigned_mission_names: ["Trồng trọt"],
+    mission_count: 1,
+  },
+  {
+    id: "96239497-6417-4f24-b730-b6f4a2b2a07e",
+    user_id: "96239497-6417-4f24-b730-b6f4a2b2a07e",
+    username: "ubnd-lamdong",
+    name: "UBND Tỉnh Lâm Đồng",
+    label: "UBND Tỉnh Lâm Đồng",
+    badge: "Level 1 • Chuyên viên Đơn nhiệm",
+    badge_label: "Level 1 • Chuyên viên Đơn nhiệm",
+    tenant_code: "68",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
+    department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "qtv",
+    office_id: null,
+    role_level: 1,
+    is_unrestricted: false,
+    assigned_mission_ids: ["96c1d5b1-f14b-4177-a31a-0a9220baab01"],
+    assigned_mission_names: ["Test"],
+    mission_count: 1,
+  },
+  {
+    id: "cc99047a-692d-49f8-aacc-f3f8031a445b",
+    user_id: "cc99047a-692d-49f8-aacc-f3f8031a445b",
+    username: "tzyalnh",
+    name: "Nguyễn Thị Thúy Lành",
+    label: "Nguyễn Thị Thúy Lành",
+    badge: "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+    badge_label: "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+    tenant_code: "68",
+    tenant_name: "UBND Tỉnh Lâm Đồng",
+    department_code: "68-1-01",
+    department_name: "UBND Tỉnh Lâm Đồng",
+    position: "BA",
+    office_id: null,
+    role_level: 0,
+    is_unrestricted: false,
+    assigned_mission_ids: [],
+    assigned_mission_names: [],
+    mission_count: 0,
+  },
 ];
+
+export function getLevelBadgeStyle(level: number): {
+  chipClass: string;
+  badgeColor: string;
+} {
+  switch (level) {
+    case 4:
+      return {
+        chipClass: "bg-purple-100 text-purple-800 border-purple-300 font-bold",
+        badgeColor: "bg-purple-950 text-purple-300 border-purple-800",
+      };
+    case 3:
+      return {
+        chipClass: "bg-blue-100 text-blue-800 border-blue-300 font-semibold",
+        badgeColor: "bg-blue-950 text-blue-300 border-blue-800",
+      };
+    case 2:
+      return {
+        chipClass: "bg-emerald-100 text-emerald-800 border-emerald-300 font-semibold",
+        badgeColor: "bg-emerald-950 text-emerald-300 border-emerald-800",
+      };
+    case 1:
+      return {
+        chipClass: "bg-sky-100 text-sky-800 border-sky-300 font-medium",
+        badgeColor: "bg-sky-950 text-sky-300 border-sky-800",
+      };
+    case 0:
+    default:
+      return {
+        chipClass: "bg-slate-100 text-slate-700 border-slate-300 font-medium",
+        badgeColor: "bg-slate-900 text-slate-300 border-slate-700",
+      };
+  }
+}
 
 export interface RoleSelectorProps {
   selectedRole?: UserRoleProfile;
@@ -148,16 +289,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
   };
 
   const getBadgeColor = (level: number) => {
-    switch (level) {
-      case 0:
-        return "bg-emerald-950 text-emerald-300 border-emerald-800";
-      case 1:
-        return "bg-indigo-950 text-indigo-300 border-indigo-800";
-      case 2:
-        return "bg-amber-950 text-amber-300 border-amber-800";
-      default:
-        return "bg-slate-800 text-slate-300 border-slate-700";
-    }
+    return getLevelBadgeStyle(level).badgeColor;
   };
 
   return (

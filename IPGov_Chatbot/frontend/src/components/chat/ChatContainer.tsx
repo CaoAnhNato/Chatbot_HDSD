@@ -9,6 +9,7 @@ import {
   renameChatSessionApi,
   deleteChatSessionApi,
   clearAllChatSessionsApi,
+  fetchUserAccounts,
 } from '@/lib/api';
 import {
   loadSessions,
@@ -30,6 +31,7 @@ import {
   PRESET_ROLES,
   UserRoleProfile,
   generateMockJWT,
+  getLevelBadgeStyle,
 } from '@/components/RoleSelector';
 import {
   Bot,
@@ -38,6 +40,8 @@ import {
   Building2,
   Landmark,
   PanelLeft,
+  Database,
+  Globe,
 } from 'lucide-react';
 
 interface ErrorBoundaryProps {
@@ -127,42 +131,52 @@ const CHIPS_LEVEL_3: QuickActionChip[] = [
 ];
 
 const getWelcomeContact = (role: UserRoleProfile) => {
-  if (role.role_level === 0) {
+  if (role.role_level === 4) {
     return {
       title: `TRỢ LÝ KHO DỮ LIỆU DWH (LÃNH ĐẠO CẤP TỈNH • ${role.tenant_name})`,
-      working_hours: 'Hỗ trợ 24/7 • Dữ liệu đồng bộ trực tiếp từ CSDL vna_wom_dev',
+      working_hours: 'Hỗ trợ 24/7 • Toàn quyền tra cứu dữ liệu CSDL vna_wom_dev',
       hotlines: ['028 3535 2524'],
     };
   }
-  if (role.role_level === 1) {
+  if (role.role_level === 3) {
     return {
-      title: `TRỢ LÝ KHO DỮ LIỆU DWH (LÃNH ĐẠO SỞ / BAN / NGÀNH)`,
-      working_hours: 'Hỗ trợ 24/7 • Phân quyền cấp Sở trực thuộc',
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (QUẢN TRỊ ĐA NHIỆM VỤ • ${role.tenant_name})`,
+      working_hours: 'Hỗ trợ 24/7 • Phân quyền quản trị đa nhiệm vụ',
       hotlines: ['028 3535 2524'],
     };
   }
   if (role.role_level === 2) {
     return {
-      title: `TRỢ LÝ KHO DỮ LIỆU DWH (TRƯỞNG PHÒNG CHUYÊN MÔN)`,
-      working_hours: 'Hỗ trợ 24/7 • Phân quyền cấp đơn vị cơ sở',
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (CHUYÊN TRÁCH ĐA NGÀNH • ${role.tenant_name})`,
+      working_hours: 'Hỗ trợ 24/7 • Phân quyền theo nhiệm vụ chuyên trách',
       hotlines: ['028 3535 2523', '028 3535 2524'],
     };
   }
+  if (role.role_level === 1) {
+    return {
+      title: `TRỢ LÝ KHO DỮ LIỆU DWH (CHUYÊN VIÊN ĐƠN NHIỆM • ${role.tenant_name})`,
+      working_hours: 'Hỗ trợ 24/7 • Phân quyền theo nhiệm vụ đơn ngành',
+      hotlines: ['028 3535 2523'],
+    };
+  }
   return {
-    title: `TRỢ LÝ TRA CỨU DWH (CÔNG DÂN / DOANH NGHIỆP)`,
-    working_hours: 'Hỗ trợ 24/7 • Tra cứu thông tin chỉ tiêu công khai',
+    title: `TRỢ LÝ TRA CỨU DWH (CÁN BỘ CƠ SỞ / GIỚI HẠN)`,
+    working_hours: 'Hỗ trợ 24/7 • Giới hạn phạm vi nhiệm vụ công vụ',
     hotlines: ['028 3535 2523'],
   };
 };
 
 const getRoleChips = (level: number): QuickActionChip[] => {
   switch (level) {
-    case 0:
+    case 4:
       return CHIPS_LEVEL_0;
-    case 1:
+    case 3:
       return CHIPS_LEVEL_1;
     case 2:
       return CHIPS_LEVEL_2;
+    case 1:
+      return CHIPS_LEVEL_2;
+    case 0:
     default:
       return CHIPS_LEVEL_3;
   }
@@ -178,7 +192,9 @@ const getWelcomeMessage = (role: UserRoleProfile): ChatMessage => ({
 });
 
 export const ChatContainer: React.FC = () => {
+  const [availableUsers, setAvailableUsers] = useState<UserRoleProfile[]>(PRESET_ROLES);
   const [selectedRole, setSelectedRole] = useState<UserRoleProfile>(PRESET_ROLES[0]);
+  const [activeSchema, setActiveSchema] = useState<'dwh_internal' | 'dwh_public'>('dwh_internal');
   const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage(PRESET_ROLES[0])]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -188,6 +204,14 @@ export const ChatContainer: React.FC = () => {
   const [pinnedItems, setPinnedItems] = useState<PinnedDrawerItem[]>([]);
   const [activePinnedTabId, setActivePinnedTabId] = useState<string | null>(null);
   const [pinnedToast, setPinnedToast] = useState<string | null>(null);
+
+  const availableUsersRef = useRef<UserRoleProfile[]>(availableUsers);
+  availableUsersRef.current = availableUsers;
+
+  const selectedRoleRef = useRef<UserRoleProfile>(selectedRole);
+  selectedRoleRef.current = selectedRole;
+
+  const handleRoleSelectRef = useRef<(newRole: UserRoleProfile) => void>(() => {});
 
   const handlePinItem = (item: PinnedDrawerItem) => {
     setPinnedItems((prev) => {
@@ -231,6 +255,84 @@ export const ChatContainer: React.FC = () => {
 
   // Tải danh sách lịch sử phiên & tự động khôi phục phiên đang hoạt động khi khởi động
   useEffect(() => {
+    let isMounted = true;
+
+    // 1. Khôi phục schema từ localStorage nếu có
+    try {
+      const savedSchema = localStorage.getItem('ipgov_active_schema');
+      if (savedSchema === 'dwh_internal' || savedSchema === 'dwh_public') {
+        setActiveSchema(savedSchema);
+      }
+    } catch (e) {}
+
+    // 2. Khôi phục user từ localStorage nếu có
+    try {
+      const savedUserJson = localStorage.getItem('ipgov_active_user');
+      if (savedUserJson) {
+        const parsed = JSON.parse(savedUserJson);
+        const matched = PRESET_ROLES.find(
+          (u) =>
+            u.id === parsed.id ||
+            u.username === parsed.username ||
+            u.name === parsed.name
+        );
+        if (matched) {
+          setSelectedRole(matched);
+        }
+      }
+    } catch (e) {}
+
+    // 3. Tải danh sách người dùng được phân loại từ API backend
+    const loadUsers = async () => {
+      try {
+        const users = await fetchUserAccounts();
+        if (isMounted && users && users.length > 0) {
+          setAvailableUsers(users);
+          setSelectedRole((current) => {
+            const matched = users.find(
+              (u) =>
+                u.id === current.id ||
+                u.username === current.username ||
+                u.name === current.name
+            );
+            return matched || users[0];
+          });
+        }
+      } catch (err) {
+        console.warn('Lỗi khi fetch danh sách người dùng động:', err);
+      }
+    };
+    void loadUsers();
+
+    // 4. Lắng nghe custom events từ Playwright test runner hoặc các component khác
+    const onSchemaSwitched = (e: Event) => {
+      const customEvent = e as CustomEvent<string>;
+      const target = customEvent.detail;
+      if (target === 'dwh_internal' || target === 'dwh_public') {
+        setActiveSchema(target);
+      }
+    };
+
+    const onUserSwitched = (e: Event) => {
+      const customEvent = e as CustomEvent<any>;
+      const detail = customEvent.detail;
+      if (!detail) return;
+      const targetId = detail.user_id || detail.id || detail.username || detail.name;
+      const users = availableUsersRef.current;
+      const found = users.find(
+        (u) =>
+          u.id === targetId ||
+          u.username === targetId ||
+          u.name === targetId
+      );
+      if (found) {
+        handleRoleSelectRef.current(found);
+      }
+    };
+
+    window.addEventListener('ipgov_schema_switched', onSchemaSwitched);
+    window.addEventListener('ipgov_user_switched', onUserSwitched);
+
     const restoreSessionView = async (target: ChatSession) => {
       const matchingRole =
         PRESET_ROLES.find((r) => r.id === target.role || r.role_level === target.level) ||
@@ -299,7 +401,22 @@ export const ChatContainer: React.FC = () => {
       }
     };
     initSessions();
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('ipgov_schema_switched', onSchemaSwitched);
+      window.removeEventListener('ipgov_user_switched', onUserSwitched);
+    };
   }, []);
+
+  const handleSchemaSwitch = (nextSchema: 'dwh_internal' | 'dwh_public') => {
+    if (nextSchema === activeSchema) return;
+    setActiveSchema(nextSchema);
+    try {
+      localStorage.setItem('ipgov_active_schema', nextSchema);
+      window.dispatchEvent(new CustomEvent('ipgov_schema_switched', { detail: nextSchema }));
+    } catch (e) {}
+  };
 
   // Hàm lưu phiên hội thoại độc lập
   const persistSession = (sid: string, msgs: ChatMessage[], currentRole: UserRoleProfile) => {
@@ -338,12 +455,25 @@ export const ChatContainer: React.FC = () => {
   };
 
   const handleRoleSelect = (newRole: UserRoleProfile) => {
-    if (newRole.id === selectedRole.id) return;
     setSelectedRole(newRole);
-    setMessages([getWelcomeMessage(newRole)]);
-    setSessionId(undefined);
-    saveActiveSessionId(undefined);
+    try {
+      localStorage.setItem('ipgov_active_user', JSON.stringify(newRole));
+    } catch (e) {}
+
+    // CRITICAL CONTINUOUS SESSION RULE:
+    // If user messages exist in messages, DO NOT reset messages or sessionId!
+    // Keep the entire 30-quest continuous session history intact!
+    setMessages((prev) => {
+      const hasUserMessages = prev.some((m) => m.role === 'user');
+      if (!hasUserMessages) {
+        setSessionId(undefined);
+        saveActiveSessionId(undefined);
+        return [getWelcomeMessage(newRole)];
+      }
+      return prev;
+    });
   };
+  handleRoleSelectRef.current = handleRoleSelect;
 
   const handleNewChat = () => {
     const newSid = `session-${Date.now()}`;
@@ -353,9 +483,9 @@ export const ChatContainer: React.FC = () => {
   };
 
   const handleSelectSession = async (session: ChatSession) => {
-    const matchingRole = PRESET_ROLES.find(
+    const matchingRole = availableUsers.find(
       (r) => r.id === session.role || r.role_level === session.level
-    ) || PRESET_ROLES[0];
+    ) || availableUsers[0];
     setSelectedRole(matchingRole);
     setSessionId(session.id);
     saveActiveSessionId(session.id);
@@ -425,10 +555,10 @@ export const ChatContainer: React.FC = () => {
     const userMsgId = `user-${Date.now()}`;
     const botMsgId = `bot-${Date.now()}`;
 
-    const cleanQueryText = queryText.replace(/^\[tenant_code=[^\]]+\]\s*/i, '').trim();
+    const cleanQueryText = queryText.replace(/^\[[^\]]+\]\s*/i, '').trim();
 
-    // Chuỗi prompt kèm định danh tenant_code và level trực tiếp gửi xuống backend API
-    const promptWithContext = `[tenant_code=${selectedRole.tenant_code}, level=${selectedRole.role_level}] ${cleanQueryText}`;
+    // Chuỗi prompt kèm định danh user, level, tenant_code và schema gửi xuống backend API
+    const promptWithContext = `[user=${selectedRole.username || selectedRole.id}, level=${selectedRole.role_level}, tenant_code=${selectedRole.tenant_code}, schema=${activeSchema}] ${cleanQueryText}`;
 
     const userMsg: ChatMessage = {
       id: userMsgId,
@@ -554,7 +684,10 @@ export const ChatContainer: React.FC = () => {
         collectionName,
         selectedRole.role_level,
         selectedRole.tenant_code,
-        mockToken
+        mockToken,
+        activeSchema,
+        selectedRole.user_id,
+        selectedRole.label
       );
     } catch (err: any) {
       setCurrentStage(null);
@@ -598,11 +731,11 @@ export const ChatContainer: React.FC = () => {
       <div className="flex-1 flex flex-col h-full bg-white relative overflow-hidden">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3.5 border-b border-slate-200 bg-white/95 backdrop-blur-md shrink-0">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             {!isSidebarOpen && (
               <button
                 onClick={() => setIsSidebarOpen(true)}
-                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shadow-xs"
+                className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors border border-slate-200 shadow-xs shrink-0"
                 title="Mở lịch sử chat"
                 aria-label="Mở lịch sử chat"
               >
@@ -610,40 +743,127 @@ export const ChatContainer: React.FC = () => {
               </button>
             )}
 
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shrink-0">
               <Bot className="w-6 h-6" />
             </div>
 
-            <div>
-              <h1 className="text-base font-bold text-slate-800 flex items-center gap-2">
+            <div className="min-w-0">
+              <h1 className="text-base font-bold text-slate-800 flex items-center gap-2 truncate">
                 IPGov Chatbot Assistant
-                <span className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-medium border border-blue-200">
+                <span className="text-[11px] bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-medium border border-blue-200 whitespace-nowrap">
                   {selectedRole.tenant_name} ({selectedRole.tenant_code})
                 </span>
               </h1>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="font-semibold text-slate-700">Level {selectedRole.role_level}:</span>
-                <span className="truncate max-w-[260px] sm:max-w-none">{selectedRole.label}</span>
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="font-semibold text-slate-700 whitespace-nowrap">Level {selectedRole.role_level}:</span>
+                <span className="truncate max-w-[200px] sm:max-w-[320px]">{selectedRole.label}</span>
               </p>
             </div>
           </div>
 
-          {/* Role & Level Selector & Reset Button */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-              <span className="text-[11px] font-semibold text-slate-600 pl-1.5 hidden md:inline">Phân quyền:</span>
+          {/* Role & Level Selector & Schema Switch & Reset Button */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Fast Schema Switch Pill [dwh_internal | dwh_public] */}
+            <div
+              data-testid="schema-switch-button"
+              className="inline-flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/90 shadow-xs shrink-0 select-none"
+              role="group"
+              aria-label="Chọn kho dữ liệu"
+            >
+              <button
+                type="button"
+                data-testid="schema-toggle-internal"
+                data-state={activeSchema === 'dwh_internal' ? 'active' : 'inactive'}
+                aria-pressed={activeSchema === 'dwh_internal'}
+                onClick={() => handleSchemaSwitch('dwh_internal')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                  activeSchema === 'dwh_internal'
+                    ? 'bg-white text-indigo-700 font-semibold shadow-xs border border-indigo-100'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 border border-transparent'
+                }`}
+                title="Kho dữ liệu nội bộ (dwh_internal): Phân quyền theo nhiệm vụ công vụ"
+              >
+                <Database className={`w-3.5 h-3.5 ${activeSchema === 'dwh_internal' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                <span>Nội bộ</span>
+                <span
+                  className={`text-[10px] font-mono px-1 py-0.5 rounded transition-colors ${
+                    activeSchema === 'dwh_internal'
+                      ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  dwh_internal
+                </span>
+              </button>
+
+              <button
+                type="button"
+                data-testid="schema-toggle-public"
+                data-state={activeSchema === 'dwh_public' ? 'active' : 'inactive'}
+                aria-pressed={activeSchema === 'dwh_public'}
+                onClick={() => handleSchemaSwitch('dwh_public')}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all duration-150 whitespace-nowrap cursor-pointer ${
+                  activeSchema === 'dwh_public'
+                    ? 'bg-white text-emerald-700 font-semibold shadow-xs border border-emerald-100'
+                    : 'text-slate-500 hover:text-slate-800 hover:bg-slate-200/60 border border-transparent'
+                }`}
+                title="Kho dữ liệu công khai (dwh_public): Mọi tài khoản đều có quyền tra cứu"
+              >
+                <Globe className={`w-3.5 h-3.5 ${activeSchema === 'dwh_public' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <span>Công khai</span>
+                <span
+                  className={`text-[10px] font-mono px-1 py-0.5 rounded transition-colors ${
+                    activeSchema === 'dwh_public'
+                      ? 'bg-emerald-50 text-emerald-700 font-semibold'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  dwh_public
+                </span>
+              </button>
+            </div>
+
+            {/* Header User Selector Dropdown with Level Badges & Mission Count */}
+            <div
+              data-testid="header-user-selector-container"
+              className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 shadow-xs shrink-0 select-none"
+            >
+              {/* Level Badge Chip */}
+              <span
+                className={`text-xs px-2 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${getLevelBadgeStyle(selectedRole?.role_level ?? 0)?.chipClass || ''}`}
+                title={`Cấp bậc thẩm quyền: Level ${selectedRole?.role_level ?? 0}`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Level {selectedRole?.role_level ?? 0}</span>
+              </span>
+
+              {/* Mission Count Chip */}
+              <span
+                className="text-[11px] font-mono px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 hidden sm:inline shrink-0"
+                title={selectedRole?.is_unrestricted ? 'Toàn quyền truy cập mọi nhiệm vụ' : `Số lượng nhiệm vụ được phân công: ${selectedRole?.mission_count ?? 0}`}
+              >
+                {selectedRole?.is_unrestricted ? 'Toàn quyền' : `${selectedRole?.mission_count ?? 0} NV`}
+              </span>
+
+              {/* Native Select with full Playwright & Human compatibility */}
               <select
-                value={selectedRole.id}
+                id="header-user-selector"
+                name="user_role"
+                data-testid="header-user-selector"
+                value={selectedRole?.id || ''}
                 onChange={(e) => {
-                  const found = PRESET_ROLES.find((r) => r.id === e.target.value);
+                  const found = availableUsers.find(
+                    (u) => u.id === e.target.value || u.username === e.target.value
+                  );
                   if (found) handleRoleSelect(found);
                 }}
-                className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs"
+                className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[210px] sm:max-w-[280px] truncate"
+                aria-label="Chọn tài khoản công vụ"
               >
-                {PRESET_ROLES.map((role) => (
-                  <option key={role.id} value={role.id}>
-                    Level {role.role_level} • {role.label} (Tenant {role.tenant_code})
+                {availableUsers.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    Level {user.role_level} • {user.name} ({user.username}) - {user.is_unrestricted ? 'Toàn quyền' : `${user.mission_count} NV`}
                   </option>
                 ))}
               </select>
@@ -651,7 +871,7 @@ export const ChatContainer: React.FC = () => {
 
             <button
               onClick={handleNewChat}
-              className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition border border-transparent hover:border-slate-200"
+              className="p-2.5 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition border border-transparent hover:border-slate-200 shrink-0"
               title="Làm mới cuộc hội thoại"
             >
               <RefreshCcw className="w-4 h-4" />

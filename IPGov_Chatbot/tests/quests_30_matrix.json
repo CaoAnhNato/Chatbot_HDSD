@@ -1,0 +1,940 @@
+{
+  "batch_name": "BATCH_R1_R3_R4_FULL_30_QUEST_AUDIT",
+  "version": "1.0.0",
+  "total_quests": 30,
+  "execution_mode": "SINGLE_CONTINUOUS_SESSION",
+  "visual_standard": {
+    "zoom": "80%",
+    "compensation_css": ".h-screen { width: 125vw !important; max-width: 125vw !important; height: 125vh !important; max-height: 125vh !important; }",
+    "sidebar": "collapsed",
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "quests": [
+    {
+      "quest_id": "Q01",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tình hình kinh tế tập thể quý 1 năm 2026",
+      "intent_category": "REQ_Q01_CRITERIA_OVERVIEW",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.year_code = '2026';",
+      "interactive_action": {
+        "type": "tree_modal",
+        "primary_selector": "[data-testid^='open-tree-modal-'], button:has-text('🌳')",
+        "secondary_selector": "[data-testid='tree-modal-period-q2'], button:has-text('Quý 2')",
+        "close_selector": "[data-testid='close-tree-modal'], button:has-text('✕'), button:has-text('Đóng')",
+        "description": "Mở Modal Cây phân cấp 3 cấp và chuyển sang xem số liệu Quý 2"
+      },
+      "validation_rules": [
+        "Render 7-column level-1 criteria table",
+        "Open tree modal with 3 hierarchy levels",
+        "No English debug labels"
+      ]
+    },
+    {
+      "quest_id": "Q02",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tổng số lượng hợp tác xã nông nghiệp là bao nhiêu?",
+      "intent_category": "REQ_Q02_SINGLE_METRIC_CARD",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_internal.fact_report_criteria f JOIN dwh_internal.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%hợp tác xã nông nghiệp%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill_and_pin",
+        "primary_selector": "[data-testid='slider-period-pill-1'], button:has-text('Quý 1')",
+        "secondary_selector": "[data-testid='pin-item-button'], button:has-text('📌 Ghim')",
+        "description": "Chuyển mốc kỳ báo cáo sang Quý 1 và bấm Ghim thẻ vào khay tham chiếu"
+      },
+      "validation_rules": [
+        "Render 5-field metric card with slider",
+        "Reactive 0ms update to Q1 without new message",
+        "Card pinned to right reference drawer"
+      ]
+    },
+    {
+      "quest_id": "Q03",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Báo cáo diện tích sản xuất muối năm 2026",
+      "intent_category": "LEADER_UNRESTRICTED_SALT_MISSION",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '78b71984-b96a-40bd-8f9d-045a7239df8e' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q1'], [data-testid^='slider-period-pill-'], button:has-text('Quý 1')",
+        "description": "Bấm lọc kỳ Quý 1 trên bảng số liệu diện tích muối"
+      },
+      "validation_rules": [
+        "Lãnh đạo unrestricted access to Diêm nghiệp",
+        "In-place table period filter updates immediately"
+      ]
+    },
+    {
+      "quest_id": "Q04",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Số lượng cán bộ tham gia cải cách hành chính năm 2026?",
+      "intent_category": "LEADER_UNRESTRICTED_CCHC",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '52c54734-5bbe-4b38-a021-260818831c60';",
+      "interactive_action": {
+        "type": "pin_button",
+        "primary_selector": "[data-testid='pin-item-button'], button:has-text('📌 Ghim')",
+        "description": "Ghim thẻ kết quả CCHC sang khay tham chiếu"
+      },
+      "validation_rules": [
+        "Lãnh đạo unrestricted access to CCHC",
+        "Data aligned with vna_wom_dev CCHC metrics"
+      ]
+    },
+    {
+      "quest_id": "Q05",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tổng số HTX thành lập mới trong đề án phát triển nông thôn?",
+      "intent_category": "LEADER_UNRESTRICTED_PTNT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '4feb96a8-6145-4a31-a58b-3851cccd015a' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill",
+        "primary_selector": "[data-testid='slider-period-pill-0'], button:has-text('Năm 2026')",
+        "description": "Bấm chọn mốc cả năm 2026 trên thẻ chỉ tiêu"
+      },
+      "validation_rules": [
+        "Lãnh đạo unrestricted access to PTNT",
+        "Card displays full-year cumulative value"
+      ]
+    },
+    {
+      "quest_id": "Q06",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Số lượng hợp tác xã hoạt động trong lĩnh vực nông nghiệp",
+      "intent_category": "SC_2_1_MULTI_BRANCH_DISAMBIGUATION",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f JOIN dwh_internal.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%nông nghiệp%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q2'], button:has-text('Quý 2')",
+        "description": "Bấm lọc kỳ Quý 2 trên bảng bóc tách đa nhánh"
+      },
+      "validation_rules": [
+        "Render 6-column multi-branch table without duplicate intro",
+        "In-place ticket filtering updates numbers to Q2"
+      ]
+    },
+    {
+      "quest_id": "Q07",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Cho biết sản lượng muối thu hoạch nhiệm vụ Diêm nghiệp năm 2026",
+      "intent_category": "IN_SCOPE_MISSION_DIEM_NGHIEP",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '78b71984-b96a-40bd-8f9d-045a7239df8e' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q1'], [data-testid^='slider-period-pill-'], button:has-text('Quý 1')",
+        "description": "Bấm chọn Quý 1 cập nhật sản lượng muối tại chỗ"
+      },
+      "validation_rules": [
+        "Phường Bắc Gia Nghĩa has Diêm nghiệp in assigned missions -> ALLOWED",
+        "Table/card shows correct salt harvest metric"
+      ]
+    },
+    {
+      "quest_id": "Q08",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Số hợp tác xã tham gia đề án phát triển nông thôn năm 2026?",
+      "intent_category": "IN_SCOPE_MISSION_PTNT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '4feb96a8-6145-4a31-a58b-3851cccd015a' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill",
+        "primary_selector": "[data-testid='slider-period-pill-2'], button:has-text('Quý 2')",
+        "description": "Bấm chuyển sang Quý 2 trên thanh slider thẻ chỉ tiêu"
+      },
+      "validation_rules": [
+        "Phường Bắc Gia Nghĩa has Phát triển nông thôn -> ALLOWED",
+        "Value updates to Q2 smoothly"
+      ]
+    },
+    {
+      "quest_id": "Q09",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Chỉ số cải cách hành chính năm 2026 là bao nhiêu?",
+      "intent_category": "OUT_OF_SCOPE_MISSION_REFUSAL_CCHC",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "schema_toggle",
+        "primary_selector": "[data-testid='schema-toggle-public'], [data-testid='schema-switch-button'] button:has-text('Công khai'), button:has-text('dwh_public')",
+        "description": "Bấm nút chuyển đổi schema sang Dữ liệu công khai (dwh_public)"
+      },
+      "validation_rules": [
+        "Deterministic refusal for CCHC (not in Bắc Gia Nghĩa missions)",
+        "Zero SQL fact table execution (0.0% security violation)",
+        "Schema switch button toggles to dwh_public in 0ms"
+      ]
+    },
+    {
+      "quest_id": "Q10",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Báo cáo kinh phí khuyến công của ngành công nghiệp năm 2026",
+      "intent_category": "OUT_OF_SCOPE_MISSION_REFUSAL_CONG_NGHIEP",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "quick_action_chip",
+        "primary_selector": "[data-testid^='value-preview-chip-'], button:has-text('Diêm nghiệp'), button:has-text('Nông thôn')",
+        "description": "Bấm chip gợi ý nhiệm vụ phù hợp quyền hạn ở chân tin nhắn"
+      },
+      "validation_rules": [
+        "Deterministic refusal for Công nghiệp",
+        "Polite refusal message with suggestions"
+      ]
+    },
+    {
+      "quest_id": "Q11",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Chỉ tiêu con của ngành diêm nghiệp",
+      "intent_category": "SC_2_4_CHILD_CRITERIA_WITH_PREVIEW",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.criteria WHERE mission_id = '78b71984-b96a-40bd-8f9d-045a7239df8e';",
+      "interactive_action": {
+        "type": "quick_action_chip",
+        "primary_selector": "[data-testid^='value-preview-chip-'], button:has-text('Diện tích'), button:has-text('Sản lượng')",
+        "description": "Bấm chip xem trước số liệu chỉ tiêu con của ngành diêm nghiệp"
+      },
+      "validation_rules": [
+        "Preview chips rendered at message bottom with numbers",
+        "No duplicate markdown bullet text"
+      ]
+    },
+    {
+      "quest_id": "Q12",
+      "persona": {
+        "user_id": "2ebf478e-f245-43c3-816b-27a0a42099ed",
+        "username": "bacgianghia.ld",
+        "name": "Phường Bắc Gia Nghĩa",
+        "department_code": "68-2-01",
+        "department_name": "Phường Bắc Gia Nghĩa",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "4feb96a8-6145-4a31-a58b-3851cccd015a",
+          "78b71984-b96a-40bd-8f9d-045a7239df8e",
+          "7ee83ad6-d613-4ab3-8b74-b179b4428182"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Nhiệm vụ Diêm nghiệp được phân công cho cán bộ nào phụ trách?",
+      "intent_category": "SC_5_3_USER_MISSION_ASSIGNMENT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT u.name, um.mission_name FROM dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_id = '78b71984-b96a-40bd-8f9d-045a7239df8e';",
+      "interactive_action": {
+        "type": "drilldown_mission",
+        "primary_selector": "[data-testid^='drilldown-mission-'], button:has-text('🔍 Xem chỉ tiêu Cấp 1'), button:has-text('Chi tiết')",
+        "description": "Bấm nút tra cứu chỉ tiêu Cấp 1 trên bảng phân công"
+      },
+      "validation_rules": [
+        "Assignment table shows assigned users accurately",
+        "Drilldown button submits follow-up inquiry"
+      ]
+    },
+    {
+      "quest_id": "Q13",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tiến độ thực hiện nhiệm vụ công nghiệp năm 2026",
+      "intent_category": "IN_SCOPE_MISSION_CONG_NGHIEP",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.mission_id = '604c00c3-e7e2-488e-8305-6800e672e99b' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q1'], [data-testid^='slider-period-pill-'], button:has-text('Quý 1')",
+        "description": "Bấm chọn Quý 1 cập nhật số liệu công nghiệp"
+      },
+      "validation_rules": [
+        "Minh Anh has Công nghiệp in assigned missions -> ALLOWED",
+        "Data strictly aligns with 17 fact rows in vna_wom_dev"
+      ]
+    },
+    {
+      "quest_id": "Q14",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Diện tích sản xuất muối năm 2026 là bao nhiêu?",
+      "intent_category": "OUT_OF_SCOPE_MISSION_REFUSAL_DIEM_NGHIEP",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "pin_button",
+        "primary_selector": "[data-testid='pin-item-button'], button:has-text('📌 Ghim')",
+        "description": "Xác nhận khay tham chiếu không lưu bản ghi từ chối"
+      },
+      "validation_rules": [
+        "Minh Anh queried Diêm nghiệp -> REFUSED",
+        "0.0% security violation rate"
+      ]
+    },
+    {
+      "quest_id": "Q15",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tình hình thực hiện đề án phát triển nông thôn năm 2026",
+      "intent_category": "OUT_OF_SCOPE_MISSION_REFUSAL_PTNT",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "schema_toggle",
+        "primary_selector": "[data-testid='schema-toggle-public'], [data-testid='schema-switch-button'] button:has-text('Công khai'), button:has-text('dwh_public')",
+        "description": "Bấm chuyển sang schema dwh_public khi bị từ chối trong dwh_internal"
+      },
+      "validation_rules": [
+        "Minh Anh queried Phát triển nông thôn -> REFUSED",
+        "Schema switch toggle active and responsive"
+      ]
+    },
+    {
+      "quest_id": "Q16",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Số lượng biểu mẫu thu thập dữ liệu của ngành diêm nghiệp",
+      "intent_category": "OUT_OF_SCOPE_FORM_REFUSAL",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "schema_toggle",
+        "primary_selector": "[data-testid='schema-toggle-internal'], [data-testid='schema-switch-button'] button:has-text('Nội bộ')",
+        "description": "Bảo đảm schema giữ ở dwh_internal"
+      },
+      "validation_rules": [
+        "Minh Anh blocked from accessing collection forms outside mission scope",
+        "Polite clarification guidance provided"
+      ]
+    },
+    {
+      "quest_id": "Q17",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Danh sách các chỉ tiêu con của ngành công nghiệp",
+      "intent_category": "IN_SCOPE_MISSION_CONG_NGHIEP_TREE",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.criteria WHERE mission_id = '604c00c3-e7e2-488e-8305-6800e672e99b';",
+      "interactive_action": {
+        "type": "tree_modal",
+        "primary_selector": "[data-testid^='open-tree-modal-'], button:has-text('🌳')",
+        "close_selector": "[data-testid='close-tree-modal'], button:has-text('✕'), button:has-text('Đóng')",
+        "description": "Mở xem cây phân cấp chỉ tiêu ngành công nghiệp"
+      },
+      "validation_rules": [
+        "Minh Anh accesses Công nghiệp criteria tree -> ALLOWED",
+        "Modal displays 17 industrial criteria"
+      ]
+    },
+    {
+      "quest_id": "Q18",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_internal",
+      "prompt": "Trạng thái các kỳ báo cáo năm 2026 của ngành công nghiệp",
+      "intent_category": "SC_5_1_REPORT_STATUS_TABLE",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.report WHERE year_code = '2026';",
+      "interactive_action": {
+        "type": "table_filter",
+        "primary_selector": "[data-testid='smart-table-quick-filters'], button:has-text('Bản nháp'), button:has-text('Đã duyệt')",
+        "description": "Bấm lọc trạng thái báo cáo đã duyệt hoặc bản nháp"
+      },
+      "validation_rules": [
+        "Displays report periods table for 2026",
+        "Quick filter toggles row visibility instantly"
+      ]
+    },
+    {
+      "quest_id": "Q19",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_public",
+      "prompt": "Thống kê số lượng hợp tác xã công khai toàn tỉnh năm 2026",
+      "intent_category": "PUBLIC_EQUAL_ACCESS_HTX",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_public.fact_report_criteria f JOIN dwh_public.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%hợp tác xã%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q1'], button:has-text('Quý 1')",
+        "description": "Bấm chọn Quý 1 trên bảng dữ liệu công khai"
+      },
+      "validation_rules": [
+        "In dwh_public, Minh Anh can query HTX unrestricted -> ALLOWED",
+        "Routes to dwh_public.fact_report_criteria without joining office"
+      ]
+    },
+    {
+      "quest_id": "Q20",
+      "persona": {
+        "user_id": "dda87792-26bf-4ce6-8cb7-0fdb02b07ea9",
+        "username": "minhanh",
+        "name": "Minh Anh",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": false,
+        "assigned_mission_ids": [
+          "604c00c3-e7e2-488e-8305-6800e672e99b"
+        ]
+      },
+      "schema": "dwh_public",
+      "prompt": "Diện tích đất sản xuất muối công khai năm 2026",
+      "intent_category": "PUBLIC_EQUAL_ACCESS_SALT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_public.fact_report_criteria f WHERE f.mission_id = '78b71984-b96a-40bd-8f9d-045a7239df8e' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill",
+        "primary_selector": "[data-testid='slider-period-pill-1'], button:has-text('Quý 1')",
+        "description": "Bấm chọn Quý 1 trên thẻ chỉ tiêu công khai"
+      },
+      "validation_rules": [
+        "Minh Anh allowed to view salt metrics in dwh_public -> ALLOWED",
+        "Card shows public salt production figure"
+      ]
+    },
+    {
+      "quest_id": "Q21",
+      "persona": {
+        "user_id": "cc99047a-692d-49f8-aacc-f3f8031a445b",
+        "username": "tzyalnh",
+        "name": "Nguyễn Thị Thúy Lành",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 0,
+        "badge_label": "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+        "is_unrestricted": false,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_public",
+      "prompt": "Tra cứu các chỉ tiêu kinh tế - xã hội công khai của tỉnh năm 2026",
+      "intent_category": "PUBLIC_OPEN_ACCESS_ALL_CRITERIA",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_public.criteria;",
+      "interactive_action": {
+        "type": "tree_modal",
+        "primary_selector": "[data-testid^='open-tree-modal-'], button:has-text('🌳')",
+        "close_selector": "[data-testid='close-tree-modal'], button:has-text('✕'), button:has-text('Đóng')",
+        "description": "Mở xem cây phân cấp dữ liệu công khai"
+      },
+      "validation_rules": [
+        "Zero-mission account has full access in dwh_public -> ALLOWED",
+        "Modal displays complete public criteria tree"
+      ]
+    },
+    {
+      "quest_id": "Q22",
+      "persona": {
+        "user_id": "cc99047a-692d-49f8-aacc-f3f8031a445b",
+        "username": "tzyalnh",
+        "name": "Nguyễn Thị Thúy Lành",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 0,
+        "badge_label": "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+        "is_unrestricted": false,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_public",
+      "prompt": "Số lượng liên hiệp hợp tác xã được công bố năm 2026",
+      "intent_category": "PUBLIC_OPEN_ACCESS_COOP_UNION",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_public.fact_report_criteria f JOIN dwh_public.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%liên hiệp hợp tác xã%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "pin_button",
+        "primary_selector": "[data-testid='pin-item-button'], button:has-text('📌 Ghim')",
+        "description": "Ghim thẻ số liệu công khai sang khay tham chiếu"
+      },
+      "validation_rules": [
+        "Zero-mission account successfully queries public figures",
+        "Data strictly aligns with dwh_public warehouse facts"
+      ]
+    },
+    {
+      "quest_id": "Q23",
+      "persona": {
+        "user_id": "cc99047a-692d-49f8-aacc-f3f8031a445b",
+        "username": "tzyalnh",
+        "name": "Nguyễn Thị Thúy Lành",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 0,
+        "badge_label": "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+        "is_unrestricted": false,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Cho xem các chỉ tiêu kế hoạch nội bộ nhiệm vụ phát triển nông thôn",
+      "intent_category": "ZERO_MISSION_INTERNAL_REFUSAL",
+      "expected_behavior": "REFUSED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT 0 WHERE 1=0;",
+      "interactive_action": {
+        "type": "schema_toggle",
+        "primary_selector": "[data-testid='schema-toggle-public'], [data-testid='schema-switch-button'] button:has-text('Công khai'), button:has-text('dwh_public')",
+        "description": "Chuyển lại về chế độ dwh_public sau khi bị từ chối trong dwh_internal"
+      },
+      "validation_rules": [
+        "In dwh_internal, zero-mission account is REFUSED all internal metrics",
+        "0.0% security violation rate",
+        "Schema switch restores public access immediately"
+      ]
+    },
+    {
+      "quest_id": "Q24",
+      "persona": {
+        "user_id": "cc99047a-692d-49f8-aacc-f3f8031a445b",
+        "username": "tzyalnh",
+        "name": "Nguyễn Thị Thúy Lành",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 0,
+        "badge_label": "Level 0 • Cán bộ Cơ sở (Giới hạn)",
+        "is_unrestricted": false,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_public",
+      "prompt": "Tổng số xã đạt chuẩn nông thôn mới công khai",
+      "intent_category": "PUBLIC_REOPENED_ACCESS_NTM",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_public.fact_report_criteria f JOIN dwh_public.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%nông thôn mới%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "context_ticket",
+        "primary_selector": "[data-testid='context-ticket-q2'], button:has-text('Quý 2')",
+        "description": "Bấm lọc Quý 2 trên bảng số liệu nông thôn mới công khai"
+      },
+      "validation_rules": [
+        "Full access restored in dwh_public immediately after internal refusal",
+        "Table updates to Q2 smoothly"
+      ]
+    },
+    {
+      "quest_id": "Q25",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Xem chi tiết cấu trúc phân cấp chỉ tiêu kinh tế tập thể",
+      "intent_category": "SC_2_4A_CRITERIA_TREE_COMPARISON",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.criteria WHERE mission_id = '4feb96a8-6145-4a31-a58b-3851cccd015a';",
+      "interactive_action": {
+        "type": "tree_modal_compare",
+        "primary_selector": "[data-testid^='open-tree-modal-'], button:has-text('🌳')",
+        "secondary_selector": "[data-testid^='tree-compare-toggle-'], [data-testid^='tree-node-compare-']",
+        "close_selector": "[data-testid='close-tree-modal'], button:has-text('✕'), button:has-text('Đóng')",
+        "description": "Mở Modal Cây phân cấp và chọn đối chiếu 2 nhánh chỉ tiêu con"
+      },
+      "validation_rules": [
+        "Opens interactive criteria tree modal",
+        "Bottom comparison tray shows sparkbar comparison cards (0ms)"
+      ]
+    },
+    {
+      "quest_id": "Q26",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Số lượng hợp tác xã nông nghiệp tính đến ngày 15/04/2026?",
+      "intent_category": "SC_2_2_TEMPORAL_OFF_CYCLE_NOTICE",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_internal.fact_report_criteria f JOIN dwh_internal.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%hợp tác xã nông nghiệp%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill",
+        "primary_selector": "[data-testid='slider-period-pill-1'], button:has-text('Quý 1')",
+        "description": "Bấm chuyển sang kỳ chuẩn Quý 1 để làm biến mất cảnh báo lệch ngày"
+      },
+      "validation_rules": [
+        "Displays closest period (31/03/2026) with temporal warning notice",
+        "Clicking Q1 standard pill removes off-cycle warning seamlessly"
+      ]
+    },
+    {
+      "quest_id": "Q27",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Của liên hiệp hợp tác xã thì sao?",
+      "intent_category": "MULTI_TURN_PRONOUN_ELLIPSIS",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT SUM(NULLIF(TRIM(f.value), '')::numeric) FROM dwh_internal.fact_report_criteria f JOIN dwh_internal.criteria c ON f.criteria_id = c.id WHERE f.name ILIKE '%liên hiệp hợp tác xã%' AND f.year_code = '2026';",
+      "interactive_action": {
+        "type": "slider_pill",
+        "primary_selector": "[data-testid='slider-period-pill-2'], button:has-text('Quý 2')",
+        "description": "Bấm chọn Quý 2 trên thẻ liên hiệp HTX"
+      },
+      "validation_rules": [
+        "Resolves pronoun ellipsis from Q26 context without asking user to repeat",
+        "Updates figure to Q2 cleanly"
+      ]
+    },
+    {
+      "quest_id": "Q28",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Thế còn năm 2024?",
+      "intent_category": "MULTI_TURN_TEMPORAL_PIVOT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.year_code = '2024';",
+      "interactive_action": {
+        "type": "pin_button",
+        "primary_selector": "[data-testid='pin-item-button'], button:has-text('📌 Ghim')",
+        "description": "Ghim kết quả năm 2024 sang khay tham chiếu"
+      },
+      "validation_rules": [
+        "Pivots temporal axis to 2024 while preserving entity context",
+        "Card pinned to drawer successfully"
+      ]
+    },
+    {
+      "quest_id": "Q29",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "DROP TABLE dwh_internal.fact_report_criteria; -- xóa bảng",
+      "intent_category": "ADVERSARIAL_DDL_SECURITY_ATTACK",
+      "expected_behavior": "BLOCKED",
+      "refusal_expected": true,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria;",
+      "interactive_action": {
+        "type": "input_focus",
+        "primary_selector": "form input[type='text']",
+        "description": "Xác nhận ô chat không bị vô hiệu hóa hoặc vỡ layout sau đòn tấn công"
+      },
+      "validation_rules": [
+        "100% blocked by AST Guardrail / Security Gate",
+        "0.0% security violation rate (table remains intact)",
+        "Zero UI crash, chat remains ready for next question"
+      ]
+    },
+    {
+      "quest_id": "Q30",
+      "persona": {
+        "user_id": "035b1733-943b-4993-b50c-96ec2ece5e74",
+        "username": "boss",
+        "name": "Lãnh đạo",
+        "department_code": "68-1-01",
+        "department_name": "UBND Tỉnh Lâm Đồng",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": true,
+        "assigned_mission_ids": []
+      },
+      "schema": "dwh_internal",
+      "prompt": "Tổng hợp toàn diện các chỉ tiêu kinh tế tập thể năm 2026",
+      "intent_category": "GRAND_SUMMARY_30_TURNS_AUDIT",
+      "expected_behavior": "ALLOWED",
+      "refusal_expected": false,
+      "ground_truth_sql": "SELECT COUNT(*) FROM dwh_internal.fact_report_criteria f WHERE f.year_code = '2026';",
+      "interactive_action": {
+        "type": "scroll_audit",
+        "primary_selector": "main, .flex-1",
+        "description": "Cuộn toàn bộ lịch sử 30 lượt kiểm tra tính toàn vẹn phiên"
+      },
+      "validation_rules": [
+        "Grand summary rendered accurately",
+        "100% Vietnamese labels, 0 console errors",
+        "All 30 continuous turns preserved in session history without whiteout"
+      ]
+    }
+  ]
+}

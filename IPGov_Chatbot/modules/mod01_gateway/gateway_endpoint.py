@@ -16,6 +16,7 @@ import re
 from IPGov_Chatbot.modules.mod01_gateway.context_extractor import ContextExtractor, SAMPLE_ROLE_PROFILES
 from IPGov_Chatbot.modules.mod01_gateway.jwt_service import JWTService
 from IPGov_Chatbot.schemas.user_context import UserSecurityContextDTO
+from IPGov_Chatbot.modules.mod01_gateway.user_service import UserService, user_service
 from IPGov_Chatbot.modules.mod01_gateway.sse_dispatcher import SSEDispatcher
 from IPGov_Chatbot.modules.mod02_guardrails.guardrails_pipeline import GuardrailsPipeline
 from IPGov_Chatbot.modules.mod03_router.intent_router import IntentRouter
@@ -45,6 +46,9 @@ class ChatStreamRequest(BaseModel):
     prompt: str | None = Field(None, description="Câu hỏi hoặc yêu cầu tra cứu của người dùng")
     query: str | None = Field(None, description="Tương thích ngược với Web Frontend Next.js")
     session_id: str | None = Field(None, description="Mã phiên hội thoại (nếu có)")
+    user_id: str | None = Field(None, description="UUID tài khoản người dùng từ dwh_internal.user")
+    user_name: str | None = Field(None, description="Tên người dùng hoặc chức danh")
+    schema: str | None = Field(default="dwh_internal", description="Schema kho dữ liệu ('dwh_internal' hoặc 'dwh_public')")
     role: str | None = Field(None, description="Vai trò gửi từ frontend")
     level: int | None = Field(None, description="Cấp độ phân quyền HBAC (0: Tỉnh, 1: Sở, 2: Phòng, 3: Công dân)")
     tenant_code: str | None = Field(None, description="Mã tỉnh/thành phố (ví dụ: '68', '79')")
@@ -62,85 +66,76 @@ async def chat_sse_event_generator(
     client_level: int | None = None,
     client_tenant: str | None = None,
     client_dept: str | None = None,
+    client_user_id: str | None = None,
+    client_user_name: str | None = None,
+    client_schema: str | None = None,
     history: list[dict] | None = None,
 ) -> AsyncGenerator[str, None]:
     """
     Generator bất đồng bộ điều phối luồng SSE:
-    1. Trích xuất User Context từ JWT (Module 1), hỗ trợ tenant_code và level truyền từ prompt hoặc payload.
+    1. Trích xuất User Context từ UserService/JWT, hỗ trợ [user=..., level=..., tenant_code=..., schema=...] prefix hoặc payload.
     2. Phát Event 1 `connected` (< 50ms TTFE).
     3. Thực hiện tiền kiểm duyệt an toàn Guardrails (Module 2).
     4. Phản hồi cảnh báo nếu vi phạm hoặc chuẩn bị chuyển tiếp sang Router.
     """
-    # 0. Trích xuất tenant_code và level nếu đã ở sẵn trong prompt (ví dụ: [tenant_code=68, level=0] ...)
     clean_prompt = prompt.strip()
     extracted_tenant = client_tenant
     extracted_level = client_level
+    extracted_user = client_user_id or client_user_name or client_role
+    extracted_schema = "dwh_public" if str(client_schema or "").strip().lower() == "dwh_public" else "dwh_internal"
+    extracted_dept = client_dept
 
+    # Trích xuất linh hoạt các tags [user=boss, level=4, tenant_code=68, schema=dwh_internal]
     prefix_match = re.match(
-        r"^\[\s*tenant_code\s*[=:]\s*(?P<tenant>[^,\]]+)\s*,\s*level\s*[=:]\s*(?P<level>\d+)\s*\]\s*(?P<rest>.*)$",
+        r"^\[(?P<tags>[^\]]+)\]\s*(?P<rest>.*)$",
         clean_prompt,
         re.IGNORECASE | re.DOTALL
     )
     if prefix_match:
-        if extracted_tenant is None:
-            extracted_tenant = prefix_match.group("tenant").strip()
-        if extracted_level is None:
-            try:
-                extracted_level = int(prefix_match.group("level").strip())
-            except ValueError:
-                pass
+        tags_str = prefix_match.group("tags")
+        for item in tags_str.split(","):
+            if "=" in item or ":" in item:
+                sep = "=" if "=" in item else ":"
+                k, v = item.split(sep, 1)
+                k_clean = k.strip().lower()
+                v_clean = v.strip()
+                if k_clean in ("user", "username", "user_id", "user_name", "name"):
+                    extracted_user = v_clean
+                elif k_clean in ("level", "role_level"):
+                    try:
+                        extracted_level = int(v_clean)
+                    except ValueError:
+                        pass
+                elif k_clean in ("tenant_code", "tenant"):
+                    extracted_tenant = v_clean
+                elif k_clean in ("schema", "target_schema"):
+                    extracted_schema = "dwh_public" if str(v_clean or "").strip().lower() == "dwh_public" else "dwh_internal"
+                elif k_clean in ("dept", "department", "department_code"):
+                    extracted_dept = v_clean
+                elif k_clean == "role":
+                    if not extracted_user:
+                        extracted_user = v_clean
         rest_text = prefix_match.group("rest").strip()
         if rest_text:
             clean_prompt = rest_text
 
     # 1. Trích xuất User Context
     try:
-        if auth_header:
+        if auth_header and not extracted_user:
             user_ctx = ContextExtractor.extract_from_auth_header(auth_header)
-            # Cho phép ghi đè nếu client/prompt chỉ định rõ level hoặc tenant khác
-            if (extracted_level is not None and user_ctx.role_level != extracted_level) or \
-               (extracted_tenant is not None and user_ctx.tenant_code != extracted_tenant):
-                user_ctx = UserSecurityContextDTO(
-                    user_id=user_ctx.user_id,
-                    username=user_ctx.username,
-                    tenant_code=extracted_tenant or user_ctx.tenant_code,
-                    department_code=client_dept or user_ctx.department_code,
-                    office_id=user_ctx.office_id,
-                    role_level=extracted_level if extracted_level is not None else user_ctx.role_level
-                )
-        else:
-            # Fallback thông minh theo level hoặc role
-            lvl = extracted_level if extracted_level is not None else 3
-            t_code = extracted_tenant or "68"
-            role_key = (client_role or "").lower()
-
-            if "tphcm" in role_key or t_code == "79":
-                if lvl == 0:
-                    profile_key = "tphcm_province_leader"
-                elif lvl == 1:
-                    profile_key = "tphcm_so_noivu"
-                else:
-                    profile_key = "public_citizen"
-            else:
-                if lvl == 0 or role_key in ["phuong", "lanhdao", "leader", "tinh", "lamdong_leader"]:
-                    profile_key = "lamdong_province_leader"
-                elif lvl == 1 or role_key in ["so", "so_noivu", "lamdong_dept_noivu"]:
-                    profile_key = "lamdong_province_leader"
-                elif lvl == 2 or role_key in ["dn", "chuyenvien", "phong", "lamdong_phong_kinhte", "lamdong_phong_xaydung"]:
-                    profile_key = "lamdong_phong_kinhte"
-                else:
-                    profile_key = "public_citizen"
-
-            base_profile = SAMPLE_ROLE_PROFILES.get(profile_key, SAMPLE_ROLE_PROFILES["public_citizen"]).copy()
-            if extracted_level is not None:
-                base_profile["role_level"] = extracted_level
+            user_ctx.schema = extracted_schema
             if extracted_tenant is not None:
-                base_profile["tenant_code"] = extracted_tenant
-            if client_dept is not None:
-                base_profile["department_code"] = client_dept
-
-            token = JWTService.encode(base_profile)
-            user_ctx = ContextExtractor.extract_from_auth_header(f"Bearer {token}")
+                user_ctx.tenant_code = extracted_tenant
+            if extracted_dept is not None:
+                user_ctx.department_code = extracted_dept
+        else:
+            user_ctx = user_service.build_user_context(
+                user_identifier=extracted_user or client_role,
+                role_level=extracted_level,
+                schema=extracted_schema,
+                tenant_code=extracted_tenant or "68",
+                department_code=extracted_dept,
+            )
     except Exception as e:
         err_event = f"event: error\ndata: {{\"error\": \"Xác thực thất bại: {str(e)}\", \"message\": \"Xác thực thất bại: {str(e)}\"}}\n\n"
         yield err_event
@@ -190,9 +185,17 @@ async def chat_sse_event_generator(
     yield f"event: thought_progress\ndata: {json.dumps(progress_payload, ensure_ascii=False)}\n\n"
 
     agent_user_ctx = {
-        "role_level": extracted_level if extracted_level is not None else (user_ctx.role_level if user_ctx else 0),
-        "tenant_code": extracted_tenant or (user_ctx.tenant_code if user_ctx else "68"),
-        "department_code": client_dept or (user_ctx.department_code if user_ctx else None),
+        "user_id": user_ctx.user_id,
+        "username": user_ctx.username,
+        "name": user_ctx.name or user_ctx.user_name,
+        "user_name": user_ctx.user_name or user_ctx.name,
+        "role_level": user_ctx.role_level,
+        "tenant_code": user_ctx.tenant_code or extracted_tenant or "68",
+        "department_code": user_ctx.department_code or extracted_dept,
+        "schema": user_ctx.schema or extracted_schema or "dwh_internal",
+        "assigned_mission_ids": user_ctx.assigned_mission_ids or [],
+        "assigned_mission_names": user_ctx.assigned_mission_names or [],
+        "is_unrestricted": user_ctx.is_unrestricted,
     }
 
     effective_session = session_id or session_ctx.session_id or "default_session"
@@ -262,6 +265,9 @@ async def chat_stream_endpoint(
             client_level=req.level,
             client_tenant=req.tenant_code,
             client_dept=req.department_code,
+            client_user_id=req.user_id,
+            client_user_name=req.user_name,
+            client_schema=req.schema,
             history=req.history,
         ),
         media_type="text/event-stream",
@@ -298,6 +304,9 @@ async def chat_sync_endpoint(
         client_level=req.level,
         client_tenant=req.tenant_code,
         client_dept=req.department_code,
+        client_user_id=req.user_id,
+        client_user_name=req.user_name,
+        client_schema=req.schema,
         history=req.history,
     ):
         for line in chunk.split("\n"):
@@ -324,4 +333,20 @@ async def chat_sync_endpoint(
             "youtube_links": [],
         }
     }
+
+
+# Router chuyên trách cấp phép danh mục người dùng theo chuẩn /api/v1/users
+users_router = APIRouter(prefix="/api/v1", tags=["IPGov User Classification"])
+
+
+@users_router.get("/users", summary="Danh sách tài khoản công vụ phân cấp từ kho DWH")
+async def list_users():
+    """Trả về danh sách 8 tài khoản công vụ phân cấp theo 5 bậc thẩm quyền."""
+    return await UserService.get_instance().get_users()
+
+
+@router.get("/users", summary="Danh sách tài khoản công vụ phân cấp từ kho DWH (prefix /chat/users)")
+async def list_users_chat():
+    return await UserService.get_instance().get_users()
+
 
