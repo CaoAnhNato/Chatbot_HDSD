@@ -39,6 +39,9 @@ from IPGov_Chatbot.modules.mod04_catalog.dynamic_criterion_ingestor import (
 )
 
 
+EXPECTED_KB_COUNT = 149
+
+
 # ==============================================================================
 # FIXTURES
 # ==============================================================================
@@ -78,13 +81,13 @@ class TestDuckDBIdempotency:
             
             # Check row count after each sync
             row_count = in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0]
-            assert row_count == 155, f"Iteration {i+1}: Expected 155 rows, got {row_count}"
+            assert row_count == EXPECTED_KB_COUNT, f"Iteration {i+1}: Expected {EXPECTED_KB_COUNT} rows, got {row_count}"
             
             # Verify primary key uniqueness
             distinct_ids = in_memory_conn.execute("SELECT count(DISTINCT id) FROM catalog_definitions").fetchone()[0]
-            assert distinct_ids == 155, f"Iteration {i+1}: Duplicate IDs detected: {distinct_ids} vs 155"
+            assert distinct_ids == EXPECTED_KB_COUNT, f"Iteration {i+1}: Duplicate IDs detected: {distinct_ids} vs {EXPECTED_KB_COUNT}"
 
-        assert all(c == 155 for c in counts)
+        assert all(c == EXPECTED_KB_COUNT for c in counts)
 
     def test_sync_upsert_and_mutation_reflection(self, tmp_path, in_memory_conn):
         """Simulate a mutation in KB JSON and verify sync reflects modifications cleanly."""
@@ -98,7 +101,7 @@ class TestDuckDBIdempotency:
 
         # First sync
         sync_definitions_to_duckdb(test_kb_file, in_memory_conn)
-        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == 155
+        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == EXPECTED_KB_COUNT
 
         # 2. Mutate one record's definition and scope_description
         sample_id = next(iter(data.keys()))
@@ -135,10 +138,10 @@ class TestDuckDBIdempotency:
 
         # 3. Re-sync into the SAME in_memory_conn
         synced_2 = sync_definitions_to_duckdb(test_kb_file, in_memory_conn)
-        assert synced_2 == 156
+        assert synced_2 == EXPECTED_KB_COUNT + 1
 
         # Check total rows
-        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == 156
+        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == EXPECTED_KB_COUNT + 1
 
         # Check mutation was applied
         row = in_memory_conn.execute(
@@ -157,15 +160,15 @@ class TestDuckDBIdempotency:
         assert syn_row[0] == "Chỉ tiêu Thử nghiệm Nhân tạo"
         assert syn_row[1] == 99
 
-        # 4. Remove synthetic row and re-sync -> should return back to 155 rows
+        # 4. Remove synthetic row and re-sync -> should return back to EXPECTED_KB_COUNT rows
         del data[synthetic_id]
         data[sample_id]["definition"] = original_def
         with open(test_kb_file, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
 
         synced_3 = sync_definitions_to_duckdb(test_kb_file, in_memory_conn)
-        assert synced_3 == 155
-        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == 155
+        assert synced_3 == EXPECTED_KB_COUNT
+        assert in_memory_conn.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0] == EXPECTED_KB_COUNT
         deleted_check = in_memory_conn.execute(
             "SELECT count(*) FROM catalog_definitions WHERE id = ?", (synthetic_id,)
         ).fetchone()[0]
@@ -189,7 +192,7 @@ class TestDuckDBPersistenceAndConcurrency:
         # 1. Connect to persistent file and sync
         conn1 = duckdb.connect(str(persistent_db_path))
         synced = sync_definitions_to_duckdb(DEFAULT_KB_PATH, conn1)
-        assert synced == 155
+        assert synced == EXPECTED_KB_COUNT
         conn1.close()
 
         # Verify file exists on disk and is non-empty
@@ -200,7 +203,7 @@ class TestDuckDBPersistenceAndConcurrency:
         # 2. Re-open connection in fresh instance
         conn2 = duckdb.connect(str(persistent_db_path))
         row_count = conn2.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0]
-        assert row_count == 155
+        assert row_count == EXPECTED_KB_COUNT
 
         # Verify all 17 schema columns
         cols = [c[1] for c in conn2.execute("PRAGMA table_info('catalog_definitions')").fetchall()]
@@ -210,9 +213,9 @@ class TestDuckDBPersistenceAndConcurrency:
 
         # 3. Repeated sync on the reopened persistent database
         synced_again = sync_definitions_to_duckdb(DEFAULT_KB_PATH, conn2)
-        assert synced_again == 155
+        assert synced_again == EXPECTED_KB_COUNT
         row_count_again = conn2.execute("SELECT count(*) FROM catalog_definitions").fetchone()[0]
-        assert row_count_again == 155
+        assert row_count_again == EXPECTED_KB_COUNT
         conn2.close()
 
     def test_concurrent_readers_on_duckdb(self, persistent_db_path):
@@ -438,11 +441,13 @@ class TestCanonicalOrderingPreservation:
                 ROW_NUMBER() OVER (PARTITION BY parent_id ORDER BY created_date ASC) as dwh_order
             FROM dwh_internal.criteria
             WHERE deleted_date IS NULL
+              AND LENGTH(TRIM(name)) >= 6
+              AND LOWER(code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
         """)
         dwh_rows = cur.fetchall()
         pg_conn.close()
 
-        assert len(dwh_rows) == 155
+        assert len(dwh_rows) == EXPECTED_KB_COUNT
 
         mismatches = []
         for cid, cname, pid, dwh_order in dwh_rows:

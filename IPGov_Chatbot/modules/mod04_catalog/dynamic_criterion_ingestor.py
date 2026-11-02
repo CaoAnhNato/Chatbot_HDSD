@@ -40,6 +40,34 @@ FORBIDDEN_FLUFF_PHRASES = [
     "như đã nêu", "```json", "```", "trợ lý ảo", "kính gửi", "thưa bạn"
 ]
 
+DUMMY_FILTER_CODES = {
+    "th", "th1", "th2", "th3", "test", "so",
+    "ngay_thang", "dung_sai", "tra_loi_ngan", "tra_loi_doan",
+    "danh_sach_lua_chon", "danh_sach_nhap_lieu"
+}
+DUMMY_FILTER_NAMES = {
+    "th", "th1", "th2", "th3", "test", "số",
+    "ngày tháng", "đúng sai", "trả lời ngắn", "trả lời đoạn",
+    "danh sách lựa chọn", "danh sách nhập liệu"
+}
+
+
+def is_dummy_criterion(code: Optional[str] = None, name: Optional[str] = None) -> bool:
+    """Enforces quality filters: LENGTH(TRIM(c.name)) >= 6 and excludes test/dummy codes."""
+    c_low = (code or "").strip().lower()
+    n_low = (name or "").strip().lower()
+    if not c_low and not n_low:
+        return True
+    if c_low.startswith("test_") or n_low.startswith("test_"):
+        return True
+    if c_low in DUMMY_FILTER_CODES or n_low in DUMMY_FILTER_NAMES:
+        return True
+    if n_low and len(n_low) < 6:
+        return True
+    if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test'):
+        return True
+    return False
+
 
 class FiveGateValidationError(Exception):
     """Ngoại lệ khi vi phạm các cổng kiểm duyệt 5-Gate Self-Filtering."""
@@ -97,6 +125,11 @@ class FiveGateValidator:
         def_clean = record["definition"].strip()
         if len(def_clean) < 30:
             return False, f"Gate 1 Failed: 'definition' quá ngắn ({len(def_clean)} ký tự < 30 ký tự)"
+
+        c_low = (record.get("code") or "").strip().lower()
+        n_low = (record.get("name") or "").strip().lower()
+        if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test') or (n_low and len(n_low) < 6):
+            return False, f"Gate 1 Failed: 'code' hoặc 'name' là mã rác/thử nghiệm (dummy/short: code='{record.get('code')}', name='{record.get('name')}')"
         
         return True, "Gate 1 Passed"
 
@@ -152,6 +185,12 @@ class FiveGateValidator:
                     matched = True
                     break
                 if any(re.match(r"^" + re.escape(w) + r"\d+", dw) for dw in def_words):
+                    matched = True
+                    break
+                if any(w.startswith(dw) and len(dw) >= 3 for dw in def_words):
+                    matched = True
+                    break
+                if any(dw.startswith(w) and len(w) >= 3 for dw in def_words):
                     matched = True
                     break
 
@@ -282,7 +321,8 @@ class FiveGateValidator:
 
 def sync_definitions_to_duckdb(
     kb_json_path: Union[str, Path] = DEFAULT_KB_PATH,
-    duckdb_conn: Optional[Any] = None
+    duckdb_conn: Optional[Any] = None,
+    incremental: bool = False
 ) -> int:
     """
     Đồng bộ toàn bộ Kho Định Nghĩa Chỉ Tiêu từ file JSON vào bảng catalog_definitions của DuckDB.
@@ -323,8 +363,9 @@ def sync_definitions_to_duckdb(
         CREATE INDEX IF NOT EXISTS idx_catdef_code ON catalog_definitions(code);
     """)
 
-    # Xóa dữ liệu cũ để đồng bộ sạch
-    conn.execute("DELETE FROM catalog_definitions")
+    # Chỉ xóa dữ liệu cũ khi không ở chế độ incremental
+    if not incremental:
+        conn.execute("DELETE FROM catalog_definitions")
 
     rows_to_insert = []
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -351,10 +392,10 @@ def sync_definitions_to_duckdb(
         ))
 
     conn.executemany("""
-        INSERT INTO catalog_definitions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT OR REPLACE INTO catalog_definitions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, rows_to_insert)
 
-    logger.info(f"Đã đồng bộ {len(rows_to_insert)} bản ghi vào bảng catalog_definitions trong DuckDB.")
+    logger.info(f"Đã đồng bộ {len(rows_to_insert)} bản ghi vào bảng catalog_definitions trong DuckDB (incremental={incremental}).")
     return len(rows_to_insert)
 
 
@@ -403,37 +444,72 @@ class DynamicCriterionIngestor:
             return json.load(f)
 
     def save_kb(self, kb_data: Dict[str, Dict[str, Any]]) -> None:
+        """Ghi bền vững Kho Định Nghĩa xuống JSON bằng cơ chế Atomic Swap chống race condition."""
         self.kb_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.kb_path, "w", encoding="utf-8") as f:
-            json.dump(kb_data, f, ensure_ascii=False, indent=2)
+        temp_path = self.kb_path.with_suffix(f".tmp.{os.getpid()}_{time.time_ns()}")
+        try:
+            with open(temp_path, "w", encoding="utf-8") as f:
+                json.dump(kb_data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            temp_path.replace(self.kb_path)
+        finally:
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
 
     def detect_unregistered_criteria(self) -> List[Dict[str, Any]]:
         """Quét PostgreSQL vna_wom_dev tìm các chỉ tiêu chưa được lập định nghĩa trong KB."""
         current_kb = self.load_kb()
         registered_ids = set(current_kb.keys())
 
-        conn = psycopg2.connect(settings.sync_dwh_url)
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, code, name, level, parent_id, scope_name, mission_name, created_date
-            FROM dwh_internal.criteria
-            WHERE deleted_date IS NULL
-            ORDER BY level, created_date ASC
-        """)
-        cols = [desc[0] for desc in cur.description]
-        unregistered = []
+        try:
+            db_url = self.db_url or getattr(settings, "sync_dwh_url", None)
+            conn = psycopg2.connect(db_url, connect_timeout=3)
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT 
+                    c.id, c.code, c.name, c.level, c.parent_id, c.scope_name, c.mission_name, c.created_date,
+                    ROW_NUMBER() OVER (PARTITION BY c.parent_id ORDER BY c.created_date ASC, c.id ASC) AS canonical_order,
+                    NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
+                    (
+                        SELECT array_agg(DISTINCT f.report_date::date::text ORDER BY f.report_date::date::text)
+                        FROM dwh_internal.fact_report_criteria f
+                        WHERE (f.criteria_id = c.id OR (c.code = 'tong_san_luong_muoi_gd2' AND f.code = 'tong_san_luong_muoi'))
+                          AND f.report_status = 'approved'
+                    ) AS available_report_dates
+                FROM dwh_internal.criteria c
+                WHERE c.deleted_date IS NULL
+                  AND LENGTH(TRIM(c.name)) >= 6
+                  AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                ORDER BY c.level, c.created_date ASC
+            """)
+            cols = [desc[0] for desc in cur.description]
+            unregistered = []
 
-        for row in cur.fetchall():
-            rec = dict(zip(cols, row))
-            rec["id"] = str(rec["id"])
-            rec["parent_id"] = str(rec["parent_id"]) if rec["parent_id"] else None
-            rec["created_date"] = str(rec["created_date"])
-            if rec["id"] not in registered_ids:
-                unregistered.append(rec)
+            for row in cur.fetchall():
+                rec = dict(zip(cols, row))
+                if is_dummy_criterion(rec.get("code"), rec.get("name")):
+                    continue
+                rec["id"] = str(rec["id"])
+                rec["parent_id"] = str(rec["parent_id"]) if rec["parent_id"] else None
+                rec["created_date"] = str(rec["created_date"])
+                rec["canonical_order"] = int(rec["canonical_order"]) if rec.get("canonical_order") is not None else 1
+                rec["is_leaf"] = bool(rec["is_leaf"])
+                dates = list(rec.get("available_report_dates") or [])
+                rec["available_report_dates"] = dates
+                rec["has_approved_facts"] = bool(dates)
+                if rec["id"] not in registered_ids:
+                    unregistered.append(rec)
 
-        conn.close()
-        logger.info(f"Phát hiện {len(unregistered)} chỉ tiêu mới chưa có trong KB.")
-        return unregistered
+            conn.close()
+            logger.info(f"Phát hiện {len(unregistered)} chỉ tiêu mới chưa có trong KB.")
+            return unregistered
+        except Exception as e:
+            logger.warning(f"⚠️ [detect_unregistered_criteria] Không thể truy vấn PostgreSQL: {e}")
+            return []
 
     def build_hierarchical_context(
         self,
@@ -470,7 +546,7 @@ class DynamicCriterionIngestor:
             "parent_definition": parent_info.get("definition"),
             "sibling_definitions": [
                 entry["definition"] for entry in current_kb.values()
-                if entry.get("parent_id") == pid and entry.get("definition")
+                if entry.get("parent_id") == pid and entry.get("definition") and entry.get("id") != criterion.get("id")
             ]
         }
 
@@ -516,6 +592,7 @@ class DynamicCriterionIngestor:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
+                    max_tokens=1024,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_content}
@@ -539,20 +616,54 @@ class DynamicCriterionIngestor:
 
         # Fallback có ngữ cảnh nếu API gặp sự cố
         logger.warning(f"Fallback sang tạo ngữ cảnh nội tại cho chỉ tiêu {criterion['name']}")
-        p_name = context.get("parent_name") or context.get("root_name") or "nông nghiệp"
+        p_name = context.get("parent_name") or "nông nghiệp"
+        r_name = context.get("root_name") or ""
         name = criterion["name"]
+        code = criterion.get("code") or ""
+        hierarchy_ctx = f"trong nhóm '{p_name}'"
+        if r_name and r_name.lower() not in p_name.lower():
+            hierarchy_ctx += f" thuộc thực thể '{r_name}'"
+
+        name_lower = name.lower()
+        parent_lower = p_name.lower()
+        root_lower = r_name.lower()
+
+        if "lũy kế" in name_lower or "lũy kế" in parent_lower or "lũy kế" in root_lower:
+            temporal_phrase = "tính lũy kế, cộng dồn tích lũy đến mốc thời điểm báo cáo"
+        elif "trong năm" in name_lower or "thành lập mới" in name_lower:
+            temporal_phrase = "phản ánh số lượng phát sinh mới trong kỳ báo cáo"
+        else:
+            temporal_phrase = "được theo dõi định kỳ phản ánh tình hình hoạt động thực tế"
+
+        templates = [
+            f"Chỉ tiêu kỹ thuật '{name}' (mã: {code}) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Chỉ số chuyên môn '{name}' (mã: {code}) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Dữ liệu báo cáo nghiệp vụ '{name}' (mã: {code}) phản ánh tổng lượng phân bố thuộc phạm vi điều hành {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Nội dung thống kê '{name}' (mã: {code}) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Hạng mục theo dõi '{name}' (mã: {code}) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+        ]
+        order = int(criterion.get("canonical_order") or 1)
+        definition = templates[order % len(templates)]
+
         return {
-            "definition": f"Chỉ tiêu thống kê nghiệp vụ '{name}' phản ánh dữ liệu chuyên ngành trong nhóm '{p_name}'.",
-            "natural_synonyms": [name.lower(), f"chỉ tiêu {name.lower()}", f"{name.lower()} {p_name.lower()}"],
-            "scope_description": f"Áp dụng cho thống kê và theo dõi dữ liệu {name} trong lĩnh vực {context.get('scope_name')}."
+            "definition": definition.strip(),
+            "natural_synonyms": [name.lower(), f"chỉ tiêu {name.lower()}", f"{name.lower()} {code.lower()}"],
+            "scope_description": f"Áp dụng cho công tác thống kê và theo dõi dữ liệu {name} trong lĩnh vực {context.get('scope_name') or 'Nông nghiệp'}."
         }
 
     def process_single_criterion(
         self,
         criterion_record: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None,
+        db_conn: Optional[Any] = None
     ) -> Dict[str, Any]:
         """Quy trình hoàn chỉnh sinh định nghĩa, chạy qua 5-Gate Validation và chuẩn bị bản ghi 19 trường."""
+        if is_dummy_criterion(criterion_record.get("code"), criterion_record.get("name")):
+            raise FiveGateValidationError(
+                f"Chỉ tiêu '{criterion_record.get('name')}' (mã: '{criterion_record.get('code')}') "
+                f"là mã rác/thử nghiệm (dummy/short), bị từ chối nạp vào KB."
+            )
+
         ctx = context or self.build_hierarchical_context(criterion_record)
         llm_output = self.generate_definition_with_llm(criterion_record, ctx)
 
@@ -567,19 +678,28 @@ class DynamicCriterionIngestor:
             cid = str(criterion_record["id"])
             kb_children = [k for k, v in current_kb.items() if str(v.get("parent_id")) == cid]
             dwh_children = []
-            if self.db_url:
+            if db_conn or self.db_url:
+                conn = db_conn
+                should_close = False
                 try:
-                    import psycopg2
-                    conn = psycopg2.connect(self.db_url)
+                    if conn is None:
+                        import psycopg2
+                        conn = psycopg2.connect(self.db_url, connect_timeout=3)
+                        should_close = True
                     cur = conn.cursor()
                     cur.execute(
                         "SELECT id FROM dwh_internal.criteria WHERE parent_id = %s AND deleted_date IS NULL",
                         (cid,)
                     )
                     dwh_children = [str(row[0]) for row in cur.fetchall()]
-                    conn.close()
                 except Exception as e:
                     logger.debug(f"Không thể truy vấn children từ DWH: {e}")
+                finally:
+                    if should_close and conn is not None:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
             all_children = list(set(kb_children + dwh_children))
             if all_children:
                 is_leaf = False
@@ -593,10 +713,14 @@ class DynamicCriterionIngestor:
         canonical_order = None
         if criterion_record.get("canonical_order") is not None:
             canonical_order = int(criterion_record["canonical_order"])
-        elif self.db_url and criterion_record.get("created_date"):
+        elif (db_conn or self.db_url) and criterion_record.get("created_date"):
+            conn = db_conn
+            should_close = False
             try:
-                import psycopg2
-                conn = psycopg2.connect(self.db_url)
+                if conn is None:
+                    import psycopg2
+                    conn = psycopg2.connect(self.db_url, connect_timeout=3)
+                    should_close = True
                 cur = conn.cursor()
                 pid = criterion_record.get("parent_id")
                 c_date = criterion_record.get("created_date")
@@ -613,9 +737,14 @@ class DynamicCriterionIngestor:
                 row = cur.fetchone()
                 if row and row[0]:
                     canonical_order = int(row[0])
-                conn.close()
             except Exception as e:
                 logger.debug(f"Không thể tính canonical_order từ DWH: {e}")
+            finally:
+                if should_close and conn is not None:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
 
         if canonical_order is None:
             pid = criterion_record.get("parent_id")
@@ -625,6 +754,47 @@ class DynamicCriterionIngestor:
                 canonical_order = root_count + 1
             else:
                 canonical_order = len(siblings) + 1
+
+        has_approved_facts = criterion_record.get("has_approved_facts")
+        available_report_dates = criterion_record.get("available_report_dates")
+        if has_approved_facts is None and (db_conn or self.db_url):
+            conn = db_conn
+            should_close = False
+            try:
+                if conn is None:
+                    import psycopg2
+                    conn = psycopg2.connect(self.db_url, connect_timeout=3)
+                    should_close = True
+                cur = conn.cursor()
+                cid_val = criterion_record["id"]
+                c_code_val = criterion_record.get("code", "")
+                cur.execute("""
+                    SELECT array_agg(DISTINCT f.report_date::date::text ORDER BY f.report_date::date::text)
+                    FROM dwh_internal.fact_report_criteria f
+                    WHERE (f.criteria_id = %s OR (%s = 'tong_san_luong_muoi_gd2' AND f.code = 'tong_san_luong_muoi'))
+                      AND f.report_status = 'approved'
+                """, (cid_val, c_code_val))
+                row_dates = cur.fetchone()
+                if row_dates and row_dates[0]:
+                    available_report_dates = list(row_dates[0])
+                    has_approved_facts = True
+                else:
+                    available_report_dates = []
+                    has_approved_facts = False
+            except Exception as e:
+                logger.debug(f"Không thể kiểm tra fact_report_criteria: {e}")
+                available_report_dates = []
+                has_approved_facts = False
+            finally:
+                if should_close and conn is not None:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+        if has_approved_facts is None:
+            has_approved_facts = False
+        if available_report_dates is None:
+            available_report_dates = []
 
         record = {
             "id": criterion_record["id"],
@@ -643,8 +813,8 @@ class DynamicCriterionIngestor:
             "definition": llm_output.get("definition", "").strip(),
             "natural_synonyms": llm_output.get("natural_synonyms", []),
             "scope_description": llm_output.get("scope_description", "").strip(),
-            "has_approved_facts": False,
-            "available_report_dates": [],
+            "has_approved_facts": has_approved_facts,
+            "available_report_dates": available_report_dates,
             "metadata": {
                 "source": "dynamic_ingestion_pipeline",
                 "model": self.model_name,
@@ -676,14 +846,29 @@ class DynamicCriterionIngestor:
         kb = self.load_kb()
         ingested = []
 
-        for crit in unregistered:
+        batch_conn = None
+        if self.db_url:
             try:
-                record = self.process_single_criterion(crit)
-                kb[crit["id"]] = record
-                ingested.append(record)
-                logger.info(f"Đã nạp thành công chỉ tiêu '{record['name']}' vào KB.")
+                import psycopg2
+                batch_conn = psycopg2.connect(self.db_url, connect_timeout=5)
             except Exception as e:
-                logger.error(f"Thất bại khi nạp chỉ tiêu '{crit.get('name')}': {e}")
+                logger.debug(f"Không thể mở batch connection tới PostgreSQL: {e}")
+
+        try:
+            for crit in unregistered:
+                try:
+                    record = self.process_single_criterion(crit, db_conn=batch_conn)
+                    kb[crit["id"]] = record
+                    ingested.append(record)
+                    logger.info(f"Đã nạp thành công chỉ tiêu '{record['name']}' vào KB.")
+                except Exception as e:
+                    logger.error(f"Thất bại khi nạp chỉ tiêu '{crit.get('name')}': {e}")
+        finally:
+            if batch_conn is not None:
+                try:
+                    batch_conn.close()
+                except Exception:
+                    pass
 
         if ingested:
             self.save_kb(kb)

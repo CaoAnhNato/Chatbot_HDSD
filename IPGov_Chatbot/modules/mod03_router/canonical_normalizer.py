@@ -17,6 +17,7 @@ import asyncio
 import calendar
 import json
 import logging
+import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -29,6 +30,20 @@ from IPGov_Chatbot.schemas.canonical_query_frame import (
     SemanticQueryIntentDTO,
     TemporalSlotSpec,
 )
+
+from pydantic.fields import FieldInfo
+
+# Mở rộng trường dữ liệu cho CanonicalQueryFrameDTO phục vụ Milestone 2 (F4, F5)
+if "is_multi_indicator" not in CanonicalQueryFrameDTO.model_fields:
+    CanonicalQueryFrameDTO.model_fields["is_multi_indicator"] = FieldInfo(
+        annotation=bool, default=False, description="True nếu câu hỏi tra cứu từ 2 chỉ tiêu trở lên (F4, F5)"
+    )
+if "parent_rollup_target" not in CanonicalQueryFrameDTO.model_fields:
+    CanonicalQueryFrameDTO.model_fields["parent_rollup_target"] = FieldInfo(
+        annotation=Optional[str], default=None, description="Tên chỉ tiêu cha cần rollup/tổng hợp (F4)"
+    )
+CanonicalQueryFrameDTO.model_rebuild(force=True)
+CanonicalFrame = CanonicalQueryFrameDTO
 
 logger = logging.getLogger("ipgov.mod03.canonical_normalizer")
 
@@ -400,13 +415,97 @@ class CanonicalSemanticNormalizer:
             logger.debug("LLM NLU Parse không khả dụng hoặc lỗi: %s", e)
         return None
 
+    def _split_multi_metric_conjunctions(self, phrase: str) -> List[str]:
+        """
+        F4: Tách các cụm chỉ tiêu độc lập dựa trên liên từ ngôn ngữ tự nhiên:
+        'và', ',', 'cùng với', 'đồng thời', 'với'.
+        Hỗ trợ lan truyền tiền tố định lượng nếu mệnh đề sau chỉ là danh từ đơn (vd: 'số lượng trâu, bò' -> ['số lượng trâu', 'số lượng bò']).
+        """
+        import re
+        if not phrase:
+            return []
+        voi_pattern = r'(?<!so )(?<!gắn )(?<!đối )(?<!liên kết )(?<!kết hợp )(?<!phù hợp )với'
+        parts = re.split(
+            rf'\s*(?:,\s*(?:và|cùng\s+với|đồng\s+thời|{voi_pattern})\b|,\s*|\s+(?:và|cùng\s+với|đồng\s+thời|{voi_pattern})\s+)\s*',
+            phrase.strip(),
+            flags=re.IGNORECASE
+        )
+        stop_words = {
+            "ngày", "vào", "tại", "năm", "tháng", "thì", "là", "cho", "của",
+            "như thế nào", "thế nào", "ra sao", "bao nhiêu", "là bao nhiêu",
+            "có sự tăng giảm nào không", "tăng giảm thế nào"
+        }
+        cleaned_parts = []
+        for p in parts:
+            if not p:
+                continue
+            p_sub = re.sub(
+                r'\b(?:như\s+thế\s+nào|ra\s+sao|thế\s+nào|là\s+bao\s+nhiêu|bao\s+nhiêu(?:\s+con|\s+tấn|\s+ha|\s+hộ)?)\b',
+                '',
+                p,
+                flags=re.IGNORECASE
+            ).strip(" ,.;:?!-")
+            if "=" in p_sub or "report_status" in p_sub.lower():
+                continue
+            if len(p_sub) > 1 and p_sub.lower() not in stop_words:
+                cleaned_parts.append(p_sub)
+        parts = cleaned_parts
+        if len(parts) <= 1:
+            return parts
+
+        prefixes = (
+            "tổng số lượng ", "tổng diện tích ", "tổng sản lượng ",
+            "tổng số ", "tổng hộ ", "tổng ", "số lượng ",
+            "diện tích ", "sản lượng "
+        )
+        quant_words = ("tổng", "số lượng", "diện tích", "sản lượng", "số hộ", "số đơn vị", "tỷ lệ", "công suất")
+        detected_prefix = None
+        for pfx in prefixes:
+            if parts[0].lower().startswith(pfx):
+                detected_prefix = pfx
+                break
+            elif pfx in parts[0].lower():
+                idx = parts[0].lower().find(pfx)
+                detected_prefix = parts[0][idx:idx + len(pfx)]
+                break
+
+        res = []
+        for i, part in enumerate(parts):
+            p_clean = part.strip()
+            if i > 0 and detected_prefix and not any(p_clean.lower().startswith(qw) for qw in quant_words):
+                p_clean = detected_prefix + p_clean
+            res.append(p_clean)
+
+        return res
+
     def _extract_core_metric_phrase(self, query: str) -> str:
         """
         Trích xuất cụm từ chỉ tiêu / chủ đề cốt lõi bằng cách loại bỏ
-        thực thể địa danh và ký tự đặc biệt động qua DuckDB Catalog RAM.
+        thực thể địa danh, mốc thời gian và ký tự đặc biệt động qua DuckDB Catalog RAM.
         """
+        import re
         import unicodedata
         q_norm = unicodedata.normalize("NFC", query.lower().strip())
+
+        # Chuyển đổi các dấu ngắt câu / câu hỏi (?, ;, \n) thành dấu phẩy để phân tách mệnh đề chỉ tiêu
+        q_norm = re.sub(r'[\?\;\n]+', ' , ', q_norm)
+
+        # Loại bỏ các cụm thời gian số và đối chiếu thời gian trước khi bóc tách ký tự
+        q_norm = re.sub(r'\bgiữa\s+.*?và\s+(?:ngày\s+)?\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?', ' ', q_norm)
+        q_norm = re.sub(r'\bcó\s+(?:sự\s+)?tăng\s+giảm(?:\s+nào)?(?:\s+không)?\b', ' ', q_norm)
+        q_norm = re.sub(
+            r'\b(?:ngày|vào\s+ngày|tính\s+đến\s+ngày|mốc|hôm)\s+\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?(?:\s*(?:và|hoặc|hay|,)\s*(?:ngày\s+)?\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?)*',
+            ' ',
+            q_norm
+        )
+        q_norm = re.sub(r'\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b', ' ', q_norm)
+        q_norm = re.sub(r'\b\d{4}[/-]\d{1,2}[/-]\d{1,2}\b', ' ', q_norm)
+        q_norm = re.sub(r'\b(?:ngày|tháng|năm)\s+\d{1,4}\b', ' ', q_norm)
+        q_norm = re.sub(r'\b(?:trong\s+)?\d+\s+tháng(?:\s+đầu\s+năm)?(?:\s+\d{4})?\b', ' ', q_norm)
+
+        # Loại bỏ các mệnh đề giải thích trong ngoặc đơn nếu có liên từ phụ (ví dụ: (bao gồm cả thủ công và công nghiệp))
+        if re.search(r'\(\s*(?:bao\s+gồm|gồm)\s+.*?\)', q_norm):
+            q_norm = re.sub(r'\(\s*(?:bao\s+gồm|gồm)\s+.*?\)', ' ', q_norm)
 
         # 1. Loại bỏ năm số
         tokens = q_norm.split()
@@ -443,9 +542,10 @@ class CanonicalSemanticNormalizer:
                 if adm_name and f" {adm_name} " in q_norm:
                     q_norm = q_norm.replace(f" {adm_name} ", " ")
 
-        # 3. Loại bỏ các ký tự đặc biệt
-        for ch in ":.,?!;/-":
+        # 3. Loại bỏ các ký tự đặc biệt (giữ lại dấu phẩy để phân tách các mệnh đề chỉ tiêu độc lập)
+        for ch in ":.?!;/-()[]{}'\"":
             q_norm = q_norm.replace(ch, " ")
+        q_norm = re.sub(r'(?:\s*,\s*)+', ' , ', q_norm)
         cleaned = " ".join(q_norm.split()).strip()
 
         # 4. Loại bỏ tiền tố / hậu tố câu hỏi dẫn nhập phổ biến qua DuckDB Catalog để giữ lại tên chỉ tiêu sạch
@@ -595,6 +695,16 @@ class CanonicalSemanticNormalizer:
             if hasattr(self.catalog, "resolve_report_audit_intent")
             else None
         )
+        if not audit_info and hasattr(self.catalog, "has_lexicon_term"):
+            has_rep_sig = self.catalog.has_lexicon_term(norm_input, "REPORT_SIGNAL") or "kỳ báo cáo" in norm_input or "báo cáo" in norm_input
+            has_rep_stat = self.catalog.has_lexicon_term(norm_input, "REPORT_STATUS") or "trạng thái" in norm_input or "nháp" in norm_input
+            if has_rep_sig and has_rep_stat:
+                audit_info = {
+                    "audit_sub_intent": "REPORT_SUBMISSION_STATUS",
+                    "target_table": "report",
+                    "status_filter": ["approved", "draft", "pending"],
+                    "include_draft_comparison": False,
+                }
         if audit_info:
             resolved_mis = (stream_b.get("target_mission") if stream_b else None) or (
                 self.catalog.resolve_mission(raw_input) if hasattr(self.catalog, "resolve_mission") else None
@@ -633,7 +743,7 @@ class CanonicalSemanticNormalizer:
             if admin_scope and admin_scope.get("type") == "office":
                 target_office = admin_scope.get("office_name") or admin_scope.get("name")
 
-            # Phân giải loại trừ đơn vị (Directional Negative Filter - TC-REM-09) qua DuckDB Catalog RAM
+            # Phân giải loại trừ đơn vị (Directional Negative Filter) qua DuckDB Catalog RAM
             if hasattr(self.catalog, "resolve_excluded_entities"):
                 exclude_offices = self.catalog.resolve_excluded_entities(raw_input)
 
@@ -700,8 +810,14 @@ class CanonicalSemanticNormalizer:
 
         is_report_status = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "REPORT_STATUS_SIGNAL")
         has_prov_scope = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "PROVINCE_SCOPE_SIGNAL")
+        has_criteria_ask = bool(
+            has_lex_target
+            or (hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "CRITERIA_KEYWORD"))
+            or "chỉ tiêu" in norm_input
+            or "tiêu chí" in norm_input
+        )
         is_level1_criteria_query = (
-            (has_mission and (has_explicit_level1 or is_metric_listing) and not is_report_status)
+            (has_mission and (has_explicit_level1 or is_metric_listing or has_criteria_ask) and not is_report_status)
             or (has_explicit_level1 and has_prov_scope)
         )
         if is_level1_criteria_query:
@@ -739,7 +855,7 @@ class CanonicalSemanticNormalizer:
                 or (scope_info and scope_info.get("status") in ("FOUND", "MATCH", "NOT_FOUND"))
             )
             and not self._is_officer_query(raw_input)
-            and not is_metric_listing
+            and not has_criteria_ask
             and not has_off_or_ward
         )
         if is_mission_scope_query:
@@ -838,18 +954,20 @@ class CanonicalSemanticNormalizer:
             if hasattr(self.catalog, "_criteria_cache_names"):
                 for crit_name in sorted(self.catalog._criteria_cache_names, key=len, reverse=True):
                     cn_low = crit_name.lower().strip()
-                    if cn_low and len(cn_low) > 3 and cn_low in norm_input:
+                    if cn_low and len(cn_low) >= 6 and cn_low in norm_input:
                         has_specific_catalog_metric = True
                         matched_catalog_mention = crit_name
                         break
             if not matched_catalog_mention and hasattr(self.catalog, "_alias_registry"):
-                for entry in sorted(self.catalog._alias_registry, key=lambda x: len(x.get("alias", "")), reverse=True):
-                    if entry.get("type") == "criteria" or entry.get("target_table") == "dwh_internal.criteria":
-                        al_low = (entry.get("alias") or "").lower().strip()
-                        if al_low and len(al_low) > 6 and al_low in norm_input:
-                            has_specific_catalog_metric = True
-                            matched_catalog_mention = entry.get("name") or al_low
-                            break
+                has_mission_context = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_KEYWORD")
+                if not has_mission_context:
+                    for entry in sorted(self.catalog._alias_registry, key=lambda x: len(x.get("alias", "")), reverse=True):
+                        if entry.get("type") == "criteria" or entry.get("target_table") == "dwh_internal.criteria":
+                            al_low = (entry.get("alias") or "").lower().strip()
+                            if al_low and len(al_low) > 6 and al_low in norm_input:
+                                has_specific_catalog_metric = True
+                                matched_catalog_mention = entry.get("name") or al_low
+                                break
 
         is_inventory = bool(getattr(self.catalog, "is_inventory_query", lambda q: False)(raw_input))
 
@@ -872,6 +990,12 @@ class CanonicalSemanticNormalizer:
                 or stream_b.get("start_date") is not None
             )
         )
+
+        # REQ-Q01 (BE-01): Nếu là câu hỏi liệt kê chỉ tiêu chung toàn hệ thống/tỉnh không chỉ định phòng ban cụ thể,
+        # mặc định phạm vi toàn tỉnh để kích hoạt Level 1 root criteria table.
+        if is_metric_listing and not has_specific_catalog_metric and not extracted_office and not extracted_dept:
+            is_provincial = True
+            is_inventory = True
 
         is_dimension_discovery = (
             (has_temporal_discovery and not has_specific_catalog_metric)
@@ -898,7 +1022,7 @@ class CanonicalSemanticNormalizer:
         if not is_fact_calc and hasattr(self.catalog, "_criteria_cache_names"):
             for crit_name in self.catalog._criteria_cache_names:
                 cn_low = crit_name.lower().strip()
-                if cn_low and len(cn_low) > 3 and cn_low in norm_input:
+                if cn_low and len(cn_low) >= 6 and cn_low in norm_input:
                     is_fact_calc = True
                     break
 
@@ -979,11 +1103,66 @@ class CanonicalSemanticNormalizer:
 
 
         # 10. Mặc định Fact Plane: Tra cứu chỉ tiêu KTXH (METRIC_POINT_INQUIRY)
+        # Phát hiện yêu cầu rollup/tổng hợp chỉ tiêu cha qua DuckDB criteria hierarchy
+        parent_rollup_target = None
+        if any(w in norm_input for w in ("tổng đàn", "tính tổng", "tổng số lượng", "tổng toàn bộ", "tổng sản lượng", "tổng diện tích", "liệt kê chi tiết", "chi tiết diện tích", "chi tiết sản lượng", "theo từng hình thức")):
+            if hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+                try:
+                    p_rows = self.catalog.conn.execute("""
+                        SELECT code, name, level, is_leaf 
+                        FROM catalog_criteria 
+                        WHERE (is_leaf = FALSE OR level = 1)
+                          AND code NOT LIKE 'test%' 
+                          AND name NOT LIKE 'test%'
+                          AND code NOT IN ('th', 'th1', 'th2', 'th3', 'so', 'dung_sai', 'ngay_thang', 'danh_sach_nhap_lieu', 'danh_sach_lua_chon', 'tra_loi_doan', 'tra_loi_ngan')
+                    """).fetchall()
+                    best_match_len = 0
+                    for p_code, p_name, _, _ in p_rows:
+                        pn_clean = p_name.lower().strip()
+                        pn_clean = re.sub(r'\s+edit\s+\d+', '', pn_clean)
+                        pn_clean = re.sub(r'\s*\([^)]*\)', '', pn_clean).strip()
+                        cands = [pn_clean]
+                        for prefix in ("tổng số lượng ", "tổng diện tích ", "tổng sản lượng ", "tổng số ", "số lượng ", "tổng "):
+                            if pn_clean.startswith(prefix):
+                                cands.append(pn_clean[len(prefix):].strip())
+                        for cand in cands:
+                            if len(cand) >= 4 and cand in norm_input:
+                                if len(cand) > best_match_len:
+                                    best_match_len = len(cand)
+                                    parent_rollup_target = p_code
+                except Exception as e_pr:
+                    logger.debug("Lỗi tra cứu parent rollup dynamic: %s", e_pr)
+
         core_phrase = self._extract_core_metric_phrase(raw_input)
-        if matched_catalog_mention and (not core_phrase or len(core_phrase) > len(matched_catalog_mention) + 6):
-            raw_mentions = [matched_catalog_mention]
-        else:
-            raw_mentions = [core_phrase] if core_phrase else [raw_input.strip()]
+        raw_mentions = []
+        is_single_composite = False
+        if core_phrase and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+            try:
+                cp_clean = " ".join(core_phrase.lower().split())
+                # Kiểm tra nếu toàn bộ core_phrase khớp chính xác hoặc tương đồng cao (>= 90%) với một chỉ tiêu đơn lẻ trong kho
+                row = self.catalog.conn.execute("""
+                    SELECT name, code FROM catalog_criteria
+                    WHERE LOWER(TRIM(name)) = ? OR LOWER(TRIM(name)) LIKE ?
+                    LIMIT 1;
+                """, (cp_clean, f"%{cp_clean}%")).fetchone()
+                if row:
+                    from rapidfuzz import fuzz
+                    ratio = fuzz.ratio(cp_clean, row[0].lower().strip())
+                    if ratio >= 90:
+                        is_single_composite = True
+                        raw_mentions = [row[0]]
+            except Exception as e_comp:
+                logger.debug("Lỗi kiểm tra composite single criterion: %s", e_comp)
+
+        if not is_single_composite and core_phrase:
+            raw_mentions = self._split_multi_metric_conjunctions(core_phrase)
+        if not raw_mentions:
+            if matched_catalog_mention:
+                raw_mentions = [matched_catalog_mention]
+            else:
+                raw_mentions = [raw_input.strip()]
+
+        is_multi_indicator = len(raw_mentions) >= 2
         return {
             "intent": CanonicalIntentEnum.METRIC_POINT_INQUIRY,
             "target_table": "fact_report_criteria",
@@ -994,6 +1173,8 @@ class CanonicalSemanticNormalizer:
             "sort_direction": "DESC_NULLS_LAST",
             "limit": None,
             "is_fact_calc": is_fact_calc,
+            "is_multi_indicator": is_multi_indicator,
+            "parent_rollup_target": parent_rollup_target,
         }
 
     # --------------------------------------------------------------------------
@@ -1032,14 +1213,23 @@ class CanonicalSemanticNormalizer:
         # 3. Trích xuất chuỗi thời gian (time series periods) sắp xếp tuần tự động
         periods = []
         y_int = int(year_code or "2026")
-        for tok in raw_input.replace(",", " ").replace("?", " ").split():
+        for raw_tok in raw_input.replace(",", " ").replace("?", " ").replace(";", " ").split():
+            tok = raw_tok.strip("()[]{}'\".,:;!?-")
+            if not tok:
+                continue
             sep = "/" if "/" in tok else ("-" if "-" in tok else ("." if "." in tok else None))
             if sep:
                 parts = tok.split(sep)
                 if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit():
-                    d_val, m_val, y_val = int(parts[0]), int(parts[1]), int(parts[2])
-                    if 1 <= d_val <= 31 and 1 <= m_val <= 12 and 2020 <= y_val <= 2030:
-                        periods.append(f"{y_val}-{m_val:02d}-{d_val:02d}")
+                    p0, p1, p2 = int(parts[0]), int(parts[1]), int(parts[2])
+                    if 2010 <= p0 <= 2035 and 1 <= p1 <= 12 and 1 <= p2 <= 31:
+                        iso_d = f"{p0}-{p1:02d}-{p2:02d}"
+                        if iso_d not in periods:
+                            periods.append(iso_d)
+                    elif 1 <= p0 <= 31 and 1 <= p1 <= 12 and 2010 <= p2 <= 2035:
+                        iso_d = f"{p2}-{p1:02d}-{p0:02d}"
+                        if iso_d not in periods:
+                            periods.append(iso_d)
 
         for m_val in range(1, 13):
             if f"{m_val} tháng" in norm_input or f"{m_val:02d} tháng" in norm_input:
@@ -1253,23 +1443,54 @@ class CanonicalSemanticNormalizer:
                     y = ey
                 month_filter = None
 
-        # BƯỚC 4D: DẢI NGÀY ĐẦY ĐỦ (dd/mm/yyyy - dd/mm/yyyy) HOẶC NGÀY ĐƠN LẺ
+        # BƯỚC 4D: DẢI NGÀY ĐẦY ĐỦ HOẶC NGÀY ĐƠN LẺ (F7: Robust Multi-Format Date Parser)
         if not date_from:
             full_dates = []
-            for tok in raw_input.replace(",", " ").replace("?", " ").split():
+            raw_tokens = raw_input.replace(",", " ").replace("?", " ").replace(";", " ").split()
+            for raw_tok in raw_tokens:
+                tok = raw_tok.strip("()[]{}'\".,:;!?-")
+                if not tok:
+                    continue
                 sep = "/" if "/" in tok else ("-" if "-" in tok else ("." if "." in tok else None))
                 if sep:
                     parts = tok.split(sep)
                     if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit() and parts[2].isdigit():
-                        d_val, m_val, y_val = int(parts[0]), int(parts[1]), int(parts[2])
-                        if 1 <= d_val <= 31 and 1 <= m_val <= 12 and 2020 <= y_val <= 2030:
-                            full_dates.append(f"{y_val}-{m_val:02d}-{d_val:02d}")
-            if len(full_dates) >= 2:
-                date_from = full_dates[0]
-                date_to = full_dates[1]
-                month_filter = None
-            elif len(full_dates) == 1:
-                specific_date = full_dates[0]
+                        p0, p1, p2 = int(parts[0]), int(parts[1]), int(parts[2])
+                        # ISO: YYYY/MM/DD hoặc YYYY-MM-DD
+                        if 2010 <= p0 <= 2035 and 1 <= p1 <= 12 and 1 <= p2 <= 31:
+                            full_dates.append(f"{p0}-{p1:02d}-{p2:02d}")
+                        # VN: DD/MM/YYYY hoặc DD-MM-YYYY
+                        elif 1 <= p0 <= 31 and 1 <= p1 <= 12 and 2010 <= p2 <= 2035:
+                            full_dates.append(f"{p2}-{p1:02d}-{p0:02d}")
+
+            unique_full_dates = list(dict.fromkeys(full_dates))
+            import re
+            is_or_alternative = bool(re.search(r'\b(?:hoặc|hay|or)\b', raw_input.lower()))
+            is_range_cue = bool(re.search(r'\b(?:từ|trong khoảng|khoảng từ|tới|đến)\b', raw_input.lower()))
+            if "giữa" in raw_input.lower() and "và" in raw_input.lower() and "từ" not in raw_input.lower():
+                is_range_cue = False
+
+            if len(unique_full_dates) >= 2:
+                if is_range_cue and not is_or_alternative:
+                    date_from = unique_full_dates[0]
+                    date_to = unique_full_dates[1]
+                    month_filter = None
+                else:
+                    for d in unique_full_dates:
+                        if d not in periods:
+                            periods.append(d)
+                    if is_or_alternative or len(periods) == 1:
+                        specific_date = unique_full_dates[0]
+                    else:
+                        specific_date = None
+                    year_code = unique_full_dates[0][:4]
+                    y = year_code
+            elif len(unique_full_dates) == 1:
+                if unique_full_dates[0] not in periods:
+                    periods.append(unique_full_dates[0])
+                specific_date = unique_full_dates[0]
+                year_code = unique_full_dates[0][:4]
+                y = year_code
 
         if not specific_date and not date_from:
             for i, tok in enumerate(tokens):
@@ -1400,6 +1621,27 @@ class CanonicalSemanticNormalizer:
             "target_scope": target_scope,
         }
 
+    def _is_compatible_candidate(self, mention_str: str, cand: Dict[str, Any], min_score: float = 70.0) -> bool:
+        """
+        Kiểm tra độ tương thích ngữ nghĩa và ngăn chặn rò rỉ chéo giữa các lĩnh vực
+        (ví dụ: lúa != muối, thủy sản != muối, gia súc != muối).
+        """
+        cand_score = float(cand.get("score") or cand.get("hybrid_score") or cand.get("sparse_score") or 0.0)
+        if 0.0 < cand_score < min_score:
+            return False
+
+        m_low = mention_str.strip().lower()
+        c_name = str(cand.get("name") or "").strip().lower()
+
+        # Kiểm tra tính tương thích ngữ nghĩa và bảo toàn thực thể chuyên biệt nếu câu hỏi nêu đích danh
+        for distinct_stem in ("lúa", "thủy sản", "cà phê", "hồ tiêu", "chè búp", "sầu riêng", "cao su", "cây lâu năm", "muối", "gia súc", "gia cầm", "rừng"):
+            if distinct_stem in m_low and distinct_stem not in c_name:
+                cand_root = str(cand.get("root_name") or cand.get("parent_name") or "").lower()
+                if distinct_stem not in cand_root:
+                    return False
+
+        return True
+
     # --------------------------------------------------------------------------
     # TWO-STAGE HYBRID SELECTION & AMBIGUITY GATE
     # --------------------------------------------------------------------------
@@ -1417,6 +1659,32 @@ class CanonicalSemanticNormalizer:
         """
         if not raw_mentions:
             return [], [], "NONE", []
+
+        # F5: Phân giải đồng thời nhiều chỉ tiêu (Multi-Indicator Disambiguation)
+        if len(raw_mentions) > 1:
+            multi_names = []
+            multi_ids = []
+            for mention in raw_mentions:
+                m_clean = mention.strip()
+                if not m_clean:
+                    continue
+                try:
+                    cands, _, _ = self.catalog.find_top_k_candidates(m_clean, top_k=3, score_cutoff=70.0, tenant_code=tenant_code)
+                except Exception:
+                    cands = []
+                valid_cand = None
+                for c in cands:
+                    if self._is_compatible_candidate(m_clean, c, min_score=70.0):
+                        valid_cand = c
+                        break
+                if valid_cand:
+                    multi_names.append(valid_cand["name"])
+                    multi_ids.append(valid_cand.get("code") or valid_cand.get("id") or "")
+                else:
+                    multi_names.append(m_clean)
+                    multi_ids.append("")
+            if len(multi_names) >= 2:
+                return multi_names, multi_ids, "RESOLVED", []
 
         raw_metric = raw_mentions[0].strip()
         q_low = query.lower()
@@ -1438,7 +1706,7 @@ class CanonicalSemanticNormalizer:
 
         # Tìm kiếm ứng viên từ DuckDB Catalog
         try:
-            candidates, is_ambig, _ = self.catalog.find_top_k_candidates(raw_metric, top_k=5, tenant_code=tenant_code)
+            candidates, is_ambig, _ = self.catalog.find_top_k_candidates(raw_metric, top_k=5, score_cutoff=70.0, tenant_code=tenant_code)
         except Exception as e:
             logger.warning("Lỗi tra cứu catalog candidates: %s", e)
             candidates = []
@@ -1448,6 +1716,9 @@ class CanonicalSemanticNormalizer:
             is_ambig = False
 
         if candidates:
+            candidates = [c for c in candidates if self._is_compatible_candidate(raw_metric, c, min_score=70.0)]
+            if not candidates:
+                return [raw_metric], [], "RESOLVED", []
             # Lọc bỏ các ứng viên trùng tên hiển thị và biến thể đồng nghĩa (ADR-002)
             def _stem_core_local(n: str) -> str:
                 if hasattr(self, "catalog") and hasattr(self.catalog, "strip_query_noise"):
@@ -1484,7 +1755,9 @@ class CanonicalSemanticNormalizer:
                 return cand_names[:3], cand_ids[:3], "AMBIGUOUS", cand_names[:3]
 
             # Nếu có ứng viên phù hợp
-            top_cand = unique_candidates[0] if unique_candidates else candidates[0]
+            top_cand = unique_candidates[0] if unique_candidates else (candidates[0] if candidates else None)
+            if not top_cand:
+                return [raw_metric], [], "RESOLVED", []
             canonical_names = [top_cand["name"]]
             cand_id = top_cand.get("id") or top_cand.get("code") or ""
             canonical_ids = [cand_id]
@@ -1728,8 +2001,37 @@ class CanonicalSemanticNormalizer:
             resolved_dept = stream_a.get("department_code") or stream_b.get("department_code") or session_dept
 
         # 4. Phân giải chỉ tiêu (Two-Stage Hybrid Selection + Ambiguity Gate)
+        h_info = None
+        if hasattr(self.catalog, "classify_criterion_hierarchy"):
+            try:
+                h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+            except TypeError:
+                h_info = self.catalog.classify_criterion_hierarchy(clean_query)
+
+        is_dup_leaf_without_ctx = bool(
+            h_info
+            and h_info.get("classification") == "duplicate_leaf"
+            and not parent_context
+        )
+
         breakdown_match = None
-        if hasattr(self.catalog, "resolve_hierarchy_breakdown"):
+        if (
+            not is_dup_leaf_without_ctx
+            and len(stream_a.get("raw_metric_mentions", [])) < 2
+            and not stream_a.get("is_multi_indicator", False)
+            and hasattr(self.catalog, "resolve_hierarchy_breakdown")
+            and stream_a["intent"] not in (
+                CanonicalIntentEnum.DIMENSION_LISTING,
+                CanonicalIntentEnum.METADATA_EXPLORATION,
+                CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
+                CanonicalIntentEnum.OFFICER_ASSIGNMENT,
+                CanonicalIntentEnum.RELATIONAL_EXPLORATION,
+                CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP,
+                CanonicalIntentEnum.OUT_OF_SCOPE,
+                CanonicalIntentEnum.GREETING_FAREWELL,
+                CanonicalIntentEnum.CAPABILITY_INTRO,
+            )
+        ):
             try:
                 breakdown_match = self.catalog.resolve_hierarchy_breakdown(
                     clean_query, tenant_code=resolved_tenant, year_code=resolved_year
@@ -1770,7 +2072,16 @@ class CanonicalSemanticNormalizer:
             canonical_ids = [p_node_b["code"]] if p_node_b.get("code") else []
             ambig_status = "RESOLVED"
             clarification_cands = []
-            stream_a["intent"] = CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN
+            is_lvl2_subgroup = bool(
+                p_node_b.get("root_name")
+                and p_node_b.get("root_name").strip().lower() != p_node_b.get("name", "").strip().lower()
+            )
+            has_bd_cue = bool(
+                hasattr(self.catalog, "has_lexicon_term")
+                and self.catalog.has_lexicon_term(clean_query.lower(), "BREAKDOWN_CUE")
+            )
+            if is_lvl2_subgroup or has_bd_cue:
+                stream_a["intent"] = CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN
         elif not clarif_triggered:
             if stream_a["intent"] in (
                 CanonicalIntentEnum.METADATA_EXPLORATION,
@@ -1798,60 +2109,162 @@ class CanonicalSemanticNormalizer:
                 ambig_status = "RESOLVED"
                 clarification_cands = []
             else:
-                h_info = None
-                if hasattr(self.catalog, "classify_criterion_hierarchy"):
-                    try:
-                        h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
-                    except TypeError:
-                        h_info = self.catalog.classify_criterion_hierarchy(clean_query)
+                is_clarif = False
+                c_opts = []
+                if hasattr(self, "clarification_engine") and self.clarification_engine:
+                    c_needed, c_slots, c_options, _ = self.clarification_engine.check_clarification_needed(clean_query)
+                    if c_needed and c_options and "metric_code" in c_slots:
+                        is_clarif = True
+                        c_opts = c_options
 
-                if (
-                    h_info
-                    and h_info.get("matched_name")
-                    and h_info.get("classification") in ("parent", "parent_group", "duplicate_leaf", "single_leaf")
-                    and (h_info.get("parent_code") or h_info.get("codes") or h_info.get("item"))
-                ):
-                    m_name_h = h_info["matched_name"]
-                    m_code_h = h_info.get("matched_code")
-                    canonical_names = [m_name_h]
-                    if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
-                        canonical_ids = list(h_info.get("codes"))
-                    else:
-                        canonical_ids = [m_code_h] if m_code_h else []
-                    ambig_status = "RESOLVED"
-                    clarification_cands = []
+                if is_clarif:
+                    canonical_names = [opt.label for opt in c_opts]
+                    canonical_ids = [opt.value for opt in c_opts]
+                    ambig_status = "AMBIGUOUS"
+                    clarification_cands = [opt.label for opt in c_opts]
                 else:
-                    canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
-                        query=clean_query,
-                        raw_mentions=stream_a.get("raw_metric_mentions", []),
-                        tenant_code=resolved_tenant,
-                    )
-                    if h_info and h_info.get("matched_name"):
+                    if h_info is None and hasattr(self.catalog, "classify_criterion_hierarchy"):
+                        try:
+                            h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+                        except TypeError:
+                            h_info = self.catalog.classify_criterion_hierarchy(clean_query)
+
+                    if h_info and (h_info.get("classification") == "multi_leaf" or h_info.get("category") == "MULTI_LEAF"):
+                        canonical_names = h_info.get("matched_leaf_names") or [h_info["name"]]
+                        canonical_ids = h_info.get("matched_leaf_codes") or ([h_info["code"]] if h_info.get("code") else [])
+                        ambig_status = "RESOLVED"
+                        clarification_cands = []
+                    elif len(stream_a.get("raw_metric_mentions", [])) >= 2:
+                        canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
+                            query=clean_query,
+                            raw_mentions=stream_a.get("raw_metric_mentions", []),
+                            tenant_code=resolved_tenant,
+                        )
+                    elif (
+                        h_info
+                        and h_info.get("matched_name")
+                        and h_info.get("classification") in ("parent", "parent_group", "duplicate_leaf", "single_leaf")
+                        and (h_info.get("parent_code") or h_info.get("codes") or h_info.get("item"))
+                    ):
                         m_name_h = h_info["matched_name"]
                         m_code_h = h_info.get("matched_code")
-                        q_norm_c = " ".join(clean_query.lower().split())
-                        if h_info.get("classification") in ("parent", "parent_group"):
-                            canonical_names = [m_name_h]
+                        canonical_names = [m_name_h]
+                        if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
+                            canonical_ids = list(h_info.get("codes"))
+                        else:
                             canonical_ids = [m_code_h] if m_code_h else []
-                            ambig_status = "RESOLVED"
-                            clarification_cands = []
-                        elif h_info.get("classification") in ("duplicate_leaf", "single_leaf"):
-                            if (
-                                not canonical_names
-                                or " ".join(canonical_names[0].lower().split()) not in q_norm_c
-                                or len(m_name_h) >= len(canonical_names[0])
-                                or ambig_status == "AMBIGUOUS"
-                                or h_info.get("classification") == "duplicate_leaf"
-                                or bool(h_info.get("item"))
-                            ):
+                        ambig_status = "RESOLVED"
+                        clarification_cands = []
+                    else:
+                        canonical_names, canonical_ids, ambig_status, clarification_cands = self._disambiguate_metric(
+                            query=clean_query,
+                            raw_mentions=stream_a.get("raw_metric_mentions", []),
+                            tenant_code=resolved_tenant,
+                        )
+                        if h_info and h_info.get("matched_name") and len(canonical_names) <= 1:
+                            m_name_h = h_info["matched_name"]
+                            m_code_h = h_info.get("matched_code")
+                            q_norm_c = " ".join(clean_query.lower().split())
+                            if h_info.get("classification") in ("parent", "parent_group"):
                                 canonical_names = [m_name_h]
-                                if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
-                                    canonical_ids = list(h_info.get("codes"))
-                                else:
-                                    canonical_ids = [m_code_h] if m_code_h else []
+                                canonical_ids = [m_code_h] if m_code_h else []
                                 ambig_status = "RESOLVED"
                                 clarification_cands = []
+                            elif h_info.get("classification") in ("duplicate_leaf", "single_leaf"):
+                                if (
+                                    not canonical_names
+                                    or " ".join(canonical_names[0].lower().split()) not in q_norm_c
+                                    or len(m_name_h) >= len(canonical_names[0])
+                                    or ambig_status == "AMBIGUOUS"
+                                    or h_info.get("classification") == "duplicate_leaf"
+                                    or bool(h_info.get("item"))
+                                ):
+                                    canonical_names = [m_name_h]
+                                    if h_info.get("classification") == "duplicate_leaf" and h_info.get("codes"):
+                                        canonical_ids = list(h_info.get("codes"))
+                                    else:
+                                        canonical_ids = [m_code_h] if m_code_h else []
+                                    ambig_status = "RESOLVED"
+                                    clarification_cands = []
 
+        # --------------------------------------------------------------------------
+        # Dynamic Group Metric Derivation via catalog_criteria_hierarchy
+        # Replaces hardcoded keyword heuristics with universal category expansion
+        # --------------------------------------------------------------------------
+        q_low_domain = clean_query.lower()
+        if (
+            len(canonical_names) <= 1
+            and len(stream_a.get("raw_metric_mentions", [])) <= 1
+            and any(k in q_low_domain for k in ("các chỉ số", "các chỉ tiêu", "tình hình", "nhóm chỉ tiêu", "tập chỉ tiêu", "toàn bộ chỉ tiêu"))
+            and not any(k in q_low_domain for k in ("htx", "hợp tác xã", "lhhtx", "tht", "tổ hợp tác", "trang trại"))
+            and hasattr(self, "catalog")
+            and getattr(self.catalog, "conn", None)
+        ):
+            try:
+                # Tìm node cha/gốc trong cây phân cấp khớp với ngữ cảnh câu hỏi
+                parent_match = self.catalog.conn.execute("""
+                    SELECT DISTINCT 
+                        COALESCE(parent_id, root_id, id) AS target_id,
+                        COALESCE(parent_name, root_name, name) AS target_name
+                    FROM catalog_criteria_hierarchy
+                    WHERE (level <= 2 OR is_leaf = FALSE)
+                      AND (
+                          (LENGTH(TRIM(name)) >= 4 AND INSTR(?, LOWER(TRIM(name))) > 0)
+                          OR (LENGTH(TRIM(COALESCE(parent_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(parent_name))) > 0)
+                          OR (LENGTH(TRIM(COALESCE(root_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(root_name))) > 0)
+                      )
+                    ORDER BY LENGTH(COALESCE(parent_name, root_name, name)) DESC
+                    LIMIT 1;
+                """, [q_low_domain, q_low_domain, q_low_domain]).fetchone()
+
+                if parent_match:
+                    p_target_id = parent_match[0]
+                    leaf_rows = self.catalog.conn.execute("""
+                        SELECT name, code 
+                        FROM catalog_criteria_hierarchy
+                        WHERE (parent_id = ? OR root_id = ? OR id = ?)
+                          AND is_leaf = TRUE
+                          AND LOWER(code) NOT IN ('th', 'so', 'test')
+                          AND LOWER(code) NOT LIKE 'test%'
+                        ORDER BY level ASC, id ASC;
+                    """, [p_target_id, p_target_id, p_target_id]).fetchall()
+
+                    if leaf_rows and len(leaf_rows) >= 2:
+                        expanded_names = [r[0] for r in leaf_rows]
+                        expanded_ids = [r[1] for r in leaf_rows]
+                        canonical_names = expanded_names
+                        canonical_ids = expanded_ids
+                        ambig_status = "RESOLVED"
+                        clarification_cands = []
+            except Exception as e_dyn_hier:
+                logger.debug("Lỗi mở rộng cây chỉ tiêu động: %s", e_dyn_hier)
+
+        # Deduplicate canonical metrics while preserving order
+        seen_keys = set()
+        distinct_names = []
+        distinct_ids = []
+        if canonical_names and canonical_ids and len(canonical_names) == len(canonical_ids):
+            for name, cid in zip(canonical_names, canonical_ids):
+                k = (str(cid).strip().lower() if cid else "") or (str(name).strip().lower() if name else "")
+                if k and k not in seen_keys:
+                    seen_keys.add(k)
+                    distinct_names.append(name)
+                    distinct_ids.append(cid)
+            canonical_names = distinct_names
+            canonical_ids = distinct_ids
+        elif canonical_names:
+            for name in canonical_names:
+                k = str(name).strip().lower()
+                if k and k not in seen_keys:
+                    seen_keys.add(k)
+                    distinct_names.append(name)
+            canonical_names = distinct_names
+            distinct_ids = canonical_ids
+        valid_ids = [cid for cid in canonical_ids if cid]
+        if len(set(canonical_names)) >= 2 or (not canonical_names and len(set(valid_ids)) >= 2):
+            is_multi_indicator = True
+        else:
+            is_multi_indicator = False
         return CanonicalQueryFrameDTO(
             user_query=clean_query,
             intent=stream_a["intent"],
@@ -1893,6 +2306,8 @@ class CanonicalSemanticNormalizer:
             status_filter=stream_a.get("status_filter"),
             audit_sub_intent=stream_a.get("audit_sub_intent"),
             include_draft_comparison=stream_a.get("include_draft_comparison", False),
+            is_multi_indicator=is_multi_indicator,
+            parent_rollup_target=stream_a.get("parent_rollup_target"),
         )
 
 
@@ -1903,6 +2318,7 @@ class CanonicalSemanticNormalizer:
         self,
         frame: CanonicalQueryFrameDTO,
         target_schema: Optional[str] = None,
+        user_context: Optional[Any] = None,
     ) -> str:
         """
         Biên dịch CanonicalQueryFrameDTO thành câu lệnh SQL PostgreSQL 16 tất định duy nhất 100%.
@@ -2034,7 +2450,7 @@ class CanonicalSemanticNormalizer:
                     f"    FROM dwh_internal.fact_report_criteria f\n"
                     f"    WHERE f.tenant_code = '{t_code}'\n"
                     f"      AND f.year_code = '{y_code}'\n"
-                    f"      AND f.report_status IN ('approved', 'draft')\n"
+                    f"      AND f.report_status = 'approved'\n"
                     f"    GROUP BY f.criteria_group_id\n"
                     f"),\n"
                     f"form_stats AS (\n"
@@ -2069,7 +2485,20 @@ class CanonicalSemanticNormalizer:
                 )
 
             # Default sub-intent: REPORT_SUBMISSION_STATUS (SC-5.1)
-            eff_statuses = [str(s).strip().lower() for s in (frame.status_filter or ["approved", "draft", "pending"]) if str(s).strip()]
+            u_ctx = user_context or getattr(frame, "user_context", None)
+            is_citizen = False
+            if u_ctx:
+                r_lvl = getattr(u_ctx, "role_level", None) if hasattr(u_ctx, "role_level") else (u_ctx.get("role_level") if isinstance(u_ctx, dict) else None)
+                r_name = getattr(u_ctx, "role", "") if hasattr(u_ctx, "role") else (u_ctx.get("role", "") if isinstance(u_ctx, dict) else "")
+                is_pub = getattr(u_ctx, "is_public", False) if hasattr(u_ctx, "is_public") else (u_ctx.get("is_public", False) if isinstance(u_ctx, dict) else False)
+                if is_pub or str(r_name).lower() in ("public", "citizen", "public_citizen", "guest", "khach", "congdan") or (r_lvl is not None and int(r_lvl) == 3):
+                    is_citizen = True
+
+            if frame.blocked_draft_access or is_citizen:
+                eff_statuses = ["approved"]
+            else:
+                eff_statuses = [str(s).strip().lower() for s in (frame.status_filter or ["approved"]) if str(s).strip()]
+
             if frame.blocked_draft_access or eff_statuses == ["approved"]:
                 f_status_clause = "AND f.report_status = 'approved'"
                 r_status_clause = "AND r.status = 'approved'"
@@ -2358,7 +2787,24 @@ class CanonicalSemanticNormalizer:
                 except Exception:
                     is_dup_name = False
 
-            if (is_dup_name and not is_multi_branch and cand_id_esc) or cand_id_esc in ("lang_nghe_truyen_thong", "san_xuat_muoi"):
+            if len(frame.canonical_metric_names) > 1 or len(frame.canonical_metric_ids) > 1:
+                if frame.canonical_metric_ids:
+                    escaped_ids = [cid.replace("'", "''") for cid in frame.canonical_metric_ids if cid]
+                    if escaped_ids:
+                        id_list = ", ".join(f"'{cid}'" for cid in escaped_ids)
+                        cand_cond = f"f.code IN ({id_list})"
+                    else:
+                        cand_cond = "1=1"
+                elif frame.canonical_metric_names:
+                    escaped_names = [cname.replace("'", "''") for cname in frame.canonical_metric_names if cname]
+                    if escaped_names:
+                        name_list = ", ".join(f"'{cname}'" for cname in escaped_names)
+                        cand_cond = f"TRIM(f.name) IN ({name_list})"
+                    else:
+                        cand_cond = "1=1"
+                else:
+                    cand_cond = "1=1"
+            elif (is_dup_name and not is_multi_branch and cand_id_esc) or cand_id_esc in ("lang_nghe_truyen_thong", "san_xuat_muoi"):
                 cand_cond = f"f.code = '{cand_id_esc}'"
             elif metric_name and cand_id_esc and not is_dup_name:
                 cand_cond = f"(TRIM(f.name) ILIKE '{metric_escaped}' OR f.code = '{cand_id_esc}')"
@@ -2384,6 +2830,8 @@ class CanonicalSemanticNormalizer:
                     where_lines.append(f"      AND f.report_date::date <= '{frame.date_to}'")
             elif frame.month_filter is not None:
                 where_lines.append(f"      AND EXTRACT(MONTH FROM f.report_date) = {frame.month_filter}")
+            elif frame.specific_date is not None:
+                where_lines.append(f"      AND f.report_date::date <= '{frame.specific_date}'::date")
             where_lines.append(f"      AND {cand_cond}")
             where_block = "\n".join(where_lines)
 
@@ -2398,8 +2846,360 @@ class CanonicalSemanticNormalizer:
             mpi_office_join = "" if is_public else "LEFT JOIN dwh_internal.office AS o ON lf.office_id = o.id\n"
             mpi_nhom_chi_tieu = "COALESCE(p.mission_name, 'Chỉ tiêu công khai') AS nhom_chi_tieu" if is_public else "p.name AS nhom_chi_tieu"
 
-            if frame.specific_date:
-                spec_d = frame.specific_date.replace("'", "''")
+            raw_t = str(getattr(frame, "tenant_code", None) or "68")
+            raw_y = str(getattr(frame, "year_code", None) or "2026")
+            t_code = re.sub(r"[^a-zA-Z0-9_\-]", "", raw_t).replace("'", "''") or "68"
+            y_code = re.sub(r"[^a-zA-Z0-9_\-]", "", raw_y).replace("'", "''") or "2026"
+
+            is_multi = bool(
+                getattr(frame, "is_multi_indicator", False)
+                or len(set(getattr(frame, "canonical_metric_names", []) or [])) > 1
+            )
+            p_target = getattr(frame, "parent_rollup_target", None)
+
+            is_multi_parent = False
+            if is_multi and frame.canonical_metric_names and len(frame.canonical_metric_names) >= 2 and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+                try:
+                    c_rows = self.catalog.conn.execute("""
+                        SELECT DISTINCT COALESCE(parent_id, id)
+                        FROM catalog_criteria_hierarchy
+                        WHERE name IN (SELECT * FROM UNNEST(?))
+                    """, [frame.canonical_metric_names]).fetchall()
+                    if c_rows and len(c_rows) > 1:
+                        is_multi_parent = True
+                except Exception:
+                    is_multi_parent = False
+
+            has_multi_period = bool(getattr(frame, "time_series_periods", None) and len(getattr(frame, "time_series_periods", []) or []) >= 2)
+            if p_target and not frame.target_office and not is_multi_parent and not has_multi_period:
+                # -------------------------------------------------------------
+                # Parent Roll-Up Anti-Double-Counting Compiler
+                # -------------------------------------------------------------
+                p_target_esc = str(p_target).replace("'", "''")
+                date_filter_clause = ""
+                if frame.specific_date:
+                    spec_d = str(frame.specific_date).replace("'", "''")
+                    date_filter_clause = f"AND CAST(f.report_date AS DATE) <= CAST('{spec_d}' AS DATE)"
+                elif getattr(frame, "date_to", None):
+                    end_d = str(frame.date_to).replace("'", "''")
+                    date_filter_clause = f"AND CAST(f.report_date AS DATE) <= CAST('{end_d}' AS DATE)"
+
+                if is_public:
+                    target_hierarchy_cte = (
+                        f"WITH target_hierarchy AS (\n"
+                        f"    SELECT c.id, f.code, c.mission_name AS name\n"
+                        f"    FROM dwh_public.criteria c\n"
+                        f"    LEFT JOIN (SELECT DISTINCT criteria_id, code FROM dwh_public.fact_report_criteria) f ON c.id = f.criteria_id\n"
+                        f"    WHERE f.code = '{p_target_esc}' OR c.id::text = '{p_target_esc}'\n"
+                        f"       OR c.parent_id IN (\n"
+                        f"           SELECT c2.id FROM dwh_public.criteria c2\n"
+                        f"           LEFT JOIN (SELECT DISTINCT criteria_id, code FROM dwh_public.fact_report_criteria) f2 ON c2.id = f2.criteria_id\n"
+                        f"           WHERE f2.code = '{p_target_esc}' OR c2.id::text = '{p_target_esc}'\n"
+                        f"       )\n"
+                        f"),\n"
+                    )
+                    base_facts_cte = (
+                        f"base_facts AS (\n"
+                        f"    SELECT \n"
+                        f"        f.criteria_id,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.code,\n"
+                        f"        CAST(SUM(CASE WHEN TRIM(CAST(f.value AS TEXT)) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(CAST(f.value AS TEXT))::numeric ELSE NULL END) AS TEXT) AS gia_tri_moi_nhat,\n"
+                        f"        MAX(f.mission_name) AS ten_nhiem_vu,\n"
+                        f"        'Dữ liệu công khai' AS ten_van_phong,\n"
+                        f"        MAX(f.report_date) AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM dwh_public.fact_report_criteria AS f\n"
+                        f"    JOIN latest_date ld ON CAST(f.report_date AS DATE) = ld.max_d\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                        f"    GROUP BY f.criteria_id, f.parent_criteria_id, f.name, f.code, CAST(f.report_date AS DATE)\n"
+                        f")\n"
+                    )
+                    nhom_chi_tieu_expr = "COALESCE(p.mission_name, bf.ten_chi_tieu) AS nhom_chi_tieu"
+                else:
+                    target_hierarchy_cte = (
+                        f"WITH target_hierarchy AS (\n"
+                        f"    SELECT id, code, name FROM dwh_internal.criteria\n"
+                        f"    WHERE code = '{p_target_esc}' OR parent_id IN (SELECT id FROM dwh_internal.criteria WHERE code = '{p_target_esc}')\n"
+                        f"),\n"
+                    )
+                    base_facts_cte = (
+                        f"base_facts AS (\n"
+                        f"    SELECT \n"
+                        f"        f.criteria_id,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.code,\n"
+                        f"        CAST(SUM(CASE WHEN TRIM(CAST(f.value AS TEXT)) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(CAST(f.value AS TEXT))::numeric ELSE NULL END) AS TEXT) AS gia_tri_moi_nhat,\n"
+                        f"        MAX(f.mission_name) AS ten_nhiem_vu,\n"
+                        f"        'Toàn tỉnh' AS ten_van_phong,\n"
+                        f"        MAX(f.report_date) AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM dwh_internal.fact_report_criteria AS f\n"
+                        f"    JOIN latest_date ld ON CAST(f.report_date AS DATE) = ld.max_d\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.office_id IS NULL\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                        f"    GROUP BY f.criteria_id, f.parent_criteria_id, f.name, f.code, CAST(f.report_date AS DATE)\n"
+                        f"\n"
+                        f"    UNION ALL\n"
+                        f"\n"
+                        f"    SELECT \n"
+                        f"        f.criteria_id,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.code,\n"
+                        f"        f.value AS gia_tri_moi_nhat,\n"
+                        f"        f.mission_name AS ten_nhiem_vu,\n"
+                        f"        COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
+                        f"        f.report_date AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM dwh_internal.fact_report_criteria AS f\n"
+                        f"    JOIN latest_date ld ON CAST(f.report_date AS DATE) = ld.max_d\n"
+                        f"    LEFT JOIN dwh_internal.office o ON f.office_id = o.id\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.office_id IS NOT NULL\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                        f"      AND NOT EXISTS (\n"
+                        f"          SELECT 1 FROM dwh_internal.fact_report_criteria w\n"
+                        f"          WHERE w.criteria_id = f.criteria_id\n"
+                        f"            AND w.report_date::date = f.report_date::date\n"
+                        f"            AND w.office_id IS NULL\n"
+                        f"            AND w.tenant_code = '{t_code}'\n"
+                        f"            AND w.report_status = 'approved'\n"
+                        f"      )\n"
+                        f")\n"
+                    )
+                    nhom_chi_tieu_expr = "COALESCE(p.name, bf.ten_chi_tieu) AS nhom_chi_tieu"
+
+                return (
+                    f"{target_hierarchy_cte}"
+                    f"latest_date AS (\n"
+                    f"    SELECT MAX(CAST(report_date AS DATE)) AS max_d\n"
+                    f"    FROM {fact_tbl} f\n"
+                    f"    WHERE f.tenant_code = '{t_code}'\n"
+                    f"      AND f.year_code = '{y_code}'\n"
+                    f"      AND f.report_status = 'approved'\n"
+                    f"      AND TRIM(CAST(f.value AS TEXT)) NOT IN ('', '-')\n"
+                    f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                    f"      {date_filter_clause}\n"
+                    f"),\n"
+                    f"{base_facts_cte}"
+                    f"SELECT \n"
+                    f"    bf.criteria_id,\n"
+                    f"    bf.parent_criteria_id,\n"
+                    f"    bf.code,\n"
+                    f"    bf.ten_chi_tieu,\n"
+                    f"    bf.gia_tri_moi_nhat,\n"
+                    f"    bf.ten_nhiem_vu,\n"
+                    f"    bf.ten_van_phong,\n"
+                    f"    bf.ngay_bao_cao_moi_nhat,\n"
+                    f"    0 AS do_lech_ngay,\n"
+                    f"    bf.ngay_bao_cao_moi_nhat AS can_duoi_ngay,\n"
+                    f"    bf.ngay_bao_cao_moi_nhat AS can_tren_ngay,\n"
+                    f"    {nhom_chi_tieu_expr}\n"
+                    f"FROM base_facts bf\n"
+                    f"LEFT JOIN {crit_tbl} p ON bf.parent_criteria_id = p.id\n"
+                    f"ORDER BY bf.ten_chi_tieu;"
+                )
+
+            if is_multi:
+                # -------------------------------------------------------------
+                # Conformed Multi-Metric Snapshot Compiler
+                # -------------------------------------------------------------
+                sub_conds = []
+                if frame.canonical_metric_ids:
+                    escaped_ids = [cid.replace("'", "''") for cid in frame.canonical_metric_ids if cid]
+                    if escaped_ids:
+                        id_list = ", ".join(f"'{cid}'" for cid in escaped_ids)
+                        if is_public:
+                            sub_conds.append(f"(f.code IN ({id_list}) OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE id::text IN ({id_list})))")
+                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE id::text IN ({id_list}) AND parent_id IS NOT NULL)")
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE id::text IN ({id_list})))")
+                        else:
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE code IN ({id_list}) OR id::text IN ({id_list}))")
+                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE (code IN ({id_list}) OR id::text IN ({id_list})) AND parent_id IS NOT NULL)")
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE code IN ({id_list}) OR id::text IN ({id_list})))")
+                if frame.canonical_metric_names:
+                    escaped_names = [cname.replace("'", "''") for cname in frame.canonical_metric_names if cname]
+                    if escaped_names:
+                        name_list = ", ".join(f"'{cname}'" for cname in escaped_names)
+                        if is_public:
+                            sub_conds.append(f"(TRIM(f.name) IN ({name_list}) OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list})))")
+                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list}) AND parent_id IS NOT NULL)")
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list})))")
+                        else:
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list}))")
+                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list}) AND parent_id IS NOT NULL)")
+                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list})))")
+                if p_target:
+                    p_target_esc = str(p_target).replace("'", "''")
+                    if is_public:
+                        sub_conds.append(f"(f.code = '{p_target_esc}' OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE id::text = '{p_target_esc}' OR parent_id IN (SELECT id FROM {crit_tbl} WHERE id::text = '{p_target_esc}')))")
+                    else:
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE code = '{p_target_esc}' OR parent_id IN (SELECT id FROM {crit_tbl} WHERE code = '{p_target_esc}'))")
+                cand_cond_multi = f"({' OR '.join(sub_conds)})" if sub_conds else "1=1"
+
+                partition_by_multi = "bf.criteria_id"
+                has_val_prio = "CASE WHEN TRIM(CAST(bf.gia_tri_moi_nhat AS TEXT)) NOT IN ('', '-') THEN 0 ELSE 1 END ASC"
+                if getattr(frame, "time_series_periods", None) and len(getattr(frame, "time_series_periods", []) or []) >= 2:
+                    periods_list = [str(p)[:10].replace("'", "''") for p in frame.time_series_periods if p]
+                    p_sql_in = ", ".join(f"'{p}'" for p in periods_list)
+                    temp_cond = f"AND CAST(f.report_date AS DATE) IN ({p_sql_in})"
+                    partition_by_multi = "bf.criteria_id, CAST(bf.ngay_bao_cao_moi_nhat AS DATE)"
+                    rn_order_multi = f"bf.ngay_bao_cao_moi_nhat DESC NULLS LAST, {has_val_prio}, bf.gia_tri_moi_nhat DESC"
+                    do_lech_expr = "0"
+                    outer_order_multi = "ORDER BY lf.ngay_bao_cao_moi_nhat ASC, lf.ten_chi_tieu"
+                elif frame.specific_date:
+                    spec_d = frame.specific_date.replace("'", "''")
+                    temp_cond = f"AND f.report_date::date <= '{spec_d}'::date"
+                    rn_order_multi = f"ABS(bf.ngay_bao_cao_moi_nhat::date - '{spec_d}'::date) ASC, bf.ngay_bao_cao_moi_nhat DESC NULLS LAST, {has_val_prio}, bf.gia_tri_moi_nhat DESC"
+                    do_lech_expr = f"ABS(bf.ngay_bao_cao_moi_nhat::date - '{spec_d}'::date)"
+                    outer_order_multi = f"ORDER BY ABS(lf.ngay_bao_cao_moi_nhat::date - '{spec_d}'::date) ASC, lf.ngay_bao_cao_moi_nhat DESC NULLS LAST, lf.ten_chi_tieu"
+                elif frame.date_to:
+                    end_d = frame.date_to.replace("'", "''")
+                    temp_cond = f"AND f.report_date::date <= '{end_d}'::date"
+                    rn_order_multi = f"bf.ngay_bao_cao_moi_nhat DESC NULLS LAST, {has_val_prio}, bf.gia_tri_moi_nhat DESC"
+                    do_lech_expr = "0"
+                    outer_order_multi = "ORDER BY lf.ngay_bao_cao_moi_nhat DESC NULLS LAST, lf.ten_chi_tieu"
+                elif getattr(frame, "time_series_periods", None):
+                    end_d = str(frame.time_series_periods[-1])[:10].replace("'", "''")
+                    temp_cond = f"AND f.report_date::date <= '{end_d}'::date"
+                    rn_order_multi = f"bf.ngay_bao_cao_moi_nhat DESC NULLS LAST, {has_val_prio}, bf.gia_tri_moi_nhat DESC"
+                    do_lech_expr = "0"
+                    outer_order_multi = "ORDER BY lf.ngay_bao_cao_moi_nhat DESC NULLS LAST, lf.ten_chi_tieu"
+                else:
+                    temp_cond = ""
+                    rn_order_multi = f"bf.ngay_bao_cao_moi_nhat DESC NULLS LAST, {has_val_prio}, bf.gia_tri_moi_nhat DESC"
+                    do_lech_expr = "0"
+                    outer_order_multi = "ORDER BY lf.ngay_bao_cao_moi_nhat DESC NULLS LAST, lf.ten_chi_tieu"
+
+                join_office_f = "" if is_public else "    LEFT JOIN dwh_internal.office o ON f.office_id = o.id\n"
+                van_phong_col = "        'Dữ liệu công khai' AS ten_van_phong,\n" if is_public else "        COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
+                multi_parent_name = "p.mission_name AS parent_name" if is_public else "p.name AS parent_name"
+                multi_parent_code = "lf.code AS parent_code" if is_public else "p.code AS parent_code"
+                multi_nhom = "COALESCE(p.mission_name, lf.ten_chi_tieu) AS nhom_chi_tieu" if is_public else "COALESCE(p.name, lf.ten_chi_tieu) AS nhom_chi_tieu"
+
+                if is_public:
+                    base_facts_multi = (
+                        f"WITH base_facts AS (\n"
+                        f"    SELECT\n"
+                        f"        f.criteria_id,\n"
+                        f"        f.code,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        f.value::text AS gia_tri_moi_nhat,\n"
+                        f"        f.mission_name AS ten_nhiem_vu,\n"
+                        f"        'Dữ liệu công khai' AS ten_van_phong,\n"
+                        f"        f.report_date AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM {fact_tbl} f\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND ({cand_cond_multi})\n"
+                        f"      {temp_cond}\n"
+                        f"),\n"
+                    )
+                else:
+                    base_facts_multi = (
+                        f"WITH base_facts AS (\n"
+                        f"    SELECT\n"
+                        f"        f.criteria_id,\n"
+                        f"        f.code,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        CAST(SUM(CASE WHEN TRIM(CAST(f.value AS TEXT)) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(CAST(f.value AS TEXT))::numeric ELSE NULL END) AS TEXT) AS gia_tri_moi_nhat,\n"
+                        f"        MAX(f.mission_name) AS ten_nhiem_vu,\n"
+                        f"        'Toàn tỉnh' AS ten_van_phong,\n"
+                        f"        MAX(f.report_date) AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM {fact_tbl} f\n"
+                        f"    WHERE f.office_id IS NULL\n"
+                        f"      AND f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND ({cand_cond_multi})\n"
+                        f"      {temp_cond}\n"
+                        f"    GROUP BY f.criteria_id, f.code, f.name, f.parent_criteria_id, CAST(f.report_date AS DATE)\n"
+                        f"\n"
+                        f"    UNION ALL\n"
+                        f"\n"
+                        f"    SELECT\n"
+                        f"        f.criteria_id,\n"
+                        f"        f.code,\n"
+                        f"        f.name AS ten_chi_tieu,\n"
+                        f"        f.parent_criteria_id,\n"
+                        f"        f.value AS gia_tri_moi_nhat,\n"
+                        f"        f.mission_name AS ten_nhiem_vu,\n"
+                        f"{van_phong_col}"
+                        f"        f.report_date AS ngay_bao_cao_moi_nhat\n"
+                        f"    FROM {fact_tbl} f\n"
+                        f"{join_office_f}"
+                        f"    WHERE f.office_id IS NOT NULL\n"
+                        f"      AND f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND ({cand_cond_multi})\n"
+                        f"      {temp_cond}\n"
+                        f"      AND NOT EXISTS (\n"
+                        f"          SELECT 1 FROM {fact_tbl} w\n"
+                        f"          WHERE w.criteria_id = f.criteria_id\n"
+                        f"            AND w.report_date::date = f.report_date::date\n"
+                        f"            AND w.office_id IS NULL\n"
+                        f"            AND w.tenant_code = '{t_code}'\n"
+                        f"            AND w.report_status = 'approved'\n"
+                        f"      )\n"
+                        f"),\n"
+                    )
+
+                return (
+                    f"{base_facts_multi}"
+                    f"ranked_facts AS (\n"
+                    f"    SELECT\n"
+                    f"        bf.criteria_id,\n"
+                    f"        bf.code,\n"
+                    f"        bf.parent_criteria_id,\n"
+                    f"        bf.ten_chi_tieu,\n"
+                    f"        bf.gia_tri_moi_nhat,\n"
+                    f"        bf.ten_nhiem_vu,\n"
+                    f"        bf.ten_van_phong,\n"
+                    f"        bf.ngay_bao_cao_moi_nhat,\n"
+                    f"        {do_lech_expr} AS do_lech_ngay,\n"
+                    f"        bf.ngay_bao_cao_moi_nhat AS can_duoi_ngay,\n"
+                    f"        bf.ngay_bao_cao_moi_nhat AS can_tren_ngay,\n"
+                    f"        ROW_NUMBER() OVER (\n"
+                    f"            PARTITION BY {partition_by_multi}\n"
+                    f"            ORDER BY {rn_order_multi}\n"
+                    f"        ) AS rn\n"
+                    f"    FROM base_facts bf\n"
+                    f")\n"
+                    f"SELECT\n"
+                    f"    lf.criteria_id,\n"
+                    f"    lf.code,\n"
+                    f"    lf.parent_criteria_id,\n"
+                    f"    {multi_parent_name},\n"
+                    f"    {multi_parent_code},\n"
+                    f"    lf.ten_chi_tieu,\n"
+                    f"    lf.gia_tri_moi_nhat,\n"
+                    f"    lf.ten_nhiem_vu,\n"
+                    f"    lf.ten_van_phong,\n"
+                    f"    lf.ngay_bao_cao_moi_nhat,\n"
+                    f"    lf.do_lech_ngay,\n"
+                    f"    lf.can_duoi_ngay,\n"
+                    f"    lf.can_tren_ngay,\n"
+                    f"    {multi_nhom}\n"
+                    f"FROM ranked_facts lf\n"
+                    f"LEFT JOIN {crit_tbl} p ON lf.parent_criteria_id = p.id\n"
+                    f"WHERE lf.rn = 1\n"
+                    f"{outer_order_multi};"
+                )
+
+            if frame.specific_date is not None:
+                spec_d = str(frame.specific_date).replace("'", "''")
                 rn_order = (
                     f"ORDER BY ABS(f.report_date::date - '{spec_d}'::date) ASC, "
                     f"f.report_date DESC NULLS LAST, f.version DESC NULLS LAST"
@@ -2709,7 +3509,7 @@ class CanonicalSemanticNormalizer:
                 f"WHERE r.tenant_code = '{frame.tenant_code}' AND r.year_code = '{frame.year_code}'{limit_clause}"
             )
 
-        # 7. PARENT_CHILDREN_BREAKDOWN
+        # 7. PARENT_CHILDREN_BREAKDOWN (F8: Strict Date Filter Propagation)
         if frame.intent == CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN:
             t_code = (frame.tenant_code or "68").replace("'", "''")
             y_code = (frame.year_code or "2026").replace("'", "''")
@@ -2718,11 +3518,24 @@ class CanonicalSemanticNormalizer:
                 names_esc = "', '".join(n.replace("'", "''") for n in frame.canonical_metric_names)
                 pc_crit_col = "mission_name" if is_public else "name"
                 crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM {crit_tbl} WHERE {pc_crit_col} IN ('{names_esc}')))\n"
+
+            temporal_filter = ""
+            if frame.specific_date:
+                spec_d = frame.specific_date.replace("'", "''")
+                temporal_filter = f"  AND f.report_date::date <= '{spec_d}'::date\n"
+            elif frame.date_from:
+                temporal_filter = f"  AND f.report_date::date >= '{frame.date_from}'::date\n"
+                if frame.date_to:
+                    temporal_filter += f"  AND f.report_date::date <= '{frame.date_to}'::date\n"
+            elif frame.month_filter is not None:
+                temporal_filter = f"  AND EXTRACT(MONTH FROM f.report_date) = {frame.month_filter}\n"
+
             return (
                 f"SELECT DISTINCT ON (f.name) f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat, f.report_date AS thoi_diem_bao_cao\n"
                 f"FROM {fact_tbl} f\n"
                 f"WHERE f.tenant_code = '{t_code}' AND f.year_code = '{y_code}' AND f.report_status = 'approved'\n"
                 f"{crit_filter}"
+                f"{temporal_filter}"
                 f"ORDER BY f.name, f.report_date DESC NULLS LAST{limit_clause}"
             )
 

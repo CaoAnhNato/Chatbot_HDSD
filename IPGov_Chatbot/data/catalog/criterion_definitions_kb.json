@@ -23,7 +23,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -91,7 +90,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -116,6 +114,7 @@
     ],
     "definition": "Nhóm đối tượng thống kê chính, phản ánh tổng diện tích đất được đưa vào sử dụng cho hoạt động sản xuất muối trên địa bàn quản lý (đơn vị: ha).",
     "natural_synonyms": [
+      "diện tích sản xuất muối",
       "tổng diện tích sản xuất muối",
       "diện tích làm muối",
       "diện tích đất sản xuất muối",
@@ -159,7 +158,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -233,7 +231,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -298,7 +295,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -369,7 +365,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -443,7 +438,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -517,7 +511,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -589,7 +582,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -657,7 +649,6 @@
       "Làng nghề",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -718,7 +709,6 @@
       "Làng nghề",
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -779,7 +769,6 @@
       "Làng nghề",
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -816,17 +805,17 @@
       "updated_at": "2026-10-26T17:30:00Z"
     }
   },
-  "fe0e4366-2ccb-444a-9bd2-20d45e515bbd": {
-    "id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "code": "th",
-    "name": "TH",
+  "0fb21169-97b0-4794-9128-434d8a77391b": {
+    "id": "0fb21169-97b0-4794-9128-434d8a77391b",
+    "code": "so_luong_san_pham_dac_trung",
+    "name": "Số lượng sản phẩm đặc trưng",
     "level": 1,
-    "is_leaf": false,
-    "scope_name": "An sinh xã hội",
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
     "parent_id": null,
     "parent_name": null,
-    "root_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "root_name": "TH",
+    "root_id": "0fb21169-97b0-4794-9128-434d8a77391b",
+    "root_name": "Số lượng sản phẩm đặc trưng",
     "canonical_order": 13,
     "siblings": [
       "Tổng sản lượng muối edit 1",
@@ -841,72 +830,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "Số lượng sản phẩm đặc trưng",
-      "Số lượng gia cầm",
-      "Số lượng gia súc",
-      "Sản lượng sản xuất sản phẩm công nghiệp",
-      "Số lượng tiêu thụ sản phẩm công nghiệp",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng mặt trời",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng gió",
-      "Test cập nhật tiêu chí",
-      "test",
-      "Số",
-      "Trả lời ngắn",
-      "Trả lời đoạn",
-      "Danh sách lựa chọn",
-      "Danh sách nhập liệu",
-      "Ngày tháng",
-      "Đúng sai",
-      "Số người được đào tạo từ nguồn kinh phí khuyến công"
-    ],
-    "children_ids": [
-      "34104ab8-8429-4dad-9914-9ecde18f3321",
-      "d6e9b2ea-80bd-40d5-9c71-eaf56abac91a",
-      "a1ec32fc-aabf-4762-9b62-908be3057eb7"
-    ],
-    "definition": "Chỉ tiêu quản lý dữ liệu an sinh xã hội tổng hợp từ các đơn vị cấp cơ sở (TH).",
-    "natural_synonyms": [
-      "th",
-      "chỉ tiêu an sinh th",
-      "dữ liệu an sinh th"
-    ],
-    "scope_description": "Phục vụ tổng hợp dữ liệu thuộc lĩnh vực an sinh xã hội.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-10-14"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "0fb21169-97b0-4794-9128-434d8a77391b": {
-    "id": "0fb21169-97b0-4794-9128-434d8a77391b",
-    "code": "so_luong_san_pham_dac_trung",
-    "name": "Số lượng sản phẩm đặc trưng",
-    "level": 1,
-    "is_leaf": true,
-    "scope_name": "Nông nghiệp",
-    "parent_id": null,
-    "parent_name": null,
-    "root_id": "0fb21169-97b0-4794-9128-434d8a77391b",
-    "root_name": "Số lượng sản phẩm đặc trưng",
-    "canonical_order": 14,
-    "siblings": [
-      "Tổng sản lượng muối edit 1",
-      "Tổng diện tích sản xuất muối",
-      "HTX nông nghiệp",
-      "Tổng hộ sản xuất muối",
-      "Liên hiệp HTX nông nghiệp",
-      "Tổ hợp tác nông nghiệp",
-      "Trang trại",
-      "Chương trình OCOP",
-      "Làng nghề",
-      "ĐL số/Tổng hợp cấp dưới (AVG)",
-      "ĐL số/Tổng hợp cấp dưới (SUM)",
-      "ĐL lựa chọn",
-      "TH",
       "Số lượng gia cầm",
       "Số lượng gia súc",
       "Sản lượng sản xuất sản phẩm công nghiệp",
@@ -951,7 +874,7 @@
     "parent_name": null,
     "root_id": "74d53236-a975-4868-bbb5-2bf1c04c3766",
     "root_name": "Số lượng gia cầm",
-    "canonical_order": 15,
+    "canonical_order": 14,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -965,7 +888,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia súc",
       "Sản lượng sản xuất sản phẩm công nghiệp",
@@ -1017,7 +939,7 @@
     "parent_name": null,
     "root_id": "bfb0847f-5d63-4b3b-8de9-ee530ce7c7b3",
     "root_name": "Số lượng gia súc",
-    "canonical_order": 16,
+    "canonical_order": 15,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1031,7 +953,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Sản lượng sản xuất sản phẩm công nghiệp",
@@ -1082,7 +1003,7 @@
     "parent_name": null,
     "root_id": "09736dfb-3415-48cd-92e9-3e201e770775",
     "root_name": "Sản lượng sản xuất sản phẩm công nghiệp",
-    "canonical_order": 17,
+    "canonical_order": 16,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1096,7 +1017,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1146,7 +1066,7 @@
     "parent_name": null,
     "root_id": "bb0a08eb-0d83-4b27-bc02-4a70620db4d2",
     "root_name": "Số lượng tiêu thụ sản phẩm công nghiệp",
-    "canonical_order": 18,
+    "canonical_order": 17,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1160,7 +1080,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1210,7 +1129,7 @@
     "parent_name": null,
     "root_id": "b3c93359-aa9a-4368-852b-dee95efbc344",
     "root_name": "Công suất lắp đặt và sản lượng điện từ năng lượng mặt trời",
-    "canonical_order": 19,
+    "canonical_order": 18,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1224,7 +1143,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1270,7 +1188,7 @@
     "parent_name": null,
     "root_id": "a283c67d-ff58-4ff4-8215-7b83eb6761ed",
     "root_name": "Công suất lắp đặt và sản lượng điện từ năng lượng gió",
-    "canonical_order": 20,
+    "canonical_order": 19,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1284,7 +1202,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1330,7 +1247,7 @@
     "parent_name": null,
     "root_id": "6a75eba3-0af9-4c73-96cd-7e2ee740c911",
     "root_name": "Test cập nhật tiêu chí",
-    "canonical_order": 21,
+    "canonical_order": 20,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1344,7 +1261,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1378,126 +1294,6 @@
       "updated_at": "2026-10-26T17:30:00Z"
     }
   },
-  "707c201a-b124-44c7-8376-459db324d8df": {
-    "id": "707c201a-b124-44c7-8376-459db324d8df",
-    "code": "test",
-    "name": "test",
-    "level": 1,
-    "is_leaf": false,
-    "scope_name": "Nông nghiệp",
-    "parent_id": null,
-    "parent_name": null,
-    "root_id": "707c201a-b124-44c7-8376-459db324d8df",
-    "root_name": "test",
-    "canonical_order": 22,
-    "siblings": [
-      "Tổng sản lượng muối edit 1",
-      "Tổng diện tích sản xuất muối",
-      "HTX nông nghiệp",
-      "Tổng hộ sản xuất muối",
-      "Liên hiệp HTX nông nghiệp",
-      "Tổ hợp tác nông nghiệp",
-      "Trang trại",
-      "Chương trình OCOP",
-      "Làng nghề",
-      "ĐL số/Tổng hợp cấp dưới (AVG)",
-      "ĐL số/Tổng hợp cấp dưới (SUM)",
-      "ĐL lựa chọn",
-      "TH",
-      "Số lượng sản phẩm đặc trưng",
-      "Số lượng gia cầm",
-      "Số lượng gia súc",
-      "Sản lượng sản xuất sản phẩm công nghiệp",
-      "Số lượng tiêu thụ sản phẩm công nghiệp",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng mặt trời",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng gió",
-      "Test cập nhật tiêu chí",
-      "Số",
-      "Trả lời ngắn",
-      "Trả lời đoạn",
-      "Danh sách lựa chọn",
-      "Danh sách nhập liệu",
-      "Ngày tháng",
-      "Đúng sai",
-      "Số người được đào tạo từ nguồn kinh phí khuyến công"
-    ],
-    "children_ids": [
-      "00367853-ba8d-4102-af9e-aa57b96d9880"
-    ],
-    "definition": "Chỉ tiêu phục vụ cấu hình biểu mẫu thu thập dữ liệu và kiểm thử hệ thống (test).",
-    "natural_synonyms": [
-      "test",
-      "chỉ tiêu test",
-      "tiêu chí test"
-    ],
-    "scope_description": "Sử dụng cho mục đích cấu hình quản trị biểu mẫu nhập liệu hoặc kiểm thử quy trình.",
-    "has_approved_facts": false,
-    "available_report_dates": [],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "fb2d8b68-7481-4dcf-918a-60e44f170d70": {
-    "id": "fb2d8b68-7481-4dcf-918a-60e44f170d70",
-    "code": "so",
-    "name": "Số",
-    "level": 1,
-    "is_leaf": true,
-    "scope_name": "Nông nghiệp",
-    "parent_id": null,
-    "parent_name": null,
-    "root_id": "fb2d8b68-7481-4dcf-918a-60e44f170d70",
-    "root_name": "Số",
-    "canonical_order": 23,
-    "siblings": [
-      "Tổng sản lượng muối edit 1",
-      "Tổng diện tích sản xuất muối",
-      "HTX nông nghiệp",
-      "Tổng hộ sản xuất muối",
-      "Liên hiệp HTX nông nghiệp",
-      "Tổ hợp tác nông nghiệp",
-      "Trang trại",
-      "Chương trình OCOP",
-      "Làng nghề",
-      "ĐL số/Tổng hợp cấp dưới (AVG)",
-      "ĐL số/Tổng hợp cấp dưới (SUM)",
-      "ĐL lựa chọn",
-      "TH",
-      "Số lượng sản phẩm đặc trưng",
-      "Số lượng gia cầm",
-      "Số lượng gia súc",
-      "Sản lượng sản xuất sản phẩm công nghiệp",
-      "Số lượng tiêu thụ sản phẩm công nghiệp",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng mặt trời",
-      "Công suất lắp đặt và sản lượng điện từ năng lượng gió",
-      "Test cập nhật tiêu chí",
-      "test",
-      "Trả lời ngắn",
-      "Trả lời đoạn",
-      "Danh sách lựa chọn",
-      "Danh sách nhập liệu",
-      "Ngày tháng",
-      "Đúng sai",
-      "Số người được đào tạo từ nguồn kinh phí khuyến công"
-    ],
-    "children_ids": [],
-    "definition": "Chỉ tiêu phục vụ cấu hình biểu mẫu thu thập dữ liệu và kiểm thử hệ thống (Số).",
-    "natural_synonyms": [
-      "số",
-      "chỉ tiêu số",
-      "tiêu chí so"
-    ],
-    "scope_description": "Sử dụng cho mục đích cấu hình quản trị biểu mẫu nhập liệu hoặc kiểm thử quy trình.",
-    "has_approved_facts": false,
-    "available_report_dates": [],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
   "aac815e5-eea3-4a6d-b6e1-227825b3ebf4": {
     "id": "aac815e5-eea3-4a6d-b6e1-227825b3ebf4",
     "code": "tra_loi_ngan",
@@ -1509,7 +1305,7 @@
     "parent_name": null,
     "root_id": "aac815e5-eea3-4a6d-b6e1-227825b3ebf4",
     "root_name": "Trả lời ngắn",
-    "canonical_order": 24,
+    "canonical_order": 21,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1523,7 +1319,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1568,7 +1363,7 @@
     "parent_name": null,
     "root_id": "52431edf-eb74-4b23-b767-76260deef807",
     "root_name": "Trả lời đoạn",
-    "canonical_order": 25,
+    "canonical_order": 22,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1582,7 +1377,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1627,7 +1421,7 @@
     "parent_name": null,
     "root_id": "54673ddc-4577-4c99-91ef-28029599f9c8",
     "root_name": "Danh sách lựa chọn",
-    "canonical_order": 26,
+    "canonical_order": 23,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1641,7 +1435,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1686,7 +1479,7 @@
     "parent_name": null,
     "root_id": "efc6b56e-6e13-44a6-824f-3dd1bfcd7cc9",
     "root_name": "Danh sách nhập liệu",
-    "canonical_order": 27,
+    "canonical_order": 24,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1700,7 +1493,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1745,7 +1537,7 @@
     "parent_name": null,
     "root_id": "a18ada30-c964-420f-b665-11451f51c3b1",
     "root_name": "Ngày tháng",
-    "canonical_order": 28,
+    "canonical_order": 25,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1759,7 +1551,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1804,7 +1595,7 @@
     "parent_name": null,
     "root_id": "112e14c4-eb5b-4696-aff9-f09717090473",
     "root_name": "Đúng sai",
-    "canonical_order": 29,
+    "canonical_order": 26,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1818,7 +1609,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -1863,7 +1653,7 @@
     "parent_name": null,
     "root_id": "7651df18-cdfb-4e4a-9d08-f54d42ff972a",
     "root_name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
-    "canonical_order": 30,
+    "canonical_order": 27,
     "siblings": [
       "Tổng sản lượng muối edit 1",
       "Tổng diện tích sản xuất muối",
@@ -1877,7 +1667,6 @@
       "ĐL số/Tổng hợp cấp dưới (AVG)",
       "ĐL số/Tổng hợp cấp dưới (SUM)",
       "ĐL lựa chọn",
-      "TH",
       "Số lượng sản phẩm đặc trưng",
       "Số lượng gia cầm",
       "Số lượng gia súc",
@@ -3637,108 +3426,6 @@
       "updated_at": "2026-10-26T17:30:00Z"
     }
   },
-  "34104ab8-8429-4dad-9914-9ecde18f3321": {
-    "id": "34104ab8-8429-4dad-9914-9ecde18f3321",
-    "code": "th1",
-    "name": "TH1",
-    "level": 2,
-    "is_leaf": true,
-    "scope_name": "An sinh xã hội",
-    "parent_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "parent_name": "TH",
-    "root_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "root_name": "TH",
-    "canonical_order": 1,
-    "siblings": [
-      "TH2",
-      "TH3"
-    ],
-    "children_ids": [],
-    "definition": "Chỉ tiêu tổng hợp thành phần thứ nhất (TH1) thống kê dữ liệu bảo trợ và an sinh xã hội cấp cơ sở.",
-    "natural_synonyms": [
-      "th1",
-      "chỉ tiêu th1",
-      "dữ liệu an sinh th1"
-    ],
-    "scope_description": "Phục vụ thống kê nội bộ ngành an sinh xã hội.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-10-14"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "d6e9b2ea-80bd-40d5-9c71-eaf56abac91a": {
-    "id": "d6e9b2ea-80bd-40d5-9c71-eaf56abac91a",
-    "code": "th2",
-    "name": "TH2",
-    "level": 2,
-    "is_leaf": true,
-    "scope_name": "An sinh xã hội",
-    "parent_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "parent_name": "TH",
-    "root_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "root_name": "TH",
-    "canonical_order": 2,
-    "siblings": [
-      "TH1",
-      "TH3"
-    ],
-    "children_ids": [],
-    "definition": "Chỉ tiêu tổng hợp thành phần thứ hai (TH2) phản ánh số liệu đối tượng hưởng chính sách trợ cấp xã hội thường xuyên.",
-    "natural_synonyms": [
-      "th2",
-      "chỉ tiêu th2",
-      "dữ liệu an sinh th2"
-    ],
-    "scope_description": "Phục vụ thống kê nội bộ ngành an sinh xã hội.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-10-14"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "a1ec32fc-aabf-4762-9b62-908be3057eb7": {
-    "id": "a1ec32fc-aabf-4762-9b62-908be3057eb7",
-    "code": "th3",
-    "name": "TH3",
-    "level": 2,
-    "is_leaf": true,
-    "scope_name": "An sinh xã hội",
-    "parent_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "parent_name": "TH",
-    "root_id": "fe0e4366-2ccb-444a-9bd2-20d45e515bbd",
-    "root_name": "TH",
-    "canonical_order": 3,
-    "siblings": [
-      "TH1",
-      "TH2"
-    ],
-    "children_ids": [],
-    "definition": "Chỉ tiêu tổng hợp thành phần thứ ba (TH3) theo dõi ngân sách chi trả và kết quả thực hiện an sinh xã hội định kỳ.",
-    "natural_synonyms": [
-      "th3",
-      "chỉ tiêu th3",
-      "dữ liệu an sinh th3"
-    ],
-    "scope_description": "Phục vụ thống kê nội bộ ngành an sinh xã hội.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-10-14"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
   "a02bcd81-3a6c-42c3-9721-435859750bac": {
     "id": "a02bcd81-3a6c-42c3-9721-435859750bac",
     "code": "so_luong_ga",
@@ -3923,24 +3610,23 @@
     "root_name": "Sản lượng sản xuất sản phẩm công nghiệp",
     "canonical_order": 2,
     "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Công nghiệp chế biến, chế tạo",
-      "Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước"
+      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản"
     ],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị sản xuất của nhóm ngành 'Sản phẩm từ ngành Khai khoáng' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Chỉ tiêu phản ánh một bộ phận cấu thành trong tổng số Sản lượng sản xuất sản phẩm công nghiệp, cụ thể là tổng khối lượng hoặc giá trị các sản phẩm vật chất được khai thác và sản xuất từ ngành Khai khoáng (bao gồm khai thác than, dầu mỏ, khí đốt, quặng kim loại, khoáng phi kim và vật liệu xây dựng) tính trong kỳ báo cáo.",
     "natural_synonyms": [
-      "sản xuất sản phẩm từ ngành khai khoáng",
-      "sản phẩm công nghiệp sản phẩm từ ngành khai khoáng",
-      "sản phẩm từ ngành khai khoáng"
+      "Sản lượng sản phẩm khai khoáng",
+      "Sản phẩm ngành khai thác mỏ và khoáng sản",
+      "Khối lượng sản xuất sản phẩm khai khoáng công nghiệp"
     ],
-    "scope_description": "Thống kê hoạt động sản xuất công nghiệp cho nhóm Sản phẩm từ ngành Khai khoáng.",
+    "scope_description": "Phạm vi thống kê thuộc lĩnh vực Công thương, áp dụng để tổng hợp và đánh giá quy mô, tốc độ phát triển sản xuất công nghiệp ngành khai khoáng trên địa bàn.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T05:16:22.597708+00:00"
     }
   },
   "8d9f00cd-92f9-4579-ba4b-8eb04dba36d7": {
@@ -3956,24 +3642,23 @@
     "root_name": "Sản lượng sản xuất sản phẩm công nghiệp",
     "canonical_order": 3,
     "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Khai khoáng",
-      "Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước"
+      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản"
     ],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị sản xuất của nhóm ngành 'Sản phẩm từ ngành Công nghiệp chế biến, chế tạo' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Sản lượng sản xuất sản phẩm công nghiệp tính riêng cho nhóm ngành Công nghiệp chế biến, chế tạo, phản ánh tổng khối lượng các loại thành phẩm, hàng hóa hoàn thiện được sản xuất, gia công bởi các cơ sở công nghiệp chế biến và chế tạo trong kỳ báo cáo.",
     "natural_synonyms": [
-      "sản xuất sản phẩm từ ngành công nghiệp chế biến, chế tạo",
-      "sản phẩm công nghiệp sản phẩm từ ngành công nghiệp chế biến, chế tạo",
-      "sản phẩm từ ngành công nghiệp chế biến, chế tạo"
+      "Sản lượng sản phẩm chế biến chế tạo",
+      "Sản phẩm công nghiệp chế biến, chế tạo",
+      "Khối lượng sản phẩm công nghiệp chế biến và chế tạo"
     ],
-    "scope_description": "Thống kê hoạt động sản xuất công nghiệp cho nhóm Sản phẩm từ ngành Công nghiệp chế biến, chế tạo.",
+    "scope_description": "Áp dụng trong hệ thống thống kê ngành Công thương, phản ánh quy mô và sản lượng sản xuất của nhóm ngành Công nghiệp chế biến, chế tạo trên phạm vi toàn tỉnh theo kỳ báo cáo.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T05:16:27.931452+00:00"
     }
   },
   "cde2776c-7c03-4c22-9d84-41b5ceb6f06c": {
@@ -3989,24 +3674,23 @@
     "root_name": "Sản lượng sản xuất sản phẩm công nghiệp",
     "canonical_order": 4,
     "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Khai khoáng",
-      "Sản phẩm từ ngành Công nghiệp chế biến, chế tạo"
+      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản"
     ],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị sản xuất của nhóm ngành 'Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Chỉ tiêu thống kê nghiệp vụ 'Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước' phản ánh dữ liệu chuyên ngành trong nhóm 'Sản lượng sản xuất sản phẩm công nghiệp'.",
     "natural_synonyms": [
-      "sản xuất sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
-      "sản phẩm công nghiệp sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
-      "sản phẩm từ ngành sản xuất và phân phối điện, khí, nước"
+      "sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
+      "chỉ tiêu sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
+      "sản phẩm từ ngành sản xuất và phân phối điện, khí, nước sản lượng sản xuất sản phẩm công nghiệp"
     ],
-    "scope_description": "Thống kê hoạt động sản xuất công nghiệp cho nhóm Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước.",
+    "scope_description": "Áp dụng cho thống kê và theo dõi dữ liệu Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước trong lĩnh vực Công thương.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T05:18:17.197240+00:00"
     }
   },
   "81b5c355-3b51-4b4e-b984-2b69cae89e8a": {
@@ -4021,25 +3705,22 @@
     "root_id": "bb0a08eb-0d83-4b27-bc02-4a70620db4d2",
     "root_name": "Số lượng tiêu thụ sản phẩm công nghiệp",
     "canonical_order": 1,
-    "siblings": [
-      "Sản phẩm từ ngành Khai khoáng",
-      "Sản phẩm từ ngành Công nghiệp chế biến, chế tạo",
-      "Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị tiêu thụ của nhóm ngành 'Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Chỉ tiêu thống kê thuộc nhánh chỉ tiêu 'Số lượng tiêu thụ sản phẩm công nghiệp', phản ánh tổng khối lượng hoặc số lượng các sản phẩm công nghiệp có nguồn gốc, nguyên liệu hoặc được chế biến từ ngành Nông nghiệp, Lâm nghiệp và Thủy sản được tiêu thụ thực tế trên thị trường trong kỳ báo cáo của ngành Công thương.",
     "natural_synonyms": [
-      "tiêu thụ sản phẩm từ ngành nông, lâm nghiệp và thủy sản",
-      "sản phẩm công nghiệp sản phẩm từ ngành nông, lâm nghiệp và thủy sản",
-      "sản phẩm từ ngành nông, lâm nghiệp và thủy sản"
+      "Sản phẩm công nghiệp nông lâm thủy sản tiêu thụ",
+      "Lượng tiêu thụ sản phẩm chế biến từ nông lâm thủy sản",
+      "Sản phẩm nông nghiệp lâm nghiệp thủy sản qua chế biến công nghiệp tiêu thụ"
     ],
-    "scope_description": "Thống kê hoạt động tiêu thụ công nghiệp cho nhóm Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản.",
+    "scope_description": "Phạm vi thống kê thuộc lĩnh vực Công thương, phối hợp dữ liệu với ngành Nông nghiệp và PTNT, áp dụng cho việc tổng hợp số liệu tiêu thụ sản phẩm công nghiệp có nguồn gốc nông, lâm, thủy sản định kỳ hàng tháng, quý, năm trên phạm vi toàn địa bàn quản lý.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:08.625637+00:00"
     }
   },
   "74c16714-0eb5-45de-a291-8db322cf9cfa": {
@@ -4054,25 +3735,22 @@
     "root_id": "bb0a08eb-0d83-4b27-bc02-4a70620db4d2",
     "root_name": "Số lượng tiêu thụ sản phẩm công nghiệp",
     "canonical_order": 2,
-    "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Công nghiệp chế biến, chế tạo",
-      "Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị tiêu thụ của nhóm ngành 'Sản phẩm từ ngành Khai khoáng' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Chỉ tiêu phản ánh tổng lượng sản phẩm từ ngành Khai khoáng thuộc tổng số lượng tiêu thụ sản phẩm công nghiệp, được thống kê tính đến thời điểm báo cáo nhằm phục vụ công tác quản lý và phân tích ngành Công thương.",
     "natural_synonyms": [
-      "tiêu thụ sản phẩm từ ngành khai khoáng",
-      "sản phẩm công nghiệp sản phẩm từ ngành khai khoáng",
-      "sản phẩm từ ngành khai khoáng"
+      "lượng tiêu thụ sản phẩm khai khoáng",
+      "sản lượng tiêu thụ ngành khai khoáng",
+      "tiêu thụ sản phẩm khai khoáng công nghiệp"
     ],
-    "scope_description": "Thống kê hoạt động tiêu thụ công nghiệp cho nhóm Sản phẩm từ ngành Khai khoáng.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ lượng sản phẩm khai khoáng được tiêu thụ trên địa bàn quản lý của Sở Công Thương trong kỳ báo cáo.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:10.425179+00:00"
     }
   },
   "9fd99469-40e7-4a82-8ac2-f73e3f8ee33b": {
@@ -4087,25 +3765,22 @@
     "root_id": "bb0a08eb-0d83-4b27-bc02-4a70620db4d2",
     "root_name": "Số lượng tiêu thụ sản phẩm công nghiệp",
     "canonical_order": 3,
-    "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Khai khoáng",
-      "Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị tiêu thụ của nhóm ngành 'Sản phẩm từ ngành Công nghiệp chế biến, chế tạo' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Tổng số lượng các loại sản phẩm thuộc ngành công nghiệp chế biến, chế tạo được tiêu thụ thực tế trong kỳ báo cáo, thuộc nhóm chỉ tiêu tổng hợp về số lượng tiêu thụ sản phẩm công nghiệp của ngành Công thương.",
     "natural_synonyms": [
-      "tiêu thụ sản phẩm từ ngành công nghiệp chế biến, chế tạo",
-      "sản phẩm công nghiệp sản phẩm từ ngành công nghiệp chế biến, chế tạo",
-      "sản phẩm từ ngành công nghiệp chế biến, chế tạo"
+      "Sản phẩm công nghiệp chế biến chế tạo tiêu thụ",
+      "Lượng tiêu thụ sản phẩm chế biến chế tạo",
+      "Sản phẩm công nghiệp chế biến, chế tạo bán ra"
     ],
-    "scope_description": "Thống kê hoạt động tiêu thụ công nghiệp cho nhóm Sản phẩm từ ngành Công nghiệp chế biến, chế tạo.",
+    "scope_description": "Áp dụng trong công tác thống kê, tổng hợp báo cáo tình hình sản xuất và thương mại ngành Công thương tại Sở Nông nghiệp và PTNT, bao gồm toàn bộ các sản phẩm từ ngành công nghiệp chế biến, chế tạo được tiêu thụ trên thị trường trong kỳ.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:12.530166+00:00"
     }
   },
   "6c958e08-5b14-49e5-8fee-e9a487a53460": {
@@ -4120,25 +3795,22 @@
     "root_id": "bb0a08eb-0d83-4b27-bc02-4a70620db4d2",
     "root_name": "Số lượng tiêu thụ sản phẩm công nghiệp",
     "canonical_order": 4,
-    "siblings": [
-      "Sản phẩm từ ngành Nông, Lâm nghiệp và Thủy sản",
-      "Sản phẩm từ ngành Khai khoáng",
-      "Sản phẩm từ ngành Công nghiệp chế biến, chế tạo"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Khối lượng hoặc giá trị tiêu thụ của nhóm ngành 'Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước' thuộc lĩnh vực công nghiệp trên địa bàn tỉnh.",
+    "definition": "Tổng số lượng các sản phẩm từ ngành sản xuất và phân phối điện, khí, nước thuộc nhánh Số lượng tiêu thụ sản phẩm công nghiệp được tiêu thụ thực tế trong kỳ báo cáo nhằm phục vụ nhu cầu sản xuất và đời sống.",
     "natural_synonyms": [
-      "tiêu thụ sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
-      "sản phẩm công nghiệp sản phẩm từ ngành sản xuất và phân phối điện, khí, nước",
-      "sản phẩm từ ngành sản xuất và phân phối điện, khí, nước"
+      "lượng tiêu thụ điện khí nước",
+      "sản phẩm điện khí nước tiêu thụ",
+      "tiêu thụ ngành điện khí nước"
     ],
-    "scope_description": "Thống kê hoạt động tiêu thụ công nghiệp cho nhóm Sản phẩm từ ngành Sản xuất và phân phối điện, khí, nước.",
+    "scope_description": "Áp dụng trong công tác thống kê, tổng hợp dữ liệu về tình hình tiêu thụ sản phẩm công nghiệp thuộc lĩnh vực Công thương trên địa bàn quản lý.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:14.489699+00:00"
     }
   },
   "00367853-ba8d-4102-af9e-aa57b96d9880": {
@@ -4149,25 +3821,26 @@
     "is_leaf": true,
     "scope_name": "Nông nghiệp",
     "parent_id": "707c201a-b124-44c7-8376-459db324d8df",
-    "parent_name": "test",
+    "parent_name": null,
     "root_id": "707c201a-b124-44c7-8376-459db324d8df",
-    "root_name": "test",
+    "root_name": "test2010",
     "canonical_order": 1,
     "siblings": [],
     "children_ids": [],
-    "definition": "Chỉ tiêu kiểm thử cấu hình hệ thống (test2010).",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng test2010 thuộc lĩnh vực nông nghiệp, được theo dõi và tổng hợp trong hệ thống quản lý dữ liệu ngành Nông nghiệp và Phát triển nông thôn tính đến thời điểm báo cáo.",
     "natural_synonyms": [
-      "test2010",
-      "test tiêu chí",
-      "chỉ tiêu kiểm thử"
+      "số lượng test2010 nông nghiệp",
+      "tổng số test2010",
+      "chỉ tiêu test2010"
     ],
-    "scope_description": "Dùng cho kiểm thử chức năng quản trị biểu mẫu.",
+    "scope_description": "Áp dụng trong toàn ngành Nông nghiệp và Phát triển nông thôn, phục vụ công tác thống kê, báo cáo và quản lý dữ liệu chuyên ngành cấp tỉnh/huyện.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:16.293816+00:00"
     }
   },
   "e05f03fc-62c0-40f0-bdcf-542dac8b9f36": {
@@ -4182,25 +3855,22 @@
     "root_id": "7651df18-cdfb-4e4a-9d08-f54d42ff972a",
     "root_name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
     "canonical_order": 1,
-    "siblings": [
-      "Số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp",
-      "Số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp",
-      "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượt người lao động, cán bộ được đào tạo nghiệp vụ về 'Số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề' từ nguồn kinh phí khuyến công của tỉnh.",
+    "definition": "Số lượng lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề nằm trong tổng số người được đào tạo từ nguồn kinh phí khuyến công, nhằm nâng cao trình độ chuyên môn, kỹ năng tay nghề phục vụ phát triển công nghiệp tiểu thủ công nghiệp.",
     "natural_synonyms": [
-      "số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề",
-      "đào tạo khuyến công số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề",
-      "số người học số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề"
+      "số lao động học nghề khuyến công",
+      "lao động được nâng cao tay nghề khuyến công",
+      "số người tham gia truyền nghề và đào tạo nghề"
     ],
-    "scope_description": "Chỉ tiêu đào tạo khuyến công phục vụ phát triển công nghiệp nông thôn (Số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề).",
+    "scope_description": "Áp dụng trong lĩnh vực Công thương, thống kê tại các cơ sở sản xuất công nghiệp nông thôn, doanh nghiệp, hợp tác xã thuộc địa bàn quản lý của Sở Nông nghiệp và PTNT (hoặc Sở Công Thương tùy phân công) được hỗ trợ từ nguồn kinh phí khuyến công quốc gia và địa phương.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:18.125972+00:00"
     }
   },
   "5baeafe0-13c0-4c42-8a71-b34650bf0654": {
@@ -4215,25 +3885,22 @@
     "root_id": "7651df18-cdfb-4e4a-9d08-f54d42ff972a",
     "root_name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
     "canonical_order": 2,
-    "siblings": [
-      "Số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề",
-      "Số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp",
-      "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượt người lao động, cán bộ được đào tạo nghiệp vụ về 'Số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp' từ nguồn kinh phí khuyến công của tỉnh.",
+    "definition": "Số lao động được đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp là chỉ tiêu thành phần thuộc tổng số người được đào tạo từ nguồn kinh phí khuyến công, phản ánh số lượng học viên là người lao động tại các cơ sở công nghiệp nông thôn được tham gia các khóa đào tạo, bồi dưỡng kiến thức về quản trị kinh doanh và kỹ năng khởi sự doanh nghiệp tính đến thời điểm báo cáo.",
     "natural_synonyms": [
-      "số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp",
-      "đào tạo khuyến công số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp",
-      "số người học số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp"
+      "Lao động được đào tạo quản lý doanh nghiệp khuyến công",
+      "Số lao động học khởi sự doanh nghiệp theo chương trình khuyến công",
+      "Người lao động tham gia tập huấn nâng cao năng lực quản lý công nghiệp nông thôn"
     ],
-    "scope_description": "Chỉ tiêu đào tạo khuyến công phục vụ phát triển công nghiệp nông thôn (Số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp).",
+    "scope_description": "Áp dụng trong hệ thống thống kê ngành Công Thương để tổng hợp, báo cáo và đánh giá kết quả thực hiện các hoạt động đào tạo, nâng cao năng lực quản lý, khởi sự doanh nghiệp từ nguồn kinh phí khuyến công địa phương và quốc gia.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:22.097333+00:00"
     }
   },
   "dfc75810-6b36-48ec-8970-a0ede22c7146": {
@@ -4248,25 +3915,22 @@
     "root_id": "7651df18-cdfb-4e4a-9d08-f54d42ff972a",
     "root_name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
     "canonical_order": 3,
-    "siblings": [
-      "Số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề",
-      "Số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp",
-      "Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượt người lao động, cán bộ được đào tạo nghiệp vụ về 'Số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp' từ nguồn kinh phí khuyến công của tỉnh.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng lao động thuộc thực thể gốc 'Số người được đào tạo từ nguồn kinh phí khuyến công' đã được tham gia các chương trình đào tạo, tập huấn nhằm nâng cao nhận thức và năng lực thực tế về áp dụng sản xuất sạch hơn trong quá trình sản xuất công nghiệp.",
     "natural_synonyms": [
-      "số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp",
-      "đào tạo khuyến công số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp",
-      "số người học số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp"
+      "số lao động tập huấn sản xuất sạch hơn",
+      "lao động công nghiệp được đào tạo nhận thức sản xuất sạch hơn",
+      "số lượng người lao động học tập nâng cao năng lực sản xuất sạch hơn"
     ],
-    "scope_description": "Chỉ tiêu đào tạo khuyến công phục vụ phát triển công nghiệp nông thôn (Số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp).",
+    "scope_description": "Áp dụng trong công tác thống kê, quản lý dữ liệu ngành Công thương đối với các hoạt động đào tạo, bồi dưỡng nhân lực công nghiệp từ nguồn kinh phí khuyến công tại địa phương.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:23.958335+00:00"
     }
   },
   "f011c5c3-bd96-4e7f-ae36-742795d263c6": {
@@ -4281,25 +3945,22 @@
     "root_id": "7651df18-cdfb-4e4a-9d08-f54d42ff972a",
     "root_name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
     "canonical_order": 4,
-    "siblings": [
-      "Số lao động được đào tạo nghề, truyền nghề, nâng cao tay nghề",
-      "Số lao động được đào tạo đào tạo, nâng cao năng lực quản lý doanh nghiệp, khởi sự doanh nghiệp",
-      "Số lao động được đào tạo nhận thức và năng lực áp dụng sản xuất sạch hơn trong sản xuất công nghiệp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượt người lao động, cán bộ được đào tạo nghiệp vụ về 'Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công' từ nguồn kinh phí khuyến công của tỉnh.",
+    "definition": "Tổng số lượng lao động là cán bộ làm công tác khuyến công thuộc thực thể gốc Số người được đào tạo từ nguồn kinh phí khuyến công đã hoàn thành các khóa đào tạo, bồi dưỡng chuyên môn nghiệp vụ trong kỳ báo cáo nhằm nâng cao năng lực chuyên môn và kỹ năng quản lý.",
     "natural_synonyms": [
-      "số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
-      "đào tạo khuyến công số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công",
-      "số người học số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công"
+      "số cán bộ khuyến công được đào tạo nghiệp vụ",
+      "số lượt cán bộ làm công tác khuyến công bồi dưỡng chuyên môn",
+      "lao động khuyến công tham gia tập huấn chuyên môn"
     ],
-    "scope_description": "Chỉ tiêu đào tạo khuyến công phục vụ phát triển công nghiệp nông thôn (Số lao động được đào tạo bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công).",
+    "scope_description": "Áp dụng cho toàn bộ các cơ quan, đơn vị, tổ chức và địa phương có triển khai các hoạt động đào tạo, bồi dưỡng chuyên môn nghiệp vụ cho cán bộ làm công tác khuyến công từ nguồn kinh phí khuyến công thuộc phạm vi quản lý của ngành Công thương.",
     "has_approved_facts": false,
     "available_report_dates": [],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:25.695620+00:00"
     }
   },
   "6b5d16a9-2c04-4ebe-b514-14c8301234e8": {
@@ -4314,24 +3975,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 1,
-    "siblings": [
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng trọt (lúa, hoa màu, cây ăn trái, cây công nghiệp).",
+    "definition": "Số lượng HTX nông nghiệp thực tế đang hoạt động và đăng ký kinh doanh chính trong lĩnh vực trồng trọt, tính đến thời điểm báo cáo, thuộc tổng số lượng HTX nông nghiệp phân theo lĩnh vực.",
     "natural_synonyms": [
-      "htx nông nghiệp trồng trọt",
-      "htx nông nghiệp lĩnh vực trồng trọt",
-      "hợp tác xã nông nghiệp chuyên canh trồng trọt",
-      "htx nông nghiệp ngành trồng trọt"
+      "Hợp tác xã nông nghiệp trồng trọt",
+      "Số lượng HTX chuyên ngành trồng trọt",
+      "HTX nông nghiệp hoạt động trồng trọt"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp có trên 50% doanh thu hoặc hoạt động chính thuộc nhóm ngành trồng trọt.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các hợp tác xã nông nghiệp có hoạt động sản xuất, kinh doanh chính thuộc lĩnh vực trồng trọt trên địa bàn quản lý, được cập nhật vào kho dữ liệu DWH.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4339,9 +3991,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:30.073875+00:00"
     }
   },
   "212a581d-4ff9-43ba-b076-135b146fb302": {
@@ -4356,24 +4009,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 2,
-    "siblings": [
-      "Trồng trọt",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực chăn nuôi gia súc, gia cầm và vật nuôi nông nghiệp.",
+    "definition": "Tổng số lượng Hợp tác xã nông nghiệp thực tế hoạt động chuyên sâu trong lĩnh vực chăn nuôi được tính đến thời điểm báo cáo, phản ánh quy mô và mức độ phát triển của loại hình kinh tế tập thể chuyên ngành chăn nuôi thuộc hệ thống Hợp tác xã nông nghiệp.",
     "natural_synonyms": [
-      "htx nông nghiệp chăn nuôi",
-      "htx nông nghiệp lĩnh vực chăn nuôi",
-      "hợp tác xã nông nghiệp ngành chăn nuôi",
-      "htx nông nghiệp chăn nuôi gia súc gia cầm"
+      "Số lượng HTX chăn nuôi",
+      "HTX hoạt động chăn nuôi",
+      "Hợp tác xã nông nghiệp lĩnh vực chăn nuôi"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp chuyên chăn nuôi trâu, bò, lợn, gia cầm hoặc cung cấp con giống, thức ăn.",
+    "scope_description": "Áp dụng cho toàn bộ các Hợp tác xã nông nghiệp hoạt động trong lĩnh vực chăn nuôi gia súc, gia cầm trên địa bàn tỉnh, được quản lý và thống kê theo hệ thống chỉ tiêu ngành nông nghiệp và phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4381,9 +4025,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:32.857707+00:00"
     }
   },
   "a33dfa3d-b8cf-4971-9501-c3220f293d0f": {
@@ -4398,24 +4043,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 3,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng rừng, bảo vệ rừng, khai thác và chế biến lâm sản.",
+    "definition": "Tổng số lượng HTX nông nghiệp thuộc lĩnh vực lâm nghiệp thực tế đang hoạt động, được ghi nhận và thống kê tại thời điểm báo cáo nhằm phục vụ công tác quản lý nhà nước về kinh tế tập thể trong ngành lâm nghiệp.",
     "natural_synonyms": [
-      "htx nông nghiệp lâm nghiệp",
-      "htx nông nghiệp lĩnh vực lâm nghiệp",
-      "hợp tác xã nông nghiệp ngành lâm nghiệp",
-      "htx nông nghiệp trồng và phát triển rừng"
+      "số lượng HTX lâm nghiệp",
+      "hợp tác xã lâm nghiệp đang hoạt động",
+      "tổng số HTX lĩnh vực lâm nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp quản lý bảo vệ rừng phòng hộ, rừng sản xuất và cung ứng dịch vụ lâm nghiệp.",
+    "scope_description": "Áp dụng cho toàn bộ hệ thống thống kê ngành nông nghiệp và phát triển nông thôn từ cấp xã, huyện đến cấp tỉnh đối với các đơn vị kinh tế tập thể, hợp tác xã hoạt động chuyên ngành lâm nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4423,9 +4059,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:34.823805+00:00"
     }
   },
   "cf7fffe3-6078-4b4b-9a45-e203ee56a4fa": {
@@ -4440,24 +4077,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 4,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh trong lĩnh vực nuôi trồng, khai thác và dịch vụ hậu cần thủy hải sản.",
+    "definition": "Tổng số lượng Hợp tác xã nông nghiệp đang hoạt động tính đến thời điểm báo cáo, có hoạt động sản xuất, kinh doanh chính trong lĩnh vực thủy sản bao gồm nuôi trồng, khai thác và dịch vụ thủy sản thuộc hệ thống quản lý của ngành nông nghiệp và phát triển nông thôn.",
     "natural_synonyms": [
-      "htx nông nghiệp thủy sản",
-      "htx nông nghiệp nuôi trồng thủy sản",
-      "htx nông nghiệp lĩnh vực thủy sản",
-      "hợp tác xã nông nghiệp ngành thủy sản"
+      "Số lượng hợp tác xã thủy sản",
+      "HTX nông nghiệp lĩnh vực thủy sản",
+      "Số lượng HTX hoạt động thủy sản"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp nuôi trồng cá, tôm, thủy đặc sản nước ngọt, lợ, mặn và khai thác hải sản.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các hợp tác xã nông nghiệp hoạt động trong lĩnh vực thủy sản trên địa bàn quản lý, được tổng hợp định kỳ phục vụ công tác theo dõi, đánh giá phát triển kinh tế tập thể ngành nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4465,9 +4093,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:39.268956+00:00"
     }
   },
   "3c2078bf-af1d-4951-b922-387d87404706": {
@@ -4482,25 +4111,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 5,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh trong ngành nghề sản xuất muối và chế biến các sản phẩm từ muối diêm nghiệp.",
+    "definition": "Số lượng hợp tác xã nông nghiệp hoạt động trong lĩnh vực diêm nghiệp là chỉ tiêu thống kê phản ánh tổng số các tổ chức kinh tế tập thể chuyên ngành sản xuất, chế biến và kinh doanh muối đang thực tế duy trì vận hành tại thời điểm chốt số liệu, nằm trong cơ cấu phân loại theo lĩnh vực của hệ thống hợp tác xã nông nghiệp.",
     "natural_synonyms": [
-      "htx nông nghiệp diêm nghiệp",
-      "htx nông nghiệp sản xuất muối",
-      "htx nông nghiệp làm muối",
-      "hợp tác xã nông nghiệp ngành muối",
-      "sản xuất muối"
+      "Số lượng HTX sản xuất muối",
+      "Hợp tác xã diêm nghiệp",
+      "Số lượng HTX ngành muối"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp trực tiếp sản xuất muối tinh, muối thủ công và dịch vụ diêm nghiệp.",
+    "scope_description": "Áp dụng trong công tác thống kê, quản lý dữ liệu ngành nông nghiệp và phát triển nông thôn đối với khối kinh tế tập thể, hợp tác xã hoạt động trong lĩnh vực sản xuất và chế biến muối trên phạm vi toàn quốc hoặc theo từng đơn vị hành chính địa phương.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4508,9 +4127,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:43.781503+00:00"
     }
   },
   "d2762500-bf51-4d84-b585-e8dc2da1456b": {
@@ -4525,24 +4145,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 6,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp chuyên hoạt động trong lĩnh vực sơ chế, bảo quản đóng gói và chế biến các sản phẩm nông sản thực phẩm.",
+    "definition": "Số lượng HTX nông nghiệp thực tế đang duy trì hoạt động tính đến thời điểm báo cáo, chuyên môn hóa trong lĩnh vực chế biến nông sản, nhằm phản ánh quy mô, năng lực và mức độ tham gia vào khâu chế biến sâu trong chuỗi giá trị ngành nông nghiệp của khu vực kinh tế tập thể.",
     "natural_synonyms": [
-      "htx nông nghiệp chế biến nông sản",
-      "htx nông nghiệp lĩnh vực chế biến",
-      "hợp tác xã nông nghiệp chế biến nông sản thực phẩm",
-      "htx nông nghiệp sơ chế nông sản"
+      "Số lượng hợp tác xã nông nghiệp chuyên chế biến nông sản",
+      "HTX nông nghiệp hoạt động lĩnh vực chế biến",
+      "Số lượng HTX tham gia chế biến nông sản"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp sở hữu nhà xưởng, dây chuyền sơ chế, sấy, đóng gói nông sản.",
+    "scope_description": "Thống kê toàn bộ các hợp tác xã nông nghiệp có đăng ký kinh doanh và đang thực tế vận hành các hoạt động chế biến nông, lâm, thủy sản trên địa bàn quản lý thuộc thẩm quyền của Sở Nông nghiệp và Phát triển nông thôn tại thời điểm chốt số liệu.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4550,9 +4161,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:48.037589+00:00"
     }
   },
   "0b1fd9fa-8d26-47ef-b01a-cb142b6760ee": {
@@ -4567,24 +4179,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 7,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động cung ứng dịch vụ cấp nước sạch và quản lý vệ sinh môi trường nông thôn.",
+    "definition": "Tổng số lượng Hợp tác xã nông nghiệp đang hoạt động thực tế chuyên ngành khai thác, xử lý và cung cấp nước sạch nông thôn, tính đến thời điểm chốt số liệu báo cáo, phản ánh quy mô phát triển kinh tế tập thể theo lĩnh vực nước sạch trong hệ thống chỉ tiêu thống kê ngành nông nghiệp và phát triển nông thôn.",
     "natural_synonyms": [
-      "htx nông nghiệp nước sạch nông thôn",
-      "htx nông nghiệp nước sạch nt",
-      "htx nông nghiệp dịch vụ nước sạch",
-      "hợp tác xã nông nghiệp cấp nước sinh hoạt nông thôn"
+      "Số lượng HTX nước sạch nông thôn",
+      "HTX nông nghiệp kinh doanh nước sạch",
+      "Số hợp tác xã cung cấp nước sạch nông thôn"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp vận hành trạm cấp nước sạch tập trung nông thôn.",
+    "scope_description": "Phạm vi thống kê áp dụng cho toàn bộ các Hợp tác xã nông nghiệp hoạt động trong lĩnh vực khai thác, xử lý và cung cấp nước sạch trên địa bàn nông thôn, được tổng hợp và quản lý định kỳ tại cấp tỉnh và cấp huyện.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4592,9 +4195,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:53.602601+00:00"
     }
   },
   "113ce2ec-a4e5-4945-bd1a-8e158db640a4": {
@@ -4609,24 +4213,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 8,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp hoạt động sản xuất kinh doanh đa ngành nghề, kết hợp nhiều lĩnh vực nông nghiệp tổng hợp.",
+    "definition": "Chỉ tiêu tổng hợp phản ánh quy mô tổng thể về số lượng HTX nông nghiệp được tổng hợp chung từ tất cả các lĩnh vực hoạt động, phục vụ công tác thống kê và quản lý nhà nước về kinh tế tập thể trong ngành nông nghiệp.",
     "natural_synonyms": [
-      "htx nông nghiệp tổng hợp",
-      "htx nông nghiệp đa ngành",
-      "htx nông nghiệp nông nghiệp tổng hợp",
-      "hợp tác xã nông nghiệp sản xuất kinh doanh tổng hợp"
+      "Tổng số lượng HTX nông nghiệp chung",
+      "Số liệu tổng hợp hợp tác xã nông nghiệp",
+      "Tổng hợp chung số lượng HTX nông nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị HTX nông nghiệp kết hợp trồng trọt, chăn nuôi, nuôi trồng thủy sản hoặc dịch vụ đa năng.",
+    "scope_description": "Áp dụng trong công tác tổng hợp, thống kê toàn bộ số liệu về số lượng HTX nông nghiệp trên phạm vi quản lý, bao gồm tất cả các phân ngành và lĩnh vực hoạt động nông, lâm, thủy sản và diêm nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4634,9 +4229,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:51:58.356330+00:00"
     }
   },
   "aec1ed73-4e73-4900-b908-42fc4f6b6924": {
@@ -4651,20 +4247,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 1,
-    "siblings": [
-      "Số HTX nông nghiệp hoạt động hiệu quả trung bình",
-      "Số HTX nông nghiệp hoạt động kém hiệu quả",
-      "Chưa đủ điều kiện đánh giá"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Tốt theo Bộ tiêu chuẩn đánh giá của ngành nông nghiệp.",
+    "definition": "Số lượng HTX nông nghiệp thuộc nhóm chỉ tiêu hiệu quả hoạt động đạt mức tốt là chỉ tiêu thống kê tổng hợp số lượng các hợp tác xã nông nghiệp đang thực tế duy trì vận hành ổn định, đáp ứng các tiêu chuẩn đánh giá về năng lực tài chính, doanh thu, quản trị và hiệu quả kinh tế mang lại cho thành viên đạt loại tốt tại thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "htx nông nghiệp hoạt động hiệu quả tốt",
-      "htx nông nghiệp loại tốt",
-      "số htx nông nghiệp hiệu quả tốt",
-      "hợp tác xã nông nghiệp xếp loại tốt"
+      "HTX nông nghiệp hoạt động tốt",
+      "Số lượng hợp tác xã nông nghiệp đạt hiệu quả cao",
+      "HTX nông nghiệp xếp loại tốt về sản xuất kinh doanh"
     ],
-    "scope_description": "Đơn vị HTX nông nghiệp đạt điểm số cao, sản xuất kinh doanh có lãi, bảo toàn vốn và quản trị tốt.",
+    "scope_description": "Phạm vi thống kê áp dụng cho toàn bộ các hợp tác xã hoạt động trong lĩnh vực nông nghiệp trên địa bàn quản lý, được đánh giá và phân loại hiệu quả định kỳ theo quy định của ngành.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4672,9 +4263,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:13.543506+00:00"
     }
   },
   "b9a971e3-46a6-4899-9864-79ca0ac39d30": {
@@ -4689,20 +4281,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 2,
-    "siblings": [
-      "Số HTX nông nghiệp hoạt động hiệu quả tốt",
-      "Số HTX nông nghiệp hoạt động kém hiệu quả",
-      "Chưa đủ điều kiện đánh giá"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Trung bình theo Bộ tiêu chuẩn đánh giá.",
+    "definition": "Số lượng HTX nông nghiệp thực tế đang duy trì vận hành thuộc nhóm chỉ tiêu hiệu quả hoạt động đạt mức trung bình, được đánh giá và phân loại theo các tiêu chí kinh tế, tài chính và xã hội trong kỳ báo cáo của ngành nông nghiệp.",
     "natural_synonyms": [
-      "htx nông nghiệp hoạt động hiệu quả trung bình",
-      "htx nông nghiệp loại trung bình",
-      "số htx nông nghiệp hiệu quả trung bình",
-      "hợp tác xã nông nghiệp xếp loại trung bình"
+      "HTX nông nghiệp hiệu quả trung bình",
+      "số lượng hợp tác xã nông nghiệp mức trung bình",
+      "hợp tác xã nông nghiệp hoạt động trung bình"
     ],
-    "scope_description": "Đơn vị HTX nông nghiệp duy trì hoạt động ở mức hòa vốn hoặc lãi nhẹ, còn một số tiêu chí hạn chế.",
+    "scope_description": "Thống kê toàn bộ các hợp tác xã hoạt động trong lĩnh vực nông nghiệp trên địa bàn quản lý có kết quả đánh giá, xếp loại hiệu quả hoạt động đạt mức trung bình theo quy định hiện hành tại thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4710,9 +4297,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:18.125617+00:00"
     }
   },
   "66d050da-cd4e-4d25-aa71-2eb79346853e": {
@@ -4727,20 +4315,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 3,
-    "siblings": [
-      "Số HTX nông nghiệp hoạt động hiệu quả tốt",
-      "Số HTX nông nghiệp hoạt động hiệu quả trung bình",
-      "Chưa đủ điều kiện đánh giá"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp xếp loại hoạt động ở mức Kém hiệu quả (hoặc loại Yếu) trong kỳ đánh giá chất lượng.",
+    "definition": "Số lượng Hợp tác xã nông nghiệp thuộc nhánh Hiệu quả hoạt động thực tế đang duy trì tư cách pháp nhân nhưng có kết quả sản xuất kinh doanh thua lỗ, không đạt phương án tài chính, hoặc không đáp ứng các tiêu chí đánh giá hiệu quả kinh tế theo quy định của nhà nước tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "htx nông nghiệp hoạt động kém hiệu quả",
-      "htx nông nghiệp kém hiệu quả",
-      "số htx nông nghiệp hiệu quả kém",
-      "hợp tác xã nông nghiệp xếp loại yếu kém"
+      "số lượng hợp tác xã nông nghiệp làm ăn thua lỗ",
+      "HTX nông nghiệp hoạt động yếu kém",
+      "số HTX nông nghiệp hiệu quả thấp"
     ],
-    "scope_description": "Đơn vị HTX nông nghiệp gặp khó khăn trong sản xuất kinh doanh, thua lỗ hoặc bộ máy hoạt động cầm chừng.",
+    "scope_description": "Áp dụng cho toàn bộ các Hợp tác xã hoạt động trong lĩnh vực nông, lâm, ngư nghiệp trên địa bàn tỉnh thuộc sự quản lý của Sở Nông nghiệp và Phát triển nông thôn, được thống kê định kỳ phục vụ công tác đánh giá và tái cơ cấu kinh tế tập thể.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4748,9 +4331,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:20.200476+00:00"
     }
   },
   "8a87d4cd-76da-4349-9bbe-d5bf164592f6": {
@@ -4765,20 +4349,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 4,
-    "siblings": [
-      "Số HTX nông nghiệp hoạt động hiệu quả tốt",
-      "Số HTX nông nghiệp hoạt động hiệu quả trung bình",
-      "Số HTX nông nghiệp hoạt động kém hiệu quả"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp mới thành lập hoặc chưa đủ thời gian vận hành tối thiểu 12 tháng để thực hiện đánh giá xếp loại chất lượng.",
+    "definition": "Số lượng HTX nông nghiệp chưa đủ điều kiện đánh giá hiệu quả hoạt động tính đến thời điểm chốt số liệu báo cáo, bao gồm các đơn vị mới thành lập chưa đủ thời gian vận hành theo quy định hoặc chưa hoàn thiện hồ sơ, số liệu để xét duyệt theo bộ tiêu chuẩn đánh giá hiện hành.",
     "natural_synonyms": [
-      "htx nông nghiệp chưa đủ điều kiện đánh giá",
-      "htx nông nghiệp chưa xếp loại",
-      "htx nông nghiệp mới chưa đánh giá",
-      "số htx nông nghiệp chưa đến kỳ đánh giá"
+      "HTX nông nghiệp chưa đủ tiêu chí đánh giá",
+      "Hợp tác xã nông nghiệp chưa đủ điều kiện xét hiệu quả",
+      "Số lượng HTX nông nghiệp chưa có căn cứ đánh giá hoạt động"
     ],
-    "scope_description": "Các đơn vị HTX nông nghiệp mới đi vào hoạt động dưới 1 năm tính đến thời điểm chốt đánh giá.",
+    "scope_description": "Áp dụng trong hệ thống kho dữ liệu ngành nông nghiệp để thống kê, phân loại và theo dõi nhóm hợp tác xã nông nghiệp chưa thể thực hiện đánh giá hiệu quả hoạt động định kỳ tại thời điểm báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4786,9 +4365,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:25.653551+00:00"
     }
   },
   "53079281-a5f1-4bf2-96a5-c3606eee10a1": {
@@ -4803,18 +4383,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 1,
-    "siblings": [
-      "Số HTX nông nghiệp có liên kết không ổn định, thường xuyên"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp có ký kết hợp đồng liên kết sản xuất và tiêu thụ nông sản ổn định, dài hạn theo chuỗi giá trị.",
+    "definition": "Số lượng Hợp tác xã nông nghiệp thực tế đang duy trì vận hành có liên kết sản xuất ổn định, bền vững với các doanh nghiệp hoặc hộ nông dân trong chuỗi giá trị nông sản tại thời điểm báo cáo, thuộc nhóm chỉ tiêu về liên kết sản xuất.",
     "natural_synonyms": [
-      "htx nông nghiệp liên kết ổn định",
-      "số htx nông nghiệp có liên kết sản xuất ổn định",
-      "hợp tác xã nông nghiệp hợp đồng bao tiêu ổn định",
-      "htx nông nghiệp chuỗi giá trị ổn định"
+      "Số HTX nông nghiệp liên kết ổn định",
+      "HTX nông nghiệp có liên kết sản xuất",
+      "Số lượng hợp tác xã nông nghiệp liên kết chuỗi bền vững"
     ],
-    "scope_description": "Hợp đồng liên kết có thời hạn từ 1 năm trở lên, có cam kết tiêu thụ sản phẩm rõ ràng.",
+    "scope_description": "Áp dụng cho toàn bộ các Hợp tác xã hoạt động trong lĩnh vực nông, lâm, ngư nghiệp trên địa bàn tỉnh có tham gia ký kết và thực hiện các hợp đồng liên kết sản xuất, tiêu thụ nông sản ổn định theo quy định.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4822,9 +4399,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:27.924651+00:00"
     }
   },
   "6ff24338-8227-4e3b-94ef-e9728ed1b608": {
@@ -4839,18 +4417,15 @@
     "root_id": "f3bd2f6e-1340-4700-b661-a7e909683277",
     "root_name": "HTX nông nghiệp",
     "canonical_order": 2,
-    "siblings": [
-      "Số HTX nông nghiệp có liên kết sản xuất ổn định"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng HTX nông nghiệp có tham gia liên kết sản xuất nhưng chưa có hợp đồng dài hạn, liên kết mang tính thời vụ hoặc không thường xuyên.",
+    "definition": "Số lượng Hợp tác xã nông nghiệp thực tế duy trì hoạt động liên kết sản xuất và tiêu thụ sản phẩm nông nghiệp thuộc phạm vi quản lý của Sở Nông nghiệp và PTNT nhưng tính chất liên kết mang tính chất không ổn định, diễn ra thường xuyên nhưng lỏng lẻo, thiếu cam kết pháp lý dài hạn tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "htx nông nghiệp liên kết không ổn định",
-      "htx nông nghiệp liên kết thời vụ",
-      "số htx nông nghiệp liên kết không thường xuyên",
-      "hợp tác xã nông nghiệp liên kết bấp bênh"
+      "số HTX nông nghiệp liên kết bấp bênh",
+      "hợp tác xã nông nghiệp có liên kết không bền vững",
+      "số lượng HTX nông nghiệp liên kết không ổn định thường xuyên"
     ],
-    "scope_description": "Liên kết thỏa thuận miệng hoặc hợp đồng ngắn hạn theo từng vụ mùa thu hoạch.",
+    "scope_description": "Áp dụng cho toàn bộ các Hợp tác xã hoạt động trong lĩnh vực nông nghiệp trên địa bàn tỉnh, được tổng hợp báo cáo định kỳ nhằm đánh giá chất lượng và mức độ bền vững của chuỗi liên kết sản xuất nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4858,9 +4433,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:30.345280+00:00"
     }
   },
   "4c0e44e8-33be-4999-aece-8653c64d6d32": {
@@ -4875,24 +4451,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 1,
-    "siblings": [
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng trọt (lúa, hoa màu, cây ăn trái, cây công nghiệp).",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Liên hiệp hợp tác xã nông nghiệp đang duy trì hoạt động hoặc đăng ký kinh doanh chuyên sâu trong lĩnh vực trồng trọt, tính đến thời điểm báo cáo, nằm trong cơ cấu tổng số liên hiệp hợp tác xã phân theo lĩnh vực của ngành nông nghiệp.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp trồng trọt",
-      "liên hiệp htx nông nghiệp lĩnh vực trồng trọt",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) chuyên canh trồng trọt",
-      "liên hiệp htx nông nghiệp ngành trồng trọt"
+      "Số lượng liên hiệp hợp tác xã trồng trọt",
+      "Liên hiệp HTX nông nghiệp lĩnh vực trồng trọt",
+      "Quy mô liên hiệp hợp tác xã chuyên ngành trồng trọt"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp có trên 50% doanh thu hoặc hoạt động chính thuộc nhóm ngành trồng trọt.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các Liên hiệp hợp tác xã nông nghiệp hoạt động có đăng ký hợp pháp trong lĩnh vực trồng trọt trên địa bàn, phục vụ công tác quản lý nhà nước, theo dõi kinh tế tập thể và hoạch định chính sách phát triển ngành Nông nghiệp và Phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4900,9 +4467,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:35.788127+00:00"
     }
   },
   "33714acb-cef0-447d-9a3b-d515da06889e": {
@@ -4917,24 +4485,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 2,
-    "siblings": [
-      "Trồng trọt",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực chăn nuôi gia súc, gia cầm và vật nuôi nông nghiệp.",
+    "definition": "Tổng số lượng Liên hiệp hợp tác xã nông nghiệp đang duy trì hoạt động thực tế tính đến thời điểm chốt số liệu, chuyên môn hóa hoặc có đăng ký hoạt động kinh doanh chính trong lĩnh vực chăn nuôi, phản ánh quy mô tổ chức kinh tế tập thể ngành chăn nuôi.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp chăn nuôi",
-      "liên hiệp htx nông nghiệp lĩnh vực chăn nuôi",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) ngành chăn nuôi",
-      "liên hiệp htx nông nghiệp chăn nuôi gia súc gia cầm"
+      "Số lượng liên hiệp hợp tác xã chăn nuôi",
+      "Liên hiệp HTX nông nghiệp lĩnh vực chăn nuôi",
+      "Số lượng LHHTX ngành chăn nuôi"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp chuyên chăn nuôi trâu, bò, lợn, gia cầm hoặc cung cấp con giống, thức ăn.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các Liên hiệp hợp tác xã nông nghiệp hoạt động trong lĩnh vực chăn nuôi trên địa bàn quản lý, phục vụ công tác tổng hợp báo cáo kinh tế tập thể ngành nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4942,9 +4501,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:40.720017+00:00"
     }
   },
   "8338544a-32e4-41c5-a4d8-4036ef41cf78": {
@@ -4959,24 +4519,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 3,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng rừng, bảo vệ rừng, khai thác và chế biến lâm sản.",
+    "definition": "Số lượng Liên hiệp hợp tác xã nông nghiệp đang duy trì hoạt động thực tế tính đến thời điểm báo cáo, được phân loại thuộc chuyên ngành lâm nghiệp, phản ánh quy mô và cơ cấu tổ chức kinh tế tập thể trong lĩnh vực lâm nghiệp.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp lâm nghiệp",
-      "liên hiệp htx nông nghiệp lĩnh vực lâm nghiệp",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) ngành lâm nghiệp",
-      "liên hiệp htx nông nghiệp trồng và phát triển rừng"
+      "Số lượng LHHTX nông nghiệp lĩnh vực lâm nghiệp",
+      "Liên hiệp hợp tác xã nông nghiệp ngành lâm nghiệp",
+      "Số LHHTX nông nghiệp hoạt động lâm nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp quản lý bảo vệ rừng phòng hộ, rừng sản xuất và cung ứng dịch vụ lâm nghiệp.",
+    "scope_description": "Áp dụng trong hệ thống thống kê dữ liệu ngành nông nghiệp và phát triển nông thôn, phân tổ theo nhóm ngành kinh tế lâm nghiệp thuộc tổng số liên hiệp hợp tác xã nông nghiệp trên địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -4984,9 +4535,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:45.735048+00:00"
     }
   },
   "9096b55f-1d14-4ab1-8513-0ad52f48e26d": {
@@ -5001,24 +4553,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 4,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh trong lĩnh vực nuôi trồng, khai thác và dịch vụ hậu cần thủy hải sản.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Liên hiệp Hợp tác xã nông nghiệp đang thực tế duy trì hoạt động tính đến thời điểm báo cáo thuộc chuyên ngành thủy sản, nằm trong cơ cấu phân loại theo lĩnh vực của tổng số liên hiệp hợp tác xã nông nghiệp.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp thủy sản",
-      "liên hiệp htx nông nghiệp nuôi trồng thủy sản",
-      "liên hiệp htx nông nghiệp lĩnh vực thủy sản",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) ngành thủy sản"
+      "Số lượng liên hiệp hợp tác xã thủy sản",
+      "Liên hiệp HTX nông nghiệp lĩnh vực thủy sản",
+      "Tổng số LHHTX hoạt động thủy sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp nuôi trồng cá, tôm, thủy đặc sản nước ngọt, lợ, mặn và khai thác hải sản.",
+    "scope_description": "Phạm vi thống kê toàn ngành nông nghiệp và phát triển nông thôn, áp dụng cho việc tổng hợp, quản lý dữ liệu về các tổ chức liên hiệp hợp tác xã hoạt động trong lĩnh vực nuôi trồng, khai thác và dịch vụ thủy sản trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5026,9 +4569,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:50.617944+00:00"
     }
   },
   "d56cd611-585a-4e1c-abab-f2fd5fc7b51f": {
@@ -5043,25 +4587,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 5,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Chế biến nông sản",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh trong ngành nghề sản xuất muối và chế biến các sản phẩm từ muối diêm nghiệp.",
+    "definition": "Tổng số lượng Liên hiệp hợp tác xã nông nghiệp hoạt động trong lĩnh vực diêm nghiệp, phản ánh quy mô và số lượng các tổ chức kinh tế hợp tác ngành muối tính đến thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp diêm nghiệp",
-      "liên hiệp htx nông nghiệp sản xuất muối",
-      "liên hiệp htx nông nghiệp làm muối",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) ngành muối",
-      "sản xuất muối"
+      "số lượng liên hiệp hợp tác xã muối",
+      "liên hiệp HTX sản xuất muối",
+      "LHHTX nông nghiệp ngành diêm nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp trực tiếp sản xuất muối tinh, muối thủ công và dịch vụ diêm nghiệp.",
+    "scope_description": "Áp dụng trong thống kê quản lý nhà nước về kinh tế tập thể thuộc lĩnh vực nông nghiệp và phát triển nông thôn, bao gồm toàn bộ các Liên hiệp hợp tác xã nông nghiệp hoạt động trong lĩnh vực diêm nghiệp trên phạm vi địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5069,9 +4603,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:52:55.278629+00:00"
     }
   },
   "aae6b0cd-e766-4fe5-8b5e-639c5b68f206": {
@@ -5086,24 +4621,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 6,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Nước sạch NT",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp chuyên hoạt động trong lĩnh vực sơ chế, bảo quản đóng gói và chế biến các sản phẩm nông sản thực phẩm.",
+    "definition": "Phản ánh tổng số lượng Liên hiệp HTX nông nghiệp đang thực tế duy trì hoạt động có ngành nghề, lĩnh vực trọng tâm hoặc tham gia trực tiếp vào chuỗi giá trị chế biến nông sản tính đến thời điểm chốt số liệu, thuộc cơ cấu Tổng số LHHTX phân theo lĩnh vực của ngành nông nghiệp.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp chế biến nông sản",
-      "liên hiệp htx nông nghiệp lĩnh vực chế biến",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) chế biến nông sản thực phẩm",
-      "liên hiệp htx nông nghiệp sơ chế nông sản"
+      "Số lượng liên hiệp hợp tác xã nông nghiệp chế biến nông sản",
+      "LHHTX nông nghiệp hoạt động chế biến nông sản",
+      "Số LHHTX chuyên ngành chế biến nông sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp sở hữu nhà xưởng, dây chuyền sơ chế, sấy, đóng gói nông sản.",
+    "scope_description": "Áp dụng trong hệ thống thống kê dữ liệu công vụ của ngành Nông nghiệp và Phát triển nông thôn để tổng hợp, theo dõi, quản lý và đánh giá năng lực tổ chức sản xuất, chế biến nông sản của các Liên hiệp hợp tác xã nông nghiệp trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5111,9 +4637,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:00.997147+00:00"
     }
   },
   "6623a128-2ccb-4921-aaae-7e7faf0c6f15": {
@@ -5128,24 +4655,15 @@
     "root_id": "e729eb5b-6488-4631-bf57-92431ae3c0cb",
     "root_name": "Liên hiệp HTX nông nghiệp",
     "canonical_order": 7,
-    "siblings": [
-      "Trồng trọt",
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Thủy sản",
-      "Diêm nghiệp",
-      "Chế biến nông sản",
-      "Tổng hợp"
-    ],
+    "siblings": [],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động cung ứng dịch vụ cấp nước sạch và quản lý vệ sinh môi trường nông thôn.",
+    "definition": "Tổng số lượng Liên hiệp hợp tác xã nông nghiệp đang thực tế duy trì hoạt động chuyên ngành khai thác, xử lý và cung cấp nước sạch nông thôn tính đến thời điểm chốt số liệu, thuộc nhóm chỉ tiêu tổng hợp phân theo lĩnh vực của liên hiệp hợp tác xã nông nghiệp.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp nước sạch nông thôn",
-      "liên hiệp htx nông nghiệp nước sạch nt",
-      "liên hiệp htx nông nghiệp dịch vụ nước sạch",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) cấp nước sinh hoạt nông thôn"
+      "Số lượng liên hiệp HTX nước sạch nông thôn",
+      "LHHTX nông nghiệp kinh doanh nước sạch",
+      "Liên hiệp hợp tác xã dịch vụ nước sạch nông thôn"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp vận hành trạm cấp nước sạch tập trung nông thôn.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê chuyên ngành nông nghiệp và phát triển nông thôn nhằm tổng hợp, quản lý và đánh giá quy mô phát triển của các liên hiệp hợp tác xã nông nghiệp hoạt động trong lĩnh vực cung cấp nước sạch nông thôn trên phạm vi toàn tỉnh.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5153,9 +4671,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:05.952353+00:00"
     }
   },
   "06464235-5a3e-44a1-8963-75f8c2616933": {
@@ -5180,14 +4699,13 @@
       "Nước sạch NT"
     ],
     "children_ids": [],
-    "definition": "Số lượng Liên hiệp HTX nông nghiệp hoạt động sản xuất kinh doanh đa ngành nghề, kết hợp nhiều lĩnh vực nông nghiệp tổng hợp.",
+    "definition": "Tổng số lượng Liên hiệp Hợp tác xã nông nghiệp thuộc lĩnh vực Tổng hợp, phản ánh tổng quy mô các tổ chức kinh tế hợp tác hoạt động đa ngành nghề hoặc các lĩnh vực nông nghiệp khác chưa được phân loại riêng biệt, tính đến thời điểm báo cáo trên địa bàn quản lý.",
     "natural_synonyms": [
-      "liên hiệp htx nông nghiệp tổng hợp",
-      "liên hiệp htx nông nghiệp đa ngành",
-      "liên hiệp htx nông nghiệp nông nghiệp tổng hợp",
-      "liên hiệp hợp tác xã nông nghiệp (LHHTX) sản xuất kinh doanh tổng hợp"
+      "Số lượng liên hiệp hợp tác xã tổng hợp",
+      "Tổng hợp liên hiệp hợp tác xã nông nghiệp",
+      "LHHTX nông nghiệp lĩnh vực tổng hợp"
     ],
-    "scope_description": "Bao gồm các đơn vị Liên hiệp HTX nông nghiệp kết hợp trồng trọt, chăn nuôi, nuôi trồng thủy sản hoặc dịch vụ đa năng.",
+    "scope_description": "Áp dụng cho toàn bộ các Liên hiệp Hợp tác xã hoạt động trong lĩnh vực nông nghiệp đa ngành hoặc tổng hợp trên địa bàn tỉnh, phục vụ công tác tổng hợp số liệu thống kê ngành nông nghiệp và phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5195,9 +4713,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:08.666776+00:00"
     }
   },
   "50cee905-2b2f-4f56-aeaf-6d04425036dc": {
@@ -5222,14 +4741,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng trọt (lúa, hoa màu, cây ăn trái, cây công nghiệp).",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp đang duy trì hoạt động tính đến thời điểm báo cáo, được phân tổ cụ thể theo lĩnh vực trồng trọt nhằm phản ánh quy mô, sự phát triển và mức độ tập trung của các tổ hợp tác chuyên canh tác, sản xuất cây trồng thuộc hệ thống Tổ hợp tác nông nghiệp.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp trồng trọt",
-      "tổ hợp tác nông nghiệp lĩnh vực trồng trọt",
-      "tổ hợp tác nông nghiệp (THT) chuyên canh trồng trọt",
-      "tổ hợp tác nông nghiệp ngành trồng trọt"
+      "Số lượng THT trồng trọt",
+      "Tổ hợp tác nông nghiệp lĩnh vực trồng trọt",
+      "Số THT chuyên ngành trồng trọt"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp có trên 50% doanh thu hoặc hoạt động chính thuộc nhóm ngành trồng trọt.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các Tổ hợp tác nông nghiệp có hoạt động sản xuất, kinh doanh trong lĩnh vực trồng trọt trên địa bàn, phục vụ công tác quản lý và tổng hợp chỉ tiêu phát triển kinh tế tập thể của ngành nông nghiệp và phát triển nông thôn theo định kỳ.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5237,9 +4755,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:13.897585+00:00"
     }
   },
   "64d9cd4a-8477-499b-9354-3362833a4b95": {
@@ -5264,14 +4783,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực chăn nuôi gia súc, gia cầm và vật nuôi nông nghiệp.",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp thuộc Tổng số THT phân theo lĩnh vực đang duy trì hoạt động thực tế chuyên sâu trong lĩnh vực chăn nuôi tại thời điểm báo cáo, phản ánh quy mô và sự phân bổ lực lượng kinh tế tập thể ngành chăn nuôi.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp chăn nuôi",
-      "tổ hợp tác nông nghiệp lĩnh vực chăn nuôi",
-      "tổ hợp tác nông nghiệp (THT) ngành chăn nuôi",
-      "tổ hợp tác nông nghiệp chăn nuôi gia súc gia cầm"
+      "Số lượng tổ hợp tác chăn nuôi",
+      "THT chăn nuôi nông nghiệp",
+      "Tổ hợp tác hoạt động lĩnh vực chăn nuôi"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp chuyên chăn nuôi trâu, bò, lợn, gia cầm hoặc cung cấp con giống, thức ăn.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê kinh tế tập thể thuộc lĩnh vực nông nghiệp và phát triển nông thôn, thực hiện thu thập dữ liệu định kỳ theo địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5279,9 +4797,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:18.639377+00:00"
     }
   },
   "75cc7bbf-12a2-4ad0-87bc-b8a1ab2145a2": {
@@ -5306,14 +4825,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng rừng, bảo vệ rừng, khai thác và chế biến lâm sản.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Tổ hợp tác nông nghiệp hoạt động trong lĩnh vực lâm nghiệp tính đến thời điểm báo cáo, thuộc nhóm Tổ hợp tác nông nghiệp phân theo các lĩnh vực kinh tế.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp lâm nghiệp",
-      "tổ hợp tác nông nghiệp lĩnh vực lâm nghiệp",
-      "tổ hợp tác nông nghiệp (THT) ngành lâm nghiệp",
-      "tổ hợp tác nông nghiệp trồng và phát triển rừng"
+      "tổ hợp tác lâm nghiệp",
+      "số lượng tổ hợp tác ngành lâm nghiệp",
+      "THT lâm nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp quản lý bảo vệ rừng phòng hộ, rừng sản xuất và cung ứng dịch vụ lâm nghiệp.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê ngành nông nghiệp và phát triển nông thôn, phạm vi toàn tỉnh đối với các tổ hợp tác hoạt động chuyên ngành lâm nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5321,9 +4839,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:20.588913+00:00"
     }
   },
   "0d76c0c4-a86f-426f-88b8-de4816320382": {
@@ -5348,14 +4867,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh trong lĩnh vực nuôi trồng, khai thác và dịch vụ hậu cần thủy hải sản.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Tổ hợp tác nông nghiệp hoạt động trong lĩnh vực thủy sản (bao gồm khai thác, nuôi trồng thủy sản và các dịch vụ phục vụ thủy sản) được thành lập, đăng ký và duy trì thực tế tính đến thời điểm báo cáo, nằm trong hệ thống Tổng số THT phân theo lĩnh vực của ngành nông nghiệp và phát triển nông thôn.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp thủy sản",
-      "tổ hợp tác nông nghiệp nuôi trồng thủy sản",
-      "tổ hợp tác nông nghiệp lĩnh vực thủy sản",
-      "tổ hợp tác nông nghiệp (THT) ngành thủy sản"
+      "Số lượng THT thủy sản",
+      "Tổ hợp tác ngành thủy sản",
+      "THT nuôi trồng và khai thác thủy sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp nuôi trồng cá, tôm, thủy đặc sản nước ngọt, lợ, mặn và khai thác hải sản.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê ngành Nông nghiệp và PTNT để quản lý, tổng hợp số liệu về kinh tế tập thể, tổ hợp tác chuyên ngành thủy sản trên phạm vi toàn quốc hoặc từng địa phương cụ thể.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5363,9 +4881,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:25.482509+00:00"
     }
   },
   "75556231-1866-4253-9daa-208abe9c4ad5": {
@@ -5390,15 +4909,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh trong ngành nghề sản xuất muối và chế biến các sản phẩm từ muối diêm nghiệp.",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp (thuộc tổng số THT phân theo lĩnh vực) đang duy trì thực tế hoạt động sản xuất, kinh doanh trong lĩnh vực diêm nghiệp tính đến thời điểm chốt số liệu, không bao gồm các đơn vị đã giải thể hoặc ngừng hoạt động vĩnh viễn.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp diêm nghiệp",
-      "tổ hợp tác nông nghiệp sản xuất muối",
-      "tổ hợp tác nông nghiệp làm muối",
-      "tổ hợp tác nông nghiệp (THT) ngành muối",
-      "sản xuất muối"
+      "Số lượng tổ hợp tác làm muối",
+      "THT diêm nghiệp",
+      "Số tổ hợp tác hoạt động ngành muối"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp trực tiếp sản xuất muối tinh, muối thủ công và dịch vụ diêm nghiệp.",
+    "scope_description": "Phạm vi thống kê áp dụng cho toàn bộ các Tổ hợp tác nông nghiệp có hoạt động chuyên canh hoặc kết hợp trong lĩnh vực diêm nghiệp trên địa bàn quản lý của ngành nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5406,9 +4923,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:30.287343+00:00"
     }
   },
   "fb5afb72-8dcd-4e2a-817d-cc39ea7caf91": {
@@ -5433,14 +4951,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp chuyên hoạt động trong lĩnh vực sơ chế, bảo quản đóng gói và chế biến các sản phẩm nông sản thực phẩm.",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp đang hoạt động trong lĩnh vực chế biến nông sản tính đến thời điểm báo cáo, phản ánh quy mô tổ chức sản xuất, sơ chế, bảo quản và gia công sản phẩm nông nghiệp thuộc phạm vi quản lý của ngành.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp chế biến nông sản",
-      "tổ hợp tác nông nghiệp lĩnh vực chế biến",
-      "tổ hợp tác nông nghiệp (THT) chế biến nông sản thực phẩm",
-      "tổ hợp tác nông nghiệp sơ chế nông sản"
+      "THT chế biến nông sản",
+      "Tổ hợp tác hoạt động chế biến nông sản",
+      "Số lượng THT chuyên chế biến nông sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp sở hữu nhà xưởng, dây chuyền sơ chế, sấy, đóng gói nông sản.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các Tổ hợp tác nông nghiệp có tham gia hoạt động sơ chế, bảo quản, chế biến nông sản trên địa bàn quản lý, phục vụ công tác đánh giá kinh tế tập thể trong nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5448,9 +4965,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:35.524557+00:00"
     }
   },
   "29761292-78cf-4cac-8bb7-5f8cc7f34c60": {
@@ -5475,14 +4993,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động cung ứng dịch vụ cấp nước sạch và quản lý vệ sinh môi trường nông thôn.",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động trong lĩnh vực nước sạch nông thôn, phản ánh tổng số các tổ chức kinh tế hợp tác không có tư cách pháp nhân đang duy trì thực tế việc cung cấp dịch vụ nước sạch và vệ sinh môi trường tại địa bàn nông thôn tính đến thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp nước sạch nông thôn",
-      "tổ hợp tác nông nghiệp nước sạch nt",
-      "tổ hợp tác nông nghiệp dịch vụ nước sạch",
-      "tổ hợp tác nông nghiệp (THT) cấp nước sinh hoạt nông thôn"
+      "Tổ hợp tác nước sạch nông thôn",
+      "THT cung cấp nước sạch nông thôn",
+      "Số lượng THT nông nghiệp ngành nước sạch"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp vận hành trạm cấp nước sạch tập trung nông thôn.",
+    "scope_description": "Áp dụng trong công tác thống kê ngành nông nghiệp và phát triển nông thôn, phân loại chi tiết theo lĩnh vực chuyên ngành cấp 3 thuộc nhóm chỉ tiêu về kinh tế hợp tác.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5490,9 +5007,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:41.260627+00:00"
     }
   },
   "c74e1352-39fd-4a6d-8994-fe68ed3a5e38": {
@@ -5517,14 +5035,13 @@
       "Nước sạch NT"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp hoạt động sản xuất kinh doanh đa ngành nghề, kết hợp nhiều lĩnh vực nông nghiệp tổng hợp.",
+    "definition": "Tổng số lượng Tổ hợp tác nông nghiệp hoạt động trong lĩnh vực tổng hợp, đa ngành nghề hoặc dịch vụ nông nghiệp kết hợp tính đến thời điểm báo cáo, thuộc hệ thống chỉ tiêu phân theo lĩnh vực của Tổ hợp tác nông nghiệp.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp tổng hợp",
-      "tổ hợp tác nông nghiệp đa ngành",
-      "tổ hợp tác nông nghiệp nông nghiệp tổng hợp",
-      "tổ hợp tác nông nghiệp (THT) sản xuất kinh doanh tổng hợp"
+      "Tổ hợp tác nông nghiệp lĩnh vực tổng hợp",
+      "THT nông nghiệp đa ngành",
+      "Tổ hợp tác dịch vụ tổng hợp nông nghiệp"
     ],
-    "scope_description": "Bao gồm các đơn vị Tổ hợp tác nông nghiệp kết hợp trồng trọt, chăn nuôi, nuôi trồng thủy sản hoặc dịch vụ đa năng.",
+    "scope_description": "Áp dụng cho việc thống kê, tổng hợp số liệu về các Tổ hợp tác nông nghiệp hoạt động trong lĩnh vực tổng hợp trên phạm vi toàn địa bàn quản lý, phục vụ công tác phân tích và quản lý nhà nước của ngành Nông nghiệp và Phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5532,9 +5049,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:46.544405+00:00"
     }
   },
   "b1de6542-f4f6-4066-b47c-e2e9e416a49f": {
@@ -5554,14 +5072,13 @@
       "Số THT nông nghiệp hoạt động kém hiệu quả"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Tốt theo Bộ tiêu chuẩn đánh giá của ngành nông nghiệp.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Tổ hợp tác nông nghiệp đang duy trì vận hành thực tế, được cơ quan chức năng đánh giá và phân loại đạt mức hiệu quả hoạt động tốt về mặt kinh tế, doanh thu, lợi ích thành viên và tuân thủ các tiêu chuẩn phát triển kinh tế tập thể tính đến thời điểm báo cáo.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp hoạt động hiệu quả tốt",
-      "tổ hợp tác nông nghiệp loại tốt",
-      "số tổ hợp tác nông nghiệp hiệu quả tốt",
-      "tổ hợp tác nông nghiệp (THT) xếp loại tốt"
+      "Số lượng Tổ hợp tác nông nghiệp làm ăn hiệu quả cao",
+      "Tổ hợp tác nông nghiệp đạt chuẩn hiệu quả tốt",
+      "Thống kê THT nông nghiệp kinh doanh hiệu quả tốt"
     ],
-    "scope_description": "Đơn vị Tổ hợp tác nông nghiệp đạt điểm số cao, sản xuất kinh doanh có lãi, bảo toàn vốn và quản trị tốt.",
+    "scope_description": "Áp dụng trong hệ thống cơ sở dữ liệu thống kê ngành nông nghiệp và phát triển nông thôn để tổng hợp, đánh giá chất lượng hoạt động và năng lực phát triển của các Tổ hợp tác nông nghiệp trên phạm vi toàn tỉnh theo định kỳ.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5569,9 +5086,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:52.079840+00:00"
     }
   },
   "7633406a-9ed5-49c1-8807-a5eb0dc5468f": {
@@ -5591,14 +5109,13 @@
       "Số THT nông nghiệp hoạt động kém hiệu quả"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Trung bình theo Bộ tiêu chuẩn đánh giá.",
+    "definition": "Số lượng Tổ hợp tác nông nghiệp thuộc nhóm chỉ tiêu về hiệu quả hoạt động mà thực tế đang duy trì vận hành nhưng đạt mức đánh giá hiệu quả sản xuất kinh doanh ở mức trung bình theo các tiêu chuẩn quy định tại thời điểm chốt số liệu, không tính các tổ đã giải thể hoặc ngừng hoạt động.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp hoạt động hiệu quả trung bình",
-      "tổ hợp tác nông nghiệp loại trung bình",
-      "số tổ hợp tác nông nghiệp hiệu quả trung bình",
-      "tổ hợp tác nông nghiệp (THT) xếp loại trung bình"
+      "tổ hợp tác nông nghiệp hoạt động trung bình",
+      "số lượng tổ hợp tác nông nghiệp hiệu quả trung bình",
+      "tth nông nghiệp đạt mức hiệu quả trung bình"
     ],
-    "scope_description": "Đơn vị Tổ hợp tác nông nghiệp duy trì hoạt động ở mức hòa vốn hoặc lãi nhẹ, còn một số tiêu chí hạn chế.",
+    "scope_description": "Phạm vi thống kê toàn ngành nông nghiệp và phát triển nông thôn, áp dụng cho cấp độ phân tích chi tiết về năng lực và hiệu quả hoạt động của các Tổ hợp tác nông nghiệp trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5606,9 +5123,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:57.620049+00:00"
     }
   },
   "5f41eacc-1f35-4df5-984f-ec7b9f8884cb": {
@@ -5628,14 +5146,13 @@
       "Số THT nông nghiệp hoạt động hiệu quả trung bình"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp xếp loại hoạt động ở mức Kém hiệu quả (hoặc loại Yếu) trong kỳ đánh giá chất lượng.",
+    "definition": "Tổng số lượng Tổ hợp tác nông nghiệp đang hoạt động thực tế trên địa bàn nhưng có hiệu quả sản xuất kinh doanh và quản lý yếu kém, không đạt mục tiêu đề ra, cần có giải pháp hỗ trợ hoặc sắp xếp lại.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp hoạt động kém hiệu quả",
-      "tổ hợp tác nông nghiệp kém hiệu quả",
-      "số tổ hợp tác nông nghiệp hiệu quả kém",
-      "tổ hợp tác nông nghiệp (THT) xếp loại yếu kém"
+      "số lượng tổ hợp tác nông nghiệp hoạt động yếu kém",
+      "tth nông nghiệp kém hiệu quả",
+      "tổ hợp tác nông nghiệp hiệu quả thấp"
     ],
-    "scope_description": "Đơn vị Tổ hợp tác nông nghiệp gặp khó khăn trong sản xuất kinh doanh, thua lỗ hoặc bộ máy hoạt động cầm chừng.",
+    "scope_description": "Phạm vi thống kê áp dụng cho toàn bộ các Tổ hợp tác hoạt động trong lĩnh vực nông nghiệp, lâm nghiệp, ngư nghiệp và diêm nghiệp trên địa bàn tỉnh, được phân loại ở cấp độ 3 thuộc nhánh chỉ tiêu Hiệu quả hoạt động.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5643,9 +5160,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:53:59.800800+00:00"
     }
   },
   "fd2bf6b4-328b-41af-9ac7-6c999367d237": {
@@ -5664,14 +5182,13 @@
       "Số THT nông nghiệp có liên kết không ổn định, thường xuyên"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp có ký kết hợp đồng liên kết sản xuất và tiêu thụ nông sản ổn định, dài hạn theo chuỗi giá trị.",
+    "definition": "Phản ánh tổng số lượng Tổ hợp tác nông nghiệp thuộc nhóm liên kết sản xuất đang thực tế duy trì hoạt động hợp tác, ký kết và thực hiện các thỏa thuận sản xuất, tiêu thụ sản phẩm nông nghiệp mang tính ổn định, lâu dài với các doanh nghiệp hoặc đối tác tại thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp liên kết ổn định",
-      "số tổ hợp tác nông nghiệp có liên kết sản xuất ổn định",
-      "tổ hợp tác nông nghiệp (THT) hợp đồng bao tiêu ổn định",
-      "tổ hợp tác nông nghiệp chuỗi giá trị ổn định"
+      "Số lượng tổ hợp tác nông nghiệp liên kết sản xuất ổn định",
+      "THT nông nghiệp có liên kết bền vững",
+      "Số THT nông nghiệp duy trì liên kết sản xuất ổn định"
     ],
-    "scope_description": "Hợp đồng liên kết có thời hạn từ 1 năm trở lên, có cam kết tiêu thụ sản phẩm rõ ràng.",
+    "scope_description": "Áp dụng trong hệ thống thống kê của ngành Nông nghiệp và PTNT để thu thập, tổng hợp và đánh giá mức độ tham gia chuỗi giá trị, tính bền vững trong liên kết sản xuất của các Tổ hợp tác nông nghiệp trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5679,9 +5196,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:05.039715+00:00"
     }
   },
   "d9de784a-6f67-4e1b-9a92-a94639cdae32": {
@@ -5700,14 +5218,13 @@
       "Số THT nông nghiệp có liên kết sản xuất ổn định"
     ],
     "children_ids": [],
-    "definition": "Số lượng Tổ hợp tác nông nghiệp có tham gia liên kết sản xuất nhưng chưa có hợp đồng dài hạn, liên kết mang tính thời vụ hoặc không thường xuyên.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng Tổ hợp tác nông nghiệp thuộc phạm vi quản lý đang duy trì hoạt động sản xuất kinh doanh theo hình thức liên kết sản xuất nhưng tính chất liên kết chưa bền vững, không ổn định hoặc mang tính thời vụ tại thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "tổ hợp tác nông nghiệp liên kết không ổn định",
-      "tổ hợp tác nông nghiệp liên kết thời vụ",
-      "số tổ hợp tác nông nghiệp liên kết không thường xuyên",
-      "tổ hợp tác nông nghiệp (THT) liên kết bấp bênh"
+      "Số lượng THT nông nghiệp liên kết không bền vững",
+      "Tổ hợp tác nông nghiệp liên kết bấp bênh",
+      "THT nông nghiệp có liên kết sản xuất không ổn định"
     ],
-    "scope_description": "Liên kết thỏa thuận miệng hoặc hợp đồng ngắn hạn theo từng vụ mùa thu hoạch.",
+    "scope_description": "Áp dụng cho toàn bộ hệ thống báo cáo thống kê ngành nông nghiệp và phát triển nông thôn nhằm phân loại chi tiết các Tổ hợp tác nông nghiệp theo mức độ ổn định của liên kết sản xuất phục vụ công tác quản lý vĩ mô.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5715,9 +5232,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:10.213762+00:00"
     }
   },
   "c61fad4f-cf0d-4877-9778-f887fed8864c": {
@@ -5736,14 +5254,13 @@
       "Số TT nông nghiệp có liên kết với chế biến và tiêu thụ không ổn định"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp có ký kết hợp đồng liên kết sản xuất và tiêu thụ nông sản ổn định, dài hạn theo chuỗi giá trị.",
+    "definition": "Tổng số lượng Trang trại nông nghiệp (thuộc nhóm Liên kết sản xuất) thực tế đang duy trì và thực hiện các hoạt động liên kết ổn định với các doanh nghiệp, cơ sở chế biến và tiêu thụ sản phẩm nông lâm thủy sản tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp liên kết ổn định",
-      "số trang trại nông nghiệp có liên kết sản xuất ổn định",
-      "trang trại nông nghiệp (TT) hợp đồng bao tiêu ổn định",
-      "trang trại nông nghiệp chuỗi giá trị ổn định"
+      "trang trại nông nghiệp liên kết tiêu thụ",
+      "số trang trại có liên kết chuỗi giá trị",
+      "trang trại gắn kết chế biến và tiêu thụ"
     ],
-    "scope_description": "Hợp đồng liên kết có thời hạn từ 1 năm trở lên, có cam kết tiêu thụ sản phẩm rõ ràng.",
+    "scope_description": "Áp dụng cho toàn bộ các trang trại nông nghiệp trên địa bàn tỉnh có tham gia chuỗi liên kết sản xuất gắn với chế biến và tiêu thụ sản phẩm nông nghiệp một cách ổn định, được thống kê và quản lý bởi Sở Nông nghiệp và PTNT.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5751,9 +5268,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:13.106997+00:00"
     }
   },
   "16a693a6-ca68-4fe1-8615-43c214bff8e2": {
@@ -5772,14 +5290,13 @@
       "Số TT nông nghiệp có liên kết với chế biến và tiêu thụ"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp có tham gia liên kết sản xuất nhưng chưa có hợp đồng dài hạn, liên kết mang tính thời vụ hoặc không thường xuyên.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng trang trại nông nghiệp thuộc nhóm có liên kết sản xuất, nhưng việc duy trì mối liên kết với các cơ sở chế biến và tiêu thụ nông sản mang tính chất bấp bênh, không bền vững, thường xuyên thay đổi đối tác hoặc đứt gãy trong kỳ báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp liên kết không ổn định",
-      "trang trại nông nghiệp liên kết thời vụ",
-      "số trang trại nông nghiệp liên kết không thường xuyên",
-      "trang trại nông nghiệp (TT) liên kết bấp bênh"
+      "trang trại nông nghiệp liên kết chế biến tiêu thụ bấp bênh",
+      "số trang trại có liên kết tiêu thụ không bền vững",
+      "trang trại liên kết sản phẩm nông nghiệp không ổn định"
     ],
-    "scope_description": "Liên kết thỏa thuận miệng hoặc hợp đồng ngắn hạn theo từng vụ mùa thu hoạch.",
+    "scope_description": "Áp dụng trong hệ thống thông tin thống kê ngành nông nghiệp nhằm đánh giá thực trạng, tính ổn định và mức độ bền vững của các mô hình liên kết sản xuất gắn với chế biến, tiêu thụ nông sản tại các trang trại trên địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5787,9 +5304,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:17.996979+00:00"
     }
   },
   "b07a2804-96a7-4b60-aecb-e686d5fa3ab4": {
@@ -5809,14 +5327,13 @@
       "Số TT nông nghiệp hoạt động kém hiệu quả"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Tốt theo Bộ tiêu chuẩn đánh giá của ngành nông nghiệp.",
+    "definition": "Số lượng trang trại nông nghiệp thuộc nhánh chỉ tiêu hiệu quả hoạt động, phản ánh tổng số trang trại đang duy trì vận hành thực tế tại thời điểm báo cáo và được cơ quan có thẩm quyền đánh giá xếp loại đạt mức hiệu quả tốt về kinh tế, kỹ thuật và môi trường.",
     "natural_synonyms": [
-      "trang trại nông nghiệp hoạt động hiệu quả tốt",
-      "trang trại nông nghiệp loại tốt",
-      "số trang trại nông nghiệp hiệu quả tốt",
-      "trang trại nông nghiệp (TT) xếp loại tốt"
+      "số lượng trang trại nông nghiệp hiệu suất cao",
+      "trang trại nông nghiệp đạt hiệu quả tốt",
+      "số trang trại nông nghiệp kinh doanh hiệu quả"
     ],
-    "scope_description": "Đơn vị Trang trại nông nghiệp đạt điểm số cao, sản xuất kinh doanh có lãi, bảo toàn vốn và quản trị tốt.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê ngành nông nghiệp và phát triển nông thôn, dùng để phân loại, đánh giá chất lượng và năng lực vận hành thực tế của các trang trại trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5824,9 +5341,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:23.167828+00:00"
     }
   },
   "ff53da4c-2480-4634-bc88-b8aa2c99342d": {
@@ -5846,14 +5364,13 @@
       "Số TT nông nghiệp hoạt động kém hiệu quả"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp được đánh giá, xếp loại chất lượng hoạt động ở mức Trung bình theo Bộ tiêu chuẩn đánh giá.",
+    "definition": "Số lượng Trang trại nông nghiệp trong tổng số Trang trại nông nghiệp đang hoạt động thực tế trên địa bàn đạt mức đánh giá hiệu quả sản xuất kinh doanh ở mức trung bình theo các tiêu chí chuẩn hóa của ngành nông nghiệp và phát triển nông thôn tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp hoạt động hiệu quả trung bình",
-      "trang trại nông nghiệp loại trung bình",
       "số trang trại nông nghiệp hiệu quả trung bình",
-      "trang trại nông nghiệp (TT) xếp loại trung bình"
+      "trang trại nông nghiệp hoạt động đạt mức trung bình",
+      "số lượng trang trại nông nghiệp trung bình"
     ],
-    "scope_description": "Đơn vị Trang trại nông nghiệp duy trì hoạt động ở mức hòa vốn hoặc lãi nhẹ, còn một số tiêu chí hạn chế.",
+    "scope_description": "Áp dụng thống kê trong lĩnh vực nông nghiệp đối với toàn bộ các trang trại nông nghiệp trên địa bàn quản lý thuộc nhánh chỉ tiêu hiệu quả hoạt động.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5861,9 +5378,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:25.143261+00:00"
     }
   },
   "764f3fc8-bda5-4e87-b765-75feca6a4624": {
@@ -5883,14 +5401,13 @@
       "Số TT nông nghiệp hoạt động hiệu quả trung bình"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp xếp loại hoạt động ở mức Kém hiệu quả (hoặc loại Yếu) trong kỳ đánh giá chất lượng.",
+    "definition": "Tổng số lượng trang trại nông nghiệp thuộc nhóm chỉ tiêu hiệu quả hoạt động, tính đến thời điểm báo cáo, đang duy trì vận hành thực tế nhưng đạt kết quả sản xuất kinh doanh thấp, không đảm bảo các tiêu chí về hiệu quả kinh tế, năng suất hoặc lợi nhuận theo quy định ngành.",
     "natural_synonyms": [
-      "trang trại nông nghiệp hoạt động kém hiệu quả",
-      "trang trại nông nghiệp kém hiệu quả",
-      "số trang trại nông nghiệp hiệu quả kém",
-      "trang trại nông nghiệp (TT) xếp loại yếu kém"
+      "Số lượng trang trại nông nghiệp làm ăn kém hiệu quả",
+      "Trang trại nông nghiệp hoạt động yếu kém",
+      "Số trang trại nông nghiệp có hiệu quả kinh tế thấp"
     ],
-    "scope_description": "Đơn vị Trang trại nông nghiệp gặp khó khăn trong sản xuất kinh doanh, thua lỗ hoặc bộ máy hoạt động cầm chừng.",
+    "scope_description": "Áp dụng trong hệ thống kho dữ liệu (DWH) để tổng hợp, thống kê, phân tích và đánh giá năng lực sản xuất cũng như thực trạng hiệu quả kinh tế của các trang trại nông nghiệp trên địa bàn quản lý thuộc thẩm quyền của ngành nông nghiệp và phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -5898,91 +5415,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "62636ee4-1f55-43e7-9a3d-91535e343f34": {
-    "id": "62636ee4-1f55-43e7-9a3d-91535e343f34",
-    "code": "trong_trot4",
-    "name": "Trồng trọt",
-    "level": 3,
-    "is_leaf": true,
-    "scope_name": "Nông nghiệp",
-    "parent_id": "52ff5d89-3e98-47ef-983d-a059ae9b52a7",
-    "parent_name": "Tổng số lượng TT phân theo lĩnh vực",
-    "root_id": "9a8e4242-4d16-4a66-bb43-2d64ce6dfba9",
-    "root_name": "Trang trại",
-    "canonical_order": 1,
-    "siblings": [
-      "Chăn nuôi",
-      "Lâm nghiệp",
-      "Nuôi trồng thủy sản",
-      "Sản xuất muôi",
-      "Chế biến nông sản",
-      "Tổng hợp"
-    ],
-    "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng trọt (lúa, hoa màu, cây ăn trái, cây công nghiệp).",
-    "natural_synonyms": [
-      "trang trại nông nghiệp trồng trọt",
-      "trang trại nông nghiệp lĩnh vực trồng trọt",
-      "trang trại nông nghiệp (TT) chuyên canh trồng trọt",
-      "trang trại nông nghiệp ngành trồng trọt"
-    ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp có trên 50% doanh thu hoặc hoạt động chính thuộc nhóm ngành trồng trọt.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-03-31",
-      "2026-06-30",
-      "2026-09-30"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
-    }
-  },
-  "946adf70-875a-4425-b8b4-686e67a95bf3": {
-    "id": "946adf70-875a-4425-b8b4-686e67a95bf3",
-    "code": "chan_nuoi4",
-    "name": "Chăn nuôi",
-    "level": 3,
-    "is_leaf": true,
-    "scope_name": "Nông nghiệp",
-    "parent_id": "52ff5d89-3e98-47ef-983d-a059ae9b52a7",
-    "parent_name": "Tổng số lượng TT phân theo lĩnh vực",
-    "root_id": "9a8e4242-4d16-4a66-bb43-2d64ce6dfba9",
-    "root_name": "Trang trại",
-    "canonical_order": 2,
-    "siblings": [
-      "Trồng trọt",
-      "Lâm nghiệp",
-      "Nuôi trồng thủy sản",
-      "Sản xuất muôi",
-      "Chế biến nông sản",
-      "Tổng hợp"
-    ],
-    "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực chăn nuôi gia súc, gia cầm và vật nuôi nông nghiệp.",
-    "natural_synonyms": [
-      "trang trại nông nghiệp chăn nuôi",
-      "trang trại nông nghiệp lĩnh vực chăn nuôi",
-      "trang trại nông nghiệp (TT) ngành chăn nuôi",
-      "trang trại nông nghiệp chăn nuôi gia súc gia cầm"
-    ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp chuyên chăn nuôi trâu, bò, lợn, gia cầm hoặc cung cấp con giống, thức ăn.",
-    "has_approved_facts": true,
-    "available_report_dates": [
-      "2026-03-31",
-      "2026-06-30",
-      "2026-09-30"
-    ],
-    "metadata": {
-      "source": "subagent_curated",
-      "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:31.923009+00:00"
     }
   },
   "d56f5f89-b523-4f2e-b692-5dfbec0ef721": {
@@ -6006,14 +5442,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh chuyên ngành trong lĩnh vực trồng rừng, bảo vệ rừng, khai thác và chế biến lâm sản.",
+    "definition": "Số lượng trang trại hoạt động trong lĩnh vực lâm nghiệp tính trên tổng số lượng trang trại phân theo lĩnh vực, phản ánh quy mô và số lượng các cơ sở kinh tế trang trại chuyên trồng, chăm sóc, bảo vệ và khai thác rừng thực tế đang duy trì vận hành trên địa bàn tại thời điểm chốt số liệu.",
     "natural_synonyms": [
-      "trang trại nông nghiệp lâm nghiệp",
-      "trang trại nông nghiệp lĩnh vực lâm nghiệp",
-      "trang trại nông nghiệp (TT) ngành lâm nghiệp",
-      "trang trại nông nghiệp trồng và phát triển rừng"
+      "Số lượng trang trại lâm nghiệp",
+      "Trang trại chuyên ngành lâm nghiệp",
+      "Cơ sở trang trại lâm nghiệp đang hoạt động"
     ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp quản lý bảo vệ rừng phòng hộ, rừng sản xuất và cung ứng dịch vụ lâm nghiệp.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các trang trại kinh tế có hoạt động sản xuất, kinh doanh chính thuộc lĩnh vực lâm nghiệp trên địa bàn quản lý, phục vụ công tác tổng hợp, phân tích và quản lý nhà nước về kinh tế trang trại nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6021,9 +5456,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:49.903067+00:00"
     }
   },
   "c13d9999-c00e-44fc-b393-8fd5c7f787df": {
@@ -6047,14 +5483,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh trong lĩnh vực nuôi trồng, khai thác và dịch vụ hậu cần thủy hải sản.",
+    "definition": "Số lượng trang trại chuyên nuôi trồng thủy sản thuộc nhóm tổng số lượng trang trại phân theo lĩnh vực, phản ánh quy mô, số lượng các cơ sở đạt tiêu chí kinh tế trang trại đang duy trì hoạt động sản xuất, kinh doanh lĩnh vực nuôi trồng thủy sản trên địa bàn tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp thủy sản",
-      "trang trại nông nghiệp nuôi trồng thủy sản",
-      "trang trại nông nghiệp lĩnh vực thủy sản",
-      "trang trại nông nghiệp (TT) ngành thủy sản"
+      "Số lượng trang trại nuôi trồng thủy sản",
+      "Cơ sở trang trại thủy sản",
+      "Trang trại thủy sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp nuôi trồng cá, tôm, thủy đặc sản nước ngọt, lợ, mặn và khai thác hải sản.",
+    "scope_description": "Áp dụng trong hệ thống báo cáo thống kê ngành Nông nghiệp và Phát triển nông thôn nhằm tổng hợp, quản lý và đánh giá thực trạng phát triển kinh tế trang trại chuyên ngành nuôi trồng thủy sản thuộc thẩm quyền quản lý của Sở Nông nghiệp và PTNT.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6062,9 +5497,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:55.052248+00:00"
     }
   },
   "b0c19a43-6781-4266-915a-0ff0e505e640": {
@@ -6088,15 +5524,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh trong ngành nghề sản xuất muối và chế biến các sản phẩm từ muối diêm nghiệp.",
+    "definition": "Tổng số lượng trang trại hoạt động trong lĩnh vực sản xuất muối, tính đến thời điểm báo cáo, phản ánh quy mô và thực trạng phát triển của các chủ thể kinh tế trang trại chuyên ngành muối thuộc hệ thống chỉ tiêu trang trại phân theo lĩnh vực nông nghiệp.",
     "natural_synonyms": [
-      "trang trại nông nghiệp diêm nghiệp",
-      "trang trại nông nghiệp sản xuất muối",
-      "trang trại nông nghiệp làm muối",
-      "trang trại nông nghiệp (TT) ngành muối",
-      "sản xuất muối"
+      "Số lượng trang trại sản xuất muối",
+      "Quy mô trang trại làm muối",
+      "Số trang trại chuyên canh muối"
     ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp trực tiếp sản xuất muối tinh, muối thủ công và dịch vụ diêm nghiệp.",
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các trang trại đạt tiêu chí theo quy định hiện hành đang thực hiện hoạt động sản xuất muối trên địa bàn, phục vụ công tác quản lý nhà nước về nông nghiệp và phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6104,9 +5538,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:54:59.896899+00:00"
     }
   },
   "c3ebedd1-0cc7-441f-8e26-9396241adad2": {
@@ -6130,14 +5565,13 @@
       "Tổng hợp"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp chuyên hoạt động trong lĩnh vực sơ chế, bảo quản đóng gói và chế biến các sản phẩm nông sản thực phẩm.",
+    "definition": "Số lượng trang trại hoạt động trong lĩnh vực chế biến nông sản tính trên tổng số lượng trang trại phân theo lĩnh vực, phản ánh quy mô các đơn vị kinh tế trang trại thực hiện hoạt động sơ chế, chế biến sản phẩm nông nghiệp tại thời điểm báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp chế biến nông sản",
-      "trang trại nông nghiệp lĩnh vực chế biến",
-      "trang trại nông nghiệp (TT) chế biến nông sản thực phẩm",
-      "trang trại nông nghiệp sơ chế nông sản"
+      "số lượng trang trại chế biến nông sản",
+      "cơ sở trang trại làm chế biến nông sản",
+      "số trang trại hoạt động chế biến nông sản"
     ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp sở hữu nhà xưởng, dây chuyền sơ chế, sấy, đóng gói nông sản.",
+    "scope_description": "Áp dụng thống kê cho toàn bộ các trang trại đạt tiêu chuẩn theo quy định hiện hành có phát sinh hoạt động sơ chế, chế biến sản phẩm nông nghiệp thuộc phạm vi quản lý của ngành nông nghiệp trên địa bàn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6145,9 +5579,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:04.471822+00:00"
     }
   },
   "1851e4c6-0d28-49f0-9f2a-896dee0b1806": {
@@ -6171,14 +5606,13 @@
       "Chế biến nông sản"
     ],
     "children_ids": [],
-    "definition": "Số lượng Trang trại nông nghiệp hoạt động sản xuất kinh doanh đa ngành nghề, kết hợp nhiều lĩnh vực nông nghiệp tổng hợp.",
+    "definition": "Tổng số lượng trang trại hoạt động trong lĩnh vực tổng hợp và đa ngành, thuộc hệ thống trang trại nông nghiệp chưa được phân loại vào các chuyên ngành hẹp như trồng trọt hay chăn nuôi, được thống kê chính xác tại thời điểm chốt số liệu báo cáo.",
     "natural_synonyms": [
-      "trang trại nông nghiệp tổng hợp",
-      "trang trại nông nghiệp đa ngành",
-      "trang trại nông nghiệp nông nghiệp tổng hợp",
-      "trang trại nông nghiệp (TT) sản xuất kinh doanh tổng hợp"
+      "Số lượng trang trại tổng hợp",
+      "Trang trại đa ngành nông nghiệp",
+      "Trang trại sản xuất hỗn hợp"
     ],
-    "scope_description": "Bao gồm các đơn vị Trang trại nông nghiệp kết hợp trồng trọt, chăn nuôi, nuôi trồng thủy sản hoặc dịch vụ đa năng.",
+    "scope_description": "Áp dụng cho hệ thống báo cáo thống kê ngành nông nghiệp và phát triển nông thôn đối với các cơ sở kinh tế trang trại hoạt động theo hình thức tổng hợp, đa lĩnh vực trên phạm vi toàn địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6186,9 +5620,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:11.594172+00:00"
     }
   },
   "21ffd5bb-162a-4c65-a6d5-e01d9fff7db9": {
@@ -6208,14 +5643,13 @@
       "Sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng sản phẩm nông nghiệp và đặc sản địa phương được Ủy ban nhân dân cấp huyện hoặc cấp tỉnh đánh giá, phân hạng và cấp chứng nhận đạt chuẩn OCOP 3 sao mới phát sinh trong năm báo cáo (đạt từ 50 đến 69 điểm theo bộ tiêu chí quốc gia).",
+    "definition": "Tổng số lượng sản phẩm OCOP đạt chuẩn 3 sao nằm trong Tổng số lượng sản phẩm OCOP trong năm của Chương trình OCOP, được Hội đồng đánh giá và phân hạng sản phẩm OCOP cấp thẩm quyền công nhận trong kỳ báo cáo, phản ánh năng lực phát triển sản phẩm nông thôn theo chuỗi giá trị.",
     "natural_synonyms": [
-      "sản phẩm ocop 3 sao trong năm",
-      "sản phẩm ocop ba sao phát sinh mới",
-      "hàng hóa ocop 3 sao cấp huyện tỉnh",
-      "chứng nhận ocop 3 sao trong năm"
+      "Sản phẩm đạt chứng nhận OCOP 3 sao",
+      "Số lượng sản phẩm OCOP hạng 3 sao",
+      "Sản phẩm nông thôn tiêu biểu 3 sao"
     ],
-    "scope_description": "Áp dụng cho các sản phẩm nông sản, thực phẩm đặc sản hoàn thành đánh giá phân hạng OCOP 3 sao mới trong năm báo cáo.",
+    "scope_description": "Phạm vi thống kê áp dụng trong hệ thống cơ sở dữ liệu Chương trình mỗi xã một sản phẩm (OCOP) thuộc ngành nông nghiệp và phát triển nông thôn, theo dõi các sản phẩm đạt chuẩn phân hạng 3 sao trên địa bàn quản lý.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6225,9 +5659,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:15.752056+00:00"
     }
   },
   "d3da8b1f-8c45-456b-852a-dc3bf31f2a0f": {
@@ -6247,14 +5682,13 @@
       "Sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng sản phẩm đặc trưng cấp tỉnh đạt tiêu chuẩn chất lượng cao, được Hội đồng đánh giá cấp tỉnh phân hạng và cấp chứng nhận đạt chuẩn OCOP 4 sao mới phát sinh trong năm báo cáo (đạt từ 70 đến 89 điểm, có tiềm năng thương mại hóa cấp quốc gia).",
+    "definition": "Chỉ tiêu thống kê nghiệp vụ 'Sản phẩm OCOP 4 sao' phản ánh dữ liệu chuyên ngành trong nhóm 'Tổng số lượng sản phẩm OCOP trong năm'.",
     "natural_synonyms": [
-      "sản phẩm ocop 4 sao trong năm",
-      "sản phẩm ocop bốn sao cấp tỉnh",
-      "hàng hóa ocop 4 sao phát sinh mới",
-      "chứng nhận ocop 4 sao trong năm"
+      "sản phẩm ocop 4 sao",
+      "chỉ tiêu sản phẩm ocop 4 sao",
+      "sản phẩm ocop 4 sao tổng số lượng sản phẩm ocop trong năm"
     ],
-    "scope_description": "Áp dụng cho các sản phẩm OCOP cấp tỉnh đạt chuẩn 4 sao phát sinh mới trong năm báo cáo.",
+    "scope_description": "Áp dụng cho thống kê và theo dõi dữ liệu Sản phẩm OCOP 4 sao trong lĩnh vực Nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6264,9 +5698,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:20.671137+00:00"
     }
   },
   "5ec1f976-b402-4f02-beb6-30973feab405": {
@@ -6286,14 +5721,13 @@
       "Sản phẩm OCOP 4 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng sản phẩm nông đặc sản chất lượng vượt trội được Hội đồng thẩm định Trung ương công nhận đạt chuẩn OCOP 5 sao cấp quốc gia mới phát sinh trong năm báo cáo (đạt từ 90 đến 100 điểm, đáp ứng các tiêu chuẩn xuất khẩu quốc tế).",
+    "definition": "Tổng số lượng sản phẩm OCOP thuộc Chương trình OCOP được đánh giá và công nhận đạt hạng 5 sao (cấp quốc gia) còn hiệu lực trong năm báo cáo, phản ánh chất lượng và giá trị thương mại cao nhất của các sản phẩm nông nghiệp và phi nông nghiệp địa phương.",
     "natural_synonyms": [
-      "sản phẩm ocop 5 sao trong năm",
-      "sản phẩm ocop năm sao cấp quốc gia",
-      "hàng nông đặc sản ocop 5 sao",
-      "chứng nhận ocop 5 sao phát sinh mới"
+      "số lượng sản phẩm OCOP 5 sao",
+      "sản phẩm đạt chuẩn OCOP 5 sao",
+      "sản phẩm OCOP hạng 5 sao quốc gia"
     ],
-    "scope_description": "Áp dụng cho sản phẩm OCOP quốc gia đạt thứ hạng 5 sao đủ điều kiện xuất khẩu mới phát sinh trong năm báo cáo.",
+    "scope_description": "Áp dụng cho việc thống kê, tổng hợp và quản lý dữ liệu về các sản phẩm OCOP đạt hạng 5 sao trên phạm vi toàn tỉnh, phục vụ báo cáo định kỳ của ngành Nông nghiệp và Phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6303,9 +5737,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:22.572536+00:00"
     }
   },
   "f1e6b45e-6c5d-4c41-8f70-352f4237b3dc": {
@@ -6325,14 +5760,13 @@
       "Chủ thể sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng chủ thể kinh tế nông thôn (bao gồm doanh nghiệp nhỏ và vừa, hợp tác xã, tổ hợp tác, hộ sản xuất kinh doanh) có sản phẩm được đánh giá và công nhận đạt chuẩn OCOP 3 sao mới phát sinh trong năm báo cáo.",
+    "definition": "Chỉ tiêu thống kê nghiệp vụ 'Chủ thể sản phẩm OCOP 3 sao' phản ánh dữ liệu chuyên ngành trong nhóm 'Tổng số lượng chủ thể sản phẩm OCOP trong năm'.",
     "natural_synonyms": [
-      "chủ thể sản phẩm ocop 3 sao trong năm",
-      "chủ thể ocop ba sao phát sinh mới",
-      "đơn vị sở hữu sản phẩm ocop 3 sao",
-      "cơ sở sản xuất ocop 3 sao trong năm"
+      "chủ thể sản phẩm ocop 3 sao",
+      "chỉ tiêu chủ thể sản phẩm ocop 3 sao",
+      "chủ thể sản phẩm ocop 3 sao tổng số lượng chủ thể sản phẩm ocop trong năm"
     ],
-    "scope_description": "Áp dụng thống kê các chủ thể kinh tế có sản phẩm OCOP 3 sao phát sinh mới trong năm báo cáo.",
+    "scope_description": "Áp dụng cho thống kê và theo dõi dữ liệu Chủ thể sản phẩm OCOP 3 sao trong lĩnh vực Nông nghiệp.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6342,9 +5776,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:27.459473+00:00"
     }
   },
   "9eca048a-60d7-4bdf-943c-e3d352546663": {
@@ -6364,14 +5799,13 @@
       "Chủ thể sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng chủ thể kinh tế nông nghiệp nông thôn sở hữu các sản phẩm hàng hóa được Ủy ban nhân dân cấp tỉnh phê duyệt đạt chuẩn OCOP 4 sao mới phát sinh trong năm báo cáo.",
+    "definition": "Chỉ tiêu phản ánh số lượng các chủ thể kinh tế có sản phẩm được cơ quan có thẩm quyền đánh giá và phân hạng đạt chuẩn OCOP 4 sao trong năm, là bộ phận cấu thành thuộc tổng số lượng chủ thể sản phẩm OCOP trong năm của Chương trình OCOP trong ngành nông nghiệp.",
     "natural_synonyms": [
-      "chủ thể sản phẩm ocop 4 sao trong năm",
-      "chủ thể ocop bốn sao cấp tỉnh",
-      "đơn vị kinh tế có sản phẩm ocop 4 sao",
-      "doanh nghiệp htx ocop 4 sao trong năm"
+      "Chủ thể đạt sản phẩm OCOP 4 sao trong năm",
+      "Số lượng đơn vị có sản phẩm OCOP 4 sao hàng năm",
+      "Chủ thể OCOP 4 sao phát sinh trong kỳ báo cáo"
     ],
-    "scope_description": "Áp dụng cho các tổ chức kinh tế nông thôn có sản phẩm OCOP đạt hạng 4 sao phát sinh mới trong năm báo cáo.",
+    "scope_description": "Phạm vi thống kê áp dụng trên toàn địa bàn quản lý đối với các chủ thể kinh tế bao gồm doanh nghiệp, hợp tác xã, tổ hợp tác và hộ sản xuất kinh doanh có sản phẩm nông nghiệp, dịch vụ du lịch nông thôn đạt chuẩn OCOP 4 sao được công nhận chính thức trong khoảng thời gian từ ngày 01/01 đến hết ngày 31/12 của năm báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6381,9 +5815,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:36.299653+00:00"
     }
   },
   "95f76064-4865-4f2f-ab14-515dafff722d": {
@@ -6403,14 +5838,13 @@
       "Chủ thể sản phẩm OCOP 4 sao"
     ],
     "children_ids": [],
-    "definition": "Số lượng chủ thể kinh tế tiêu biểu sở hữu các sản phẩm hàng hóa dịch vụ quy mô lớn được Bộ Nông nghiệp và PTNT công nhận đạt chứng nhận OCOP 5 sao cấp quốc gia mới phát sinh trong năm báo cáo.",
+    "definition": "Số lượng các chủ thể thuộc Chương trình OCOP (bao gồm hợp tác xã, doanh nghiệp, hộ sản xuất, trang trại) có sản phẩm được cơ quan có thẩm quyền đánh giá và công nhận đạt chuẩn OCOP 5 sao phát sinh trong năm báo cáo, là một bộ phận cấu thành trong tổng số lượng chủ thể sản phẩm OCOP trong năm của ngành nông nghiệp.",
     "natural_synonyms": [
-      "chủ thể sản phẩm ocop 5 sao trong năm",
-      "chủ thể ocop năm sao cấp quốc gia",
-      "đơn vị sở hữu ocop 5 sao xuất khẩu",
-      "doanh nghiệp đạt chứng nhận ocop 5 sao"
+      "Số lượng chủ thể đạt OCOP 5 sao trong năm",
+      "Chủ thể sở hữu sản phẩm OCOP cấp quốc gia",
+      "Doanh nghiệp hợp tác xã có sản phẩm OCOP 5 sao phát sinh trong kỳ"
     ],
-    "scope_description": "Áp dụng cho các chủ thể kinh tế có sản phẩm OCOP 5 sao quy mô quốc gia mới phát sinh trong năm báo cáo.",
+    "scope_description": "Phạm vi thống kê áp dụng trên toàn bộ các địa phương thuộc hệ thống quản lý Chương trình Mỗi xã một sản phẩm (OCOP) của ngành Nông nghiệp và PTNT, ghi nhận các chủ thể đạt chuẩn cao nhất (5 sao) trong kỳ báo cáo năm.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6420,9 +5854,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:43.804303+00:00"
     }
   },
   "331d21dc-66e7-4e6a-a10a-eb0c3c8fd84a": {
@@ -6442,14 +5877,13 @@
       "Số lượng sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng sản phẩm nông nghiệp và đặc sản làng nghề đạt chuẩn OCOP 3 sao còn hiệu lực chứng nhận, được ghi nhận cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng sản phẩm nông nghiệp và phi nông nghiệp đạt chuẩn OCOP 3 sao thuộc Chương trình Mỗi xã một sản phẩm (OCOP), được tính lũy kế đến thời điểm báo cáo trong tổng số lượng sản phẩm OCOP chung của địa phương.",
     "natural_synonyms": [
-      "lũy kế sản phẩm ocop 3 sao",
-      "tổng số lượng sản phẩm ocop 3 sao cộng dồn",
-      "sản phẩm ocop ba sao tích lũy đến kỳ báo cáo",
-      "tổng sản phẩm ocop 3 sao toàn tỉnh"
+      "số lượng sản phẩm đạt chuẩn OCOP 3 sao",
+      "tổng sản phẩm OCOP hạng 3 sao lũy kế",
+      "số lượng mặt hàng OCOP 3 sao"
     ],
-    "scope_description": "Áp dụng cho toàn bộ sản phẩm OCOP 3 sao còn hiệu lực được cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Áp dụng trong hệ thống thống kê, quản lý dữ liệu ngành nông nghiệp và phát triển nông thôn để theo dõi, đánh giá kết quả thực hiện Chương trình OCOP trên địa bàn theo từng phân hạng sản phẩm tính đến thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6459,9 +5893,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:50.579247+00:00"
     }
   },
   "f53bb7fe-39bf-43d9-9105-0695dbd2692a": {
@@ -6481,14 +5916,13 @@
       "Số lượng sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng sản phẩm nông sản chế biến và tiểu thủ công nghiệp đạt chuẩn OCOP 4 sao cấp tỉnh có giá trị chứng chỉ còn hiệu lực, được tổng hợp cộng dồn tích lũy đến thời điểm báo cáo.",
+    "definition": "Số lượng sản phẩm OCOP 4 sao là chỉ tiêu thống kê cấp 3 thuộc Chương trình OCOP, phản ánh tổng số lượng sản phẩm nông nghiệp và phi nông nghiệp đã được đánh giá, phân hạng và công nhận đạt chuẩn sản phẩm OCOP cấp tỉnh (4 sao) thực tế đang duy trì hiệu lực tại thời điểm báo cáo trong tổng thể lũy kế số lượng sản phẩm OCOP của địa phương.",
     "natural_synonyms": [
-      "lũy kế sản phẩm ocop 4 sao",
-      "tổng số sản phẩm ocop bốn sao cấp tỉnh",
-      "số lượng sản phẩm ocop 4 sao tích lũy",
-      "tổng tích lũy sản phẩm ocop 4 sao"
+      "số lượng sản phẩm đạt chuẩn OCOP 4 sao",
+      "tổng sản phẩm OCOP 4 sao",
+      "số sản phẩm nông nghiệp 4 sao"
     ],
-    "scope_description": "Áp dụng cho toàn bộ sản phẩm OCOP 4 sao cấp tỉnh có hiệu lực được cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Áp dụng trong hệ thống kho dữ liệu DWH của Sở Nông nghiệp và PTNT để thống kê, quản lý và báo cáo chuyên đề về Chương trình Mỗi xã một sản phẩm (OCOP) đối với nhóm sản phẩm đạt hạng 4 sao trên địa bàn toàn tỉnh.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6498,9 +5932,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:52.781550+00:00"
     }
   },
   "400c59ea-b493-441c-b29f-80bb30527767": {
@@ -6520,14 +5955,13 @@
       "Số lượng sản phẩm OCOP 4 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng sản phẩm nông sản đặc sản đạt thứ hạng OCOP 5 sao cấp quốc gia tiêu chuẩn xuất khẩu quốc tế, được thống kê cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Số lượng sản phẩm OCOP 5 sao là chỉ tiêu cấp 3 thuộc Chương trình OCOP, phản ánh tổng số lượng sản phẩm đạt chuẩn OCOP hạng 5 sao (cấp quốc gia) được cơ quan có thẩm quyền công nhận lũy kế tính đến thời điểm chốt số liệu báo cáo, nằm trong tổng số lượng sản phẩm OCOP của toàn hệ thống.",
     "natural_synonyms": [
-      "lũy kế sản phẩm ocop 5 sao",
-      "tổng số sản phẩm ocop năm sao cấp quốc gia",
-      "số lượng sản phẩm ocop 5 sao xuất khẩu",
-      "tổng tích lũy sản phẩm ocop 5 sao"
+      "Số sản phẩm OCOP đạt 5 sao",
+      "Tổng số sản phẩm OCOP cấp quốc gia",
+      "Số lượng mặt hàng OCOP 5 sao lũy kế"
     ],
-    "scope_description": "Áp dụng cho toàn bộ sản phẩm OCOP 5 sao tiêu chuẩn quốc tế được cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Áp dụng trong phạm vi quản lý nhà nước về nông nghiệp và phát triển nông thôn, thống kê toàn bộ các sản phẩm tham gia Chương trình Mỗi xã một sản phẩm đạt hạng 5 sao nhằm phục vụ công tác theo dõi, đánh giá chất lượng và xây dựng chính sách phát triển kinh tế nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6537,9 +5971,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:55:58.789038+00:00"
     }
   },
   "62be59b7-0f30-4aa0-ae12-792a4ea34685": {
@@ -6559,14 +5994,13 @@
       "Số lượng chủ thể sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng các chủ thể kinh tế (doanh nghiệp nhỏ, hợp tác xã, hộ sản xuất) sở hữu sản phẩm đạt chứng nhận OCOP 3 sao đang duy trì hiệu lực, tính cộng dồn tích lũy đến thời điểm báo cáo.",
+    "definition": "Chỉ tiêu phản ánh lũy kế tổng số lượng các chủ thể (bao gồm tổ chức kinh tế, hộ sản xuất) thuộc Chương trình OCOP đang sở hữu sản phẩm được cơ quan có thẩm quyền đánh giá và phân hạng đạt chuẩn OCOP 3 sao còn hiệu lực tính đến thời điểm báo cáo, là một bộ phận cấu thành trong tổng số lượng chủ thể của Chương trình OCOP.",
     "natural_synonyms": [
-      "lũy kế chủ thể sản phẩm ocop 3 sao",
-      "tổng số chủ thể ocop ba sao cộng dồn",
-      "chủ thể kinh tế ocop 3 sao tích lũy",
-      "tổng chủ thể có sản phẩm ocop 3 sao"
+      "số lượng chủ thể đạt chuẩn OCOP 3 sao",
+      "tổng số đơn vị có sản phẩm OCOP 3 sao",
+      "số lượng chủ thể OCOP ba sao lũy kế"
     ],
-    "scope_description": "Áp dụng cho các chủ thể sở hữu sản phẩm OCOP 3 sao còn hiệu lực tính cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Áp dụng trong công tác thống kê, tổng hợp và quản lý dữ liệu chuyên ngành nông nghiệp đối với toàn bộ các chủ thể tham gia Chương trình Mỗi xã một sản phẩm (OCOP) có sản phẩm đạt hạng 3 sao được cấp quyết định công nhận hợp pháp và còn thời hạn hiệu lực tính đến thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6576,9 +6010,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:03.847535+00:00"
     }
   },
   "d748493a-45df-4eae-835c-81b53f1def30": {
@@ -6598,14 +6033,13 @@
       "Số lượng chủ thể sản phẩm OCOP 5 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng tổ chức kinh tế nông thôn sở hữu ít nhất một sản phẩm đạt chứng nhận OCOP 4 sao cấp tỉnh còn thời hạn giá trị, được ghi nhận cộng dồn tích lũy đến thời điểm báo cáo.",
+    "definition": "Chỉ tiêu phản ánh lũy kế tổng số lượng các chủ thể kinh tế tham gia Chương trình OCOP sở hữu các sản phẩm được đánh giá và phân hạng đạt chuẩn OCOP 4 sao còn hiệu lực tính đến thời điểm báo cáo trong lĩnh vực nông nghiệp.",
     "natural_synonyms": [
-      "lũy kế chủ thể sản phẩm ocop 4 sao",
-      "tổng số chủ thể ocop bốn sao cấp tỉnh",
-      "đơn vị kinh tế có sản phẩm ocop 4 sao tích lũy",
-      "tổng chủ thể ocop 4 sao toàn tỉnh"
+      "Số lượng chủ thể đạt chuẩn OCOP 4 sao",
+      "Tổng số chủ thể có sản phẩm OCOP 4 sao",
+      "Số lượng cơ sở sản xuất có sản phẩm OCOP 4 sao"
     ],
-    "scope_description": "Áp dụng cho các tổ chức kinh tế có sản phẩm OCOP 4 sao cấp tỉnh tính cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Thống kê lũy kế số lượng chủ thể kinh tế có sản phẩm OCOP đạt hạng 4 sao trong lĩnh vực nông nghiệp thuộc Chương trình OCOP tính đến thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6615,9 +6049,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:08.007840+00:00"
     }
   },
   "deb6ec56-658b-40e9-9863-c58d5732a267": {
@@ -6637,14 +6072,13 @@
       "Số lượng chủ thể sản phẩm OCOP 4 sao"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng doanh nghiệp và hợp tác xã quy mô lớn có sản phẩm nông đặc sản được Thủ tướng Chính phủ hoặc Hội đồng Quốc gia trao chứng nhận OCOP 5 sao, tính cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Chỉ tiêu phản ánh lũy kế tổng số lượng các chủ thể (doanh nghiệp, hợp tác xã, hộ sản xuất, trang trại) thuộc Chương trình OCOP có sản phẩm được cấp có thẩm quyền đánh giá và công nhận đạt cấp độ 5 sao (cấp quốc gia) tính đến thời điểm báo cáo.",
     "natural_synonyms": [
-      "lũy kế chủ thể sản phẩm ocop 5 sao",
-      "tổng số chủ thể ocop năm sao cấp quốc gia",
-      "đơn vị kinh tế sở hữu ocop 5 sao xuất khẩu",
-      "tổng tích lũy chủ thể ocop 5 sao"
+      "Số lượng đơn vị có sản phẩm OCOP 5 sao",
+      "Tổng số chủ thể OCOP đạt hạng 5 sao",
+      "Số chủ thể sở hữu sản phẩm OCOP cấp quốc gia"
     ],
-    "scope_description": "Áp dụng cho các doanh nghiệp và HTX có sản phẩm OCOP 5 sao cấp quốc gia tính cộng dồn tích lũy đến thời điểm báo cáo.",
+    "scope_description": "Áp dụng trong hệ thống cơ sở dữ liệu ngành Nông nghiệp và Phát triển nông thôn nhằm thống kê lũy kế số lượng chủ thể đạt chuẩn OCOP cấp độ cao nhất (5 sao) thuộc Chương trình OCOP tính đến thời điểm chốt số liệu.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6654,9 +6088,10 @@
       "2026-10-12"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:15.473915+00:00"
     }
   },
   "7253d26c-e543-4a75-b620-f81276dafb98": {
@@ -6676,13 +6111,13 @@
       "Nghề truyền thống"
     ],
     "children_ids": [],
-    "definition": "Số lượng làng nghề nông thôn đáp ứng các tiêu chuẩn quy định và được cấp bằng công nhận (phát sinh mới trong năm báo cáo).",
+    "definition": "Số lượng làng nghề thông thường thuộc tổng số làng nghề, làng nghề truyền thống và nghề truyền thống được cơ quan nhà nước có thẩm quyền quyết định công nhận mới trong năm trên địa bàn nông thôn, phản ánh các điểm dân cư duy trì hoạt động ngành nghề nông thôn đáp ứng tiêu chí quy định nhưng chưa đạt chuẩn làng nghề truyền thống.",
     "natural_synonyms": [
-      "làng nghề nông thôn phát sinh mới trong năm báo cáo",
-      "số lượng làng nghề",
-      "làng nghề được công nhận"
+      "Số lượng làng nghề thông thường được công nhận",
+      "Làng nghề phát triển nông thôn mới trong năm",
+      "Số làng nghề đạt tiêu chuẩn trong kỳ báo cáo"
     ],
-    "scope_description": "Các làng nghề sản xuất thủ công nghiệp, chế biến hoặc sinh vật cảnh đạt chuẩn.",
+    "scope_description": "Áp dụng trong công tác thống kê ngành nông nghiệp và phát triển nông thôn, ghi nhận số lượng làng nghề phát sinh được công nhận mới trong năm báo cáo trên phạm vi toàn địa bàn quản lý, tách biệt rõ với nhóm làng nghề truyền thống và nghề truyền thống.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6690,9 +6125,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:20.116500+00:00"
     }
   },
   "fcfeec23-a542-46b1-9c93-60b559472924": {
@@ -6712,14 +6148,13 @@
       "Nghề truyền thống"
     ],
     "children_ids": [],
-    "definition": "Số lượng làng nghề truyền thống nông thôn có bề dày lịch sử và quy tụ các nghệ nhân thủ công được Ủy ban nhân dân cấp tỉnh ra quyết định công nhận mới phát sinh trong năm báo cáo.",
+    "definition": "Số lượng làng nghề truyền thống thuộc tổng số làng nghề, làng nghề truyền thống, nghề truyền thống được công nhận trong năm, phản ánh quy mô và kết quả công nhận các làng nghề có lịch sử phát triển lâu đời, bảo tồn các giá trị văn hóa và sản phẩm đặc trưng tại địa phương trong kỳ báo cáo.",
     "natural_synonyms": [
-      "làng nghề truyền thống công nhận trong năm",
-      "làng nghề truyền thống mới công nhận",
-      "số làng nghề truyền thống phát sinh trong năm",
-      "làng nghề truyền thống mới"
+      "Số làng nghề truyền thống được công nhận mới",
+      "Làng nghề truyền thống đạt chuẩn trong năm",
+      "Số lượng làng nghề truyền thống xếp hạng trong kỳ"
     ],
-    "scope_description": "Các nghề truyền thống duy trì phương thức sản xuất thủ công đặc sắc của địa phương.",
+    "scope_description": "Áp dụng trong công tác thống kê, quản lý và tổng hợp dữ liệu về phát triển ngành nghề nông thôn, bảo tồn và phát triển làng nghề trên địa bàn toàn tỉnh thuộc phạm vi quản lý của Sở Nông nghiệp và Phát triển nông thôn.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6727,9 +6162,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:24.380679+00:00"
     }
   },
   "4a4ed2da-fae1-492e-92be-70ee41935988": {
@@ -6749,13 +6185,13 @@
       "Làng nghề truyền thồng"
     ],
     "children_ids": [],
-    "definition": "Số lượng nghề truyền thống thủ công tiêu biểu được cơ quan nhà nước có thẩm quyền công nhận (phát sinh mới trong năm báo cáo).",
+    "definition": "Số lượng nghề truyền thống thuộc tổng số làng nghề, làng nghề truyền thống, nghề truyền thống được công nhận trong năm, phản ánh quy mô và kết quả công nhận các nghề thủ công lâu đời gắn với thực thể gốc làng nghề trong lĩnh vực nông nghiệp và phát triển nông thôn.",
     "natural_synonyms": [
-      "nghề truyền thống phát sinh mới trong năm báo cáo",
-      "nghề truyền thống",
-      "số lượng nghề truyền thống được công nhận"
+      "số nghề truyền thống nông thôn",
+      "nghề thủ công truyền thống được công nhận",
+      "danh mục nghề truyền thống"
     ],
-    "scope_description": "Các nghề truyền thống duy trì phương thức sản xuất thủ công đặc sắc của địa phương.",
+    "scope_description": "Phạm vi thống kê áp dụng trên địa bàn toàn tỉnh đối với các cơ quan quản lý nhà nước về nông nghiệp và phát triển nông thôn khi tổng hợp số liệu về phát triển ngành nghề nông thôn và bảo tồn di ṡản làng nghề.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6763,9 +6199,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:29.220592+00:00"
     }
   },
   "bb0594e6-2885-45d2-a6fa-b227e28a6265": {
@@ -6785,14 +6222,13 @@
       "Nghề truyền thống"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng làng nghề nông thôn đáp ứng các tiêu chuẩn quy định và được cấp bằng công nhận chính thức, được ghi nhận cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Chỉ tiêu phản ánh tổng số lượng lũy kế các làng nghề (đáp ứng tiêu chí làng nghề thông thường nhưng chưa đạt chuẩn làng nghề truyền thống) đã được cơ quan nhà nước có thẩm quyền quyết định công nhận trên địa bàn nông thôn tính đến thời điểm báo cáo, thuộc nhánh dữ liệu Lũy kế Số làng nghề, làng nghề truyền thống, nghề truyền thống được công nhận.",
     "natural_synonyms": [
-      "lũy kế làng nghề nông thôn",
-      "tổng số làng nghề được công nhận",
-      "làng nghề tích lũy đến thời điểm báo cáo",
-      "tổng tích lũy làng nghề"
+      "Lũy kế số làng nghề được công nhận",
+      "Tổng số làng nghề thông thường",
+      "Số lượng làng nghề nông thôn lũy kế"
     ],
-    "scope_description": "Các làng nghề sản xuất thủ công nghiệp, chế biến hoặc sinh vật cảnh đạt chuẩn.",
+    "scope_description": "Áp dụng trong công tác thống kê, tổng hợp và quản lý ngành nghề nông thôn thuộc lĩnh vực nông nghiệp và phát triển nông thôn trên phạm vi toàn tỉnh, tính lũy kế từ trước đến hết thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6800,9 +6236,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:34.141146+00:00"
     }
   },
   "3431c38b-1d16-4c21-bb73-c95954a3c90d": {
@@ -6822,14 +6259,13 @@
       "Nghề truyền thống"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng làng nghề truyền thống nông thôn có lịch sử lâu đời và có sản phẩm thủ công tiêu biểu được cấp bằng công nhận, cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Tổng số lượng các làng nghề truyền thống thực tế đang duy trì hoạt động trong lĩnh vực nông nghiệp, thuộc nhánh quản lý của chỉ tiêu lũy kế số làng nghề, làng nghề truyền thống và nghề truyền thống được công nhận tính đến thời điểm báo cáo.",
     "natural_synonyms": [
-      "lũy kế làng nghề truyền thống",
-      "tổng số làng nghề truyền thống tích lũy",
-      "làng nghề truyền thống đến thời điểm báo cáo",
-      "làng nghề truyền thống được công nhận"
+      "số lượng làng nghề truyền thống",
+      "làng nghề truyền thống nông nghiệp",
+      "danh sách làng nghề truyền thống"
     ],
-    "scope_description": "Các nghề truyền thống duy trì phương thức sản xuất thủ công đặc sắc của địa phương.",
+    "scope_description": "Phạm vi áp dụng trên toàn địa bàn tỉnh, quản lý theo ngành nông nghiệp và phát triển nông thôn, tính đến thời điểm chốt số liệu báo cáo.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6837,9 +6273,10 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:35.814412+00:00"
     }
   },
   "5f855eb5-3b68-4b42-8421-d8ae53f529d2": {
@@ -6859,14 +6296,13 @@
       "Làng nghề truyền thồng"
     ],
     "children_ids": [],
-    "definition": "Tổng số lượng nghề thủ công truyền thống mang đậm bản sắc văn hóa dân tộc được cơ quan nhà nước có thẩm quyền ra quyết định công nhận, tính cộng dồn tích lũy đến mốc thời gian báo cáo.",
+    "definition": "Tổng số lượng lũy kế các nghề truyền thống nông thôn thuộc nhóm làng nghề và nghề truyền thống đã được cơ quan nhà nước có thẩm quyền quyết định công nhận, tính đến thời điểm chốt số liệu báo cáo trên địa bàn.",
     "natural_synonyms": [
-      "lũy kế nghề truyền thống",
-      "tổng số nghề truyền thống thủ công",
-      "nghề truyền thống tích lũy đến thời điểm báo cáo",
-      "nghề truyền thống được công nhận"
+      "nghề truyền thống nông thôn được công nhận",
+      "số lượng nghề truyền thống lũy kế",
+      "danh mục nghề truyền thống nông nghiệp"
     ],
-    "scope_description": "Các nghề truyền thống duy trì phương thức sản xuất thủ công đặc sắc của địa phương.",
+    "scope_description": "Áp dụng cho việc thống kê, tổng hợp và quản lý dữ liệu về phát triển ngành nghề nông thôn, bảo tồn và phát huy giá trị nghề truyền thống thuộc phạm vi quản lý nhà nước của ngành Nông nghiệp và Phát triển nông thôn từ cấp xã, huyện đến cấp tỉnh.",
     "has_approved_facts": true,
     "available_report_dates": [
       "2026-03-31",
@@ -6874,9 +6310,90 @@
       "2026-09-30"
     ],
     "metadata": {
-      "source": "subagent_curated",
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
       "verified_against_dwh": true,
-      "updated_at": "2026-10-26T17:30:00Z"
+      "updated_at": "2026-11-02T08:56:39.963052+00:00"
+    }
+  },
+  "62636ee4-1f55-43e7-9a3d-91535e343f34": {
+    "id": "62636ee4-1f55-43e7-9a3d-91535e343f34",
+    "code": "trong_trot4",
+    "name": "Trồng trọt",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "52ff5d89-3e98-47ef-983d-a059ae9b52a7",
+    "parent_name": "Tổng số lượng TT phân theo lĩnh vực",
+    "root_id": "9a8e4242-4d16-4a66-bb43-2d64ce6dfba9",
+    "root_name": "Trang trại",
+    "canonical_order": 1,
+    "siblings": [
+      "Lâm nghiệp",
+      "Nuôi trồng thủy sản",
+      "Sản xuất muôi",
+      "Chế biến nông sản",
+      "Tổng hợp"
+    ],
+    "children_ids": [],
+    "definition": "Tổng số lượng trang trại thực tế đang duy trì hoạt động sản xuất, kinh doanh có định hướng chuyên canh hoặc kết hợp trong lĩnh vực trồng trọt, thuộc hệ thống chỉ tiêu thống kê số lượng trang trại phân theo lĩnh vực trên địa bàn quản lý tính đến thời điểm chốt số liệu.",
+    "natural_synonyms": [
+      "Số lượng trang trại trồng trọt",
+      "Trang trại chuyên canh lĩnh vực trồng trọt",
+      "Quy mô trang trại hoạt động trồng trọt"
+    ],
+    "scope_description": "Phạm vi áp dụng thống kê toàn bộ các trang trại đạt chuẩn theo quy định có phát sinh hoạt động kinh tế về trồng trọt (cây hàng năm, cây lâu năm, vườn ươm) thuộc ngành nông nghiệp, phục vụ công tác quản lý nhà nước và phân tích cơ cấu kinh tế trang trại cấp tỉnh/huyện.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-03-31",
+      "2026-06-30",
+      "2026-09-30"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-02T09:02:25.721275+00:00"
+    }
+  },
+  "946adf70-875a-4425-b8b4-686e67a95bf3": {
+    "id": "946adf70-875a-4425-b8b4-686e67a95bf3",
+    "code": "chan_nuoi4",
+    "name": "Chăn nuôi",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "52ff5d89-3e98-47ef-983d-a059ae9b52a7",
+    "parent_name": "Tổng số lượng TT phân theo lĩnh vực",
+    "root_id": "9a8e4242-4d16-4a66-bb43-2d64ce6dfba9",
+    "root_name": "Trang trại",
+    "canonical_order": 2,
+    "siblings": [
+      "Lâm nghiệp",
+      "Nuôi trồng thủy sản",
+      "Sản xuất muôi",
+      "Chế biến nông sản",
+      "Tổng hợp"
+    ],
+    "children_ids": [],
+    "definition": "Chỉ tiêu phản ánh tổng số lượng trang trại thực tế đang hoạt động trong lĩnh vực chăn nuôi, nằm trong tổng số lượng trang trại phân theo lĩnh vực tại thời điểm báo cáo, phục vụ công tác thống kê, đánh giá quy mô và cơ cấu kinh tế trang trại nông nghiệp trên địa bàn.",
+    "natural_synonyms": [
+      "Số lượng trang trại chăn nuôi",
+      "Quy mô trang trại lĩnh vực chăn nuôi",
+      "Tổng số trang trại chăn nuôi thực tế"
+    ],
+    "scope_description": "Phạm vi thống kê bao gồm toàn bộ các trang trại đạt tiêu chí kinh tế trang trại theo quy định hiện hành, chuyên môn hóa hoặc kiêm nhiệm hoạt động trong lĩnh vực chăn nuôi thuộc hệ thống quản lý của ngành nông nghiệp và phát triển nông thôn.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-03-31",
+      "2026-06-30",
+      "2026-09-30"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-02T09:02:29.964052+00:00"
     }
   }
 }

@@ -1,3 +1,18 @@
+---
+doc_id: "DOC-MOD-03"
+title: "Đặc Tả Kỹ Thuật Module 03: SSOT OpenRouter LLM Structured Router & Dialogue Tracker (H-DFT)"
+role: "SPEC"
+scope: "Intent Routing, H-DFT Dialogue State Tracking, Self-Contained CQR Protection & Fallback Chain"
+ssot_of: []
+depends_on:
+  - "IPGov_Chatbot/blueprints/00_TECH_STACK_VA_KIEN_TRUC_TONG_THE.md"
+  - "IPGov_Chatbot/blueprints/05_MULTI_AGENT_WORKFLOW_DIN_MAC_SQL.md"
+  - "IPGov_Chatbot/blueprints/08_BO_TEST_CASE_KIEM_THU_TOAN_DIEN_VA_5_DIEM_MU_DWH.md"
+related_docs:
+  - "IPGov_Chatbot/docs/MASTER_PLAN_AND_PROGRESS_TRACKING.md"
+  - "IPGov_Chatbot/docs/MODULE_04_CATALOG_SPEC.md"
+---
+
 # ĐẶC TẢ KỸ THUẬT MODULE 03: SSOT OPENROUTER LLM STRUCTURED ROUTER & DIALOGUE TRACKER (H-DFT)
 
 > **Mã Module:** `MOD-03-ROUTER-HDFT`  

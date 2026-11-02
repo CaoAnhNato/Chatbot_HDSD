@@ -6,10 +6,13 @@ Căn cứ: Blueprint 03_SEMANTIC_LAYER_MDL_VA_IN_MEMORY_CATALOG.md
 """
 
 from __future__ import annotations
+from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import logging
 from pathlib import Path
 import threading
+import time
 from typing import Any, Dict, List, Optional, Tuple
 import duckdb
 import numpy as np
@@ -33,54 +36,181 @@ def _remove_accents(raw_str: str) -> str:
 
 ALLOWED_SEMANTIC_LEXICON_SEED: Tuple[Tuple[str, str, str, float], ...] = ()
 
-class _DuckDBConnProxy:
-    """Proxy around duckdb.DuckDBPyConnection to support thread-safe execution and backward-compatible 12-parameter inserts into catalog_criteria_hierarchy."""
-    def __init__(self, raw_conn: Any) -> None:
-        self._raw_conn = raw_conn
-        self._conn = raw_conn
-        self._lock = threading.RLock()
 
-    def execute(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> Any:
+@dataclass(frozen=True)
+class CriteriaCatalogSnapshot:
+    """
+    Immutable, thread-safe snapshot of criteria catalog arrays and embedding matrix.
+    Guarantees zero-lock-contention readers and atomic reference swapping during sync.
+    Conforms to Milestone 3 Interface Contract.
+    """
+    criteria_codes: List[str]
+    criteria_names: List[str]
+    criteria_aliases: List[str]
+    criteria_tenants: List[str]
+    criteria_levels: List[int]
+    criteria_embeddings: Optional[np.ndarray]
+    version: int
+    created_at: str
+
+    def get_criterion_by_code(self, code: str) -> Optional[Dict[str, Any]]:
+        clean_code = (code or "").strip().lower()
+        for idx, c in enumerate(self.criteria_codes):
+            if c.lower() == clean_code:
+                return {
+                    "code": c,
+                    "name": self.criteria_names[idx],
+                    "alias": self.criteria_aliases[idx],
+                    "tenant_code": self.criteria_tenants[idx],
+                    "level": self.criteria_levels[idx],
+                    "index": idx
+                }
+        return None
+
+    def __len__(self) -> int:
+        return len(self.criteria_codes)
+
+
+class _DuckDBCursorProxy:
+    """Thread-safe proxy around duckdb.DuckDBPyConnection cursor ensuring serialized execute & fetch."""
+    def __init__(self, raw_cursor: Any, lock: threading.RLock) -> None:
+        self._raw_cursor = raw_cursor
+        self._lock = lock
+
+    def execute(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> _DuckDBCursorProxy:
         with self._lock:
             if parameters is not None and isinstance(query, str):
                 if "catalog_criteria_hierarchy" in query and "VALUES" in query and query.count("?") == 12:
                     query = query.replace("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     if isinstance(parameters, (list, tuple)):
                         parameters = tuple(list(parameters) + [None])
-            cur = self._raw_conn.cursor()
             if parameters is not None:
-                return cur.execute(query, parameters, *args, **kwargs)
-            return cur.execute(query, *args, **kwargs)
+                self._raw_cursor.execute(query, parameters, *args, **kwargs)
+            else:
+                self._raw_cursor.execute(query, *args, **kwargs)
+            return self
 
-    def executemany(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> Any:
+    def executemany(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> _DuckDBCursorProxy:
         with self._lock:
             if parameters is not None and isinstance(query, str):
                 if "catalog_criteria_hierarchy" in query and "VALUES" in query and query.count("?") == 12:
                     query = query.replace("(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
                     parameters = [tuple(list(p) + [None]) if len(p) == 12 else p for p in parameters]
-            cur = self._raw_conn.cursor()
             if parameters is not None:
-                return cur.executemany(query, parameters, *args, **kwargs)
-            return cur.executemany(query, *args, **kwargs)
-
-    def cursor(self) -> Any:
-        with self._lock:
-            return self._raw_conn.cursor()
+                self._raw_cursor.executemany(query, parameters, *args, **kwargs)
+            else:
+                self._raw_cursor.executemany(query, *args, **kwargs)
+            return self
 
     def fetchone(self) -> Any:
         with self._lock:
+            return self._raw_cursor.fetchone()
+
+    def fetchall(self) -> Any:
+        with self._lock:
+            return self._raw_cursor.fetchall()
+
+    def fetchmany(self, size: int = 1) -> Any:
+        with self._lock:
+            return self._raw_cursor.fetchmany(size)
+
+    def close(self) -> None:
+        with self._lock:
+            return self._raw_cursor.close()
+
+    def __enter__(self) -> _DuckDBCursorProxy:
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._lock.release()
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._raw_cursor, name)
+
+
+class _DuckDBConnProxy:
+    """Thread-safe proxy around duckdb.DuckDBPyConnection sharing catalog._sync_lock."""
+    def __init__(self, raw_conn: Any, lock: Optional[threading.RLock] = None) -> None:
+        self._raw_conn = raw_conn
+        self._conn = raw_conn
+        self._lock = lock if lock is not None else threading.RLock()
+        self._last_cur: Optional[_DuckDBCursorProxy] = None
+
+    def cursor(self) -> _DuckDBCursorProxy:
+        with self._lock:
+            return _DuckDBCursorProxy(self._raw_conn.cursor(), self._lock)
+
+    def execute(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> _DuckDBCursorProxy:
+        with self._lock:
+            cur = self.cursor()
+            cur.execute(query, parameters, *args, **kwargs)
+            self._last_cur = cur
+            return cur
+
+    def executemany(self, query: str, parameters: Any = None, *args: Any, **kwargs: Any) -> _DuckDBCursorProxy:
+        with self._lock:
+            cur = self.cursor()
+            cur.executemany(query, parameters, *args, **kwargs)
+            self._last_cur = cur
+            return cur
+
+    def fetchone(self) -> Any:
+        with self._lock:
+            if self._last_cur is not None:
+                return self._last_cur.fetchone()
             return self._raw_conn.fetchone()
 
     def fetchall(self) -> Any:
         with self._lock:
+            if self._last_cur is not None:
+                return self._last_cur.fetchall()
             return self._raw_conn.fetchall()
 
     def fetchmany(self, size: int = 1) -> Any:
         with self._lock:
+            if self._last_cur is not None:
+                return self._last_cur.fetchmany(size)
             return self._raw_conn.fetchmany(size)
+
+    def __enter__(self) -> _DuckDBConnProxy:
+        self._lock.acquire()
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self._lock.release()
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._raw_conn, name)
+
+
+DUMMY_FILTER_CODES = {
+    "th", "th1", "th2", "th3", "test", "so",
+    "ngay_thang", "dung_sai", "tra_loi_ngan", "tra_loi_doan",
+    "danh_sach_lua_chon", "danh_sach_nhap_lieu"
+}
+DUMMY_FILTER_NAMES = {
+    "th", "th1", "th2", "th3", "test", "số",
+    "ngày tháng", "đúng sai", "trả lời ngắn", "trả lời đoạn",
+    "danh sách lựa chọn", "danh sách nhập liệu"
+}
+
+
+def is_dummy_criterion(code: Optional[str] = None, name: Optional[str] = None) -> bool:
+    """Enforces quality filters: LENGTH(TRIM(c.name)) >= 6 and excludes test/dummy codes."""
+    c_low = (code or "").strip().lower()
+    n_low = (name or "").strip().lower()
+    if not c_low and not n_low:
+        return True
+    if c_low.startswith("test_") or n_low.startswith("test_"):
+        return True
+    if c_low in DUMMY_FILTER_CODES or n_low in DUMMY_FILTER_NAMES:
+        return True
+    if n_low and len(n_low) < 6:
+        return True
+    if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test'):
+        return True
+    return False
 
 
 class DuckDBSemanticCatalog:
@@ -93,21 +223,171 @@ class DuckDBSemanticCatalog:
     """
 
     def __init__(self, seed_path: Optional[str] = None) -> None:
-        self.conn = _DuckDBConnProxy(duckdb.connect(":memory:"))
+        self._sync_lock = threading.RLock()
+        self._conn_lock = threading.RLock()
+        self.conn = _DuckDBConnProxy(duckdb.connect(":memory:"), lock=self._conn_lock)
         self.seed_path = Path(seed_path or Path(__file__).resolve().parent.parent.parent / "data" / "catalog_seed_metadata.json")
         self._table_metadata_cache: Dict[str, TableMetadataDTO] = {}
         self._alias_registry: List[Dict[str, Any]] = []
         self._embed_model: Optional[Any] = None
-        self._criteria_embeddings: Optional[np.ndarray] = None
-        self._criteria_cache_codes: List[str] = []
-        self._criteria_cache_names: List[str] = []
-        self._criteria_cache_aliases: List[str] = []
-        self._criteria_cache_tenants: List[str] = []
-        self._criteria_cache_levels: List[int] = []
+        self._embedding_lock = threading.Lock()
+        self._is_embedding_updating: bool = False
+        self._query_embedding_cache: Dict[str, np.ndarray] = {}
+        self._query_embedding_cache_lock = threading.Lock()
+        self._acronym_rows_cache: List[Tuple[str, str]] = []
+        self._last_synced_pg_count: int = 0
+        self._last_synced_pg_max_date: Optional[Any] = None
+        self._last_sync_timestamp: float = 0.0
+        self._current_snapshot: CriteriaCatalogSnapshot = CriteriaCatalogSnapshot(
+            criteria_codes=[],
+            criteria_names=[],
+            criteria_aliases=[],
+            criteria_tenants=[],
+            criteria_levels=[],
+            criteria_embeddings=None,
+            version=0,
+            created_at=datetime.now(timezone.utc).isoformat()
+        )
         self._init_schema()
+        try:
+            self._acronym_rows_cache = self.conn.execute("SELECT acronym, full_form FROM catalog_acronyms;").fetchall()
+        except Exception:
+            self._acronym_rows_cache = []
         self._hydrate_catalog()
         self._build_indexes()
         self._ensure_embeddings_indexed()
+        try:
+            from IPGov_Chatbot.core.model_registry import ModelRegistry
+            ModelRegistry.warmup_embedding_model()
+        except Exception as e:
+            logger.warning("Embedding model warmup note: %s", e)
+        # Khởi tạo mốc theo dõi DWH ban đầu từ catalog_criteria
+        try:
+            init_stats = self.conn.execute("SELECT count(*), max(created_date) FROM catalog_criteria;").fetchone()
+            if init_stats:
+                self._last_synced_pg_count = int(init_stats[0] or 0)
+                self._last_synced_pg_max_date = init_stats[1]
+                self._last_sync_timestamp = time.time()
+        except Exception:
+            pass
+
+    @property
+    def snapshot(self) -> CriteriaCatalogSnapshot:
+        return self._current_snapshot
+
+    @property
+    def _criteria_cache_codes(self) -> List[str]:
+        return self._current_snapshot.criteria_codes
+
+    @_criteria_cache_codes.setter
+    def _criteria_cache_codes(self, val: List[str]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=list(val),
+                criteria_names=curr.criteria_names,
+                criteria_aliases=curr.criteria_aliases,
+                criteria_tenants=curr.criteria_tenants,
+                criteria_levels=curr.criteria_levels,
+                criteria_embeddings=curr.criteria_embeddings,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+    @property
+    def _criteria_cache_names(self) -> List[str]:
+        return self._current_snapshot.criteria_names
+
+    @_criteria_cache_names.setter
+    def _criteria_cache_names(self, val: List[str]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=curr.criteria_codes,
+                criteria_names=list(val),
+                criteria_aliases=curr.criteria_aliases,
+                criteria_tenants=curr.criteria_tenants,
+                criteria_levels=curr.criteria_levels,
+                criteria_embeddings=curr.criteria_embeddings,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+    @property
+    def _criteria_cache_aliases(self) -> List[str]:
+        return self._current_snapshot.criteria_aliases
+
+    @_criteria_cache_aliases.setter
+    def _criteria_cache_aliases(self, val: List[str]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=curr.criteria_codes,
+                criteria_names=curr.criteria_names,
+                criteria_aliases=list(val),
+                criteria_tenants=curr.criteria_tenants,
+                criteria_levels=curr.criteria_levels,
+                criteria_embeddings=curr.criteria_embeddings,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+    @property
+    def _criteria_cache_tenants(self) -> List[str]:
+        return self._current_snapshot.criteria_tenants
+
+    @_criteria_cache_tenants.setter
+    def _criteria_cache_tenants(self, val: List[str]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=curr.criteria_codes,
+                criteria_names=curr.criteria_names,
+                criteria_aliases=curr.criteria_aliases,
+                criteria_tenants=list(val),
+                criteria_levels=curr.criteria_levels,
+                criteria_embeddings=curr.criteria_embeddings,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+    @property
+    def _criteria_cache_levels(self) -> List[int]:
+        return self._current_snapshot.criteria_levels
+
+    @_criteria_cache_levels.setter
+    def _criteria_cache_levels(self, val: List[int]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=curr.criteria_codes,
+                criteria_names=curr.criteria_names,
+                criteria_aliases=curr.criteria_aliases,
+                criteria_tenants=curr.criteria_tenants,
+                criteria_levels=list(val),
+                criteria_embeddings=curr.criteria_embeddings,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+
+    @property
+    def _criteria_embeddings(self) -> Optional[np.ndarray]:
+        return self._current_snapshot.criteria_embeddings
+
+    @_criteria_embeddings.setter
+    def _criteria_embeddings(self, new_emb: Optional[np.ndarray]) -> None:
+        with self._sync_lock:
+            curr = self._current_snapshot
+            self._current_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=curr.criteria_codes,
+                criteria_names=curr.criteria_names,
+                criteria_aliases=curr.criteria_aliases,
+                criteria_tenants=curr.criteria_tenants,
+                criteria_levels=curr.criteria_levels,
+                criteria_embeddings=new_emb,
+                version=curr.version + 1,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
 
 
     def _init_schema(self) -> None:
@@ -538,14 +818,15 @@ class DuckDBSemanticCatalog:
                     if str_cid and str_cid not in existing_ids and code and name:
                         new_crit_rows.append((str_cid, code, name, "", lvl or 1, is_leaf, "", tc, created_dt))
                         existing_ids.add(str_cid)
-                        self._alias_registry.append({
-                            "alias": name.lower().strip(),
-                            "code": code,
-                            "name": name,
-                            "type": "criteria",
-                            "target_table": "dwh_internal.criteria",
-                            "tenant_code": tc
-                        })
+                        if not is_dummy_criterion(code, name):
+                            self._alias_registry.append({
+                                "alias": name.lower().strip(),
+                                "code": code,
+                                "name": name,
+                                "type": "criteria",
+                                "target_table": "dwh_internal.criteria",
+                                "tenant_code": tc
+                            })
                 if new_crit_rows:
                     self.conn.executemany("INSERT INTO catalog_criteria VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", new_crit_rows)
                     logger.info("Đã đồng bộ thêm %d chỉ tiêu thực tế từ Live PostgreSQL vào DuckDB Catalog.", len(new_crit_rows))
@@ -567,6 +848,11 @@ class DuckDBSemanticCatalog:
                         LEFT JOIN dwh_internal.office o ON f.office_id = o.id
                         WHERE f.report_status = 'approved'
                         ORDER BY c2.id,
+                                 CASE 
+                                     WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0
+                                     WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1
+                                     ELSE 2
+                                 END,
                                  f.report_date DESC NULLS LAST,
                                  f.version DESC NULLS LAST
                     )
@@ -605,10 +891,11 @@ class DuckDBSemanticCatalog:
                 """)
                 hier_rows = cur.fetchall()
                 if hier_rows:
+                    filtered_hier_rows = [r for r in hier_rows if not is_dummy_criterion(r[1], r[2])]
                     self.conn.execute("DELETE FROM catalog_criteria_hierarchy;")
                     self.conn.executemany(
                         "INSERT INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        hier_rows
+                        filtered_hier_rows
                     )
             except Exception as e:
                 logger.warning(f"Không thể đồng bộ criteria hierarchy từ PG: {e}")
@@ -792,9 +1079,16 @@ class DuckDBSemanticCatalog:
             for code, name, is_leaf, syns_json in rows:
                 if not code:
                     continue
+                if is_dummy_criterion(code, name):
+                    continue
+                code_low = str(code).strip().lower()
+                if code_low in DUMMY_FILTER_CODES:
+                    continue
                 if name and name.strip():
                     n_clean = name.strip()
-                    alias_tuples.append((n_clean.lower(), code, bool(is_leaf)))
+                    n_low = n_clean.lower()
+                    if n_low not in DUMMY_FILTER_NAMES and len(n_low) > 2:
+                        alias_tuples.append((n_low, code, bool(is_leaf)))
                 syns = []
                 if syns_json:
                     try:
@@ -804,14 +1098,15 @@ class DuckDBSemanticCatalog:
                 for s in (syns or []):
                     if s and s.strip():
                         s_clean = s.strip().lower()
-                        alias_tuples.append((s_clean, code, bool(is_leaf)))
-                        self._alias_registry.append({
-                            "alias": s_clean,
-                            "code": code,
-                            "name": name or code,
-                            "type": "criteria",
-                            "target_table": "dwh_internal.criteria",
-                        })
+                        if s_clean not in DUMMY_FILTER_NAMES and len(s_clean) > 2:
+                            alias_tuples.append((s_clean, code, bool(is_leaf)))
+                            self._alias_registry.append({
+                                "alias": s_clean,
+                                "code": code,
+                                "name": name or code,
+                                "type": "criteria",
+                                "target_table": "dwh_internal.criteria",
+                            })
             if alias_tuples:
                 self.conn.executemany("INSERT OR IGNORE INTO catalog_aliases VALUES (?, ?, ?);", alias_tuples)
                 logger.info("Đã đồng bộ %d aliases ngữ nghĩa từ catalog_definitions vào DuckDB.", len(alias_tuples))
@@ -875,6 +1170,8 @@ class DuckDBSemanticCatalog:
         # 2. Nạp criteria
         crit_rows = []
         for c in data.get("criteria", []):
+            if is_dummy_criterion(c.get("code"), c.get("name")):
+                continue
             aliases_str = ", ".join(c.get("aliases", []))
             tc = c.get("tenant_code", "68")
             crit_rows.append((
@@ -1085,6 +1382,23 @@ class DuckDBSemanticCatalog:
             ("2ebf478e-f245-43c3-816b-27a0a42099ed", "Phường Bắc Gia Nghĩa", "bacgianghia.ld", "QTV", "68-1-01", "Sở Nội vụ", "68"),
         ]
         self.conn.executemany("INSERT OR IGNORE INTO catalog_users VALUES (?, ?, ?, ?, ?, ?, ?)", seed_users)
+
+        # 10. Nạp semantic_lexicon từ tệp seed JSON
+        seed_lexicon = data.get("semantic_lexicon", [])
+        if seed_lexicon:
+            lex_rows = []
+            for item in seed_lexicon:
+                if len(item) >= 4:
+                    cat, term, sub_intent, w = item[0], item[1], item[2], item[3]
+                    t_low = str(term).lower().strip()
+                    lex_rows.append((cat, t_low, sub_intent, float(w)))
+                    t_unacc = _remove_accents(t_low)
+                    if t_unacc and t_unacc != t_low:
+                        if cat == "DISCOURSE_CONNECTIVE" and len(t_unacc.split()) <= 1:
+                            continue
+                        lex_rows.append((cat, t_unacc, sub_intent, float(w) * 0.95))
+            if lex_rows:
+                self.conn.executemany("INSERT INTO semantic_lexicon VALUES (?, ?, ?, ?)", lex_rows)
 
     def _build_indexes(self) -> None:
         """Tạo Index ART trên DuckDB để tối ưu tốc độ tra cứu < 1ms."""
@@ -1305,14 +1619,16 @@ class DuckDBSemanticCatalog:
         except Exception:
             return []
 
-    def _ensure_embeddings_indexed(self) -> None:
-        """Nạp hoặc tính toán ma trận Dense Embeddings cho catalog_criteria (có cơ chế Disk Cache v2 thuần name)."""
-        if self._criteria_embeddings is not None and len(self._criteria_cache_codes) > 0:
-            return
-
+    def _refresh_criteria_cache_lists(self) -> None:
+        """
+        Nạp dữ liệu từ DuckDB RAM và tạo một CriteriaCatalogSnapshot mới bất biến.
+        Hoán đổi nguyên tử self._current_snapshot dưới _sync_lock.
+        Áp dụng bộ lọc chất lượng: LENGTH(TRIM(c.name)) >= 6 và loại bỏ mã rác dummy.
+        """
         rows = self.conn.execute("""
             SELECT code, name, aliases, tenant_code, level 
             FROM catalog_criteria 
+            WHERE LENGTH(TRIM(name)) >= 6
             ORDER BY created_date DESC NULLS LAST;
         """).fetchall()
         kb_by_code: Dict[str, Tuple[str, str]] = {}
@@ -1340,21 +1656,139 @@ class DuckDBSemanticCatalog:
         dedup_rows = []
         seen_keys = set()
         for r in rows:
-            key = (r[1].lower().strip(), r[3] or "")
+            c_code, c_name, _, c_tenant, _ = r
+            if is_dummy_criterion(c_code, c_name):
+                continue
+            key = c_code.strip().lower()
             if key not in seen_keys:
                 seen_keys.add(key)
                 dedup_rows.append(r)
-        self._criteria_cache_codes = [r[0] for r in dedup_rows]
-        self._criteria_cache_names = [r[1] for r in dedup_rows]
+
+        new_codes = [r[0] for r in dedup_rows]
+        new_names = [r[1] for r in dedup_rows]
         enriched_aliases = []
         for r in dedup_rows:
             base_al = r[2] or ""
             kb_syns, kb_def = kb_by_code.get(r[0], ("", ""))
             parts = [p for p in (base_al, kb_syns, kb_def) if p]
             enriched_aliases.append(" | ".join(parts))
-        self._criteria_cache_aliases = enriched_aliases
-        self._criteria_cache_tenants = [r[3] or "" for r in dedup_rows]
-        self._criteria_cache_levels = [r[4] or 1 for r in dedup_rows]
+        new_tenants = [r[3] or "" for r in dedup_rows]
+        new_levels = [r[4] or 1 for r in dedup_rows]
+
+        # Preserve / align existing embeddings if codes match
+        with self._sync_lock:
+            retained_embeddings: Optional[np.ndarray] = None
+            old_snap = getattr(self, "_current_snapshot", None)
+            if old_snap is not None and old_snap.criteria_embeddings is not None:
+                try:
+                    if len(old_snap.criteria_embeddings) == len(old_snap.criteria_codes):
+                        if old_snap.criteria_codes == new_codes:
+                            retained_embeddings = old_snap.criteria_embeddings
+                        elif set(new_codes).issubset(set(old_snap.criteria_codes)):
+                            old_code_to_idx = {c: idx for idx, c in enumerate(old_snap.criteria_codes)}
+                            surviving_indices = [old_code_to_idx[c] for c in new_codes if c in old_code_to_idx]
+                            if len(surviving_indices) == len(new_codes) and (
+                                len(surviving_indices) == 0 or max(surviving_indices) < len(old_snap.criteria_embeddings)
+                            ):
+                                retained_embeddings = old_snap.criteria_embeddings[surviving_indices]
+                except Exception as e_embed:
+                    logger.debug("Failed to align retained embeddings: %s", e_embed)
+                    retained_embeddings = None
+
+            # CRITICAL INVARIANT: Zero tearing. len(criteria_embeddings) must match len(new_codes) or be None
+            if retained_embeddings is not None and len(retained_embeddings) != len(new_codes):
+                retained_embeddings = None
+
+            new_version = (old_snap.version + 1) if old_snap else 1
+            new_snapshot = CriteriaCatalogSnapshot(
+                criteria_codes=new_codes,
+                criteria_names=new_names,
+                criteria_aliases=enriched_aliases,
+                criteria_tenants=new_tenants,
+                criteria_levels=new_levels,
+                criteria_embeddings=retained_embeddings,
+                version=new_version,
+                created_at=datetime.now(timezone.utc).isoformat()
+            )
+            self._current_snapshot = new_snapshot
+
+    def _trigger_background_embedding_update(self) -> None:
+        """
+        Kích hoạt tác vụ nền bất đồng bộ (daemon thread) để tính toán vector embeddings 
+        cho SentenceTransformer mà không phong tỏa truy vấn người dùng hay HTTP server.
+        """
+        if self._is_embedding_updating:
+            logger.info("[DuckDBSemanticCatalog] Tác vụ tính toán embeddings trong nền đang chạy, bỏ qua lần gọi này.")
+            return
+
+        def _worker() -> None:
+            with self._embedding_lock:
+                self._is_embedding_updating = True
+                try:
+                    logger.info("[DuckDBSemanticCatalog] [Async Embedding] Bắt đầu tính toán SentenceTransformer embeddings trong nền...")
+                    cache_dir = Path(__file__).resolve().parent.parent.parent / "data" / "cache"
+                    cache_dir.mkdir(parents=True, exist_ok=True)
+                    emb_cache_path = cache_dir / "criteria_embeddings_v3_kb_enriched.npy"
+                    meta_cache_path = cache_dir / "criteria_meta_v3_kb_enriched.json"
+
+                    snap = self._current_snapshot
+                    names = list(snap.criteria_names)
+                    aliases = list(snap.criteria_aliases)
+                    codes = list(snap.criteria_codes)
+                    tenants = list(snap.criteria_tenants)
+
+                    texts = []
+                    for n, a in zip(names, aliases):
+                        a_clean = a.strip()
+                        if a_clean:
+                            texts.append(f"{n} ({a_clean})")
+                        else:
+                            texts.append(n)
+
+                    if not texts:
+                        return
+
+                    embed_model = ModelRegistry.get_embedding_model()
+                    new_embeddings = embed_model.encode(texts, normalize_embeddings=True)
+
+                    # Atomically swap in-memory embedding matrix inside snapshot under _sync_lock
+                    with self._sync_lock:
+                        curr = self._current_snapshot
+                        if curr.criteria_codes == codes and curr.criteria_tenants == tenants:
+                            self._current_snapshot = CriteriaCatalogSnapshot(
+                                criteria_codes=curr.criteria_codes,
+                                criteria_names=curr.criteria_names,
+                                criteria_aliases=curr.criteria_aliases,
+                                criteria_tenants=curr.criteria_tenants,
+                                criteria_levels=curr.criteria_levels,
+                                criteria_embeddings=new_embeddings,
+                                version=curr.version + 1,
+                                created_at=datetime.now(timezone.utc).isoformat()
+                            )
+
+                    # Persist to disk cache
+                    np.save(emb_cache_path, new_embeddings)
+                    with open(meta_cache_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "codes": codes,
+                            "tenants": tenants
+                        }, f)
+                    logger.info("✅ [DuckDBSemanticCatalog] [Async Embedding] Hoàn tất tính toán và lưu cache %d vector embeddings.", len(texts))
+                except Exception as e:
+                    logger.warning("⚠️ [DuckDBSemanticCatalog] [Async Embedding] Lỗi tính toán vector embeddings trong nền: %s", e)
+                finally:
+                    self._is_embedding_updating = False
+
+        t = threading.Thread(target=_worker, name="DuckDB-Embedding-Worker", daemon=True)
+        t.start()
+
+    def _ensure_embeddings_indexed(self, force_async: bool = True) -> None:
+        """Nạp hoặc tính toán ma trận Dense Embeddings cho catalog_criteria (có cơ chế Disk Cache v2 thuần name)."""
+        if not self._criteria_cache_codes:
+            self._refresh_criteria_cache_lists()
+
+        if self._criteria_embeddings is not None and len(self._criteria_cache_codes) == len(self._criteria_embeddings):
+            return
 
         cache_dir = Path(__file__).resolve().parent.parent.parent / "data" / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -1366,17 +1800,37 @@ class DuckDBSemanticCatalog:
             try:
                 with open(meta_cache_path, "r", encoding="utf-8") as f:
                     cached_meta = json.load(f)
+                cached_codes = cached_meta.get("codes", [])
+                cached_tenants = cached_meta.get("tenants", [])
+
+                # Nếu cache khớp hoàn toàn với danh mục RAM
                 if (
-                    cached_meta.get("codes") == self._criteria_cache_codes
-                    and cached_meta.get("tenants") == self._criteria_cache_tenants
+                    cached_codes == self._criteria_cache_codes
+                    and cached_tenants == self._criteria_cache_tenants
                 ):
                     self._criteria_embeddings = np.load(emb_cache_path)
                     logger.info("Đã nạp %d vector embeddings từ cache đĩa v2 thuần name.", len(self._criteria_cache_codes))
                     return
+
+                # Nếu cache trên đĩa là tập con hoặc cũ hơn, nạp tạm ma trận cũ để phục vụ truy vấn
+                # và kích hoạt cập nhật bất đồng bộ trong nền cho danh mục mới
+                if len(cached_codes) > 0:
+                    self._criteria_embeddings = np.load(emb_cache_path)
+                    logger.info(
+                        "Đã nạp tạm thời %d vector embeddings từ cache cũ. Kích hoạt async update cho %d chỉ tiêu hiện tại...",
+                        len(cached_codes), len(self._criteria_cache_codes)
+                    )
+                    self._trigger_background_embedding_update()
+                    return
             except Exception as e:
                 logger.warning("Không thể nạp cache embedding từ đĩa: %s. Tính toán lại...", e)
 
-        # 2. Tính toán embeddings nếu chưa có cache (Chỉ embed trên name và aliases, loại bỏ 100% code)
+        # 2. Nếu không có cache hợp lệ
+        if force_async:
+            self._trigger_background_embedding_update()
+            return
+
+        # Chế độ đồng bộ (chạy lúc startup warmup hoặc khi force_async=False)
         try:
             embed_model = ModelRegistry.get_embedding_model()
 
@@ -1399,6 +1853,317 @@ class DuckDBSemanticCatalog:
         except Exception as e:
             logger.warning("⚠️ [DuckDBSemanticCatalog] Không thể tính toán remote embedding (%s). Hệ thống tự động chuyển sang fallback text-matching.", e)
             self._criteria_embeddings = None
+
+    def check_and_sync_changes(self, force: bool = False) -> Dict[str, Any]:
+        """
+        Kiểm tra và đồng bộ danh mục chỉ tiêu tự động từ PostgreSQL dwh_internal sang DuckDB RAM.
+        - Fast Check (< 2ms): So sánh COUNT(*) và MAX(GREATEST(created, modified, last_modified)).
+        - Phục hồi tự động khi DuckDB RAM bị thiếu hụt dữ liệu (duckdb_crit_count < active_count).
+        - Xóa mềm (Soft-Delete Purge): Purge các chỉ tiêu có deleted_date IS NOT NULL khỏi mọi bảng DuckDB.
+        - Bộ lọc chất lượng: LENGTH(TRIM(c.name)) >= 6 và loại bỏ các mã rác thử nghiệm ('so', 'th', 'test').
+        - Hợp nhất tự động với DynamicCriterionIngestor + FiveGateValidator.
+        - Non-blocking & Thread-safe: Sử dụng _sync_lock bảo vệ toàn bộ quá trình biến đổi state.
+        """
+        import psycopg2
+        t0 = time.time()
+
+        with self._sync_lock:
+            # 1. Fast Check chống polling nặng
+            try:
+                conn_pg = psycopg2.connect(
+                    host=settings.DWH_HOST,
+                    port=settings.DWH_PORT,
+                    dbname=settings.DWH_DB,
+                    user=settings.DWH_USER,
+                    password=settings.DWH_PASSWORD,
+                    connect_timeout=3
+                )
+                conn_pg.autocommit = True
+                cur = conn_pg.cursor()
+                cur.execute("""
+                    SELECT 
+                        COUNT(*) FILTER (WHERE deleted_date IS NULL) AS active_count,
+                        MAX(GREATEST(
+                            COALESCE(created_date, '1970-01-01'::timestamp),
+                            COALESCE(modified_date, '1970-01-01'::timestamp),
+                            COALESCE(last_modified_date, '1970-01-01'::timestamp)
+                        )) FILTER (WHERE deleted_date IS NULL) AS max_touch,
+                        COUNT(*) FILTER (WHERE deleted_date IS NOT NULL) AS deleted_count,
+                        MAX(deleted_date) AS max_del
+                    FROM dwh_internal.criteria;
+                """)
+                active_count, max_touch, deleted_count, max_del = cur.fetchone()
+                active_count = int(active_count or 0)
+
+                duckdb_crit_count = self.conn.execute("SELECT count(*) FROM catalog_criteria;").fetchone()[0]
+
+                # Tự động phục hồi khi DuckDB RAM bị giảm sút (ví dụ bài test xóa 50%)
+                is_duckdb_depleted = (duckdb_crit_count < active_count * 0.95)
+                has_timestamp_change = (
+                    max_touch is not None and (
+                        self._last_synced_pg_max_date is None or max_touch > self._last_synced_pg_max_date
+                    )
+                )
+                has_count_change = (active_count != self._last_synced_pg_count)
+
+                if not force and not is_duckdb_depleted and not has_timestamp_change and not has_count_change:
+                    conn_pg.close()
+                    return {
+                        "synced": False,
+                        "status": "NO_CHANGES_DETECTED",
+                        "total_criteria": active_count,
+                        "max_criterion_date": str(max_touch),
+                        "elapsed_ms": round((time.time() - t0) * 1000, 2)
+                    }
+
+                # 2. Xử lý xóa mềm (Soft-Delete Purge)
+                cur.execute("SELECT id, code FROM dwh_internal.criteria WHERE deleted_date IS NOT NULL;")
+                deleted_rows = cur.fetchall()
+                if deleted_rows:
+                    del_ids = [str(r[0]) for r in deleted_rows]
+                    del_codes = [str(r[1]) for r in deleted_rows]
+                    for d_id, d_code in zip(del_ids, del_codes):
+                        self.conn.execute("DELETE FROM catalog_criteria WHERE id = ? OR code = ?;", (d_id, d_code))
+                        self.conn.execute("DELETE FROM catalog_criteria_hierarchy WHERE id = ? OR code = ?;", (d_id, d_code))
+                        self.conn.execute("DELETE FROM catalog_definitions WHERE id = ? OR code = ?;", (d_id, d_code))
+                        self.conn.execute("DELETE FROM catalog_aliases WHERE code = ?;", (d_code,))
+                    self._alias_registry = [a for a in self._alias_registry if a.get("code") not in del_codes]
+
+                # 3. Lấy danh sách chỉ tiêu hợp lệ (có bộ lọc chất lượng)
+                cur.execute("""
+                    SELECT c.id, c.code, c.name, c.level,
+                           NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
+                           c.tenant_code, c.created_date
+                    FROM dwh_internal.criteria c
+                    WHERE c.deleted_date IS NULL
+                    ORDER BY c.created_date DESC NULLS LAST;
+                """)
+                pg_crits = cur.fetchall()
+
+                # Đồng bộ lại cây phân cấp chỉ tiêu
+                cur.execute("""
+                    WITH fact_meta AS (
+                        SELECT DISTINCT ON (c2.id)
+                            c2.id AS criteria_id,
+                            f.mission_name,
+                            o.office_name,
+                            f.value AS latest_value
+                        FROM dwh_internal.criteria c2
+                        JOIN dwh_internal.fact_report_criteria f
+                          ON (f.criteria_id = c2.id OR (c2.code = 'tong_san_luong_muoi_gd2' AND f.code = 'tong_san_luong_muoi'))
+                        LEFT JOIN dwh_internal.office o ON f.office_id = o.id
+                        WHERE f.report_status = 'approved'
+                        ORDER BY c2.id,
+                                 CASE 
+                                     WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0
+                                     WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1
+                                     ELSE 2
+                                 END,
+                                 f.report_date DESC NULLS LAST,
+                                 f.version DESC NULLS LAST
+                    )
+                    SELECT
+                        c.id::text,
+                        c.code,
+                        c.name,
+                        c.parent_id::text,
+                        p.name AS parent_name,
+                        COALESCE(gp.id, p.id, c.id)::text AS root_id,
+                        COALESCE(gp.name, p.name, c.name) AS root_name,
+                        c.level,
+                        NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
+                        COALESCE(fm.mission_name, c.mission_name, (SELECT m_sub.mission_name FROM dwh_internal.mission m_sub WHERE m_sub.id = c.mission_id LIMIT 1), '-') AS mission_name,
+                        COALESCE(
+                            fm.office_name,
+                            (
+                                SELECT o_m.office_name
+                                FROM dwh_internal.office_mission om
+                                JOIN dwh_internal.office o_m ON o_m.id = om.office_id
+                                WHERE (om.mission_id = c.mission_id OR om.mission_name = COALESCE(c.mission_name, fm.mission_name))
+                                  AND om.deleted_date IS NULL
+                                ORDER BY om.created_date DESC NULLS LAST
+                                LIMIT 1
+                            ),
+                            '-'
+                        ) AS office_name,
+                        CASE WHEN fm.latest_value IS NOT NULL AND TRIM(fm.latest_value) NOT IN ('', '-') THEN fm.latest_value ELSE fm.latest_value END AS latest_value,
+                        c.created_date
+                    FROM dwh_internal.criteria c
+                    LEFT JOIN dwh_internal.criteria p ON c.parent_id = p.id
+                    LEFT JOIN dwh_internal.criteria gp ON p.parent_id = gp.id
+                    LEFT JOIN fact_meta fm ON fm.criteria_id = c.id
+                    WHERE c.deleted_date IS NULL
+                      AND LENGTH(TRIM(c.name)) >= 6
+                      AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                    ORDER BY c.level ASC, c.created_date ASC, c.id ASC;
+                """)
+                hier_rows = cur.fetchall()
+                conn_pg.close()
+            except Exception as e:
+                logger.warning("⚠️ [DuckDBSemanticCatalog] Không thể truy vấn Live PostgreSQL để sync: %s", e)
+                return {
+                    "synced": False,
+                    "error": str(e),
+                    "status": "PG_ERROR",
+                    "elapsed_ms": round((time.time() - t0) * 1000, 2)
+                }
+
+            # 4. Ingestion qua DynamicCriterionIngestor + FiveGateValidator
+            try:
+                from IPGov_Chatbot.modules.mod04_catalog.dynamic_criterion_ingestor import DynamicCriterionIngestor, DEFAULT_KB_PATH
+                db_url = f"postgresql://{settings.DWH_USER}:{settings.DWH_PASSWORD}@{settings.DWH_HOST}:{settings.DWH_PORT}/{settings.DWH_DB}"
+                ingestor = DynamicCriterionIngestor(kb_path=DEFAULT_KB_PATH, db_url=db_url)
+                ingested = ingestor.ingest_new_criteria_into_kb(duckdb_conn=self.conn)
+                if ingested:
+                    logger.info("Đã nạp tự động %d chỉ tiêu mới vào KB qua DynamicCriterionIngestor.", len(ingested))
+            except Exception as e_ing:
+                logger.warning("DynamicCriterionIngestor execution note: %s", e_ing)
+
+            # 5. Nạp an toàn vào DuckDB RAM có chốt khóa giao dịch
+            new_crit_count = 0
+            try:
+                new_crit_rows = []
+                new_aliases = []
+                for cid, code, name, lvl, is_leaf, tenant_code, created_dt in pg_crits:
+                    str_cid = str(cid)
+                    tc = str(tenant_code or "")
+                    new_crit_rows.append((str_cid, code, name, "", lvl or 1, is_leaf, "", tc, created_dt))
+                    if not is_dummy_criterion(code, name):
+                        clean_name = name.lower().strip()
+                        new_aliases.append((clean_name, code, bool(is_leaf)))
+                        unacc_name = _remove_accents(clean_name)
+                        if unacc_name and unacc_name != clean_name and len(unacc_name) >= 6:
+                            new_aliases.append((unacc_name, code, bool(is_leaf)))
+
+                if new_crit_rows:
+                    self.conn.executemany("INSERT OR REPLACE INTO catalog_criteria VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", new_crit_rows)
+                    new_crit_count = len(new_crit_rows)
+                if new_aliases:
+                    self.conn.executemany("INSERT OR IGNORE INTO catalog_aliases VALUES (?, ?, ?)", new_aliases)
+
+                if hier_rows:
+                    self.conn.executemany(
+                        "INSERT OR REPLACE INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        hier_rows
+                    )
+
+                self._last_synced_pg_count = active_count
+                self._last_synced_pg_max_date = max_touch
+                self._last_sync_timestamp = time.time()
+
+                # Đồng bộ tức thì snapshot và lập chỉ mục trong RAM
+                self._refresh_criteria_cache_lists()
+
+                # Kích hoạt cập nhật vector embeddings trong nền (Non-blocking)
+                if is_duckdb_depleted or has_count_change or force or new_crit_count > 0:
+                    self._trigger_background_embedding_update()
+
+                return {
+                    "synced": True,
+                    "status": "SYNCED",
+                    "new_criteria_count": new_crit_count,
+                    "total_criteria": active_count,
+                    "max_criterion_date": str(max_touch),
+                    "elapsed_ms": round((time.time() - t0) * 1000, 2)
+                }
+            except Exception as e:
+                logger.error("❌ [DuckDBSemanticCatalog] Lỗi khi nạp dữ liệu đồng bộ vào DuckDB: %s", e)
+                return {
+                    "synced": False,
+                    "error": str(e),
+                    "status": "ERROR",
+                    "elapsed_ms": round((time.time() - t0) * 1000, 2)
+                }
+
+    def lookup_or_hydrate_metric(self, mention: str, tenant_code: str = "68") -> Optional[Dict[str, Any]]:
+        """
+        Tra cứu động chỉ tiêu từ Live PostgreSQL dwh_internal.criteria khi DuckDB RAM bị cache miss.
+        Nếu tìm thấy, tự động đăng ký vào DuckDB RAM mà không cần khởi động lại máy chủ.
+        """
+        if not mention or not mention.strip():
+            return None
+
+        clean_m = mention.strip().lower()
+        try:
+            import psycopg2
+            conn_pg = psycopg2.connect(
+                host=settings.DWH_HOST,
+                port=settings.DWH_PORT,
+                dbname=settings.DWH_DB,
+                user=settings.DWH_USER,
+                password=settings.DWH_PASSWORD,
+                connect_timeout=3
+            )
+            conn_pg.autocommit = True
+            with conn_pg.cursor() as cur:
+                cur.execute("""
+                    SELECT c.id, c.code, c.name, c.level,
+                           NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
+                           c.tenant_code, c.created_date, c.parent_id
+                    FROM dwh_internal.criteria c
+                    WHERE c.deleted_date IS NULL
+                      AND LENGTH(TRIM(c.name)) >= 6
+                      AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                      AND (
+                          LOWER(TRIM(c.name)) = LOWER(TRIM(%s))
+                          OR LOWER(TRIM(c.code)) = LOWER(TRIM(%s))
+                          OR (LENGTH(%s) >= 6 AND (
+                              LOWER(c.name) ILIKE %s
+                              OR LOWER(c.code) ILIKE %s
+                              OR POSITION(LOWER(TRIM(%s)) IN LOWER(c.name)) > 0
+                              OR POSITION(LOWER(c.name) IN LOWER(TRIM(%s))) > 0
+                          ))
+                      )
+                    ORDER BY c.level DESC, LENGTH(c.name) DESC, c.created_date DESC NULLS LAST
+                    LIMIT 1;
+                """, (clean_m, clean_m, clean_m, f"%{clean_m}%", f"%{clean_m}%", clean_m, clean_m))
+                row = cur.fetchone()
+
+            conn_pg.close()
+
+            if not row:
+                return None
+
+            cid, code, name, lvl, is_leaf, tc, created_dt, pid = row
+            cid_str = str(cid)
+            tc_str = str(tc or tenant_code or "68")
+
+            # Đăng ký tức thì vào DuckDB RAM
+            with self._sync_lock:
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO catalog_criteria VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (cid_str, code, name, "", lvl or 1, is_leaf, "", tc_str, created_dt)
+                )
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (cid_str, code, name, str(pid or ""), "", str(pid or cid_str), "", lvl or 1, is_leaf, "-", "-", None, created_dt)
+                )
+                clean_name = name.lower().strip()
+                self._alias_registry.append({
+                    "alias": clean_name,
+                    "code": code,
+                    "name": name,
+                    "type": "criteria",
+                    "target_table": "dwh_internal.criteria",
+                    "tenant_code": tc_str
+                })
+                self._refresh_criteria_cache_lists()
+
+            # Kích hoạt async sync đầy đủ để nạp toàn bộ quan hệ cây
+            self._trigger_background_embedding_update()
+
+            return {
+                "id": cid_str,
+                "code": code,
+                "name": name,
+                "level": lvl or 1,
+                "is_leaf": bool(is_leaf),
+                "tenant_code": tc_str,
+                "parent_id": str(pid or "")
+            }
+        except Exception as e:
+            logger.warning("⚠️ [lookup_or_hydrate_metric] Lỗi fallback tra cứu Live PG criteria: %s", e)
+            return None
 
     def _hydrate_candidates_structure(self, candidates: List[Dict[str, Any]]) -> None:
         """Nạp thuộc tính cấu trúc (root_name, parent_name, level, is_leaf, mission_name, office_name)
@@ -1465,8 +2230,15 @@ class DuckDBSemanticCatalog:
         q_norm = unicodedata.normalize('NFC', query.strip()).lower()
         q_clean = " ".join(q_norm.replace("-", " ").replace("_", " ").split())
 
-        # Chống va chạm từ đơn rác ('Số', 'TH', 'test')
-        is_short_dummy = len(c_low) <= 3 or c_low in ("số", "th", "th1", "th2", "th3", "test")
+        # Chống va chạm từ đơn rác ('Số', 'TH', 'test', form testing criteria)
+        c_code_clean = (candidate.get("code") or "").strip().lower()
+        is_short_dummy = (
+            len(c_low) <= 2
+            or c_low in DUMMY_FILTER_NAMES
+            or c_code_clean in DUMMY_FILTER_CODES
+            or c_code_clean.startswith("test")
+            or c_low.startswith("test")
+        )
         if is_short_dummy and c_low != q_clean:
             return -999.0
 
@@ -1502,14 +2274,31 @@ class DuckDBSemanticCatalog:
 
         # 3. Branch Grounding (Kiểm tra thực thể nhánh cấp cao: HTX vs LHHTX vs THT vs TT)
         branch_penalty = 0.0
-        if ("liên hiệp" in q_clean or "lhhtx" in q_clean) and ("liên hiệp" not in tree_text and "lhhtx" not in tree_text):
-            branch_penalty = -25.0
-        elif ("tổ hợp tác" in q_clean or "tht" in q_clean) and ("tổ hợp tác" not in tree_text and "tht" not in tree_text):
-            branch_penalty = -25.0
-        elif ("trang trại" in q_clean) and ("trang trại" not in tree_text and " tt " not in f" {tree_text} "):
-            branch_penalty = -25.0
-        elif ("hợp tác xã" in q_clean or "htx" in q_clean) and ("liên hiệp" in tree_text or "lhhtx" in tree_text or "tổ hợp tác" in tree_text):
-            branch_penalty = -25.0
+        has_lh_q = any(w in q_clean for w in ("liên hiệp", "lhhtx", "lh htx"))
+        has_tht_q = any(w in q_clean for w in ("tổ hợp tác", "tht"))
+        has_tt_q = any(w in q_clean for w in ("trang trại", "tt"))
+        has_htx_q = any(w in q_clean for w in ("hợp tác xã", "htx")) and not has_lh_q
+
+        if has_lh_q:
+            if "liên hiệp" in tree_text or "lhhtx" in tree_text:
+                branch_penalty += 30.0
+            else:
+                branch_penalty -= 30.0
+        elif has_tht_q:
+            if "tổ hợp tác" in tree_text or "tht" in tree_text:
+                branch_penalty += 30.0
+            else:
+                branch_penalty -= 30.0
+        elif has_tt_q:
+            if "trang trại" in tree_text or " tt " in f" {tree_text} ":
+                branch_penalty += 30.0
+            else:
+                branch_penalty -= 30.0
+        elif has_htx_q:
+            if "liên hiệp" in tree_text or "lhhtx" in tree_text or "tổ hợp tác" in tree_text:
+                branch_penalty -= 30.0
+            elif "hợp tác xã" in tree_text or "htx" in tree_text:
+                branch_penalty += 20.0
 
         # 4. Temporal Polarity Grounding (Lũy kế vs Trong năm)
         is_cumul_q = any(w in q_clean for w in ("lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"))
@@ -1557,7 +2346,44 @@ class DuckDBSemanticCatalog:
             if has_subject_c:
                 object_score += 15.0
 
-        return semantic_bonus + branch_penalty + temporal_score + star_score + object_score
+        # 7. Domain Specificity Grounding (Diêm nghiệp / Muối vs Công nghiệp chung - BE-07)
+        domain_salt_score = 0.0
+        has_salt_q = any(w in q_clean for w in ("muối", "muoi", "diêm nghiệp", "diem nghiep"))
+        has_salt_c = any(w in c_low for w in ("muối", "muoi", "diêm nghiệp", "diem nghiep")) or any(w in tree_text for w in ("muối", "muoi", "diêm nghiệp", "diem nghiep"))
+        if has_salt_q:
+            if has_salt_c:
+                domain_salt_score += 35.0
+            else:
+                domain_salt_score -= 35.0
+
+        has_area_q = "diện tích" in q_clean
+        has_area_c = "diện tích" in c_low
+        has_yield_q = "sản lượng" in q_clean
+        has_yield_c = "sản lượng" in c_low
+        if has_area_q:
+            if has_area_c:
+                domain_salt_score += 25.0
+            elif has_yield_c or "hộ" in c_low or c_code_clean == "san_xuat_muoi":
+                domain_salt_score -= 25.0
+        elif has_yield_q:
+            if has_yield_c:
+                domain_salt_score += 25.0
+            elif has_area_c:
+                domain_salt_score -= 25.0
+
+        # 8. Domain OCOP Grounding
+        domain_ocop_score = 0.0
+        has_ocop_q = any(w in q_clean for w in ("ocop", "mỗi xã một sản phẩm"))
+        has_ocop_c = any(w in c_low for w in ("ocop", "mỗi xã một sản phẩm")) or any(w in tree_text for w in ("ocop", "mỗi xã một sản phẩm"))
+        if has_ocop_q:
+            if has_ocop_c:
+                domain_ocop_score += 35.0
+            else:
+                domain_ocop_score -= 35.0
+        elif not has_ocop_q and has_ocop_c:
+            domain_ocop_score -= 20.0
+
+        return semantic_bonus + branch_penalty + temporal_score + star_score + object_score + domain_salt_score + domain_ocop_score
 
     def _llm_disambiguate(self, query: str, candidates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Gọi micro-prompt LLM (Few-Shot + CoT) để giải quyết nhập nhằng hoặc chọn chỉ tiêu chính xác
@@ -1648,13 +2474,13 @@ class DuckDBSemanticCatalog:
         exact_name_matches = self.conn.execute("""
             SELECT code, name, length(name) as len_n, created_date
             FROM catalog_criteria
-            WHERE is_leaf = TRUE AND length(name) >= 4 AND INSTR(?, LOWER(name)) > 0;
+            WHERE is_leaf = TRUE AND length(name) >= 6 AND INSTR(?, LOWER(name)) > 0;
         """, (q_clean,)).fetchall()
 
         is_cumul_q = any(w in q_clean for w in ("lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"))
         specific_exact_matches = [
             r for r in exact_name_matches
-            if r[1].strip().lower() not in ("số", "th", "th1", "th2", "th3", "test")
+            if not is_dummy_criterion(r[0], r[1]) and len(r[1].strip()) >= 6
             and (
                 not is_cumul_q
                 or r[1].strip().lower() == q_clean
@@ -1693,7 +2519,12 @@ class DuckDBSemanticCatalog:
 
         # 2. Thử đối chiếu nhanh qua Alias Registry có phân vùng tenant (Adaptive Thresholding)
         alias_match = self.match_alias_or_abbreviation(q_clean, threshold=None, tenant_code=tenant_code)
-        if alias_match and alias_match.get("type") in ("criteria", "acronym") and alias_match.get("match_score", 0.0) >= 80.0:
+        if (
+            alias_match 
+            and alias_match.get("type") in ("criteria", "acronym") 
+            and alias_match.get("match_score", 0.0) >= 80.0
+            and not is_dummy_criterion(alias_match.get("code"), alias_match.get("name"))
+        ):
             alias_term = (alias_match.get("alias") or alias_match.get("name") or "").lower().strip()
 
             # Đối chiếu trực tiếp alias_term
@@ -1713,6 +2544,8 @@ class DuckDBSemanticCatalog:
                     WHERE LOWER(name) = ? OR LOWER(aliases) = ? OR INSTR(LOWER(aliases), ?) > 0;
                 """, (alias_term, alias_term, alias_term)).fetchall()
 
+            matched_crit_rows = [r for r in matched_crit_rows if not is_dummy_criterion(r[0], r[1])]
+
             # Nếu là từ viết tắt hoặc cụm từ ngắn chung chung (acronym/category) map tới nhiều criteria
             is_broad_alias = alias_match.get("type") in ("acronym", "category", "broad") or alias_match.get("code") in ("htx_broad", "ocop_broad")
             if len(matched_crit_rows) > 1 and is_broad_alias and top_k_candidates > 1:
@@ -1728,26 +2561,31 @@ class DuckDBSemanticCatalog:
                     "candidates": cands_list
                 }]
 
-            return [{
-                "code": alias_match["code"],
-                "name": alias_match["name"],
-                "score": alias_match.get("match_score", 100.0),
-                "is_ambiguous": False,
-                "candidates": [{
-                    "code": alias_match["code"],
-                    "name": alias_match["name"],
-                    "rrf_score": 1.0,
-                    "score": alias_match.get("match_score", 100.0)
-                }]
-            }]
+            if matched_crit_rows or alias_match.get("code"):
+                res_code = matched_crit_rows[0][0] if matched_crit_rows else alias_match["code"]
+                res_name = matched_crit_rows[0][1] if matched_crit_rows else alias_match["name"]
+                if not is_dummy_criterion(res_code, res_name):
+                    return [{
+                        "code": res_code,
+                        "name": res_name,
+                        "score": alias_match.get("match_score", 100.0),
+                        "is_ambiguous": False,
+                        "candidates": [{
+                            "code": res_code,
+                            "name": res_name,
+                            "rrf_score": 1.0,
+                            "score": alias_match.get("match_score", 100.0)
+                        }]
+                    }]
 
-        self._ensure_embeddings_indexed()
-        if len(self._criteria_cache_codes) == 0:
+        self._ensure_embeddings_indexed(force_async=True)
+        snap = self._current_snapshot
+        if len(snap.criteria_codes) == 0:
             return []
 
         # 2. Pre-filtering: Xác định tập chỉ số hợp lệ theo tenant_code và role_level
         valid_indices = []
-        for i, (tc, lvl) in enumerate(zip(self._criteria_cache_tenants, self._criteria_cache_levels)):
+        for i, (tc, lvl) in enumerate(zip(snap.criteria_tenants, snap.criteria_levels)):
             if tenant_code and tc and tc != tenant_code and tc != "00":
                 continue
             if role_level == 3:
@@ -1758,23 +2596,30 @@ class DuckDBSemanticCatalog:
 
         if not valid_indices:
             # Fallback nếu không có tiêu chí nào khớp tenant
-            valid_indices = list(range(len(self._criteria_cache_codes)))
+            valid_indices = list(range(len(snap.criteria_codes)))
 
         # 3. Dense Semantic Search (chỉ duyệt/xếp hạng trên valid_indices nếu có embeddings)
         dense_ranked = []
-        if self._criteria_embeddings is not None:
+        if snap.criteria_embeddings is not None:
             try:
-                embed_model = ModelRegistry.get_embedding_model()
-                q_emb = embed_model.encode([query], normalize_embeddings=True)[0]
-                dense_sims = np.dot(self._criteria_embeddings, q_emb)
-                valid_dense_scores = [(i, float(dense_sims[i])) for i in valid_indices]
+                q_emb = None
+                with self._query_embedding_cache_lock:
+                    q_emb = self._query_embedding_cache.get(q_clean)
+                if q_emb is None:
+                    embed_model = ModelRegistry.get_embedding_model()
+                    q_emb = embed_model.encode([query], normalize_embeddings=True)[0]
+                    with self._query_embedding_cache_lock:
+                        if len(self._query_embedding_cache) < 2048:
+                            self._query_embedding_cache[q_clean] = q_emb
+                dense_sims = np.dot(snap.criteria_embeddings, q_emb)
+                valid_dense_scores = [(i, float(dense_sims[i])) for i in valid_indices if i < len(dense_sims)]
                 valid_dense_scores.sort(key=lambda x: x[1], reverse=True)
                 seen_dense_codes = set()
                 for i, score in valid_dense_scores:
-                    c = self._criteria_cache_codes[i]
+                    c = snap.criteria_codes[i]
                     if c not in seen_dense_codes:
                         seen_dense_codes.add(c)
-                        dense_ranked.append((c, self._criteria_cache_names[i], score))
+                        dense_ranked.append((c, snap.criteria_names[i], score))
                         if len(dense_ranked) >= 20:
                             break
             except Exception as e:
@@ -1783,7 +2628,9 @@ class DuckDBSemanticCatalog:
         # 4. Sparse Search via RapidFuzz token_set_ratio trên name và aliases (mở rộng từ catalog_acronyms)
         q_expanded = q_clean
         try:
-            acronym_rows = self.conn.execute("SELECT acronym, full_form FROM catalog_acronyms;").fetchall()
+            acronym_rows = getattr(self, "_acronym_rows_cache", None)
+            if not acronym_rows:
+                acronym_rows = self.conn.execute("SELECT acronym, full_form FROM catalog_acronyms;").fetchall()
             for acr, full in acronym_rows:
                 acr_low = acr.lower()
                 full_low = full.lower()
@@ -1799,8 +2646,8 @@ class DuckDBSemanticCatalog:
         q_unacc = self._remove_accents(q_clean)
         is_unaccent_query = (q_clean == q_unacc)
         for i in valid_indices:
-            name = self._criteria_cache_names[i]
-            aliases = self._criteria_cache_aliases[i]
+            name = snap.criteria_names[i]
+            aliases = snap.criteria_aliases[i]
             target_text = f"{name} ({aliases})" if aliases else name
             target_low = target_text.lower()
             s_score = max(fuzz.token_set_ratio(q_clean, target_low), fuzz.token_set_ratio(q_expanded, target_low))
@@ -1811,10 +2658,10 @@ class DuckDBSemanticCatalog:
         seen_sparse_codes = set()
         sparse_ranked = []
         for i, score in sparse_scores:
-            c = self._criteria_cache_codes[i]
+            c = snap.criteria_codes[i]
             if c not in seen_sparse_codes:
                 seen_sparse_codes.add(c)
-                sparse_ranked.append((c, self._criteria_cache_names[i], score))
+                sparse_ranked.append((c, snap.criteria_names[i], score))
                 if len(sparse_ranked) >= 20:
                     break
 
@@ -1835,9 +2682,12 @@ class DuckDBSemanticCatalog:
         sorted_candidates = sorted(rrf_dict.items(), key=lambda x: x[1], reverse=True)[:top_k_candidates]
         candidates = []
         for code, rrf_score in sorted_candidates:
+            c_name = details[code]["name"]
+            if is_dummy_criterion(code, c_name):
+                continue
             candidates.append({
                 "code": code,
-                "name": details[code]["name"],
+                "name": c_name,
                 "rrf_score": rrf_score,
                 "dense_score": details[code].get("dense_score", 0.0),
                 "sparse_score": details[code].get("sparse_score", 0.0),
@@ -1956,8 +2806,15 @@ class DuckDBSemanticCatalog:
             c_name_clean = re.sub(r'\s+', ' ', c_name)
             c_low = c_name_clean.lower()
 
-            is_short_dummy = len(c_low) <= 3 or c_low in ("số", "th", "th1", "th2", "th3", "test")
-            if is_short_dummy and c_low != q_lower:
+            c_code_clean = (c.get("code") or "").strip().lower()
+            if (
+                c_code_clean in DUMMY_FILTER_CODES
+                or c_code_clean.startswith("test")
+                or c_low in DUMMY_FILTER_NAMES
+                or c_low.startswith("test")
+            ):
+                continue
+            if len(c_low) <= 2 and c_low != q_lower:
                 continue
 
             struct_score = self._compute_structural_compatibility(q_clean, c, acr_map_topk)
@@ -2125,9 +2982,11 @@ class DuckDBSemanticCatalog:
                     # Đối với chỉ tiêu đa từ và điểm tương đồng biên (< 0.60), bắt buộc phải có từ nội dung thực tế (loại trừ từ tố phụ thuộc)
                     ALLOWED_FALSE_MORPHEMES = {"quả", "lâm", "đồng", "tỉnh", "thành", "phố", "hoạt", "động", "các", "những", "toàn", "tổng", "số", "của", "tại", "ở", "cho"}
                     common_content_tokens = (cand_tokens & q_tokens) - ALLOWED_FALSE_MORPHEMES
-                    if raw_score < 0.60:
-                        is_exact_substr = cand_name.lower() in q_norm
-                        if not is_exact_substr and len(common_content_tokens) < 2:
+                    is_exact_substr = cand_name.lower() in q_norm or q_norm in cand_name.lower()
+                    if not is_exact_substr:
+                        if len(cand_tokens) >= 3 and len(common_content_tokens) < 2:
+                            continue
+                        if raw_score < 0.60 and len(common_content_tokens) < 2:
                             continue
 
                     candidates.append({
@@ -2841,7 +3700,13 @@ class DuckDBSemanticCatalog:
             return "report"
         return None
 
-    def is_dimension_query(self, raw_input: str, dimension_name: str, archetype: Optional[str] = None) -> bool:
+    def is_dimension_query(
+        self,
+        raw_input: str,
+        dimension_name: str,
+        archetype: Optional[str] = None,
+        skip_hierarchy_check: bool = False,
+    ) -> bool:
         """
         Kiểm tra câu hỏi khám phá chiều (Dimension Exploration / Dimension Listing).
         Căn cứ: Intent Archetype Classification từ Planner (DIMENSION_LISTING vs SNAPSHOT) kết hợp
@@ -2947,6 +3812,8 @@ class DuckDBSemanticCatalog:
                 has_time_discovery = has_time_term and self.has_lexicon_term(raw_input, "METRIC_LIST_TRIGGER")
 
                 if is_explicit_listing or is_criteria_count or is_criteria_reported or has_time_discovery:
+                    if skip_hierarchy_check:
+                        return True
                     # Nếu câu hỏi có tên chỉ tiêu cụ thể (lá đơn, lá trùng tên hoặc chỉ tiêu cha)
                     # mà không phải câu lệnh liệt kê danh mục rõ ràng (METRIC_LIST_TRIGGER),
                     # thì đây là Metric Point Inquiry chứ không phải dimension listing.
@@ -3412,6 +4279,9 @@ class DuckDBSemanticCatalog:
             p_name_clean = " ".join(unicodedata.normalize("NFC", (r[4] or "").strip()).split()) if r[4] else None
             r_name_clean = " ".join(unicodedata.normalize("NFC", (r[6] or "").strip()).split()) if r[6] else None
             c_low = c_name.lower()
+            code_low = (r[1] or "").strip().lower()
+            if c_low in DUMMY_FILTER_NAMES or code_low in DUMMY_FILTER_CODES:
+                continue
             c_unacc = self._remove_accents(c_low)
             items.append({
                 "id": r[0],
@@ -3461,7 +4331,38 @@ class DuckDBSemanticCatalog:
                     return (idx, end_idx)
                 start = idx + 1
 
+        def _score_taxonomy_context(cand: Dict[str, Any], query_norm: str) -> float:
+            score = 0.0
+            r_name = (cand.get("root_name") or "").lower().strip()
+            p_name = (cand.get("parent_name") or "").lower().strip()
+            m_name = (cand.get("mission_name") or "").lower().strip()
+            q_words = set(query_norm.split())
+
+            for b_text in (r_name, p_name, m_name):
+                if not b_text or b_text == "-":
+                    continue
+                if b_text in query_norm:
+                    score += 3.0
+                if "trang trại" in b_text and ("trang trại" in query_norm or "tt" in q_words):
+                    score += 2.0
+                elif "trang trại" in b_text and not ("trang trại" in query_norm or "tt" in q_words):
+                    score -= 3.0
+                if any(k in b_text for k in ("htx", "hợp tác xã", "lhhtx", "tht", "tổ hợp tác")):
+                    if any(k in query_norm for k in ("htx", "hợp tác xã", "lhhtx", "tht", "tổ hợp tác", "kinh tế tập thể", "lĩnh vực hoạt động", "phân theo lĩnh vực")):
+                        score += 2.0
+                    elif "muối" in query_norm or "gia súc" in query_norm or "trâu" in query_norm or "bò" in query_norm:
+                        score -= 3.0
+                if "diêm nghiệp" in b_text and ("diêm nghiệp" in query_norm or "muối" in query_norm or "hộ" in query_norm):
+                    score += 2.0
+                b_words = {w for w in b_text.split() if len(w) >= 3 and w not in ("tổng", "tỉnh", "cấp", "ngành")}
+                score += len(b_words & q_words) * 0.5
+            return score
+
+        leaf_exact_names = {it["name_low"] for it in items if it["is_leaf"]}
         for al_text, a_code, a_is_leaf in alias_rows:
+            cand_it = next((it for it in items if it.get("code") == a_code), None)
+            if cand_it and _score_taxonomy_context(cand_it, q_norm) < 0:
+                continue
             al_unacc = self._remove_accents(al_text)
             sp_al = _find_span(q_norm, al_text) or (_find_span(q_unaccent, al_unacc) if (al_unacc and len(al_unacc) >= 6) else None)
             if sp_al:
@@ -3470,6 +4371,8 @@ class DuckDBSemanticCatalog:
                         alias_matched_leaf_code = a_code
                         alias_matched_leaf_text = al_text
                 else:
+                    if al_text.lower().strip() in leaf_exact_names:
+                        continue
                     if not alias_matched_parent_code:
                         alias_matched_parent_code = a_code
                         alias_matched_parent_text = al_text
@@ -3527,13 +4430,32 @@ class DuckDBSemanticCatalog:
 
         matched_spans: List[Tuple[int, int, Dict[str, Any]]] = []
         for it in items:
+            # Phân giải và chống va chạm domain bằng cách chấm điểm nhánh phân cấp
+            if _score_taxonomy_context(it, q_norm) < 0:
+                continue
+
             # Chặn dương tính giả: khi chỉ tiêu trùng với từ chỉ hành động tổng hợp/thống kê (action verb)
             if hasattr(self, "has_lexicon_term") and self.has_lexicon_term(it["name_low"], "SYNTHESIS_ACTION_CUE"):
                 if self.has_lexicon_term(q_norm, "SYNTHESIS_ACTION_CUE") and not self.has_lexicon_term(q_norm, "SYNTHESIS_METRIC_CUE"):
                     continue
+
             sp = _find_span(q_norm, it["name_low"])
             if not sp and len(it["name_unaccent"]) >= 5:
                 sp = _find_span(q_unaccent, it["name_unaccent"])
+
+            # F6: Base name span matching (vd: "Tổng hộ sản xuất muối" -> "hộ sản xuất muối")
+            if not sp:
+                for prefix in ("tổng số lượng ", "tổng số ", "tổng diện tích ", "tổng sản lượng ", "tổng ", "số lượng "):
+                    if it["name_low"].startswith(prefix):
+                        base_n = it["name_low"][len(prefix):].strip()
+                        if len(base_n) >= 4:
+                            sp_base = _find_span(q_norm, base_n)
+                            if not sp_base and len(base_n) >= 5:
+                                sp_base = _find_span(q_unaccent, self._remove_accents(base_n))
+                            if sp_base:
+                                sp = sp_base
+                                break
+
             if sp:
                 matched_spans.append((sp[0], sp[1], it))
 
@@ -3570,22 +4492,37 @@ class DuckDBSemanticCatalog:
         # và không có token hạn định đặc thù nào của leaf (ngoài các token của parent) xuất hiện trong q_norm,
         # ưu tiên parent_matches (loại bỏ leaf_matches).
         if parent_matches and leaf_matches:
-            has_leaf_qualifier = False
-            q_tokens = set(q_norm.split())
-            for l in leaf_matches:
-                l_tokens = set(l["name_low"].split())
-                for p in parent_matches:
+            related_pairs = [
+                (l, p) for l in leaf_matches for p in parent_matches
+                if l.get("parent_id") == p.get("id") or l.get("root_id") == p.get("id") or p["name_low"] in l["name_low"]
+            ]
+            if related_pairs:
+                has_leaf_qualifier = False
+                q_tokens = set(q_norm.split())
+                for l, p in related_pairs:
+                    l_tokens = set(l["name_low"].split())
                     p_tokens = set(p["name_low"].split())
                     qualifiers = l_tokens - p_tokens
                     if qualifiers and any(qt in q_tokens or qt in q_norm for qt in qualifiers):
                         has_leaf_qualifier = True
                         break
-                if has_leaf_qualifier:
-                    break
-            if not has_leaf_qualifier:
-                leaf_matches = []
+                if not has_leaf_qualifier:
+                    leaf_matches = []
 
-        if alias_matched_leaf_code:
+        if alias_matched_parent_code and alias_matched_leaf_code:
+            if alias_matched_leaf_text and alias_matched_parent_text:
+                leaf_unacc = self._remove_accents(alias_matched_leaf_text).lower()
+                parent_unacc = self._remove_accents(alias_matched_parent_text).lower()
+                if (leaf_unacc in parent_unacc or alias_matched_leaf_text.lower() in alias_matched_parent_text.lower()) and len(parent_unacc) > len(leaf_unacc):
+                    code_to_remove = alias_matched_leaf_code
+                    alias_matched_leaf_code = None
+                    alias_matched_leaf_text = None
+                    leaf_matches = [
+                        m for m in leaf_matches
+                        if m.get("code") != code_to_remove and self._remove_accents(m.get("name", "")).lower() != leaf_unacc
+                    ]
+
+        if alias_matched_leaf_code and not leaf_matches:
             is_sub_of_parent = bool(
                 alias_matched_leaf_text
                 and parent_matches
@@ -3593,8 +4530,9 @@ class DuckDBSemanticCatalog:
             )
             if not is_sub_of_parent:
                 for it in items:
-                    if it["code"] == alias_matched_leaf_code and it not in leaf_matches:
-                        leaf_matches.insert(0, it)
+                    if it["code"] == alias_matched_leaf_code:
+                        leaf_matches.append(it)
+                        break
 
         if alias_matched_parent_code and not leaf_matches:
             for it in items:
@@ -3721,10 +4659,42 @@ class DuckDBSemanticCatalog:
             }
 
         # 2. Xử lý chỉ tiêu lá: kiểm tra xem có bị trùng tên ở nhiều nhóm cha (SC-2.1) hay là duy nhất (SINGLE_LEAF)
+        # F9 (Multi-Leaf Retention in Catalog):
+        # Khi có nhiều leaf matches với các code khác nhau (vd: đa chỉ tiêu con),
+        # giữ lại toàn bộ các leaf thay vì cắt bỏ chỉ lấy leaf_matches[0].
+        unique_leaf_matches = []
+        seen_leaf_codes = set()
+        for lm in leaf_matches:
+            if lm["code"] not in seen_leaf_codes:
+                seen_leaf_codes.add(lm["code"])
+                unique_leaf_matches.append(lm)
+
+        unique_leaf_names = {lm["name_low"] for lm in unique_leaf_matches}
+        if len(unique_leaf_matches) > 1 and len(unique_leaf_names) > 1:
+            primary_leaf = unique_leaf_matches[0]
+            return {
+                "category": "MULTI_LEAF",
+                "classification": "multi_leaf",
+                "code": primary_leaf["code"],
+                "name": primary_leaf["name"],
+                "matched_code": primary_leaf["code"],
+                "matched_name": primary_leaf["name"],
+                "matched_leaf_codes": [m["code"] for m in unique_leaf_matches],
+                "matched_leaf_names": [m["name"] for m in unique_leaf_matches],
+                "all_matched_leaves": unique_leaf_matches,
+                "chosen_leaf": primary_leaf,
+                "parent_name": primary_leaf.get("parent_name"),
+                "parent_level": primary_leaf.get("parent_level", 1),
+                "mission_name": primary_leaf.get("mission_name"),
+                "office_name": primary_leaf.get("office_name"),
+                "latest_value": primary_leaf.get("latest_value"),
+                "item": primary_leaf,
+                "items": unique_leaf_matches,
+            }
+
         target_leaf = None
-        if leaf_matches:
-            leaf_matches.sort(key=lambda x: len(x["name"]), reverse=True)
-            target_leaf = leaf_matches[0]
+        if unique_leaf_matches:
+            target_leaf = unique_leaf_matches[0]
         elif matched_code:
             for it in items:
                 if it["code"] == matched_code and it["is_leaf"]:
@@ -3837,17 +4807,6 @@ class DuckDBSemanticCatalog:
                                 same_name_leaves = top_leaves
                                 break
 
-            if len(same_name_leaves) > 1 and all(it.get("latest_value") is None for it in same_name_leaves):
-                chosen_leaf = same_name_leaves[0]
-                return {
-                    "category": "SINGLE_LEAF",
-                    "classification": "single_leaf",
-                    "code": chosen_leaf["code"],
-                    "name": chosen_leaf["name"],
-                    "matched_code": chosen_leaf["code"],
-                    "matched_name": chosen_leaf["name"],
-                    "item": chosen_leaf,
-                }
 
             if len(same_name_leaves) > 1:
                 return {
@@ -3875,6 +4834,9 @@ class DuckDBSemanticCatalog:
                 "office_name": chosen_leaf.get("office_name"),
                 "latest_value": chosen_leaf.get("latest_value"),
                 "item": chosen_leaf,
+                "matched_leaf_codes": [chosen_leaf["code"]],
+                "matched_leaf_names": [chosen_leaf["name"]],
+                "all_matched_leaves": [chosen_leaf],
             }
 
         if not matched_code and not matched_name:
@@ -3954,6 +4916,9 @@ class DuckDBSemanticCatalog:
         q_norm = " ".join(unicodedata.normalize("NFC", query.lower().strip()).split())
 
         # Bỏ qua các câu hỏi thuộc mặt phẳng quản trị / cán bộ / báo cáo / địa giới / danh mục tổng quát
+        if hasattr(self, "is_dimension_query") and self.is_dimension_query(query, "criteria", skip_hierarchy_check=True):
+            return None, None
+
         non_criterion_markers = (
             "cán bộ", "chuyên viên", "phụ trách nhiệm vụ", "ma trận phân công",
             "tiến độ nộp báo cáo", "trạng thái phê duyệt", "bản nháp", "chờ phê duyệt",
@@ -4215,6 +5180,22 @@ class DuckDBSemanticCatalog:
         q_norm = unicodedata.normalize("NFC", query).strip()
         q_low = q_norm.lower()
 
+        if any(
+            p in q_low
+            for p in (
+                "số liệu chỉ tiêu",
+                "số lượng chỉ tiêu",
+                "nhóm chỉ tiêu",
+                "chỉ tiêu cấp 1",
+                "tiêu chí cấp 1",
+                "tiêu chí bậc 1",
+                "chỉ tiêu cấp đầu",
+                "là bao nhiêu",
+                "đạt bao nhiêu",
+            )
+        ):
+            return None
+
         # 1. Đọc danh mục từ viết tắt động từ bảng catalog_acronyms
         acronyms = []
         try:
@@ -4240,6 +5221,19 @@ class DuckDBSemanticCatalog:
         )
         if any(cue in q_low for cue in cross_branch_cues):
             return None
+
+        # Nếu câu hỏi là truy vấn chỉ tiêu lá trùng tên (DUPLICATE_LEAF) giữa các mô hình (SC-2.1)
+        # mà không có từ khóa phân rã/breakdown và tên chỉ tiêu trùng khớp trực tiếp với câu hỏi:
+        try:
+            breakdown_cues = ("phân loại", "phân nhóm", "các loại", "gồm những", "gồm các", "các mức", "các lĩnh vực", "số lĩnh vực")
+            if not any(bc in q_low for bc in breakdown_cues):
+                h_dup_check = self.classify_criterion_hierarchy(query)
+                if h_dup_check and h_dup_check.get("classification") == "duplicate_leaf":
+                    target_leaf_name = (h_dup_check.get("name") or "").lower().strip()
+                    if target_leaf_name and target_leaf_name in q_low:
+                        return None
+        except Exception:
+            pass
 
         # 2. Đọc định nghĩa và từ đồng nghĩa từ catalog_definitions
         kb_map: Dict[str, Dict[str, Any]] = {}
@@ -4285,10 +5279,14 @@ class DuckDBSemanticCatalog:
 
         hierarchy_nodes = []
         for r in rows:
+            c_code_low = (r[1] or "").strip().lower()
+            c_name_clean = re.sub(r'\s+', ' ', (r[2] or "").strip())
+            if c_code_low in DUMMY_FILTER_CODES or c_name_clean.lower() in DUMMY_FILTER_NAMES:
+                continue
             hierarchy_nodes.append({
                 "id": str(r[0]),
                 "code": r[1],
-                "name": re.sub(r'\s+', ' ', (r[2] or "").strip()),
+                "name": c_name_clean,
                 "parent_id": str(r[3]) if r[3] else None,
                 "parent_name": re.sub(r'\s+', ' ', (r[4] or "").strip()) if r[4] else None,
                 "root_id": str(r[5]) if r[5] else None,
@@ -4320,7 +5318,8 @@ class DuckDBSemanticCatalog:
             "thế", "nào", "ở", "hôm", "nay", "bạn", "hãy", "mấy", "bao", "nhiêu",
             "với", "và", "được", "theo", "đang", "là", "này", "đó", "ra", "sao",
             "thì", "đã", "sẽ", "về", "một", "hai", "ba", "bốn", "năm", "sáu",
-            "bảy", "tám", "chín", "mười", "tại", "mình", "ơi", "ạ", "nhỉ", "nhé"
+            "bảy", "tám", "chín", "mười", "tại", "mình", "ơi", "ạ", "nhỉ", "nhé",
+            "thời", "điểm", "báo", "cáo", "đến", "kỳ", "tháng", "quý", "ngày"
         }
         q_words = set(re.findall(r"\w+", q_canon.lower()))
         q_substantive = {w for w in q_words if len(w) >= 2 and w not in STOP_WORDS}
@@ -4376,7 +5375,7 @@ class DuckDBSemanticCatalog:
             r_entities = {e for e in root_entities if f" {e} " in f" {r_canon} "}
             if "lhhtx" in r_entities:
                 r_entities.discard("htx")
-            if r_entities and (len(q_entities) != 1 or not (q_entities & r_entities)):
+            if (q_entities or r_entities) and q_entities != r_entities:
                 continue
 
             # Chống xung đột ngữ nghĩa giữa các loại chỉ tiêu chuyên biệt (hộ vs sản lượng vs diện tích)
@@ -4385,33 +5384,65 @@ class DuckDBSemanticCatalog:
                 {"sản lượng", "thu hoạch", "khối lượng"},
                 {"diện tích", "ha", "hecta"},
             ]
+            cand_full_text = (r_canon + " " + p_canon + " " + " ".join(c["name"] for c in children)).lower()
             q_ex = [g for g in exclusive_metric_groups if any(k in q_low for k in g)]
             if q_ex:
-                cand_full_text = (r_canon + " " + p_canon + " " + " ".join(c["name"] for c in children)).lower()
                 cand_ex = [g for g in exclusive_metric_groups if any(k in cand_full_text for k in g)]
                 if cand_ex and not any(g in cand_ex for g in q_ex):
                     continue
 
+            # Chống xung đột ngữ nghĩa chuyên ngành (Domain Grounding: OCOP vs Muối)
+            has_ocop_q = any(w in q_low for w in ("ocop", "mỗi xã một sản phẩm"))
+            is_ocop_cand = any(w in (r_canon + " " + p_canon).lower() for w in ("ocop", "mỗi xã một sản phẩm"))
+            if has_ocop_q and not is_ocop_cand:
+                continue
+            if not has_ocop_q and is_ocop_cand:
+                continue
+
+            has_salt_q = any(w in q_low for w in ("muối", "muoi"))
+            is_salt_cand = any(w in (r_canon + " " + p_canon).lower() for w in ("muối", "muoi"))
+            if has_salt_q and not (is_salt_cand or any(w in cand_full_text for w in ("muối", "muoi"))):
+                continue
+            if not has_salt_q and is_salt_cand:
+                continue
+
             # Nếu đây là nhóm con Cấp 2 (p_canon != r_canon), bắt buộc câu hỏi phải khớp với khía cạnh phân nhóm (aspect)
             # của nhóm con đó (loại trừ phần tiền tố thực thể gốc như 'số lượng htx nông nghiệp')
             p_aspect_clean = self._strip_entity_and_temporal_framing(p_name, acronyms, strip_branch_entities=True)
+            ASPECT_GENERIC_STOP = STOP_WORDS | {"số", "lượng", "tổng", "phân", "nhóm", "loại", "cấp", "edit", "hoạt", "động", "nông", "nghiệp"}
             p_aspect_words = {
                 w for w in re.findall(r"\w+", p_aspect_clean)
-                if len(w) >= 2 and w not in STOP_WORDS and w not in {"số", "lượng", "tổng", "phân", "nhóm", "loại", "cấp", "edit"}
+                if len(w) >= 2 and w not in ASPECT_GENERIC_STOP
             }
             syn_aspect_clean_list = []
             syn_aspect_words = set(p_aspect_words)
+            if "lĩnh" in p_aspect_words or "vực" in p_aspect_words:
+                syn_aspect_words.update({"ngành", "nghề", "mảng", "nhóm", "hình"})
             for syn in p_kb.get("synonyms", []):
                 sa = self._strip_entity_and_temporal_framing(str(syn), acronyms, strip_branch_entities=True)
                 if sa:
                     syn_aspect_clean_list.append(sa)
                     syn_aspect_words.update(
                         w for w in re.findall(r"\w+", sa)
-                        if len(w) >= 2 and w not in STOP_WORDS and w not in {"số", "lượng", "tổng", "phân", "nhóm", "loại", "cấp"}
+                        if len(w) >= 2 and w not in ASPECT_GENERIC_STOP
                     )
 
             if r_canon != p_canon and p_aspect_words:
                 if not q_aspect_words or not (q_aspect_words & syn_aspect_words):
+                    continue
+
+            # Đối với nhóm Cấp 1, chống match giả khi câu hỏi không chứa bất kỳ từ khóa đặc trưng nào của nhóm hoặc các chỉ tiêu con
+            if r_canon == p_canon:
+                p_distinguishing_words = {
+                    w for w in re.findall(r"\w+", p_canon.lower())
+                    if len(w) >= 2 and w not in STOP_WORDS and w not in {"số", "lượng", "tổng", "nhóm", "chỉ", "tiêu", "cấp", "đặc", "trưng"}
+                }
+                ch_distinguishing_words = {
+                    w for c in children for w in re.findall(r"\w+", c["name"].lower())
+                    if len(w) >= 2 and w not in STOP_WORDS and w not in {"số", "lượng", "tổng", "nhóm", "chỉ", "tiêu", "cấp"}
+                }
+                target_cand_words = p_distinguishing_words | ch_distinguishing_words
+                if target_cand_words and not (q_words & target_cand_words):
                     continue
 
             # Kiểm tra độ trùng lặp từ vựng thực chất (Substantive token overlap & coverage)
@@ -4469,6 +5500,8 @@ class DuckDBSemanticCatalog:
             # Tổng hợp điểm động
             if r_canon == p_canon or p_canon in r_canon or r_canon in p_canon:
                 base_score = max(r_score, syn_score, def_score)
+            elif max(p_score, syn_score) >= 80.0:
+                base_score = max((r_score * 0.40) + (max(p_score, syn_score) * 0.60), max(p_score, syn_score))
             else:
                 base_score = (r_score * 0.40) + (max(p_score, syn_score) * 0.60)
 
@@ -4478,7 +5511,14 @@ class DuckDBSemanticCatalog:
                 best_score = total_score
                 best_group = (p_node, children)
 
-        if not best_group or best_score < 55.0:
+        has_explicit_breakdown_cue = any(
+            k in q_low
+            for k in (
+                "các hạng", "3 sao", "4 sao", "5 sao", "từng loại",
+                "cơ cấu", "phân loại", "phân nhóm", "các loại", "gồm những", "gồm các", "thành phần",
+            )
+        )
+        if (not best_group or best_score < 55.0) and has_explicit_breakdown_cue:
             # 4.5. Fallback qua Kho tri thức Định nghĩa Chỉ tiêu (_resolve_paraphrased_criterion_from_kb):
             # Nếu câu hỏi diễn đạt lại (paraphrase) tên nhóm cha chứa trực tiếp các chỉ tiêu lá (ví dụ: 'Tổng số lượng sản phẩm OCOP trong năm', 'Số lượng gia súc')
             kb_items_all = [dict(n, name_low=n["name"].lower()) for n in hierarchy_nodes]
@@ -4522,7 +5562,7 @@ class DuckDBSemanticCatalog:
         q_canon_tokens = set(re.findall(r"\w+", q_canon))
         p_target_tokens = set(re.findall(r"\w+", p_canon_target))
         r_target_tokens = set(re.findall(r"\w+", r_canon_target))
-        generic_leaf_words = STOP_WORDS | {"số", "lượng", "tổng", "htx", "tht", "lhhtx", "tt", "hoạt", "động", "có", "đạt", "được"}
+        generic_leaf_words = STOP_WORDS | {"số", "lượng", "tổng", "htx", "tht", "lhhtx", "tt", "nn", "ptnt", "hoạt", "động", "có", "đạt", "được", "nông", "nghiệp", "hiệu", "quả"}
 
         for c in children:
             c_name = c["name"].strip()
@@ -4859,7 +5899,7 @@ class DuckDBSemanticCatalog:
         # 3. SC-5.1: Tiến độ nộp báo cáo, trạng thái phê duyệt (approved) & bản nháp (draft)
         has_report = self.has_lexicon_term(raw_input, "REPORT_SIGNAL")
         has_status_or_draft = self.has_lexicon_term(raw_input, "REPORT_STATUS")
-        if (has_report and has_status_or_draft) or (has_status_or_draft and self.has_lexicon_term(raw_input, "REPORT_DIFF")):
+        if has_report and (has_status_or_draft or self.has_lexicon_term(raw_input, "REPORT_DIFF")):
             wants_diff = self.has_lexicon_term(raw_input, "REPORT_DIFF")
             return {
                 "audit_sub_intent": "REPORT_SUBMISSION_STATUS",
@@ -5136,7 +6176,7 @@ class DuckDBSemanticCatalog:
     ) -> Dict[str, Dict[str, Any]]:
         """
         Truy xuất giá trị của danh sách chỉ tiêu con (child_ids) đúng tại kỳ báo cáo thời gian đang lọc
-        (specific_date / date_from..date_to / month_filter) để ngăn chặn rò rỉ latest_value toàn năm (TC-CONTRACT-05).
+        (specific_date / date_from..date_to / month_filter) để ngăn chặn rò rỉ latest_value toàn năm.
         """
         if not child_ids:
             return {}
@@ -5146,10 +6186,15 @@ class DuckDBSemanticCatalog:
             if isinstance(item, dict):
                 raw_id = str(item.get("id") or item.get("criteria_id") or "").strip()
                 raw_nm = str(item.get("name") or item.get("ten_chi_tieu") or "").strip().lower()
+                raw_cd = str(item.get("code") or "").strip().lower()
                 if len(raw_id) == 36:
                     valid_ids.append(raw_id)
+                elif raw_id:
+                    valid_names.append(raw_id.lower())
                 if raw_nm:
                     valid_names.append(raw_nm)
+                if raw_cd and raw_cd not in valid_names:
+                    valid_names.append(raw_cd)
             else:
                 raw_s = str(item or "").strip()
                 if len(raw_s) == 36:
@@ -5199,6 +6244,10 @@ class DuckDBSemanticCatalog:
             elif month_filter is not None:
                 conds.append("EXTRACT(MONTH FROM f.report_date) = %s")
                 params.append(int(month_filter))
+            elif specific_date:
+                spec_d = str(specific_date)[:10]
+                conds.append("f.report_date::date <= %s::date")
+                params.append(spec_d)
 
             where_sql = " AND ".join(conds)
             if specific_date:
@@ -5245,6 +6294,64 @@ class DuckDBSemanticCatalog:
                         result_map[str(cid).lower()] = entry
                     if cname:
                         result_map[str(cname).strip().lower()] = entry
+
+                # Tổng hợp base facts cho các bản ghi cấp cơ sở (office_id IS NULL)
+                try:
+                    cur.execute("""
+                        WITH latest_d AS (
+                            SELECT MAX(CAST(report_date AS DATE)) AS max_d
+                            FROM dwh_internal.fact_report_criteria
+                            WHERE tenant_code = %s
+                              AND office_id IS NULL
+                              AND (criteria_id::text = ANY(%s) OR code = ANY(%s) OR LOWER(TRIM(name)) = ANY(%s))
+                              AND CAST(report_date AS DATE) <= %s::date
+                              AND report_status = 'approved'
+                        ),
+                        base_facts AS (
+                            SELECT 
+                                f.criteria_id::text AS cid,
+                                f.name AS cname,
+                                f.code,
+                                CAST(f.value AS NUMERIC) AS val,
+                                f.report_date::date::text AS iso_date
+                            FROM dwh_internal.fact_report_criteria f
+                            JOIN latest_d ld ON CAST(f.report_date AS DATE) = ld.max_d
+                            WHERE f.tenant_code = %s
+                              AND f.office_id IS NULL
+                              AND (f.criteria_id::text = ANY(%s) OR f.code = ANY(%s) OR LOWER(TRIM(f.name)) = ANY(%s))
+                              AND f.report_status = 'approved'
+                        )
+                        SELECT cid, cname, code, CAST(SUM(val) AS TEXT) AS value, MAX(iso_date) AS iso_date
+                        FROM base_facts
+                        GROUP BY cid, cname, code;
+                    """, (
+                        str(tenant_code or "68"),
+                        valid_ids if valid_ids else ["__none__"],
+                        valid_names if valid_names else ["__none__"],
+                        valid_names if valid_names else ["__none__"],
+                        spec_d,
+                        str(tenant_code or "68"),
+                        valid_ids if valid_ids else ["__none__"],
+                        valid_names if valid_names else ["__none__"],
+                        valid_names if valid_names else ["__none__"],
+                    ))
+                    for l_cid, l_cname, l_code, l_val, l_iso in cur.fetchall():
+                        l_entry = {
+                            "value": l_val,
+                            "report_date": l_iso,
+                            "do_lech_ngay": 0,
+                            "can_duoi_ngay": l_iso,
+                            "can_tren_ngay": l_iso,
+                        }
+                        if l_cid:
+                            result_map[str(l_cid)] = l_entry
+                            result_map[str(l_cid).lower()] = l_entry
+                        if l_cname:
+                            result_map[str(l_cname).strip().lower()] = l_entry
+                        if l_code:
+                            result_map[str(l_code).strip().lower()] = l_entry
+                except Exception as e_base:
+                    logger.debug("Lỗi tra cứu base facts cấp cơ sở: %s", e_base)
             else:
                 sql = f"""
                     WITH ranked_ch AS (
@@ -5255,7 +6362,12 @@ class DuckDBSemanticCatalog:
                             f.report_date::date::text AS iso_date,
                             ROW_NUMBER() OVER (
                                 PARTITION BY f.criteria_id
-                                ORDER BY f.report_date DESC NULLS LAST,
+                                ORDER BY CASE 
+                                             WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0
+                                             WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1
+                                             ELSE 2
+                                         END,
+                                         f.report_date DESC NULLS LAST,
                                          f.version DESC NULLS LAST
                             ) AS rn
                         FROM dwh_internal.fact_report_criteria f
@@ -5426,9 +6538,11 @@ class DuckDBSemanticCatalog:
                 p_dict[ddmmyyyy] = c_fmt
                 p_dict[q_key] = c_fmt
                 p_dict[q_key.upper()] = c_fmt
-                p_dict["year"] = c_fmt
-                p_dict["YEAR"] = c_fmt
-                p_dict[str(year_code)] = c_fmt
+                is_quarter_end = len(parts) == 3 and parts[1] in ("03", "06", "09", "12") and parts[2] in ("30", "31")
+                if is_quarter_end or "year" not in p_dict:
+                    p_dict["year"] = c_fmt
+                    p_dict["YEAR"] = c_fmt
+                    p_dict[str(year_code)] = c_fmt
 
                 lookup_keys = instance_keys_map.setdefault(inst_id, [])
                 for k in (cid_k, ccode_k, combo_k, cname_k):

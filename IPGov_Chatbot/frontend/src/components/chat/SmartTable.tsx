@@ -1829,11 +1829,8 @@ export const SmartTable: React.FC<SmartTableProps> = ({
       return periodSnapshots[activePeriod];
     }
 
-    // Nếu người dùng chưa bấm đổi kỳ báo cáo và câu hỏi gốc có bộ lọc khoảng ngày đặc thù,
-    // giữ nguyên giá trị gốc do Backend tính toán để không ghi đè sai bằng 'year'
-    const ts = (tabularData as any)?.temporal_scope;
-    const hasCustomBackendRange = Boolean(ts?.specific_date || ts?.date_from || ts?.month_filter);
-    if (!hasUserChangedPeriod && hasCustomBackendRange && activePeriod === 'year') {
+    // Nếu người dùng chưa bấm đổi kỳ báo cáo, luôn giữ nguyên danh sách dòng do Backend tính toán và cung cấp
+    if (!hasUserChangedPeriod) {
       return rows;
     }
 
@@ -2425,7 +2422,7 @@ export const SmartTable: React.FC<SmartTableProps> = ({
   }
 
   return (
-    <div className="not-prose my-3 inline-block w-fit max-w-full rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
+    <div className="not-prose my-3 w-fit max-w-full rounded-xl border border-slate-200/90 bg-white shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md">
       {/* 1. Header Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 px-3.5 py-2.5 bg-gradient-to-r from-slate-50 to-indigo-50/30 border-b border-slate-200">
         <div className="flex flex-wrap items-center gap-2">
@@ -2671,8 +2668,8 @@ export const SmartTable: React.FC<SmartTableProps> = ({
       )}
 
       {/* 2. Khung cuộn bảng dữ liệu */}
-      <div className="overflow-x-auto overflow-y-auto max-h-[520px] max-w-full">
-        <table className="w-auto text-left border-collapse text-[13px]">
+      <div className={`overflow-x-auto max-w-full ${sortedRows.length > 12 ? 'overflow-y-auto max-h-[520px]' : ''}`}>
+        <table className="w-full text-left border-collapse text-[13px]">
           <thead className="sticky top-0 z-10 bg-slate-100 border-b border-slate-200">
             <tr className="bg-slate-100/95 border-b border-slate-200 text-slate-700 select-none divide-x divide-slate-200/70">
               {columns.map((col) => {

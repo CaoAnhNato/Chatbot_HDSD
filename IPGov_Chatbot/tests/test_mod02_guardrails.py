@@ -64,3 +64,25 @@ def test_guardrails_pipeline_latency_sla_under_30ms():
     assert result.is_safe is True
     assert result.violation_type == ViolationTypeEnum.NONE
     assert result.latency_ms < 30.0, f"Độ trễ {result.latency_ms}ms vượt quá SLA 30ms!"
+
+
+def test_injection_shield_allows_date_ranges_and_blocks_sql_comment_injection():
+    """Kiểm tra regex tinh chỉnh cho phép dải ngày và chặn comment SQL injection."""
+    # Innocent queries with double dash
+    is_inj_date, _, _ = InjectionShield.detect_injection("Báo cáo số lượng trâu ngày 2026-10-16 -- 2026-10-31")
+    assert is_inj_date is False
+
+    is_inj_range, _, _ = InjectionShield.detect_injection("Kế hoạch phân bổ chỉ tiêu A -- chỉ tiêu B năm 2026")
+    assert is_inj_range is False
+
+    # Malicious queries with SQL injection comment
+    is_inj_attack1, _, details1 = InjectionShield.detect_injection("admin' --")
+    assert is_inj_attack1 is True
+    assert details1.get("violation") == "destructive_sql_command"
+
+    is_inj_attack2, _, details2 = InjectionShield.detect_injection("1; --")
+    assert is_inj_attack2 is True
+
+    is_inj_attack3, _, details3 = InjectionShield.detect_injection("SELECT * FROM criteria; --")
+    assert is_inj_attack3 is True
+

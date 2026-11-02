@@ -148,10 +148,16 @@ class ASTEnforcerService:
             user_ctx = UserSecurityContextDTO(
                 user_id=str(effective_ctx.get("user_id") or "u_anon"),
                 username=str(effective_ctx.get("username") or "anonymous_user"),
+                name=effective_ctx.get("name") or effective_ctx.get("user_name"),
+                user_name=effective_ctx.get("user_name") or effective_ctx.get("name"),
                 tenant_code=str(effective_ctx.get("tenant_code") or "68"),
                 role_level=int(effective_ctx.get("role_level", 0)),
                 department_code=effective_ctx.get("department_code"),
                 office_id=effective_ctx.get("office_id"),
+                schema=str(effective_ctx.get("schema") or "dwh_internal"),
+                assigned_mission_ids=effective_ctx.get("assigned_mission_ids") or [],
+                assigned_mission_names=effective_ctx.get("assigned_mission_names") or [],
+                is_unrestricted=bool(effective_ctx.get("is_unrestricted", False)),
                 status_filter=effective_ctx.get("status_filter"),
                 explicit_role_provided=("role_level" in effective_ctx and effective_ctx.get("role_level") is not None),
             )
@@ -324,15 +330,23 @@ class ASTEnforcerService:
                 if isinstance(col.parent, exp.Alias) and col.parent.alias.lower().strip() in arithmetic_col_names:
                     needs_numeric_cast = True
 
+                target_to_replace = None
                 while curr.parent and not skip_cast:
                     curr = curr.parent
-                    if isinstance(curr, (exp.Cast, exp.TryCast, exp.Case, exp.RegexpLike, exp.Nullif, exp.Is, exp.In, exp.Like, exp.ILike, exp.EQ, exp.NEQ)):
+                    if isinstance(curr, (exp.Case, exp.RegexpLike, exp.Is, exp.In, exp.Like, exp.ILike, exp.EQ, exp.NEQ)):
                         skip_cast = True
                         break
                     if isinstance(curr, (exp.Trim, exp.Substring)):
-                        if curr.parent and isinstance(curr.parent, (exp.NEQ, exp.EQ, exp.Is, exp.In, exp.RegexpLike, exp.Cast, exp.TryCast)):
+                        if curr.parent and isinstance(curr.parent, (exp.NEQ, exp.EQ, exp.Is, exp.In, exp.RegexpLike, exp.Case)):
                             skip_cast = True
                             break
+                    if isinstance(curr, (exp.Cast, exp.TryCast)):
+                        to_type = curr.to.sql(dialect="postgres").lower() if hasattr(curr, "to") and curr.to else ""
+                        if any(t in to_type for t in ("numeric", "decimal", "float", "int", "real", "double")):
+                            target_to_replace = curr
+                            needs_numeric_cast = True
+                    if isinstance(curr, exp.Nullif):
+                        pass
                     if isinstance(curr, (exp.Sum, exp.Avg, exp.Min, exp.Max, exp.Add, exp.Sub, exp.Mul, exp.Div, exp.GT, exp.GTE, exp.LT, exp.LTE)):
                         needs_numeric_cast = True
                     if isinstance(curr, (exp.Select, exp.From, exp.Where, exp.Having, exp.Order, exp.Group)):
@@ -341,13 +355,14 @@ class ASTEnforcerService:
                     col_sql = col.sql(dialect="postgres")
                     safe_cast_sql = (
                         f"CASE WHEN TRIM({col_sql}) ~ '^-?[0-9]+(\\.[0-9]+)?$' "
-                        f"THEN CAST(NULLIF(TRIM({col_sql}), '') AS DECIMAL) ELSE NULL END"
+                        f"THEN TRIM({col_sql})::numeric ELSE NULL END"
                     )
-                    if isinstance(col.parent, exp.Select):
+                    replace_node = target_to_replace if target_to_replace is not None else col
+                    if isinstance(replace_node.parent, exp.Select):
                         replacement = sqlglot.parse_one(safe_cast_sql, read="postgres").as_(col.name)
                     else:
                         replacement = sqlglot.parse_one(safe_cast_sql, read="postgres")
-                    col.replace(replacement)
+                    replace_node.replace(replacement)
 
         # ----------------------------------------------------------------------
         # TẦNG 4.3: Safe Projection cho bảng user (Che giấu password, salt, token)

@@ -142,3 +142,145 @@ Giao diện kiểm thử trực quan tại `/bench` được nâng cấp toàn d
   - **Tốc độ Xử lý Stage 8 Trung bình:** $< 0.05\text{ms}$ / câu truy vấn.
   - **Nhật ký Kiểm thử Có Cấu Trúc:** `IPGov_Chatbot/tests/logs/test_run_stage8_chained.jsonl`.
   - **Baseline Snapshot:** `IPGov_Chatbot/tests/snapshots/stage_8_synthesizer/snapshot_baseline.json`.
+
+---
+
+## 5. Cấu Trúc DTO Dữ Liệu Bảng (`tabular_data`) Chuẩn Hóa
+
+### 5.1. DTO Cho Tra Cứu Đa Chỉ Tiêu (Model 1 - Side-by-Side Dual/Multi-Metric)
+```json
+{
+  "title": "Thông tin số liệu chi tiết các chỉ tiêu được yêu cầu năm 2026",
+  "columns": [
+    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+    {"key": "item", "label": "Chỉ tiêu", "align": "left", "data_type": "text"},
+    {"key": "value", "label": "Giá trị", "align": "right", "data_type": "number"},
+    {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+    {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
+    {"key": "report_date", "label": "Thời điểm báo cáo", "align": "center", "data_type": "text"}
+  ],
+  "rows": [
+    {
+      "stt": 1,
+      "item": "Số lượng trâu",
+      "value": "268",
+      "office": "Toàn tỉnh",
+      "mission": "Quản lý chỉ tiêu điều hành",
+      "report_date": "16/10/2026",
+      "_parent_name": "Tổng đàn gia súc",
+      "_raw_value": 268.0
+    },
+    {
+      "stt": 2,
+      "item": "Số lượng bò",
+      "value": "413",
+      "office": "Toàn tỉnh",
+      "mission": "Quản lý chỉ tiêu điều hành",
+      "report_date": "16/10/2026",
+      "_parent_name": "Tổng đàn gia súc",
+      "_raw_value": 413.0
+    }
+  ],
+  "dual_metric_cards": [
+    {
+      "criteria_name": "Số lượng trâu",
+      "hierarchy_label": "(Thuộc nhóm: Tổng đàn gia súc)",
+      "current_value": "268",
+      "office_name": "Toàn tỉnh",
+      "mission_name": "Quản lý chỉ tiêu điều hành",
+      "report_date": "16/10/2026",
+      "temporal_shift_notice": null
+    },
+    {
+      "criteria_name": "Số lượng bò",
+      "hierarchy_label": "(Thuộc nhóm: Tổng đàn gia súc)",
+      "current_value": "413",
+      "office_name": "Toàn tỉnh",
+      "mission_name": "Quản lý chỉ tiêu điều hành",
+      "report_date": "16/10/2026",
+      "temporal_shift_notice": null
+    }
+  ],
+  "total_records": 2
+}
+```
+
+### 5.2. DTO Cho Phân Tích Tỷ Trọng (Model 3 - Dynamic Ratio & Percentage)
+```json
+{
+  "title": "Bảng phân tích tỷ trọng chỉ tiêu ngày 31/03/2026",
+  "columns": [
+    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+    {"key": "item", "label": "Tiêu chí thành phần", "align": "left", "data_type": "text"},
+    {"key": "sub_value", "label": "Giá trị thành phần", "align": "right", "data_type": "number"},
+    {"key": "parent_item", "label": "Tiêu chí cha", "align": "left", "data_type": "text"},
+    {"key": "parent_value", "label": "Giá trị cha", "align": "right", "data_type": "number"},
+    {"key": "ratio_percent", "label": "Tỷ trọng (%)", "align": "center", "data_type": "badge"}
+  ],
+  "rows": [
+    {
+      "stt": 1,
+      "item": "Sản lượng muối thủ công",
+      "sub_value": "21.500 tấn",
+      "parent_item": "Tổng sản lượng muối",
+      "parent_value": "27.000 tấn",
+      "ratio_percent": "79.63%"
+    },
+    {
+      "stt": 2,
+      "item": "Diện tích muối sản xuất công nghiệp",
+      "sub_value": "520 ha",
+      "parent_item": "Tổng diện tích sản xuất muối",
+      "parent_value": "1.520 ha",
+      "ratio_percent": "34.21%"
+    }
+  ],
+  "total_records": 2
+}
+```
+
+### 5.3. DTO Cho So Sánh Biến Động Xu Hướng Đa Kỳ (Model 4 - Partitioned Trend Comparison)
+```json
+{
+  "title": "Bảng đối chiếu biến động các chỉ số sản xuất muối giữa kỳ 31/03/2026 và 30/06/2026",
+  "columns": [
+    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+    {"key": "item", "label": "Chỉ tiêu", "align": "left", "data_type": "text"},
+    {"key": "period_1", "label": "Kỳ 31/03/2026", "align": "right", "data_type": "text"},
+    {"key": "period_2", "label": "Kỳ 30/06/2026", "align": "right", "data_type": "text"},
+    {"key": "diff", "label": "Biến động", "align": "center", "data_type": "text"},
+    {"key": "growth", "label": "Tốc độ biến động", "align": "center", "data_type": "badge"},
+    {"key": "trend", "label": "Đánh giá xu hướng", "align": "left", "data_type": "text"}
+  ],
+  "rows": [
+    {
+      "stt": 1,
+      "item": "Tổng sản lượng muối",
+      "period_1": "27.000 tấn",
+      "period_2": "27.000 tấn",
+      "diff": "0 tấn",
+      "growth": "0%",
+      "trend": "Ổn định (Không thay đổi)"
+    },
+    {
+      "stt": 2,
+      "item": "Tổng diện tích sản xuất muối",
+      "period_1": "1.520 ha",
+      "period_2": "1.520 ha",
+      "diff": "0 ha",
+      "growth": "0%",
+      "trend": "Ổn định (Không thay đổi)"
+    },
+    {
+      "stt": 3,
+      "item": "Tổng hộ sản xuất muối",
+      "period_1": "660 hộ",
+      "period_2": "660 hộ",
+      "diff": "0 hộ",
+      "growth": "0%",
+      "trend": "Ổn định (Không thay đổi)"
+    }
+  ],
+  "total_records": 3
+}
+```

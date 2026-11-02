@@ -1117,3 +1117,29 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     2. Trong `_resolve_paraphrased_criterion_from_kb`, luôn giữ lại chữ số bằng điều kiện `len(w) >= 2 or w.isdigit()` để bảo toàn token phân biệt cấp độ/hạng sao (`3`, `4`, `5`) giữa chỉ tiêu lá và nhóm chỉ tiêu cha.
 
 
+
+
+---
+
+### [TRAP-103] Lỗi Vòng Lặp Import (`Circular Import`) Khi Shim `IPGov_Chatbot/config.py` Gọi `from config import settings` Dưới Pytest
+- **Triệu chứng:** Khi tách file cấu hình dùng chung `config.py` ra thư mục gốc `Chatbot_Project/config.py` và để `IPGov_Chatbot/config.py` gọi `from config import settings`, chạy `pytest` báo lỗi `ImportError: cannot import name 'settings' from partially initialized module 'config' (most likely due to a circular import)`.
+- **Nguyên nhân gốc rễ:** Khi `pytest` nạp test suite trong `IPGov_Chatbot/tests/`, thư mục `IPGov_Chatbot/` được đẩy lên đầu `sys.path` (`sys.path[0]`), trong khi thư mục gốc `Chatbot_Project/` đã nằm sẵn ở vị trí sau trong `sys.path`. Do đó điều kiện `if str(_WORKSPACE_DIR) not in sys.path:` trả về `False` và câu lệnh `from config import settings` bên trong `IPGov_Chatbot/config.py` tự import lại chính nó thay vì `Chatbot_Project/config.py`.
+- **Giải pháp chuẩn:** Trong các file shim `IPGov_Chatbot/config.py` và `Chatbot_HDSD/backend/config.py`, sử dụng `importlib.util.spec_from_file_location("_root_shared_config", _WORKSPACE_DIR / "config.py")` kết hợp cache trong `sys.modules["_root_shared_config"]` để nạp trực tiếp file `config.py` ở thư mục gốc theo đường dẫn tuyệt đối, bất biến với thứ tự `sys.path`.
+
+---
+
+### [TRAP-104] Bẫy Bảng `semantic_lexicon` Rỗng Khi Xóa Hằng Số Seed Trong Code, Bẫy Chiếm Quyền `resolve_hierarchy_breakdown` Lên Non-Metric Intents Và Bẫy Thứ Tự Chốt Kỳ Cuối Quý/Tháng (`date_trunc`)
+- **Môi trường & Công nghệ:** `duckdb_semantic_catalog.py` (`_hydrate_from_seed_file`, `resolve_hierarchy_breakdown`, `classify_criterion_hierarchy`) / `canonical_normalizer.py` (`_build_canonical_frame`) / `track_a_compiler.py`
+- **Triệu chứng:**
+  1. Các câu hỏi kiểm kê danh mục, lĩnh vực, nhiệm vụ và báo cáo (`BE-01`, `BE-05`, `BE-19`, `BE-20`, `UI-01`, `UI-09`, `UI-10`) rơi vào nhánh `METRIC_POINT_INQUIRY` hoặc bị `resolve_hierarchy_breakdown` cướp quyền trả về nhóm con không liên quan (`"Các hình thức tập huấn"`).
+  2. Các nút thử nghiệm rác trong CSDL (`TH`, `TH1`, `TH2`, `TH3`, `test`, `Số`) chiếm mất vị trí Top-1 ứng viên khi phân giải ngữ nghĩa (`BE-02`, `BE-07`).
+  3. Chỉ tiêu cha có nhiều đợt nhập liệu trong năm (như `'Tổng số lượng sản phẩm OCOP trong năm'`) lấy nhầm bản ghi phát sinh lẻ thay vì kỳ chốt cuối quý/cuối tháng mà không được phép hardcode ngày `'2026-09-30'`.
+- **Nguyên nhân gốc rễ:**
+  1. Khi `ALLOWED_SEMANTIC_LEXICON_SEED` trong `duckdb_semantic_catalog.py` được làm rỗng thành `()` để tuân thủ Zero-Heuristic, bảng `semantic_lexicon` trong DuckDB RAM có 0 dòng nếu `_hydrate_from_seed_file()` không nạp mục `"semantic_lexicon"` từ `catalog_seed_metadata.json`.
+  2. `_build_canonical_frame` và `node_synthesize_response` gọi `resolve_hierarchy_breakdown` trước khi kiểm tra xem `stream_a["intent"]` có thuộc các mặt phẳng phi chỉ tiêu (`DIMENSION_LISTING`, `METADATA_EXPLORATION`, `REPORT_FORM_MISSION_AUDIT`, `OFFICER_ASSIGNMENT`, `RELATIONAL_EXPLORATION`, `ENTITY_ATTRIBUTE_LOOKUP`) hay không.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không để bảng `semantic_lexicon` rỗng trong DuckDB RAM; Không gọi `resolve_hierarchy_breakdown` đè lên các intent phi số liệu; Không bao giờ hardcode chuỗi ngày `'2026-09-30'` hoặc nâng quyền mặc định trái phép cho Guest Level 0.
+  * ✅ **ALWAYS:**
+    1. Lưu trữ từ điển ngữ nghĩa khai báo trong `IPGov_Chatbot/data/catalog_seed_metadata.json` và nạp vào bảng `semantic_lexicon` qua `_hydrate_from_seed_file()` (giữ `ALLOWED_SEMANTIC_LEXICON_SEED = ()`).
+    2. Chặn `resolve_hierarchy_breakdown` đối với các intent phi số liệu và lọc bỏ các mã thử nghiệm rác (`TH`, `TH1..TH3`, `test`, `số`) trong bộ phân loại phân cấp.
+    3. Sử dụng biểu thức lịch tổng quát `date_trunc('quarter', f.report_date) + interval '3 month - 1 day'` và `date_trunc('month', f.report_date) + interval '1 month - 1 day'` để ưu tiên bản ghi chốt kỳ cuối quý/cuối tháng.

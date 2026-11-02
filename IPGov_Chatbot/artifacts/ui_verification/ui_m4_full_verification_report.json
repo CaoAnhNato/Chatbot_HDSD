@@ -1,0 +1,130 @@
+[
+  {
+    "turn": 1,
+    "id": "TC-01",
+    "name": "Same-Parent Livestock (Trâu & Bò)",
+    "query": "Cho tôi biết số lượng trâu và số lượng bò ngày 16/10/2026 là bao nhiêu?",
+    "status": "PASSED",
+    "elapsed_sec": 32.53,
+    "screenshot": "TC_01_same_parent_trau_bo.png"
+  },
+  {
+    "turn": 2,
+    "id": "TC-02",
+    "name": "Fuzzy Salt Production",
+    "query": "Tổng sản lượng muối ngày 31/3/2026 là bao nhiêu?",
+    "status": "PASSED",
+    "elapsed_sec": 9.47,
+    "screenshot": "TC_02_fuzzy_salt_production.png"
+  },
+  {
+    "turn": 3,
+    "id": "TC-03",
+    "name": "Leaf Salt Households",
+    "query": "Có bao nhiêu hộ sản xuất muối tính đến ngày 30/6/2026?",
+    "status": "PASSED",
+    "elapsed_sec": 9.48,
+    "screenshot": "TC_03_leaf_salt_households.png"
+  },
+  {
+    "turn": 4,
+    "id": "TC-04",
+    "name": "Child Breakdown Salt Area",
+    "query": "Hãy liệt kê chi tiết diện tích sản xuất muối theo từng hình thức vào ngày 30/6/2026.",
+    "status": "PASSED",
+    "elapsed_sec": 9.49,
+    "screenshot": "TC_04_child_breakdown_salt_area.png"
+  },
+  {
+    "turn": 5,
+    "id": "TC-05",
+    "name": "Multi-Date Format Livestock",
+    "query": "Báo cáo ngày 16-10-2026 ghi nhận tổng đàn gia súc là bao nhiêu?",
+    "status": "PASSED",
+    "elapsed_sec": 9.52,
+    "screenshot": "TC_05_multi_date_format_livestock.png"
+  },
+  {
+    "turn": 6,
+    "id": "TC-06",
+    "name": "Empty Dates Salt & Livestock",
+    "query": "Tình hình sản xuất muối và số lượng gia súc ngày 31/7/2026 và 15/10/2026 như thế nào?",
+    "status": "PASSED",
+    "elapsed_sec": 9.61,
+    "screenshot": "TC_06_empty_dates_salt_livestock.png",
+    "tc06_verified": "Salt & Livestock resolved; zero 27/10/2026 leakage"
+  },
+  {
+    "turn": 7,
+    "id": "TC-07",
+    "name": "Cross-Domain Salt & Livestock",
+    "query": "Ngày 16/10/2026, tổng sản lượng muối và số lượng gia súc là bao nhiêu?",
+    "status": "PASSED",
+    "elapsed_sec": 9.53,
+    "screenshot": "TC_07_cross_domain_salt_and_livestock.png",
+    "tc07_verified": "Table has 2 criteria rows (STT 1 & 2 present)"
+  },
+  {
+    "turn": 8,
+    "id": "TC-08",
+    "name": "Out of Period Q1 Livestock",
+    "query": "Số lượng trâu, bò vào ngày 31/3/2026 là bao nhiêu con?",
+    "status": "PASSED",
+    "elapsed_sec": 9.51,
+    "screenshot": "TC_08_out_of_period_q1_livestock.png"
+  },
+  {
+    "turn": 9,
+    "id": "TC-09",
+    "name": "Out of Bounds Dates",
+    "query": "Cho tôi xem sản lượng muối ngày 31/12/2025 hoặc ngày 01/11/2026.",
+    "status": "PASSED",
+    "elapsed_sec": 9.5,
+    "screenshot": "TC_09_out_of_bounds_dates.png"
+  },
+  {
+    "turn": 10,
+    "id": "TC-10",
+    "name": "Business Aggregation Salt",
+    "query": "Tính tổng toàn bộ sản lượng muối (bao gồm cả thủ công và công nghiệp) trong ngày 31/3/2026.",
+    "status": "PASSED",
+    "elapsed_sec": 9.57,
+    "screenshot": "TC_10_business_aggregation_salt.png"
+  },
+  {
+    "turn": 11,
+    "id": "TC-11",
+    "name": "Snapshot Dual Area & Households (6 Months)",
+    "query": "Tổng diện tích sản xuất muối và tổng số hộ sản xuất muối trong 6 tháng đầu năm 2026 là bao nhiêu?",
+    "status": "PASSED",
+    "elapsed_sec": 9.53,
+    "screenshot": "TC_11_snapshot_dual_area_households.png",
+    "tc11_verified": "Date range resolved conformed table (1,520 ha & 660 households)"
+  },
+  {
+    "turn": 12,
+    "id": "TC-12",
+    "name": "Multi-Criteria Dual Metric Comparison (Sản lượng & Diện tích muối 2026)",
+    "query": "So sánh sản lượng muối và diện tích muối năm 2026",
+    "status": "PASSED",
+    "elapsed_sec": 12.66,
+    "screenshot": "ui_multi_criteria_table_80zoom.png",
+    "columns_found": [
+      "STT",
+      "Chỉ tiêu",
+      "Giá trị",
+      "Đơn vị thực hiện",
+      "Nhiệm vụ trọng tâm"
+    ]
+  },
+  {
+    "turn": 13,
+    "id": "TC-13",
+    "name": "Approved Livestock Legal Invariant (170 Trâu + 256 Bò = 426)",
+    "query": "Số lượng gia súc ngày 16/10/2026",
+    "status": "PASSED",
+    "elapsed_sec": 9.66,
+    "screenshot": "ui_livestock_426_verified.png",
+    "breakdown": "170 trâu + 256 bò = 426 con"
+  }
+]

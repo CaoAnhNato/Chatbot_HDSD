@@ -16,7 +16,16 @@ class InjectionShield:
         r"(?:\b(?:drop\s+table|drop\s+database|truncate\s+table|delete\s+from|alter\s+table|"
         r"create\s+table|grant\s+all|revoke\s+all|insert\s+into|update\s+[a-zA-Z0-9_\.]+\s+set)\b|"
         r"\b(?:xóa\s+(?:bỏ\s+)?dữ\s+liệu|hủy\s+biên\s+bản|xóa\s+(?:bỏ\s+)?biên\s+bản|sửa\s+dữ\s+liệu|chỉnh\s+sửa\s+báo\s+cáo|can\s+thiệp\s+csdl)\b|"
-        r"--\s*|\/\*|\*\/)",
+        r"\b(?:chạy\s+lệnh\s+cập\s+nhật|cập\s+nhật\s+(?:lại\s+)?.*?\b(?:trong\s+(?:db|database|csdl))|sửa\s+lại\s+.*?\b(?:trong\s+(?:db|database|csdl))|"
+        r"copy\s+.*?\bsang\s+.*?\b(?:trong\s+(?:db|database|csdl))|xóa\s*(?:\(delete\)\s*)?(?:các\s+)?bản\s+ghi\b.*?\b(?:khỏi\s+(?:db|database|csdl)))\b|"
+        r"(?:;|['\"]|\b(?:select|update|delete|drop|insert|alter|truncate|exec|union|where|from|having)\b)\s*--|\/\*|\*\/)",
+        re.IGNORECASE
+    )
+
+    # 1b. Các mẫu khai thác cấu trúc bảng hệ thống nội bộ và thông tin định danh / kết nối CSDL
+    _RE_SCHEMA_CREDENTIAL_EXFIL = re.compile(
+        r"(?:\b(?:information_schema(?:\.tables|\.columns)?|pg_catalog|pg_shadow|pg_authid|current_user|session_user|connection\s+string)\b|"
+        r"\b(?:chuỗi\s+kết\s+nối|tài\s+khoản\s+đăng\s+nhập\s+(?:db|database|csdl)|mật\s+khẩu\s+(?:db|database|csdl))\b)",
         re.IGNORECASE
     )
 
@@ -51,8 +60,21 @@ class InjectionShield:
             details["matched_pattern"] = ddl_match.group(0)
             return (
                 True,
-                "CẢNH BÁO AN NINH: Hệ thống từ chối yêu cầu chứa câu lệnh sửa đổi hoặc xóa dữ liệu (DDL/DML). "
-                "Trợ lý ảo chỉ vận hành ở chế độ Read-Only tra cứu số liệu công vụ.",
+                "CẢNH BÁO AN NINH: Hệ thống từ chối yêu cầu chứa câu lệnh sửa đổi, sao chép hoặc xóa dữ liệu (DDL/DML: UPDATE, INSERT, DELETE). "
+                "Trợ lý ảo chỉ vận hành ở chế độ chỉ đọc (Read-Only) để bảo toàn tính toàn vẹn của Kho Dữ Liệu (DWH). "
+                "Để cập nhật hoặc chỉnh sửa số liệu báo cáo, đề nghị đồng chí thực hiện trực tiếp trên giao diện phần mềm nhập liệu nguồn theo đúng quy trình phê duyệt.",
+                details
+            )
+
+        # 1b. Kiểm tra khai thác cấu trúc hệ thống nội bộ / thông tin kết nối nhạy cảm
+        exfil_match = cls._RE_SCHEMA_CREDENTIAL_EXFIL.search(text)
+        if exfil_match:
+            details["violation"] = "schema_or_credential_exfiltration"
+            details["matched_pattern"] = exfil_match.group(0)
+            return (
+                True,
+                "CẢNH BÁO AN NINH: Hệ thống từ chối cung cấp thông tin cấu trúc bảng hệ thống nội bộ, tài khoản đăng nhập CSDL hoặc chuỗi kết nối bảo mật. "
+                "Trợ lý ảo chỉ hỗ trợ tra cứu số liệu báo cáo kinh tế - xã hội công vụ trong phạm vi được phân quyền.",
                 details
             )
 

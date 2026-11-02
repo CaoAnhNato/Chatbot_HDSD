@@ -366,9 +366,20 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
     return segs;
   }, [processedContent]);
 
+  const hasMarkdownTable = React.useMemo(() => {
+    return /\|[ \t]*:?-+:?[ \t]*\|/.test(message.content || '');
+  }, [message.content]);
+
   const markdownComponents = React.useMemo(
     () => ({
       table: ({ node, children, ...props }: any) => {
+        if (
+          message.tabular_data &&
+          Array.isArray(message.tabular_data.rows) &&
+          message.tabular_data.rows.length === 0
+        ) {
+          return null;
+        }
         return (
           <SmartTable
             tabularData={message.tabular_data}
@@ -443,7 +454,7 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
   }
 
   return (
-    <div className={`flex gap-3 my-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+    <div className={`flex gap-3 my-2 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       <div
         className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
           isUser
@@ -455,10 +466,10 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
       </div>
 
       <div
-        className={`max-w-[85%] rounded-2xl px-5 py-3.5 text-[15px] shadow-sm leading-relaxed ${
+        className={`rounded-2xl px-5 py-3 text-[15px] shadow-sm leading-relaxed ${
           isUser
-            ? 'bg-blue-600 text-white rounded-tr-none'
-            : 'bg-slate-50 text-slate-800 border border-slate-200/80 rounded-tl-none'
+            ? 'max-w-[75%] bg-blue-600 text-white rounded-tr-none'
+            : 'flex-1 max-w-[95%] bg-slate-50 text-slate-800 border border-slate-200/80 rounded-tl-none'
         }`}
       >
         {isUser ? (
@@ -529,6 +540,21 @@ const MessageItemComponent: React.FC<MessageItemProps> = ({
                 <span className="text-xs ml-1 text-slate-500 font-medium">Đang tra cứu dữ liệu...</span>
               </div>
             ) : null}
+
+            {/* Multi-Criteria Table fallback if tabular_data has >= 2 rows and content has no table */}
+            {!hasMarkdownTable &&
+              message.tabular_data &&
+              Array.isArray(message.tabular_data.rows) &&
+              message.tabular_data.rows.length >= 2 && (
+                <div className="my-3">
+                  <SmartTable
+                    tabularData={message.tabular_data}
+                    onSelectChip={onSelectChip}
+                    onPinItem={onPinItem}
+                    onPeriodChange={handleTablePeriodChange}
+                  />
+                </div>
+              )}
 
             {reactiveChips &&
               reactiveChips.length > 0 &&

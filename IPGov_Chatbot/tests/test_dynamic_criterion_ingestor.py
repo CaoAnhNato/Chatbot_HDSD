@@ -447,14 +447,21 @@ def test_dynamic_ingest_rejects_invalid_llm_output(tmp_path):
 
 
 # ==============================================================================
-# TEST SUITE 5: PRODUCTION 155 CRITERIA 5-GATE FULL VALIDATION
+# TEST SUITE 5: PRODUCTION CRITERIA 5-GATE FULL VALIDATION
 # ==============================================================================
 def test_all_155_production_kb_entries_pass_five_gates(kb_data):
     """
-    Kiểm chứng toàn diện: Toàn bộ 155 chỉ tiêu trong criterion_definitions_kb.json
-    phải vượt qua 100% cả 5 cổng kiểm duyệt (Zero False Rejections / Zero Failures).
+    Kiểm chứng toàn diện: Toàn bộ 149 chỉ tiêu chính quy trong criterion_definitions_kb.json
+    (sau khi lọc 6 mã rác) phải vượt qua 100% cả 5 cổng kiểm duyệt (Zero False Rejections / Zero Failures).
     """
-    assert len(kb_data) == 155, f"Kho KB phải có đúng 155 chỉ tiêu, thực tế có: {len(kb_data)}"
+    assert len(kb_data) == 149, f"Kho KB phải có đúng 149 chỉ tiêu, thực tế có: {len(kb_data)}"
+    dummy_entries = [
+        (k, v.get("code"), v.get("name"))
+        for k, v in kb_data.items()
+        if (v.get("code") or "").lower() in ("so", "th", "th1", "th2", "th3", "test")
+        or len((v.get("name") or "").strip()) < 6
+    ]
+    assert len(dummy_entries) == 0, f"Phát hiện {len(dummy_entries)} mã rác trong KB: {dummy_entries}"
 
     failures = []
     for cid, record in kb_data.items():

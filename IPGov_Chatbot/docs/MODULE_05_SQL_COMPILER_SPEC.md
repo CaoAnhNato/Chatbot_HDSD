@@ -892,3 +892,25 @@ IPGov_Chatbot/modules/mod05_sql_compiler/
 Sau khi hoàn thành thi công và vượt qua bộ kiểm thử, Module 05 bắt buộc xuất bản tệp snapshot baseline:
 - **Đường dẫn snapshot:** `IPGov_Chatbot/tests/snapshots/stage_5_sql_gen/snapshot_baseline.json`
 - **Mục đích:** Đóng vai trò là đầu vào bất biến cho Module 06 (Security Guardrails & AST Enforcer) và Module 07 (DWH Execution Engine), bảo đảm tính kiểm thử dây chuyền độc lập tuyệt đối (Chained Snapshot Testing).
+
+### 9.3. Đặc Tả Truy Vấn Phân Vùng Thời Gian (Partitioned Temporal Snapshot CTE)
+Để phục vụ bài toán so sánh đối chiếu biến động đa kỳ (Model 4) mà không cần tạo bảng tạm hay quyền DDL, trình biên dịch sinh truy vấn CTE phân vùng với window function `ROW_NUMBER()`:
+```sql
+WITH ranked_snapshots AS (
+    SELECT
+        f.criteria_id,
+        c.name AS criteria_name,
+        f.value,
+        f.report_date,
+        ROW_NUMBER() OVER (
+            PARTITION BY f.criteria_id, f.report_date
+            ORDER BY f.report_date DESC
+        ) AS rn
+    FROM dwh_internal.fact_report_criteria f
+    JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    WHERE f.tenant_code = '68'
+      AND f.report_status = 'approved'
+      AND f.report_date IN ('2026-03-31', '2026-06-30')
+)
+SELECT * FROM ranked_snapshots WHERE rn = 1;
+```

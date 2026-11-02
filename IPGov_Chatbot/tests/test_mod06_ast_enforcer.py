@@ -351,3 +351,64 @@ def test_ast_enforcer_req_q05_internal_roles_allow_draft_and_all_statuses(
     assert res_all.blocked_draft_access is False
     assert "r.status = 'approved'" not in res_all.sanitized_sql
 
+
+def test_ast_enforcer_preserves_not_exists_subqueries(ast_service: ASTEnforcerService):
+    boss_ctx = UserSecurityContextDTO(
+        user_id="u_boss_1",
+        username="boss",
+        name="Lãnh đạo",
+        tenant_code="68",
+        role_level=4,
+        is_unrestricted=True,
+    )
+    raw_sql = """
+    SELECT f.criteria_id FROM dwh_internal.fact_report_criteria f
+    WHERE f.tenant_code = '68'
+      AND NOT EXISTS (
+          SELECT 1 FROM dwh_internal.fact_report_criteria w
+          WHERE w.criteria_id = f.criteria_id AND w.report_status = 'approved'
+      )
+    """
+    dto = GeneratedSQLDTO(
+        raw_sql=raw_sql,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    res = ast_service.enforce_sql_sync(dto, boss_ctx)
+    sanitized = res.sanitized_sql
+    assert "NOT EXISTS" in sanitized, "NOT EXISTS clause was improperly removed!"
+    assert "dwh_internal.fact_report_criteria AS w" in sanitized or "fact_report_criteria AS w" in sanitized, (
+        "Subquery with alias w must remain intact!"
+    )
+
+
+def test_ast_enforcer_rewrites_negative_outer_status_predicates(ast_service: ASTEnforcerService):
+    citizen_ctx = UserSecurityContextDTO(
+        user_id="u_pub_1",
+        username="congdan",
+        tenant_code="68",
+        role_level=3,
+    )
+    raw_sql_not_in = (
+        "SELECT f.name FROM dwh_internal.fact_report_criteria f WHERE f.report_status NOT IN ('approved')"
+    )
+    dto_in = GeneratedSQLDTO(
+        raw_sql=raw_sql_not_in,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    res_in = ast_service.enforce_sql_sync(dto_in, citizen_ctx)
+    assert "f.report_status = 'approved'" in res_in.sanitized_sql or "report_status = 'approved'" in res_in.sanitized_sql
+
+    raw_sql_not_paren = (
+        "SELECT f.name FROM dwh_internal.fact_report_criteria f WHERE NOT (f.report_status = 'approved')"
+    )
+    dto_paren = GeneratedSQLDTO(
+        raw_sql=raw_sql_not_paren,
+        execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
+        generator_track="TRACK_A_COMPILER",
+    )
+    res_paren = ast_service.enforce_sql_sync(dto_paren, citizen_ctx)
+    assert "f.report_status = 'approved'" in res_paren.sanitized_sql or "report_status = 'approved'" in res_paren.sanitized_sql
+
+

@@ -169,3 +169,20 @@ Qua đợt thẩm định độc lập và kiểm chứng thực nghiệm bằng
 
 > [!NOTE]
 > Toàn bộ các ca thất bại liên quan đến Module 04 (`FAIL-001` đến `FAIL-008`) đã được khắc phục triệt để và kiểm chứng đạt 100% qua bộ kiểm thử hồi quy `IPGov_Chatbot/tests/test_bottlenecks_and_fail_cases.py`. Chi tiết xem tại [FAILED_TEST_CASES_LOG.md](./FAILED_TEST_CASES_LOG.md).
+
+
+---
+
+## 6. Nâng Cấp KB-Grounded Adaptive Semantic Catalog & Dynamic Criterion Ingestor (v4.0)
+
+> **Tham chiếu SSOT 1-Hop:** Chi tiết kiến trúc lý thuyết, sơ đồ luồng và công thức toán học được định nghĩa duy nhất tại [03_SEMANTIC_LAYER_MDL_VA_IN_MEMORY_CATALOG.md](../blueprints/03_SEMANTIC_LAYER_MDL_VA_IN_MEMORY_CATALOG.md).
+
+### 6.1. Chữ Ký Hàm & Thành Phần Mã Nguồn Thực Thi
+1. **`IPGov_Chatbot/data/criterion_definitions_kb.json`**:
+   - Kho tri thức 19 trường cho toàn bộ `155/155` chỉ tiêu (`30` Cấp 1, `60` Cấp 2, `65` Cấp 3), nạp vào bảng DuckDB `catalog_definitions` khi khởi tạo `DuckDBSemanticCatalog`.
+2. **`IPGov_Chatbot/modules/mod04_catalog/dynamic_criterion_ingestor.py`**:
+   - `FiveGateValidator.validate(entry, criterion, parent_name, root_name, sibling_names) -> Tuple[bool, List[str]]`: Kiểm định 5 cổng chất lượng (Schema & Length, Hierarchy Role, Lexical Diversity `< 0.72` Jaccard, Sibling/Homonym Disambiguation, Anti-SQL/Prompt Injection).
+   - `DynamicCriterionIngestor.generate_definition_via_openrouter(...)`: Gọi OpenRouter model `google/gemini-3.5-flash-lite` với `extra_body={"reasoning": {"effort": "medium"}}` để tự động sinh và lọc định nghĩa cho chỉ tiêu mới phát sinh trong PostgreSQL.
+3. **`IPGov_Chatbot/modules/mod04_catalog/duckdb_semantic_catalog.py`**:
+   - `_resolve_paraphrased_criterion_from_kb(query, candidates)`: Phân giải câu hỏi paraphrase bằng trọng số IDF động trên `catalog_definitions`, bảo toàn chữ số đơn (`len(w) >= 2 or w.isdigit()`) và trừ tập token cốt lõi của nhánh cha (`parent_core_toks`).
+   - `get_batch_period_values(criteria_ids, tenant_code, year_code)`: Truy vấn batch các kỳ `year`, `q1`, `q2`, `q3` và các mốc `report_date` để gắn `timeline_values` phục vụ chuyển kỳ `0ms` tại chỗ trên UI.
