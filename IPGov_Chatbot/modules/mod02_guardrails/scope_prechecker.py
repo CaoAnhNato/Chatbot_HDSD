@@ -53,8 +53,8 @@ class ScopePrechecker:
 
     # 7. Phép tính số học thuần túy / giải toán ngoài phạm vi DWH
     _RE_MATH_CALCULATION = re.compile(
-        r"(?:\b(?:tính\s+(?:kết\s+quả\s+)?(?:biểu\s+thức|phép\s+tính|toán|phương\s+trình|tổng|tích)|giải\s+(?:toán|phương\s+trình|hệ\s+phương\s+trình)|nhân\s+\d+|chia\s+cho\s+\d+|cộng\s+\d+|trừ\s+\d+)\b|"
-        r"^\s*tính\s+\d+.*[+\-*/x×nhân chia])",
+        r"(?:\b(?:tính\s+(?:kết\s+quả\s+)?(?:biểu\s+thức|phép\s+tính|toán|phương\s+trình)|giải\s+(?:toán|phương\s+trình|hệ\s+phương\s+trình)|nhân\s+\d+|chia\s+cho\s+\d+|cộng\s+\d+|trừ\s+\d+)\b|"
+        r"^\s*tính\s+\d+.*[+\-*/x×nhân chia]|\btính\s+tổng\s+(?:của\s+)?\d+)",
         re.IGNORECASE
     )
 

@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import duckdb
 from rapidfuzz import fuzz, process
 
-from backend.config import settings
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.schemas.router_dto import (
     IntentEnum,
     RouteTypeEnum,

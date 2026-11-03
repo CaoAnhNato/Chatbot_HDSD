@@ -41,6 +41,7 @@ class ArchetypePatternCatalog:
         tenant_code: str = "68",
         department_code: Optional[str] = None,
         office_id: Optional[str] = None,
+        schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 1: So sánh chuỗi thời gian liên hoàn (YoY, MoM) qua hàm LAG()."""
         comp_years = sorted(list(set(years))) if years else []
@@ -52,32 +53,43 @@ class ArchetypePatternCatalog:
             years_in = ", ".join(f"'{y}'" for y in comp_years)
             where_conds.append(f"f.year_code IN ({years_in})")
         crit_conds = []
+        name_col = "c.mission_name" if schema == "dwh_public" else "c.name"
         if metric_code:
-            crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
+            if schema == "dwh_public":
+                crit_conds.append(f"f.code = '{metric_code}'")
+            else:
+                crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
-            crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
-            crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
         if crit_conds:
             where_conds.append(f"({' OR '.join(crit_conds)})")
         if department_code:
             where_conds.append(f"f.department_code = '{department_code}'")
-        if office_id:
+        if office_id and schema != "dwh_public":
             where_conds.append(f"f.office_id = '{office_id}'")
         where_str = "\n      AND ".join(where_conds)
 
+        office_sel = "" if schema == "dwh_public" else "f.office_id, "
+        partition_clause = (
+            "PARTITION BY TRIM(LOWER(f.name)), f.year_code"
+            if schema == "dwh_public"
+            else "PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)"
+        )
+
         return f"""WITH latest_fact AS (
-    SELECT f.criteria_id, f.office_id, f.year_code,
-           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+    SELECT f.criteria_id, {office_sel}f.year_code,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
            ROW_NUMBER() OVER (
-               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               {partition_clause}
                ORDER BY f.report_date DESC, f.version DESC
            ) AS rn
 
-    FROM dwh_internal.fact_report_criteria f
-    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
 ),
 annual_stat AS (
@@ -110,14 +122,15 @@ ORDER BY nam DESC;"""
         top_k: int = 5,
         tenant_code: str = "68",
         order_dir: str = "DESC",
+        schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 3: Xếp hạng phân vị Top-K qua DENSE_RANK() kèm khoảng biến độ spread_val."""
         year_filter_clause = f"AND f.year_code = '{year}'" if year else ""
         if not metric_code and not metric_name:
             return f"""SELECT f.department_code AS ma_phong_ban, 
-       COALESCE(SUM(NULLIF(f.value, '')::numeric), 0) AS tong_so_luong, 
+       COALESCE(SUM(CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END), 0) AS tong_so_luong, 
        COUNT(DISTINCT f.report_id) AS so_bao_cao_approved 
-FROM dwh_internal.fact_report_criteria f 
+FROM {schema}.fact_report_criteria f 
 WHERE f.tenant_code = '{tenant_code}' {year_filter_clause} AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
 GROUP BY f.department_code 
 ORDER BY tong_so_luong {order_dir}, f.department_code ASC LIMIT {top_k};"""
@@ -129,28 +142,61 @@ ORDER BY tong_so_luong {order_dir}, f.department_code ASC LIMIT {top_k};"""
         if year:
             where_conds.append(f"f.year_code = '{year}'")
         crit_conds = []
+        name_col = "c.mission_name" if schema == "dwh_public" else "c.name"
         if metric_code:
-            crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
+            if schema == "dwh_public":
+                crit_conds.append(f"f.code = '{metric_code}'")
+            else:
+                crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
-            crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
-            crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
         if crit_conds:
             where_conds.append(f"({' OR '.join(crit_conds)})")
         where_str = "\n      AND ".join(where_conds)
 
+        if schema == "dwh_public":
+            return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.department_code,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.department_code, '')
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
+    WHERE {where_str}
+),
+ranked_entities AS (
+    SELECT 
+        lf.department_code AS ten_don_vi,
+        SUM(lf.numeric_val) AS tong_gia_tri,
+        DENSE_RANK() OVER (ORDER BY SUM(lf.numeric_val) {order_dir}) AS rank_pos,
+        MAX(SUM(lf.numeric_val)) OVER () - 
+        MIN(SUM(lf.numeric_val)) OVER () AS khoang_bien_do
+    FROM latest_fact lf
+    WHERE lf.rn = 1
+    GROUP BY lf.department_code
+)
+SELECT ten_don_vi, tong_gia_tri, rank_pos, khoang_bien_do
+FROM ranked_entities
+WHERE rank_pos <= {top_k}
+ORDER BY rank_pos ASC;"""
+
         return f"""WITH latest_fact AS (
     SELECT f.criteria_id, f.office_id, f.department_code,
-           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
            ROW_NUMBER() OVER (
                PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
                ORDER BY f.report_date DESC, f.version DESC
            ) AS rn
 
-    FROM dwh_internal.fact_report_criteria f
-    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
 ),
 ranked_entities AS (
@@ -161,7 +207,7 @@ ranked_entities AS (
         MAX(SUM(lf.numeric_val)) OVER () - 
         MIN(SUM(lf.numeric_val)) OVER () AS khoang_bien_do
     FROM latest_fact lf
-    LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+    LEFT JOIN {schema}.office o ON lf.office_id = o.id
     WHERE lf.rn = 1
     GROUP BY o.office_name, lf.department_code
 )
@@ -178,6 +224,7 @@ ORDER BY rank_pos ASC;"""
         year: Optional[str] = None,
         tenant_code: str = "68",
         department_code: Optional[str] = None,
+        schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 2: Đối chuẩn ngang hàng đa thực thể qua AVG() OVER () và độ lệch chuẩn."""
         where_conds = [
@@ -187,30 +234,57 @@ ORDER BY rank_pos ASC;"""
         if year:
             where_conds.append(f"f.year_code = '{year}'")
         crit_conds = []
+        name_col = "c.mission_name" if schema == "dwh_public" else "c.name"
         if metric_code:
-            crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
+            if schema == "dwh_public":
+                crit_conds.append(f"f.code = '{metric_code}'")
+            else:
+                crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
-            crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
-            crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
         if crit_conds:
             where_conds.append(f"({' OR '.join(crit_conds)})")
         if department_code:
             where_conds.append(f"f.department_code = '{department_code}'")
         where_str = "\n  AND ".join(where_conds)
 
+        if schema == "dwh_public":
+            return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.department_code,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.department_code, '')
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
+    WHERE {where_str}
+)
+SELECT 
+    COALESCE(lf.department_code, 'Toàn tỉnh') AS ten_don_vi,
+    SUM(lf.numeric_val) AS tong_gia_tri,
+    AVG(SUM(lf.numeric_val)) OVER () AS trung_binh_nhom,
+    SUM(lf.numeric_val) - AVG(SUM(lf.numeric_val)) OVER () AS chenh_lech_so_voi_tb
+FROM latest_fact lf
+WHERE lf.rn = 1
+GROUP BY lf.department_code
+ORDER BY tong_gia_tri DESC;"""
+
         return f"""WITH latest_fact AS (
     SELECT f.criteria_id, f.office_id,
-           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
            ROW_NUMBER() OVER (
                PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
                ORDER BY f.report_date DESC, f.version DESC
            ) AS rn
 
-    FROM dwh_internal.fact_report_criteria f
-    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
 )
 SELECT 
@@ -219,7 +293,7 @@ SELECT
     AVG(SUM(lf.numeric_val)) OVER () AS trung_binh_nhom,
     SUM(lf.numeric_val) - AVG(SUM(lf.numeric_val)) OVER () AS chenh_lech_so_voi_tb
 FROM latest_fact lf
-LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+LEFT JOIN {schema}.office o ON lf.office_id = o.id
 WHERE lf.rn = 1
 GROUP BY o.office_name
 ORDER BY tong_gia_tri DESC;"""
@@ -231,6 +305,7 @@ ORDER BY tong_gia_tri DESC;"""
         tenant_code: str = "68",
         department_code: Optional[str] = None,
         scope_name: Optional[str] = None,
+        schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 4: Tỷ trọng cấu phần trên tổng thể qua hàm SUM() OVER ()."""
         where_conds = [
@@ -246,14 +321,21 @@ ORDER BY tong_gia_tri DESC;"""
 
         where_str = " AND ".join(where_conds)
 
+        office_sel = "" if schema == "dwh_public" else "f.office_id, "
+        partition_clause = (
+            "PARTITION BY TRIM(LOWER(f.name))"
+            if schema == "dwh_public"
+            else "PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)"
+        )
+
         return f"""WITH latest_fact AS (
-    SELECT f.criteria_id, f.office_id, f.name,
-           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+    SELECT f.criteria_id, {office_sel}f.name,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
            ROW_NUMBER() OVER (
-               PARTITION BY TRIM(LOWER(f.name)), COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
+               {partition_clause}
                ORDER BY f.report_date DESC, f.version DESC
            ) AS rn
-    FROM dwh_internal.fact_report_criteria f
+    FROM {schema}.fact_report_criteria f
     WHERE {where_str}
 )
 SELECT 
@@ -279,6 +361,7 @@ ORDER BY gia_tri_thanh_phan DESC;"""
         year_end: Optional[str] = None,
         tenant_code: str = "68",
         department_code: Optional[str] = None,
+        schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 5: Ma trận phân tích chéo đa chiều qua FILTER (WHERE year_code = ...)."""
         where_conds = [
@@ -290,14 +373,18 @@ ORDER BY gia_tri_thanh_phan DESC;"""
             years_in = ", ".join(f"'{y}'" for y in pivot_years)
             where_conds.append(f"f.year_code IN ({years_in})")
         crit_conds = []
+        name_col = "c.mission_name" if schema == "dwh_public" else "c.name"
         if metric_code:
-            crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
+            if schema == "dwh_public":
+                crit_conds.append(f"f.code = '{metric_code}'")
+            else:
+                crit_conds.append(f"c.code = '{metric_code}' OR f.code = '{metric_code}'")
         if metric_name:
             clean_name = metric_name.strip().replace("'", "''")
-            crit_conds.append(f"c.name ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{clean_name}%' OR f.name ILIKE '%{clean_name}%'")
         elif metric_code:
             words = metric_code.replace('_', ' ')
-            crit_conds.append(f"c.name ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
+            crit_conds.append(f"{name_col} ILIKE '%{words}%' OR f.name ILIKE '%{words}%'")
         if crit_conds:
             where_conds.append(f"({' OR '.join(crit_conds)})")
         if department_code:
@@ -307,16 +394,44 @@ ORDER BY gia_tri_thanh_phan DESC;"""
         y_start_label = year_start or "truoc"
         y_end_label = year_end or "sau"
 
+        if schema == "dwh_public":
+            return f"""WITH latest_fact AS (
+    SELECT f.criteria_id, f.year_code, f.department_code,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
+           ROW_NUMBER() OVER (
+               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.department_code, '')
+               ORDER BY f.report_date DESC, f.version DESC
+           ) AS rn
+
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
+    WHERE {where_str}
+)
+SELECT 
+    COALESCE(lf.department_code, 'Toàn tỉnh') AS ten_phong_ban,
+    SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}') AS nam_{y_start_label},
+    SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_end}') AS nam_{y_end_label},
+    ROUND(
+        ((SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_end}') -
+          SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}')) /
+         NULLIF(SUM(lf.numeric_val) FILTER (WHERE lf.year_code = '{year_start}'), 0)) * 100.0, 
+        2
+    ) AS tang_truong_pct
+FROM latest_fact lf
+WHERE lf.rn = 1
+GROUP BY lf.department_code
+ORDER BY nam_{y_end_label} DESC;"""
+
         return f"""WITH latest_fact AS (
     SELECT f.criteria_id, f.office_id, f.year_code,
-           NULLIF(TRIM(f.value), '')::numeric AS numeric_val,
+           CASE WHEN TRIM(f.value) ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN TRIM(f.value)::numeric ELSE NULL END AS numeric_val,
            ROW_NUMBER() OVER (
                PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)
                ORDER BY f.report_date DESC, f.version DESC
            ) AS rn
 
-    FROM dwh_internal.fact_report_criteria f
-    LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id
+    FROM {schema}.fact_report_criteria f
+    LEFT JOIN {schema}.criteria c ON f.criteria_id = c.id
     WHERE {where_str}
 )
 SELECT 
@@ -330,7 +445,7 @@ SELECT
         2
     ) AS tang_truong_pct
 FROM latest_fact lf
-LEFT JOIN dwh_internal.office o ON lf.office_id = o.id
+LEFT JOIN {schema}.office o ON lf.office_id = o.id
 WHERE lf.rn = 1
 GROUP BY o.office_name
 ORDER BY nam_{y_end_label} DESC;"""

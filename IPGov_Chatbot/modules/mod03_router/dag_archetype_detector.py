@@ -39,7 +39,7 @@ class DAGArchetypeDetector:
 
         # 2. PART_TO_WHOLE: Nhận diện tỷ trọng / cơ cấu thành phần
         self._part_to_whole_pat = re.compile(
-            r"(chiếm tỷ trọng bao nhiêu\s*(phần trăm|%)|tỷ trọng.*(phần trăm|%)|tỷ lệ đạt chuẩn là bao nhiêu\s*%|cơ cấu\s*(phần trăm|%)|tỷ trọng.*trong tổng)",
+            r"(chiếm\s+(?:tỷ\s+trọng\s+)?(?:bao\s+nhiêu|mấy)\s*(?:phần\s+trăm|%)|tỷ\s+trọng.*(?:phần\s+trăm|%)|tỷ\s+lệ\s+đạt\s+chuẩn\s+là\s+bao\s+nhiêu\s*%|cơ\s+cấu\s*(?:phần\s+trăm|%)|tỷ\s+trọng.*trong\s+tổng|chiếm\s+bao\s+nhiêu\s+phần\s+trăm)",
             re.IGNORECASE
         )
 
@@ -51,7 +51,7 @@ class DAGArchetypeDetector:
 
         # 4. TEMPORAL_COMPARISON: So sánh chuỗi thời gian nhiều mốc (YoY/QoQ)
         self._temporal_comp_pat = re.compile(
-            r"\b(so sánh.*202[4-6].*202[4-6]|giữa quý\s*[1-4].*và quý\s*[1-4]|q[1-4]\s*(va|voi)\s*q[1-4]|so sanh.*q[1-4].*q[1-4]|tăng hay giảm bao nhiêu phần trăm|tăng hay giảm so với|so với cùng kỳ|so với kế hoạch|đang tăng hay giảm)\b",
+            r"\b(so sánh.*202[4-6].*202[4-6]|giữa quý\s*[1-4].*và quý\s*[1-4]|q[1-4]\s*(va|voi)\s*q[1-4]|so sanh.*q[1-4].*q[1-4]|tăng hay giảm bao nhiêu phần trăm|tăng hay giảm so với|so với cùng kỳ|so với kế hoạch|đang tăng hay giảm|có sự tăng giảm nào không|biến động.*nào không)\b",
             re.IGNORECASE
         )
         self._two_years_pat = re.compile(r"\b(202[3-6]).*(202[3-6])\b")

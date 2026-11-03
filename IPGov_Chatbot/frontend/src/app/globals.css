@@ -63,3 +63,41 @@ body {
   }
 }
 
+/* Viewport compensation when document.body.style.zoom or document.documentElement.style.zoom is 80% (0.8) */
+html[style*="zoom: 80%"],
+html[style*="zoom:80%"],
+html[style*="zoom: 0.8"],
+html[style*="zoom:0.8"],
+body[style*="zoom: 80%"],
+body[style*="zoom:80%"],
+body[style*="zoom: 0.8"],
+body[style*="zoom:0.8"] {
+  width: 125vw !important;
+  max-width: 125vw !important;
+  min-height: 125vh !important;
+  overflow: hidden !important;
+}
+
+html[style*="zoom: 80%"] .w-screen,
+html[style*="zoom:80%"] .w-screen,
+html[style*="zoom: 0.8"] .w-screen,
+html[style*="zoom:0.8"] .w-screen,
+body[style*="zoom: 80%"] .w-screen,
+body[style*="zoom:80%"] .w-screen,
+body[style*="zoom: 0.8"] .w-screen,
+body[style*="zoom:0.8"] .w-screen {
+  width: 125vw !important;
+  max-width: 125vw !important;
+}
+
+html[style*="zoom: 80%"] .h-screen,
+html[style*="zoom:80%"] .h-screen,
+html[style*="zoom: 0.8"] .h-screen,
+html[style*="zoom:0.8"] .h-screen,
+body[style*="zoom: 80%"] .h-screen,
+body[style*="zoom:80%"] .h-screen,
+body[style*="zoom: 0.8"] .h-screen,
+body[style*="zoom:0.8"] .h-screen {
+  height: 125vh !important;
+  max-height: 125vh !important;
+}

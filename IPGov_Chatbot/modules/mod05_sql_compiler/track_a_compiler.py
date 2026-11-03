@@ -285,14 +285,22 @@ class TrackACompiler:
             "COUNT(DISTINCT f.office_id) AS so_don_vi_bao_cao",
         ]
 
+        spec_order = (
+            "CASE "
+            "WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0 "
+            "WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1 "
+            "ELSE 2 END, f.report_date DESC NULLS LAST, f.version DESC NULLS LAST"
+        )
+
         raw_sql = (
             f"WITH latest_fact AS (\n"
             f"    SELECT f.criteria_id, f.office_id, f.name, f.year_code, f.value, f.department_code,\n"
             f"           ROW_NUMBER() OVER (\n"
             f"               PARTITION BY TRIM(LOWER(f.name)), f.year_code, COALESCE(f.office_id, '00000000-0000-0000-0000-000000000000'::uuid)\n"
-            f"               ORDER BY f.report_date DESC, f.version DESC\n"
+            f"               ORDER BY {spec_order}\n"
             f"           ) AS rn\n"
             f"    FROM dwh_internal.fact_report_criteria f\n"
+            f"    LEFT JOIN dwh_internal.criteria lc ON f.criteria_id = lc.id\n"
             f"    WHERE {where_str}\n"
             f")\n"
             f"SELECT\n"
@@ -473,10 +481,16 @@ WHERE li.rn = 1
 ORDER BY li.ten_chi_tieu ASC LIMIT 500;"""
             else:
                 crit_filter = f"f.code = '{m_code}'" if m_code else (f"f.name ILIKE '%{m_name}%'" if m_name else "1=1")
+                order_clause = (
+                    "ORDER BY CASE "
+                    "WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0 "
+                    "WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1 "
+                    "ELSE 2 END, f.report_date DESC NULLS LAST, f.version DESC NULLS LAST"
+                )
                 raw_sql = f"""WITH ranked_facts AS (
     SELECT f.criteria_id, f.parent_criteria_id, f.name AS ten_chi_tieu, f.value AS gia_tri_moi_nhat,
            f.mission_name AS ten_nhiem_vu, f.office_id, f.report_date AS ngay_bao_cao_moi_nhat,
-           ROW_NUMBER() OVER (PARTITION BY f.criteria_id, f.office_id ORDER BY f.report_date DESC NULLS LAST, f.version DESC NULLS LAST) AS rn
+           ROW_NUMBER() OVER (PARTITION BY f.criteria_id, f.office_id {order_clause}) AS rn
     FROM dwh_internal.fact_report_criteria f
     WHERE f.tenant_code = '{tenant_code}' AND f.year_code = '{year or "2026"}'
       AND f.report_status = 'approved' AND ({crit_filter})

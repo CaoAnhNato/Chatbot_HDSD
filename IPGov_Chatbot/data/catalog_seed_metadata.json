@@ -16,22 +16,95 @@
       "description": "Bảng Fact lưu trữ toàn bộ các sự kiện báo cáo số liệu chỉ tiêu KTXH và hành chính công vụ",
       "primary_key": "fact_sk",
       "columns": [
-        {"name": "fact_sk", "type": "VARCHAR(64)", "description": "Khóa thay thế dòng fact", "is_pk": true},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu (2024, 2025, 2026)"},
-        {"name": "value", "type": "TEXT", "description": "Giá trị số liệu báo cáo dạng văn bản (cần ép kiểu an toàn NULLIF TRIM)"},
-        {"name": "report_status", "type": "VARCHAR(32)", "description": "Trạng thái báo cáo: approved, pending, draft, rejected"},
-        {"name": "report_date", "type": "TIMESTAMPTZ", "description": "Mốc thời gian nộp hoặc phê duyệt báo cáo"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã tỉnh thành phố (68: Lâm Đồng, 79: TP.HCM)"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã sở ban ngành hoặc UBND huyện", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "office_id", "type": "UUID", "description": "Định danh phòng ban chuyên môn trực thuộc nộp số liệu", "is_fk": true, "fk_target": "dwh_internal.office.id"},
-        {"name": "criteria_id", "type": "UUID", "description": "Định danh chỉ tiêu kinh tế xã hội", "is_fk": true, "fk_target": "dwh_internal.criteria.id"},
-        {"name": "report_id", "type": "UUID", "description": "Định danh báo cáo tổng hợp", "is_fk": true, "fk_target": "dwh_internal.report.id"},
-        {"name": "code", "type": "TEXT", "description": "Mã chỉ tiêu (denormalized)"},
-        {"name": "name", "type": "TEXT", "description": "Tên chỉ tiêu (denormalized)"},
-        {"name": "mission_id", "type": "UUID", "description": "Định danh nhiệm vụ (denormalized)"},
-        {"name": "mission_name", "type": "VARCHAR(255)", "description": "Tên nhiệm vụ (denormalized)"},
-        {"name": "scope_id", "type": "UUID", "description": "Định danh lĩnh vực (denormalized)"},
-        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực (denormalized)"}
+        {
+          "name": "fact_sk",
+          "type": "VARCHAR(64)",
+          "description": "Khóa thay thế dòng fact",
+          "is_pk": true
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm báo cáo số liệu (2024, 2025, 2026)"
+        },
+        {
+          "name": "value",
+          "type": "TEXT",
+          "description": "Giá trị số liệu báo cáo dạng văn bản (cần ép kiểu an toàn NULLIF TRIM)"
+        },
+        {
+          "name": "report_status",
+          "type": "VARCHAR(32)",
+          "description": "Trạng thái báo cáo: approved, pending, draft, rejected"
+        },
+        {
+          "name": "report_date",
+          "type": "TIMESTAMPTZ",
+          "description": "Mốc thời gian nộp hoặc phê duyệt báo cáo"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã tỉnh thành phố (68: Lâm Đồng, 79: TP.HCM)"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã sở ban ngành hoặc UBND huyện",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "office_id",
+          "type": "UUID",
+          "description": "Định danh phòng ban chuyên môn trực thuộc nộp số liệu",
+          "is_fk": true,
+          "fk_target": "dwh_internal.office.id"
+        },
+        {
+          "name": "criteria_id",
+          "type": "UUID",
+          "description": "Định danh chỉ tiêu kinh tế xã hội",
+          "is_fk": true,
+          "fk_target": "dwh_internal.criteria.id"
+        },
+        {
+          "name": "report_id",
+          "type": "UUID",
+          "description": "Định danh báo cáo tổng hợp",
+          "is_fk": true,
+          "fk_target": "dwh_internal.report.id"
+        },
+        {
+          "name": "code",
+          "type": "TEXT",
+          "description": "Mã chỉ tiêu (denormalized)"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Tên chỉ tiêu (denormalized)"
+        },
+        {
+          "name": "mission_id",
+          "type": "UUID",
+          "description": "Định danh nhiệm vụ (denormalized)"
+        },
+        {
+          "name": "mission_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên nhiệm vụ (denormalized)"
+        },
+        {
+          "name": "scope_id",
+          "type": "UUID",
+          "description": "Định danh lĩnh vực (denormalized)"
+        },
+        {
+          "name": "scope_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên lĩnh vực (denormalized)"
+        }
       ]
     },
     {
@@ -40,13 +113,44 @@
       "description": "Bảng Dimension danh mục cây phân cấp chỉ tiêu thống kê báo cáo (chỉ tiêu lá và nút cha)",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Khóa chính chỉ tiêu", "is_pk": true},
-        {"name": "code", "type": "VARCHAR(128)", "description": "Mã định danh kỹ thuật chỉ tiêu (vd: tai_nan_lao_dong_2)"},
-        {"name": "name", "type": "TEXT", "description": "Tên chỉ tiêu báo cáo kinh tế xã hội"},
-        {"name": "parent_id", "type": "UUID", "description": "Khóa ngoại trỏ chỉ tiêu cha", "is_fk": true, "fk_target": "dwh_internal.criteria.id"},
-        {"name": "level", "type": "INTEGER", "description": "Cấp độ phân cấp cây chỉ tiêu (0: Nhóm, 1: Chỉ tiêu cha, 2: Chỉ tiêu con lá)"},
-        {"name": "status", "type": "VARCHAR(32)", "description": "Trạng thái chỉ tiêu"},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm áp dụng chỉ tiêu"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Khóa chính chỉ tiêu",
+          "is_pk": true
+        },
+        {
+          "name": "code",
+          "type": "VARCHAR(128)",
+          "description": "Mã định danh kỹ thuật chỉ tiêu (vd: tai_nan_lao_dong_2)"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Tên chỉ tiêu báo cáo kinh tế xã hội"
+        },
+        {
+          "name": "parent_id",
+          "type": "UUID",
+          "description": "Khóa ngoại trỏ chỉ tiêu cha",
+          "is_fk": true,
+          "fk_target": "dwh_internal.criteria.id"
+        },
+        {
+          "name": "level",
+          "type": "INTEGER",
+          "description": "Cấp độ phân cấp cây chỉ tiêu (0: Nhóm, 1: Chỉ tiêu cha, 2: Chỉ tiêu con lá)"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "description": "Trạng thái chỉ tiêu"
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm áp dụng chỉ tiêu"
+        }
       ]
     },
     {
@@ -55,11 +159,34 @@
       "description": "Bảng Dimension danh mục cơ quan hành chính nhà nước cấp tỉnh, sở, ban, ngành, UBND huyện (lưu ý chính tả deparment không có chữ t thứ 2)",
       "primary_key": "code",
       "columns": [
-        {"name": "code", "type": "VARCHAR(64)", "description": "Mã định danh cơ quan hành chính (vd: 68-1-02)", "is_pk": true},
-        {"name": "name", "type": "TEXT", "description": "Tên cơ quan hành chính (UBND Tỉnh Lâm Đồng, Sở LĐTBXH, Sở Xây dựng...)"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh quản lý"},
-        {"name": "level", "type": "INTEGER", "description": "Cấp độ hành chính (0: Tỉnh/Thành phố, 1: Sở/Ngành/UBND Huyện)"},
-        {"name": "parent_id", "type": "VARCHAR(64)", "description": "Mã cơ quan cấp trên trực tiếp", "is_fk": true, "fk_target": "dwh_internal.deparment.code"}
+        {
+          "name": "code",
+          "type": "VARCHAR(64)",
+          "description": "Mã định danh cơ quan hành chính (vd: 68-1-02)",
+          "is_pk": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Tên cơ quan hành chính (UBND Tỉnh Lâm Đồng, Sở LĐTBXH, Sở Xây dựng...)"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh quản lý"
+        },
+        {
+          "name": "level",
+          "type": "INTEGER",
+          "description": "Cấp độ hành chính (0: Tỉnh/Thành phố, 1: Sở/Ngành/UBND Huyện)"
+        },
+        {
+          "name": "parent_id",
+          "type": "VARCHAR(64)",
+          "description": "Mã cơ quan cấp trên trực tiếp",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        }
       ]
     },
     {
@@ -68,10 +195,29 @@
       "description": "Bảng Dimension danh mục phòng ban chuyên môn trực thuộc sở ngành hoặc UBND cấp huyện",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh duy nhất phòng ban", "is_pk": true},
-        {"name": "office_name", "type": "VARCHAR(255)", "description": "Tên phòng ban chuyên môn (Phòng Kinh tế, Phòng Văn Hóa, Phòng Nội vụ...)"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Khóa ngoại trỏ đến sở ngành hoặc UBND chủ quản", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh duy nhất phòng ban",
+          "is_pk": true
+        },
+        {
+          "name": "office_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên phòng ban chuyên môn (Phòng Kinh tế, Phòng Văn Hóa, Phòng Nội vụ...)"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Khóa ngoại trỏ đến sở ngành hoặc UBND chủ quản",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh"
+        }
       ]
     },
     {
@@ -80,12 +226,39 @@
       "description": "Bảng lưu trữ thông tin đợt nộp báo cáo tổng hợp",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh duy nhất đợt báo cáo", "is_pk": true},
-        {"name": "report_date", "type": "TIMESTAMPTZ", "description": "Ngày nộp hoặc lập báo cáo"},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm báo cáo số liệu"},
-        {"name": "status", "type": "VARCHAR(32)", "description": "Trạng thái phê duyệt báo cáo (approved, pending, draft, rejected)"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã đơn vị sở ngành hoặc UBND huyện", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh (vd: 68)"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh duy nhất đợt báo cáo",
+          "is_pk": true
+        },
+        {
+          "name": "report_date",
+          "type": "TIMESTAMPTZ",
+          "description": "Ngày nộp hoặc lập báo cáo"
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm báo cáo số liệu"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "description": "Trạng thái phê duyệt báo cáo (approved, pending, draft, rejected)"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã đơn vị sở ngành hoặc UBND huyện",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh (vd: 68)"
+        }
       ]
     },
     {
@@ -94,18 +267,69 @@
       "description": "Bảng Dimension danh mục các biểu mẫu thu thập số liệu định kỳ và tờ khai nghiệp vụ",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh biểu mẫu thu thập", "is_pk": true},
-        {"name": "code", "type": "VARCHAR(64)", "description": "Mã biểu mẫu quy định (vd: BM_ATVSLD_01, BM_KHUYENCONG_02)"},
-        {"name": "name", "type": "TEXT", "description": "Tên biểu mẫu thu thập thông tin"},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm ban hành hoặc áp dụng biểu mẫu (lưu ý tên cột là year_code)"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã cơ quan ban hành biểu mẫu", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "start_date", "type": "TIMESTAMPTZ", "description": "Ngày bắt đầu triển khai thu thập biểu mẫu"},
-        {"name": "end_date", "type": "TIMESTAMPTZ", "description": "Thời hạn kết thúc nộp biểu mẫu thu thập"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh (vd: 68)"},
-        {"name": "is_disabled", "type": "BOOLEAN", "description": "Trạng thái vô hiệu hóa của biểu mẫu"},
-        {"name": "deleted_date", "type": "TIMESTAMPTZ", "description": "Thời gian xóa bản ghi (soft delete)"},
-        {"name": "status", "type": "VARCHAR(32)", "description": "Tình trạng biểu mẫu (active, deprecated)"},
-        {"name": "etl_updated_at", "type": "TIMESTAMPTZ", "description": "Mốc thời gian cập nhật ETL"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh biểu mẫu thu thập",
+          "is_pk": true
+        },
+        {
+          "name": "code",
+          "type": "VARCHAR(64)",
+          "description": "Mã biểu mẫu quy định (vd: BM_ATVSLD_01, BM_KHUYENCONG_02)"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Tên biểu mẫu thu thập thông tin"
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm ban hành hoặc áp dụng biểu mẫu (lưu ý tên cột là year_code)"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã cơ quan ban hành biểu mẫu",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "start_date",
+          "type": "TIMESTAMPTZ",
+          "description": "Ngày bắt đầu triển khai thu thập biểu mẫu"
+        },
+        {
+          "name": "end_date",
+          "type": "TIMESTAMPTZ",
+          "description": "Thời hạn kết thúc nộp biểu mẫu thu thập"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh (vd: 68)"
+        },
+        {
+          "name": "is_disabled",
+          "type": "BOOLEAN",
+          "description": "Trạng thái vô hiệu hóa của biểu mẫu"
+        },
+        {
+          "name": "deleted_date",
+          "type": "TIMESTAMPTZ",
+          "description": "Thời gian xóa bản ghi (soft delete)"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "description": "Tình trạng biểu mẫu (active, deprecated)"
+        },
+        {
+          "name": "etl_updated_at",
+          "type": "TIMESTAMPTZ",
+          "description": "Mốc thời gian cập nhật ETL"
+        }
       ]
     },
     {
@@ -114,16 +338,59 @@
       "description": "Bảng Dimension danh mục các nhiệm vụ, chương trình và đề án trọng tâm",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh nhiệm vụ trọng tâm", "is_pk": true},
-        {"name": "mission_code", "type": "VARCHAR(64)", "description": "Mã nhiệm vụ chuyên môn"},
-        {"name": "mission_name", "type": "TEXT", "description": "Tên nhiệm vụ hoặc chương trình hành động"},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm thực hiện nhiệm vụ"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Cơ quan chủ trì thực hiện nhiệm vụ", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"},
-        {"name": "scope_id", "type": "UUID", "description": "Định danh lĩnh vực nhiệm vụ"},
-        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực nhiệm vụ"},
-        {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"},
-        {"name": "mission_status", "type": "BOOLEAN", "description": "Trạng thái nhiệm vụ (true: active)"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh nhiệm vụ trọng tâm",
+          "is_pk": true
+        },
+        {
+          "name": "mission_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã nhiệm vụ chuyên môn"
+        },
+        {
+          "name": "mission_name",
+          "type": "TEXT",
+          "description": "Tên nhiệm vụ hoặc chương trình hành động"
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm thực hiện nhiệm vụ"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Cơ quan chủ trì thực hiện nhiệm vụ",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh"
+        },
+        {
+          "name": "scope_id",
+          "type": "UUID",
+          "description": "Định danh lĩnh vực nhiệm vụ"
+        },
+        {
+          "name": "scope_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên lĩnh vực nhiệm vụ"
+        },
+        {
+          "name": "deleted_date",
+          "type": "TIMESTAMP",
+          "description": "Thời gian xóa mềm"
+        },
+        {
+          "name": "mission_status",
+          "type": "BOOLEAN",
+          "description": "Trạng thái nhiệm vụ (true: active)"
+        }
       ]
     },
     {
@@ -132,16 +399,61 @@
       "description": "Bảng phân công nhiệm vụ cho cán bộ, chuyên viên phụ trách",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh bản ghi phân công", "is_pk": true},
-        {"name": "user_id", "type": "UUID", "description": "Định danh cán bộ được phân công", "is_fk": true, "fk_target": "dwh_internal.user.id"},
-        {"name": "mission_id", "type": "UUID", "description": "Định danh nhiệm vụ được giao", "is_fk": true, "fk_target": "dwh_internal.mission.id"},
-        {"name": "office_id", "type": "UUID", "description": "Định danh phòng ban của cán bộ"},
-        {"name": "office_name", "type": "VARCHAR(255)", "description": "Tên phòng ban"},
-        {"name": "mission_name", "type": "VARCHAR(255)", "description": "Tên nhiệm vụ được giao"},
-        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực nhiệm vụ"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã sở ban ngành"},
-        {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh bản ghi phân công",
+          "is_pk": true
+        },
+        {
+          "name": "user_id",
+          "type": "UUID",
+          "description": "Định danh cán bộ được phân công",
+          "is_fk": true,
+          "fk_target": "dwh_internal.user.id"
+        },
+        {
+          "name": "mission_id",
+          "type": "UUID",
+          "description": "Định danh nhiệm vụ được giao",
+          "is_fk": true,
+          "fk_target": "dwh_internal.mission.id"
+        },
+        {
+          "name": "office_id",
+          "type": "UUID",
+          "description": "Định danh phòng ban của cán bộ"
+        },
+        {
+          "name": "office_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên phòng ban"
+        },
+        {
+          "name": "mission_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên nhiệm vụ được giao"
+        },
+        {
+          "name": "scope_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên lĩnh vực nhiệm vụ"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã sở ban ngành"
+        },
+        {
+          "name": "deleted_date",
+          "type": "TIMESTAMP",
+          "description": "Thời gian xóa mềm"
+        }
       ]
     },
     {
@@ -150,14 +462,51 @@
       "description": "Bảng phân công nhiệm vụ cho các phòng ban, văn phòng chuyên môn",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh bản ghi phân công phòng ban", "is_pk": true},
-        {"name": "office_id", "type": "UUID", "description": "Định danh phòng ban văn phòng", "is_fk": true, "fk_target": "dwh_internal.office.id"},
-        {"name": "mission_id", "type": "UUID", "description": "Định danh nhiệm vụ", "is_fk": true, "fk_target": "dwh_internal.mission.id"},
-        {"name": "mission_name", "type": "VARCHAR(255)", "description": "Tên nhiệm vụ"},
-        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã sở ban ngành"},
-        {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh bản ghi phân công phòng ban",
+          "is_pk": true
+        },
+        {
+          "name": "office_id",
+          "type": "UUID",
+          "description": "Định danh phòng ban văn phòng",
+          "is_fk": true,
+          "fk_target": "dwh_internal.office.id"
+        },
+        {
+          "name": "mission_id",
+          "type": "UUID",
+          "description": "Định danh nhiệm vụ",
+          "is_fk": true,
+          "fk_target": "dwh_internal.mission.id"
+        },
+        {
+          "name": "mission_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên nhiệm vụ"
+        },
+        {
+          "name": "scope_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên lĩnh vực"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã sở ban ngành"
+        },
+        {
+          "name": "deleted_date",
+          "type": "TIMESTAMP",
+          "description": "Thời gian xóa mềm"
+        }
       ]
     },
     {
@@ -166,14 +515,47 @@
       "description": "Bảng danh mục tài khoản cán bộ, chuyên viên công chức (lưu ý tên bảng user là từ khóa nên cần dấu nháy kép \"user\")",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh cán bộ", "is_pk": true},
-        {"name": "name", "type": "TEXT", "description": "Họ và tên cán bộ công chức"},
-        {"name": "username", "type": "TEXT", "description": "Tên đăng nhập hệ thống"},
-        {"name": "position", "type": "TEXT", "description": "Chức vụ của cán bộ"},
-        {"name": "department_code", "type": "TEXT", "description": "Mã đơn vị cơ quan"},
-        {"name": "department_name", "type": "TEXT", "description": "Tên đơn vị cơ quan"},
-        {"name": "tenant_code", "type": "TEXT", "description": "Mã địa phương"},
-        {"name": "deleted_at", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh cán bộ",
+          "is_pk": true
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Họ và tên cán bộ công chức"
+        },
+        {
+          "name": "username",
+          "type": "TEXT",
+          "description": "Tên đăng nhập hệ thống"
+        },
+        {
+          "name": "position",
+          "type": "TEXT",
+          "description": "Chức vụ của cán bộ"
+        },
+        {
+          "name": "department_code",
+          "type": "TEXT",
+          "description": "Mã đơn vị cơ quan"
+        },
+        {
+          "name": "department_name",
+          "type": "TEXT",
+          "description": "Tên đơn vị cơ quan"
+        },
+        {
+          "name": "tenant_code",
+          "type": "TEXT",
+          "description": "Mã địa phương"
+        },
+        {
+          "name": "deleted_at",
+          "type": "TIMESTAMP",
+          "description": "Thời gian xóa mềm"
+        }
       ]
     },
     {
@@ -181,10 +563,26 @@
       "simple_name": "pipeline_logs",
       "description": "Bảng theo dõi nhật ký thực thi tiến trình ETL đồng bộ kho dữ liệu tổng hợp",
       "columns": [
-        {"name": "model_name", "type": "VARCHAR(64)", "description": "Tên tiến trình ETL hoặc pipeline"},
-        {"name": "last_run_at", "type": "TIMESTAMPTZ", "description": "Mốc thời gian chạy gần nhất"},
-        {"name": "status", "type": "VARCHAR(32)", "description": "Kết quả thực thi (SUCCESS, FAILED)"},
-        {"name": "row_count", "type": "INTEGER", "description": "Số bản ghi được đồng bộ vào kho DWH"}
+        {
+          "name": "model_name",
+          "type": "VARCHAR(64)",
+          "description": "Tên tiến trình ETL hoặc pipeline"
+        },
+        {
+          "name": "last_run_at",
+          "type": "TIMESTAMPTZ",
+          "description": "Mốc thời gian chạy gần nhất"
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(32)",
+          "description": "Kết quả thực thi (SUCCESS, FAILED)"
+        },
+        {
+          "name": "row_count",
+          "type": "INTEGER",
+          "description": "Số bản ghi được đồng bộ vào kho DWH"
+        }
       ]
     },
     {
@@ -193,14 +591,49 @@
       "description": "Bảng Dimension danh mục các lĩnh vực quản lý nhà nước",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh lĩnh vực", "is_pk": true},
-        {"name": "scope_code", "type": "VARCHAR(64)", "description": "Mã định danh lĩnh vực (vd: SC_01)"},
-        {"name": "scope_name", "type": "VARCHAR(255)", "description": "Tên lĩnh vực chuyên môn"},
-        {"name": "scope_status", "type": "BOOLEAN", "description": "Trạng thái hoạt động của lĩnh vực"},
-        {"name": "year_code", "type": "VARCHAR(4)", "description": "Năm áp dụng"},
-        {"name": "department_code", "type": "VARCHAR(64)", "description": "Mã cơ quan chủ quản", "is_fk": true, "fk_target": "dwh_internal.deparment.code"},
-        {"name": "tenant_code", "type": "VARCHAR(64)", "description": "Mã địa phương cấp tỉnh"},
-        {"name": "deleted_date", "type": "TIMESTAMP", "description": "Thời gian xóa mềm"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh lĩnh vực",
+          "is_pk": true
+        },
+        {
+          "name": "scope_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã định danh lĩnh vực (vd: SC_01)"
+        },
+        {
+          "name": "scope_name",
+          "type": "VARCHAR(255)",
+          "description": "Tên lĩnh vực chuyên môn"
+        },
+        {
+          "name": "scope_status",
+          "type": "BOOLEAN",
+          "description": "Trạng thái hoạt động của lĩnh vực"
+        },
+        {
+          "name": "year_code",
+          "type": "VARCHAR(4)",
+          "description": "Năm áp dụng"
+        },
+        {
+          "name": "department_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã cơ quan chủ quản",
+          "is_fk": true,
+          "fk_target": "dwh_internal.deparment.code"
+        },
+        {
+          "name": "tenant_code",
+          "type": "VARCHAR(64)",
+          "description": "Mã địa phương cấp tỉnh"
+        },
+        {
+          "name": "deleted_date",
+          "type": "TIMESTAMP",
+          "description": "Thời gian xóa mềm"
+        }
       ]
     },
     {
@@ -209,111 +642,6064 @@
       "description": "Bảng Dimension danh mục địa giới hành chính các tỉnh, thành phố trực thuộc Trung ương",
       "primary_key": "id",
       "columns": [
-        {"name": "id", "type": "UUID", "description": "Định danh duy nhất địa bàn tỉnh", "is_pk": true},
-        {"name": "code", "type": "TEXT", "description": "Mã định danh tỉnh thành phố (vd: 68, 79)"},
-        {"name": "name", "type": "TEXT", "description": "Tên tỉnh, thành phố trực thuộc Trung ương (Lâm Đồng, TP.HCM, Hà Nội...)"},
-        {"name": "is_activated", "type": "BOOLEAN", "description": "Trạng thái kích hoạt"}
+        {
+          "name": "id",
+          "type": "UUID",
+          "description": "Định danh duy nhất địa bàn tỉnh",
+          "is_pk": true
+        },
+        {
+          "name": "code",
+          "type": "TEXT",
+          "description": "Mã định danh tỉnh thành phố (vd: 68, 79)"
+        },
+        {
+          "name": "name",
+          "type": "TEXT",
+          "description": "Tên tỉnh, thành phố trực thuộc Trung ương (Lâm Đồng, TP.HCM, Hà Nội...)"
+        },
+        {
+          "name": "is_activated",
+          "type": "BOOLEAN",
+          "description": "Trạng thái kích hoạt"
+        }
       ]
     }
   ],
   "foreign_keys": [
-    {"source": "dwh_internal.fact_report_criteria", "target": "dwh_internal.office", "on": "fact_report_criteria.office_id = office.id", "weight": 1.0, "bridge_role": "primary"},
-    {"source": "dwh_internal.fact_report_criteria", "target": "dwh_internal.criteria", "on": "fact_report_criteria.criteria_id = criteria.id", "weight": 1.0, "bridge_role": "primary"},
-    {"source": "dwh_internal.fact_report_criteria", "target": "dwh_internal.report", "on": "fact_report_criteria.report_id = report.id", "weight": 1.0, "bridge_role": "primary"},
-    {"source": "dwh_internal.office", "target": "dwh_internal.deparment", "on": "office.department_code = deparment.code", "weight": 1.0, "bridge_role": "hierarchy"},
-    {"source": "dwh_internal.report", "target": "dwh_internal.collection_form", "on": "report.form_id = collection_form.id", "weight": 1.0, "bridge_role": "form"},
-    {"source": "dwh_internal.report", "target": "dwh_internal.deparment", "on": "report.department_code = deparment.code", "weight": 1.2, "bridge_role": "secondary"},
-    {"source": "dwh_internal.report", "target": "dwh_internal.office", "on": "report.office_id = office.id", "weight": 1.1, "bridge_role": "secondary"},
-    {"source": "dwh_internal.mission", "target": "dwh_internal.deparment", "on": "mission.department_code = deparment.code", "weight": 1.2, "bridge_role": "mission_dept"},
-    {"source": "dwh_internal.mission", "target": "dwh_internal.scope", "on": "mission.scope_id = scope.id", "weight": 1.0, "bridge_role": "mission_scope"},
-    {"source": "dwh_internal.collection_form", "target": "dwh_internal.deparment", "on": "collection_form.department_code = deparment.code", "weight": 1.2, "bridge_role": "form_dept"},
-    {"source": "dwh_internal.office_mission", "target": "dwh_internal.office", "on": "office_mission.office_id = office.id", "weight": 1.0, "bridge_role": "office_assignment"},
-    {"source": "dwh_internal.office_mission", "target": "dwh_internal.deparment", "on": "office_mission.department_code = deparment.code", "weight": 1.2, "bridge_role": "office_dept"},
-    {"source": "dwh_internal.office_mission", "target": "dwh_internal.mission", "on": "office_mission.mission_id = mission.id", "weight": 1.0, "bridge_role": "office_mission"},
-    {"source": "dwh_internal.user_mission", "target": "dwh_internal.user", "on": "user_mission.user_id = \"user\".id", "weight": 1.0, "bridge_role": "user_assignment"},
-    {"source": "dwh_internal.fact_report_criteria", "target": "dwh_internal.user_mission", "on": "fact_report_criteria.mission_id = user_mission.mission_id", "weight": 1.1, "bridge_role": "fact_user_mission"}
+    {
+      "source": "dwh_internal.fact_report_criteria",
+      "target": "dwh_internal.office",
+      "on": "fact_report_criteria.office_id = office.id",
+      "weight": 1.0,
+      "bridge_role": "primary"
+    },
+    {
+      "source": "dwh_internal.fact_report_criteria",
+      "target": "dwh_internal.criteria",
+      "on": "fact_report_criteria.criteria_id = criteria.id",
+      "weight": 1.0,
+      "bridge_role": "primary"
+    },
+    {
+      "source": "dwh_internal.fact_report_criteria",
+      "target": "dwh_internal.report",
+      "on": "fact_report_criteria.report_id = report.id",
+      "weight": 1.0,
+      "bridge_role": "primary"
+    },
+    {
+      "source": "dwh_internal.office",
+      "target": "dwh_internal.deparment",
+      "on": "office.department_code = deparment.code",
+      "weight": 1.0,
+      "bridge_role": "hierarchy"
+    },
+    {
+      "source": "dwh_internal.report",
+      "target": "dwh_internal.collection_form",
+      "on": "report.form_id = collection_form.id",
+      "weight": 1.0,
+      "bridge_role": "form"
+    },
+    {
+      "source": "dwh_internal.report",
+      "target": "dwh_internal.deparment",
+      "on": "report.department_code = deparment.code",
+      "weight": 1.2,
+      "bridge_role": "secondary"
+    },
+    {
+      "source": "dwh_internal.report",
+      "target": "dwh_internal.office",
+      "on": "report.office_id = office.id",
+      "weight": 1.1,
+      "bridge_role": "secondary"
+    },
+    {
+      "source": "dwh_internal.mission",
+      "target": "dwh_internal.deparment",
+      "on": "mission.department_code = deparment.code",
+      "weight": 1.2,
+      "bridge_role": "mission_dept"
+    },
+    {
+      "source": "dwh_internal.mission",
+      "target": "dwh_internal.scope",
+      "on": "mission.scope_id = scope.id",
+      "weight": 1.0,
+      "bridge_role": "mission_scope"
+    },
+    {
+      "source": "dwh_internal.collection_form",
+      "target": "dwh_internal.deparment",
+      "on": "collection_form.department_code = deparment.code",
+      "weight": 1.2,
+      "bridge_role": "form_dept"
+    },
+    {
+      "source": "dwh_internal.office_mission",
+      "target": "dwh_internal.office",
+      "on": "office_mission.office_id = office.id",
+      "weight": 1.0,
+      "bridge_role": "office_assignment"
+    },
+    {
+      "source": "dwh_internal.office_mission",
+      "target": "dwh_internal.deparment",
+      "on": "office_mission.department_code = deparment.code",
+      "weight": 1.2,
+      "bridge_role": "office_dept"
+    },
+    {
+      "source": "dwh_internal.office_mission",
+      "target": "dwh_internal.mission",
+      "on": "office_mission.mission_id = mission.id",
+      "weight": 1.0,
+      "bridge_role": "office_mission"
+    },
+    {
+      "source": "dwh_internal.user_mission",
+      "target": "dwh_internal.user",
+      "on": "user_mission.user_id = \"user\".id",
+      "weight": 1.0,
+      "bridge_role": "user_assignment"
+    },
+    {
+      "source": "dwh_internal.fact_report_criteria",
+      "target": "dwh_internal.user_mission",
+      "on": "fact_report_criteria.mission_id = user_mission.mission_id",
+      "weight": 1.1,
+      "bridge_role": "fact_user_mission"
+    }
   ],
   "departments": [
-    {"code": "68-1-01", "name": "Sở Nội Vụ Tỉnh Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-02", "name": "UBND Tỉnh Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-03", "name": "Sở Lao động - Thương binh và Xã hội Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-04", "name": "Sở Xây Dựng Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-05", "name": "Sở Công Thương Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-06", "name": "Sở Y Tế Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "68-1-07", "name": "Sở Nông nghiệp và PTNT Lâm Đồng", "tenant_code": "68", "level": 1, "related_codes": ["68-1-07", "68-1-01"]},
-    {"code": "68-1-08", "name": "Sở Văn hóa, Thể thao và Du lịch Lâm Đồng", "tenant_code": "68", "level": 1},
-    {"code": "79-1-01", "name": "Sở Nội Vụ TP. Hồ Chí Minh", "tenant_code": "79", "level": 1},
-    {"code": "79-1-02", "name": "UBND TP. Hồ Chí Minh", "tenant_code": "79", "level": 1}
+    {
+      "code": "68-1-01",
+      "name": "Sở Nội Vụ Tỉnh Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-02",
+      "name": "UBND Tỉnh Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-03",
+      "name": "Sở Lao động - Thương binh và Xã hội Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-04",
+      "name": "Sở Xây Dựng Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-05",
+      "name": "Sở Công Thương Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-06",
+      "name": "Sở Y Tế Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "68-1-07",
+      "name": "Sở Nông nghiệp và PTNT Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1,
+      "related_codes": [
+        "68-1-07",
+        "68-1-01"
+      ]
+    },
+    {
+      "code": "68-1-08",
+      "name": "Sở Văn hóa, Thể thao và Du lịch Lâm Đồng",
+      "tenant_code": "68",
+      "level": 1
+    },
+    {
+      "code": "79-1-01",
+      "name": "Sở Nội Vụ TP. Hồ Chí Minh",
+      "tenant_code": "79",
+      "level": 1
+    },
+    {
+      "code": "79-1-02",
+      "name": "UBND TP. Hồ Chí Minh",
+      "tenant_code": "79",
+      "level": 1
+    }
   ],
   "offices": [
-    {"id": "a0000000-0000-0000-0000-000000000001", "name": "Phòng Kinh tế", "code": "PKT_LD", "department_code": "68-1-02", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000002", "name": "Phòng Văn Hoá", "code": "PVH_LD", "department_code": "68-1-02", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000003", "name": "Phòng Nội vụ", "code": "PNV_LD", "department_code": "68-1-01", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000004", "name": "Phòng ban An toàn vệ sinh lao động", "code": "PATVSLD", "department_code": "68-1-03", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000005", "name": "Phòng ban xây dựng", "code": "PXD_LD", "department_code": "68-1-04", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000006", "name": "Phòng công thương", "code": "PCT_LD", "department_code": "68-1-05", "tenant_code": "68", "level": 2},
-    {"id": "a0000000-0000-0000-0000-000000000007", "name": "Phòng ban y tế", "code": "PYT_LD", "department_code": "68-1-06", "tenant_code": "68", "level": 2},
-    {"id": "a738d08b-45c0-4041-9760-213641d799f8", "name": "Chi cục", "code": "CC_LD", "department_code": "68-1-01", "tenant_code": "68", "level": 2},
-    {"id": "10dfc6c1-2393-413c-92ad-e8952c344524", "name": "Phòng nông nghiệp", "code": "PNN_LD", "department_code": "68-2-01", "tenant_code": "68", "level": 2}
+    {
+      "id": "a0000000-0000-0000-0000-000000000001",
+      "name": "Phòng Kinh tế",
+      "code": "PKT_LD",
+      "department_code": "68-1-02",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000002",
+      "name": "Phòng Văn Hoá",
+      "code": "PVH_LD",
+      "department_code": "68-1-02",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000003",
+      "name": "Phòng Nội vụ",
+      "code": "PNV_LD",
+      "department_code": "68-1-01",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000004",
+      "name": "Phòng ban An toàn vệ sinh lao động",
+      "code": "PATVSLD",
+      "department_code": "68-1-03",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000005",
+      "name": "Phòng ban xây dựng",
+      "code": "PXD_LD",
+      "department_code": "68-1-04",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000006",
+      "name": "Phòng công thương",
+      "code": "PCT_LD",
+      "department_code": "68-1-05",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a0000000-0000-0000-0000-000000000007",
+      "name": "Phòng ban y tế",
+      "code": "PYT_LD",
+      "department_code": "68-1-06",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "a738d08b-45c0-4041-9760-213641d799f8",
+      "name": "Chi cục",
+      "code": "CC_LD",
+      "department_code": "68-1-01",
+      "tenant_code": "68",
+      "level": 2
+    },
+    {
+      "id": "10dfc6c1-2393-413c-92ad-e8952c344524",
+      "name": "Phòng nông nghiệp",
+      "code": "PNN_LD",
+      "department_code": "68-2-01",
+      "tenant_code": "68",
+      "level": 2
+    }
   ],
   "criteria": [
-    {"id": 1, "code": "tai_nan_lao_dong_2", "name": "Số vụ tai nạn lao động", "unit": "vụ", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["tai nan lao dong", "tnld", "tnlđ", "tai nạn lđ", "an toàn lao động", "tai nan ld"]},
-    {"id": 2, "code": "so_nguoi_bi_tnld", "name": "Số người bị tai nạn lao động", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["người bị tai nạn", "nguoi bi tnld"]},
-    {"id": 3, "code": "kinh_phi_khuyen_cong", "name": "Kinh phí thực hiện khuyến công", "unit": "triệu đồng", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["kinh phi khuyen cong", "khuyen cong", "khuyến công", "giải ngân khuyến công"]},
-    {"id": 4, "code": "so_nguoi_dao_tao_khuyen_cong", "name": "Số người được đào tạo từ nguồn kinh phí khuyến công", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["đào tạo khuyến công", "người được đào tạo khuyến công"]},
-    {"id": 5, "code": "tram_y_te_dat_chuan", "name": "Số trạm y tế đạt chuẩn quốc gia", "unit": "trạm", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["tram y te", "trạm y tế", "trạm y tế đạt chuẩn"]},
-    {"id": 6, "code": "giai_quyet_viec_lam", "name": "Số lao động được giải quyết việc làm", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["việc làm", "giai quyet viec lam", "hỗ trợ việc làm"]},
-    {"id": 7, "code": "dao_tao_nghe_nong_thon", "name": "Đào tạo nghề cho lao động nông thôn", "unit": "người", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["dao tao nghe", "đào tạo nghề", "học nghề"]},
-    {"id": 8, "code": "cai_cach_hanh_chinh", "name": "Chỉ số cải cách hành chính", "unit": "điểm", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["cai cach hanh chinh", "cchc", "cải cách hành chính"]},
-    {"id": 9, "code": "ho_so_dvc", "name": "Hồ sơ dịch vụ công tiếp nhận", "unit": "hồ sơ", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["ho so dvc", "dvc", "dịch vụ công", "hồ sơ trực tuyến"]},
-    {"id": 10, "code": "dien_tich_cay_trong", "name": "Diện tích cây trồng hàng năm", "unit": "ha", "level": 2, "is_leaf": true, "tenant_code": "68", "aliases": ["cay trong", "cây trồng", "diện tích cây trồng"]}
+    {
+      "id": 1,
+      "code": "tai_nan_lao_dong_2",
+      "name": "Số vụ tai nạn lao động",
+      "unit": "vụ",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "tai nan lao dong",
+        "tnld",
+        "tnlđ",
+        "tai nạn lđ",
+        "an toàn lao động",
+        "tai nan ld"
+      ]
+    },
+    {
+      "id": 2,
+      "code": "so_nguoi_bi_tnld",
+      "name": "Số người bị tai nạn lao động",
+      "unit": "người",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "người bị tai nạn",
+        "nguoi bi tnld"
+      ]
+    },
+    {
+      "id": 3,
+      "code": "kinh_phi_khuyen_cong",
+      "name": "Kinh phí thực hiện khuyến công",
+      "unit": "triệu đồng",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "kinh phi khuyen cong",
+        "khuyen cong",
+        "khuyến công",
+        "giải ngân khuyến công"
+      ]
+    },
+    {
+      "id": 4,
+      "code": "so_nguoi_dao_tao_khuyen_cong",
+      "name": "Số người được đào tạo từ nguồn kinh phí khuyến công",
+      "unit": "người",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "đào tạo khuyến công",
+        "người được đào tạo khuyến công"
+      ]
+    },
+    {
+      "id": 5,
+      "code": "tram_y_te_dat_chuan",
+      "name": "Số trạm y tế đạt chuẩn quốc gia",
+      "unit": "trạm",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "tram y te",
+        "trạm y tế",
+        "trạm y tế đạt chuẩn"
+      ]
+    },
+    {
+      "id": 6,
+      "code": "giai_quyet_viec_lam",
+      "name": "Số lao động được giải quyết việc làm",
+      "unit": "người",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "việc làm",
+        "giai quyet viec lam",
+        "hỗ trợ việc làm"
+      ]
+    },
+    {
+      "id": 7,
+      "code": "dao_tao_nghe_nong_thon",
+      "name": "Đào tạo nghề cho lao động nông thôn",
+      "unit": "người",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "dao tao nghe",
+        "đào tạo nghề",
+        "học nghề"
+      ]
+    },
+    {
+      "id": 8,
+      "code": "cai_cach_hanh_chinh",
+      "name": "Chỉ số cải cách hành chính",
+      "unit": "điểm",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "cai cach hanh chinh",
+        "cchc",
+        "cải cách hành chính"
+      ]
+    },
+    {
+      "id": 9,
+      "code": "ho_so_dvc",
+      "name": "Hồ sơ dịch vụ công tiếp nhận",
+      "unit": "hồ sơ",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "ho so dvc",
+        "dvc",
+        "dịch vụ công",
+        "hồ sơ trực tuyến"
+      ]
+    },
+    {
+      "id": 10,
+      "code": "dien_tich_cay_trong",
+      "name": "Diện tích cây trồng hàng năm",
+      "unit": "ha",
+      "level": 2,
+      "is_leaf": true,
+      "tenant_code": "68",
+      "aliases": [
+        "cay trong",
+        "cây trồng",
+        "diện tích cây trồng"
+      ]
+    }
   ],
   "missions": [
-    {"id": 1, "code": "MS_VIEC_LAM_2026", "name": "Kế hoạch hỗ trợ giải quyết việc làm và đào tạo nghề cho người lao động", "year_code": "2026", "department_code": "68-1-03", "status": "approved"},
-    {"id": 2, "code": "MS_KHUYEN_CONG_2026", "name": "Chương trình phát triển khuyến công địa phương giai đoạn 2025-2030", "year_code": "2026", "department_code": "68-1-05", "status": "approved"},
-    {"id": 3, "code": "MS_CCHC_2026", "name": "Đề án nâng cao chỉ số cải cách hành chính và chuyển đổi số công vụ", "year_code": "2026", "department_code": "68-1-01", "status": "approved"},
-    {"id": 4, "code": "MS_ATVSLD_2026", "name": "Kế hoạch thanh tra an toàn vệ sinh lao động trên địa bàn toàn tỉnh", "year_code": "2026", "department_code": "68-1-03", "status": "approved"}
+    {
+      "id": 1,
+      "code": "MS_VIEC_LAM_2026",
+      "name": "Kế hoạch hỗ trợ giải quyết việc làm và đào tạo nghề cho người lao động",
+      "year_code": "2026",
+      "department_code": "68-1-03",
+      "status": "approved"
+    },
+    {
+      "id": 2,
+      "code": "MS_KHUYEN_CONG_2026",
+      "name": "Chương trình phát triển khuyến công địa phương giai đoạn 2025-2030",
+      "year_code": "2026",
+      "department_code": "68-1-05",
+      "status": "approved"
+    },
+    {
+      "id": 3,
+      "code": "MS_CCHC_2026",
+      "name": "Đề án nâng cao chỉ số cải cách hành chính và chuyển đổi số công vụ",
+      "year_code": "2026",
+      "department_code": "68-1-01",
+      "status": "approved"
+    },
+    {
+      "id": 4,
+      "code": "MS_ATVSLD_2026",
+      "name": "Kế hoạch thanh tra an toàn vệ sinh lao động trên địa bàn toàn tỉnh",
+      "year_code": "2026",
+      "department_code": "68-1-03",
+      "status": "approved"
+    }
   ],
   "collection_forms": [
-    {"id": 1, "code": "BM_HO_KINH_DOANH_01", "name": "Biểu mẫu thu thập tờ khai hoạt động kinh doanh của hộ kinh doanh cá thể", "year_code": "2026", "department_code": "68-1-05", "is_active": true, "status": "active"},
-    {"id": 2, "code": "BM_COLLECTION_ACTIVE_2026", "name": "Biểu mẫu tổng hợp số liệu chỉ tiêu định kỳ xã phường áp dụng năm 2026", "year_code": "2026", "department_code": "68-1-02", "is_active": true, "status": "active"},
-    {"id": 3, "code": "BM_ATVSLD_02", "name": "Biểu mẫu báo cáo tình hình tai nạn lao động và an toàn vệ sinh lao động", "year_code": "2025", "department_code": "68-1-03", "is_active": true, "status": "active"},
-    {"id": 4, "code": "BM_Y_TE_XA_03", "name": "Biểu mẫu đánh giá trạm y tế xã đạt chuẩn quốc gia về y tế", "year_code": "2026", "department_code": "68-1-06", "is_active": true, "status": "active"}
+    {
+      "id": 1,
+      "code": "BM_HO_KINH_DOANH_01",
+      "name": "Biểu mẫu thu thập tờ khai hoạt động kinh doanh của hộ kinh doanh cá thể",
+      "year_code": "2026",
+      "department_code": "68-1-05",
+      "is_active": true,
+      "status": "active"
+    },
+    {
+      "id": 2,
+      "code": "BM_COLLECTION_ACTIVE_2026",
+      "name": "Biểu mẫu tổng hợp số liệu chỉ tiêu định kỳ xã phường áp dụng năm 2026",
+      "year_code": "2026",
+      "department_code": "68-1-02",
+      "is_active": true,
+      "status": "active"
+    },
+    {
+      "id": 3,
+      "code": "BM_ATVSLD_02",
+      "name": "Biểu mẫu báo cáo tình hình tai nạn lao động và an toàn vệ sinh lao động",
+      "year_code": "2025",
+      "department_code": "68-1-03",
+      "is_active": true,
+      "status": "active"
+    },
+    {
+      "id": 4,
+      "code": "BM_Y_TE_XA_03",
+      "name": "Biểu mẫu đánh giá trạm y tế xã đạt chuẩn quốc gia về y tế",
+      "year_code": "2026",
+      "department_code": "68-1-06",
+      "is_active": true,
+      "status": "active"
+    }
   ],
   "provinces": [
-    {"id": "cc25db32-dda3-4d34-af2f-134b5bc8091c", "code": "01", "name": "Thành phố Hà Nội", "is_activated": true},
-    {"id": "1c471c4d-37fa-457c-b47e-7021ba5f97a2", "code": "04", "name": "Cao Bằng", "is_activated": true},
-    {"id": "637a05c4-f9bc-4ba7-ad6a-34641dcc4f84", "code": "08", "name": "Tuyên Quang", "is_activated": true},
-    {"id": "681067ba-815c-4704-adac-8388c7a444c2", "code": "11", "name": "Điện Biên", "is_activated": true},
-    {"id": "0ce5233b-0ce1-431c-b4dc-29bcd4ef0f33", "code": "12", "name": "Lai Châu", "is_activated": true},
-    {"id": "58118eb5-60f4-4b70-bb7a-76e624eccacd", "code": "14", "name": "Sơn La", "is_activated": true},
-    {"id": "50ed1f90-762b-456c-b083-a88890d14525", "code": "15", "name": "Lào Cai", "is_activated": true},
-    {"id": "1a94d6d9-dc13-42d0-a88c-b9e2c5454266", "code": "19", "name": "Thái Nguyên", "is_activated": true},
-    {"id": "66102969-d8c9-4a02-b9d9-eec80ee1f437", "code": "20", "name": "Lạng Sơn", "is_activated": true},
-    {"id": "0354260f-f266-4ad0-81da-ae2fd17b528a", "code": "22", "name": "Quảng Ninh", "is_activated": true},
-    {"id": "097fc785-13d4-4aa9-8d47-a8629d9f8b54", "code": "24", "name": "Bắc Ninh", "is_activated": true},
-    {"id": "de1ca232-762c-4991-86af-1e141072f635", "code": "25", "name": "Phú Thọ", "is_activated": true},
-    {"id": "0f6c6b4c-9e59-4e60-a14f-7222d2de489f", "code": "31", "name": "Thành phố Hải Phòng", "is_activated": true},
-    {"id": "d597930f-0b15-41be-ac9e-2aca69f91b9b", "code": "33", "name": "Hưng Yên", "is_activated": true},
-    {"id": "35e2faf5-0656-473c-a9eb-0aee857366cb", "code": "37", "name": "Ninh Bình", "is_activated": true},
-    {"id": "bddfea27-22c1-4018-acdc-d6a04f77a1cd", "code": "38", "name": "Thanh Hóa", "is_activated": true},
-    {"id": "3013ee02-8eaa-452b-b086-ae6c80438279", "code": "40", "name": "Nghệ An", "is_activated": true},
-    {"id": "9b002d7b-319c-41bc-b00c-573e8386b693", "code": "42", "name": "Hà Tĩnh", "is_activated": true},
-    {"id": "f8321162-8aad-4e45-893f-c0ba8662c3ef", "code": "44", "name": "Quảng Trị", "is_activated": true},
-    {"id": "2f8cbdf8-75e3-49fb-8a09-1b1ec62795b0", "code": "46", "name": "Thành phố Huế", "is_activated": true},
-    {"id": "4cb8ee16-9ed1-4fff-b99c-96c4726e5f49", "code": "48", "name": "Thành phố Đà Nẵng", "is_activated": true},
-    {"id": "08b1433b-139f-43ab-b2b6-d0a7f7d6dc81", "code": "51", "name": "Quảng Ngãi", "is_activated": true},
-    {"id": "1ccc0d88-b18a-403d-a13e-ce07656e913f", "code": "52", "name": "Gia Lai", "is_activated": true},
-    {"id": "e25ca154-d6db-4563-b8ca-e4cd6611b7e7", "code": "56", "name": "Khánh Hòa", "is_activated": true},
-    {"id": "10040b95-2e2c-4c3e-bf1f-2a62d790c205", "code": "66", "name": "Đắk Lắk", "is_activated": true},
-    {"id": "f60d3ad6-80db-4b95-a08c-2857bce1122d", "code": "68", "name": "Lâm Đồng", "is_activated": true},
-    {"id": "e6f0b547-449a-483d-9a65-d10d42c7aefc", "code": "75", "name": "Đồng Nai", "is_activated": true},
-    {"id": "d495f77f-d94a-497e-8ae9-6072c83a4aca", "code": "79", "name": "Thành phố Hồ Chí Minh", "is_activated": true},
-    {"id": "2897d9c7-99a8-4aa1-be2d-2b6025c7269b", "code": "80", "name": "Tây Ninh", "is_activated": true},
-    {"id": "9883409e-96f4-4f57-8fbd-66aab8292b91", "code": "82", "name": "Đồng Tháp", "is_activated": true},
-    {"id": "a2bb96f9-46de-43be-a122-b5b98b1d2fc1", "code": "86", "name": "Vĩnh Long", "is_activated": true},
-    {"id": "af80f9fa-764a-4816-a26f-73355efafbe8", "code": "91", "name": "An Giang", "is_activated": true},
-    {"id": "d6e0a423-a845-40a2-b4e0-0795114cd753", "code": "92", "name": "Thành phố Cần Thơ", "is_activated": true},
-    {"id": "e839060a-ce68-42e2-8eac-58db3bfabf1b", "code": "96", "name": "Cà Mau", "is_activated": true}
+    {
+      "id": "cc25db32-dda3-4d34-af2f-134b5bc8091c",
+      "code": "01",
+      "name": "Thành phố Hà Nội",
+      "is_activated": true
+    },
+    {
+      "id": "1c471c4d-37fa-457c-b47e-7021ba5f97a2",
+      "code": "04",
+      "name": "Cao Bằng",
+      "is_activated": true
+    },
+    {
+      "id": "637a05c4-f9bc-4ba7-ad6a-34641dcc4f84",
+      "code": "08",
+      "name": "Tuyên Quang",
+      "is_activated": true
+    },
+    {
+      "id": "681067ba-815c-4704-adac-8388c7a444c2",
+      "code": "11",
+      "name": "Điện Biên",
+      "is_activated": true
+    },
+    {
+      "id": "0ce5233b-0ce1-431c-b4dc-29bcd4ef0f33",
+      "code": "12",
+      "name": "Lai Châu",
+      "is_activated": true
+    },
+    {
+      "id": "58118eb5-60f4-4b70-bb7a-76e624eccacd",
+      "code": "14",
+      "name": "Sơn La",
+      "is_activated": true
+    },
+    {
+      "id": "50ed1f90-762b-456c-b083-a88890d14525",
+      "code": "15",
+      "name": "Lào Cai",
+      "is_activated": true
+    },
+    {
+      "id": "1a94d6d9-dc13-42d0-a88c-b9e2c5454266",
+      "code": "19",
+      "name": "Thái Nguyên",
+      "is_activated": true
+    },
+    {
+      "id": "66102969-d8c9-4a02-b9d9-eec80ee1f437",
+      "code": "20",
+      "name": "Lạng Sơn",
+      "is_activated": true
+    },
+    {
+      "id": "0354260f-f266-4ad0-81da-ae2fd17b528a",
+      "code": "22",
+      "name": "Quảng Ninh",
+      "is_activated": true
+    },
+    {
+      "id": "097fc785-13d4-4aa9-8d47-a8629d9f8b54",
+      "code": "24",
+      "name": "Bắc Ninh",
+      "is_activated": true
+    },
+    {
+      "id": "de1ca232-762c-4991-86af-1e141072f635",
+      "code": "25",
+      "name": "Phú Thọ",
+      "is_activated": true
+    },
+    {
+      "id": "0f6c6b4c-9e59-4e60-a14f-7222d2de489f",
+      "code": "31",
+      "name": "Thành phố Hải Phòng",
+      "is_activated": true
+    },
+    {
+      "id": "d597930f-0b15-41be-ac9e-2aca69f91b9b",
+      "code": "33",
+      "name": "Hưng Yên",
+      "is_activated": true
+    },
+    {
+      "id": "35e2faf5-0656-473c-a9eb-0aee857366cb",
+      "code": "37",
+      "name": "Ninh Bình",
+      "is_activated": true
+    },
+    {
+      "id": "bddfea27-22c1-4018-acdc-d6a04f77a1cd",
+      "code": "38",
+      "name": "Thanh Hóa",
+      "is_activated": true
+    },
+    {
+      "id": "3013ee02-8eaa-452b-b086-ae6c80438279",
+      "code": "40",
+      "name": "Nghệ An",
+      "is_activated": true
+    },
+    {
+      "id": "9b002d7b-319c-41bc-b00c-573e8386b693",
+      "code": "42",
+      "name": "Hà Tĩnh",
+      "is_activated": true
+    },
+    {
+      "id": "f8321162-8aad-4e45-893f-c0ba8662c3ef",
+      "code": "44",
+      "name": "Quảng Trị",
+      "is_activated": true
+    },
+    {
+      "id": "2f8cbdf8-75e3-49fb-8a09-1b1ec62795b0",
+      "code": "46",
+      "name": "Thành phố Huế",
+      "is_activated": true
+    },
+    {
+      "id": "4cb8ee16-9ed1-4fff-b99c-96c4726e5f49",
+      "code": "48",
+      "name": "Thành phố Đà Nẵng",
+      "is_activated": true
+    },
+    {
+      "id": "08b1433b-139f-43ab-b2b6-d0a7f7d6dc81",
+      "code": "51",
+      "name": "Quảng Ngãi",
+      "is_activated": true
+    },
+    {
+      "id": "1ccc0d88-b18a-403d-a13e-ce07656e913f",
+      "code": "52",
+      "name": "Gia Lai",
+      "is_activated": true
+    },
+    {
+      "id": "e25ca154-d6db-4563-b8ca-e4cd6611b7e7",
+      "code": "56",
+      "name": "Khánh Hòa",
+      "is_activated": true
+    },
+    {
+      "id": "10040b95-2e2c-4c3e-bf1f-2a62d790c205",
+      "code": "66",
+      "name": "Đắk Lắk",
+      "is_activated": true
+    },
+    {
+      "id": "f60d3ad6-80db-4b95-a08c-2857bce1122d",
+      "code": "68",
+      "name": "Lâm Đồng",
+      "is_activated": true
+    },
+    {
+      "id": "e6f0b547-449a-483d-9a65-d10d42c7aefc",
+      "code": "75",
+      "name": "Đồng Nai",
+      "is_activated": true
+    },
+    {
+      "id": "d495f77f-d94a-497e-8ae9-6072c83a4aca",
+      "code": "79",
+      "name": "Thành phố Hồ Chí Minh",
+      "is_activated": true
+    },
+    {
+      "id": "2897d9c7-99a8-4aa1-be2d-2b6025c7269b",
+      "code": "80",
+      "name": "Tây Ninh",
+      "is_activated": true
+    },
+    {
+      "id": "9883409e-96f4-4f57-8fbd-66aab8292b91",
+      "code": "82",
+      "name": "Đồng Tháp",
+      "is_activated": true
+    },
+    {
+      "id": "a2bb96f9-46de-43be-a122-b5b98b1d2fc1",
+      "code": "86",
+      "name": "Vĩnh Long",
+      "is_activated": true
+    },
+    {
+      "id": "af80f9fa-764a-4816-a26f-73355efafbe8",
+      "code": "91",
+      "name": "An Giang",
+      "is_activated": true
+    },
+    {
+      "id": "d6e0a423-a845-40a2-b4e0-0795114cd753",
+      "code": "92",
+      "name": "Thành phố Cần Thơ",
+      "is_activated": true
+    },
+    {
+      "id": "e839060a-ce68-42e2-8eac-58db3bfabf1b",
+      "code": "96",
+      "name": "Cà Mau",
+      "is_activated": true
+    }
+  ],
+  "semantic_lexicon": [
+    [
+      "FORM_CRITERIA_GROUP",
+      "biểu mẫu",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "bieu mau",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "collection_form",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "criteria_group",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "bộ thu thập",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "bo thu thap",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "tờ khai",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "to khai",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "mẫu biểu",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "FORM_CRITERIA_GROUP",
+      "mau bieu",
+      "FORM_CRITERIA_GROUP",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "nhiệm vụ",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "nhiem vu",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "mission",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "phân công",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "phan cong",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "đề án",
+      "MISSION",
+      1.0
+    ],
+    [
+      "MISSION_KEYWORD",
+      "de an",
+      "MISSION",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "phòng ban",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "phong ban",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "đơn vị",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "don vi",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "office_mission",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "văn phòng",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "van phong",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "sở",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "ban ngành",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "ban nganh",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "chi cục",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICE_KEYWORD",
+      "chi cuc",
+      "OFFICE",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "cán bộ",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "can bo",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "nhân sự",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "nhan su",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "user_mission",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "office_user",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "phụ trách",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "phu trach",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "chủ trì",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "OFFICER_KEYWORD",
+      "chu tri",
+      "OFFICER",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "ma trận",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "ma tran",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "kiểm toán phân công",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "kiem toan phan cong",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "office_mission",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "user_mission",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "chưa phân công",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "chua phan cong",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "độ lệch",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "do lech",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "tổng hợp phân công",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "MATRIX_CUE",
+      "tong hop phan cong",
+      "MATRIX",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "báo cáo",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "bao cao",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "đợt nộp",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "dot nop",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "kỳ báo cáo",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "ky bao cao",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "tiến độ nộp",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "tien do nop",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "trạng thái báo cáo",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "trang thai bao cao",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "phê duyệt báo cáo",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "phe duyet bao cao",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "submitted_date",
+      "REPORT",
+      1.0
+    ],
+    [
+      "REPORT_SIGNAL",
+      "tiến độ nộp báo cáo",
+      "REPORT",
+      1.2
+    ],
+    [
+      "REPORT_SIGNAL",
+      "tien do nop bao cao",
+      "REPORT",
+      1.2
+    ],
+    [
+      "REPORT_SIGNAL",
+      "báo cáo nháp",
+      "REPORT",
+      1.2
+    ],
+    [
+      "REPORT_SIGNAL",
+      "bao cao nhap",
+      "REPORT",
+      1.2
+    ],
+    [
+      "REPORT_STATUS",
+      "bản nháp",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "ban nhap",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "nháp",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "nhap",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "draft",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "approved",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "pending",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chưa phê duyệt",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chua phe duyet",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chờ duyệt",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "cho duyet",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chưa nộp",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chua nop",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "tiến độ",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "tien do",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "trạng thái",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "trang thai",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "đã phê duyệt",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "da phe duyet",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "đối chiếu",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "doi chieu",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chênh lệch",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS",
+      "chenh lech",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "bản nháp",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "ban nhap",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "nháp",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "nhap",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "draft",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "đối chiếu",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "doi chieu",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "so sánh",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "so sanh",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "chênh lệch",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "chenh lech",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "chi tiết",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "chi tiet",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "tất cả",
+      "DIFF",
+      1.0
+    ],
+    [
+      "REPORT_DIFF",
+      "tat ca",
+      "DIFF",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "cán bộ",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "can bo",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "nhân sự",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "nhan su",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "người dùng",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "nguoi dung",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "user",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "officer",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "ai phụ trách",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "ai phu trach",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "ai chủ trì",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY",
+      "ai chu tri",
+      "OFFICER_QUERY",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "nào",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "nao",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "các chỉ tiêu",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "cac chi tieu",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "những chỉ tiêu",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "nhung chi tieu",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "danh mục",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "danh muc",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "thu thập",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "thu thap",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "tiêu chí",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "tieu chi",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "các tiêu chí",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "cac tieu chi",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "những tiêu chí",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_NEGATIVE",
+      "nhung tieu chi",
+      "NEGATIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "cán bộ",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "can bo",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "nhân sự",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "nhan su",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "nhân viên",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "nhan vien",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "chuyên viên",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "chuyen vien",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "chức vụ",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "chuc vu",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "ai phụ trách",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "ai phu trach",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "tài khoản",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "OFFICER_QUERY_POSITIVE",
+      "tai khoan",
+      "POSITIVE",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn có thể làm gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban co the lam gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn có thể giúp gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban co the giup gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn có thể giúp",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban co the giup",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "chức năng của bạn",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "chuc nang cua ban",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "giới thiệu về bạn",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "gioi thieu ve ban",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "năng lực của bạn",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "nang luc cua ban",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "hướng dẫn sử dụng",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "huong dan su dung",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "trợ giúp",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "tro giup",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn là ai",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban la ai",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn làm được gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban lam duoc gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "nông nghiệp",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "nong nghiep",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "phát triển nông thôn",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "phat trien nong thon",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "diêm nghiệp",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "diem nghiep",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "chỉ tiêu",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "chi tieu",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "nhiệm vụ",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "nhiem vu",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "chi cục",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "chi cuc",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "thực hiện",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "DOMAIN_SIGNAL",
+      "thuc hien",
+      "DOMAIN",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "danh sách",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "danh sach",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "danh mục",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "danh muc",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "liệt kê",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "liet ke",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "có những chỉ tiêu nào",
+      "LIST",
+      1.2
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "gồm những chỉ tiêu nào",
+      "LIST",
+      1.2
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "những chỉ tiêu nào",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "nhung chi tieu nao",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "những chỉ tiêu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "nhung chi tieu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "các chỉ tiêu nào",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "cac chi tieu nao",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "chỉ tiêu nào",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "chi tieu nao",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "chỉ tiêu gì",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "chi tieu gi",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tất cả chỉ tiêu",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tất cả các chỉ tiêu",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "có các chỉ tiêu nào",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "hệ thống đang có các chỉ tiêu nào",
+      "LIST",
+      1.2
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "thu thập các chỉ tiêu nào",
+      "LIST",
+      1.2
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "thu thap cac chi tieu nao",
+      "LIST",
+      1.2
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "các chỉ tiêu năm",
+      "LIST",
+      1.1
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "các chỉ tiêu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "cac chi tieu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "phụ trách chỉ tiêu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "quản lý chỉ tiêu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "thực hiện chỉ tiêu",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "các tiêu chí",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "cac tieu chi",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "những tiêu chí",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "nhung tieu chi",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tiêu chí nào",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tieu chi nao",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tiêu chí gì",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "tieu chi gi",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "các hạng mục",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "cac hang muc",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "hiển thị",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "hien thi",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "thu thập được",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TRIGGER",
+      "thu thap duoc",
+      "LIST",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "chỉ tiêu",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "chi tieu",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "tiêu chí",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "tieu chi",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "hạng mục",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "hang muc",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cấp đầu",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cap dau",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cấp 1",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cap 1",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cấp một",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "cap mot",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "bậc 1",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "bac 1",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "đầu mục",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "dau muc",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "gốc",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "goc",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "chỉ số",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "chi so",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "mục tiêu",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "muc tieu",
+      "METRIC",
+      1.0
+    ],
+    [
+      "METRIC_LIST_TARGET",
+      "criteria",
+      "METRIC",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "có bao nhiêu",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "co bao nhieu",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "tổng số",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "tong so",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "đếm số",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "dem so",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "số lượng",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "so luong",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "có mấy",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_COUNT",
+      "co may",
+      "COUNT",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "được báo cáo",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "duoc bao cao",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "được thu thập",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "duoc thu thap",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "phát sinh",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "phat sinh",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "thu thập được",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "CRITERIA_REPORTED",
+      "thu thap duoc",
+      "REPORTED",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "là bao nhiêu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "la bao nhieu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "đạt bao nhiêu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "dat bao nhieu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "hiện tại là bao nhiêu",
+      "POINT_VALUE",
+      1.2
+    ],
+    [
+      "POINT_VALUE",
+      "hien tai la bao nhieu",
+      "POINT_VALUE",
+      1.2
+    ],
+    [
+      "POINT_VALUE",
+      "giá trị bao nhiêu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "gia tri bao nhieu",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "bao nhiêu ?",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "POINT_VALUE",
+      "bao nhieu ?",
+      "POINT_VALUE",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "thực hiện",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "thuc hien",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "chủ trì",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "chu tri",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "quản lý",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "quan ly",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "phụ trách",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "PERFORMER_VERB",
+      "phu trach",
+      "PERFORMER",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "đơn vị nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "don vi nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "phòng nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "phong nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "phòng ban nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "phong ban nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "cơ quan nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "co quan nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "sở nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "so nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "chi cục nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "chi cuc nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "văn phòng nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "van phong nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "tỉnh nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "tinh nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "địa phương nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "dia phuong nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai thực hiện",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai thuc hien",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai phụ trách",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai phu trach",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai chủ trì",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai chu tri",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai quản lý",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "ai quan ly",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "do ai",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "do don vi",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "do đơn vị",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "do phong",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "do phòng",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "thuộc đơn vị nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "thuoc don vi nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "của đơn vị nào",
+      "UNIT",
+      1.0
+    ],
+    [
+      "UNIT_INTERROGATIVE",
+      "cua don vi nao",
+      "UNIT",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "giúp gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "giup gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "làm được gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "lam duoc gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "chức năng gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "chuc nang gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "những chức năng",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "nhung chuc nang",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "hỗ trợ những gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ho tro nhung gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "hỗ trợ gì",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ho tro gi",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "bạn là ai",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "ban la ai",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "giới thiệu về bạn",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "gioi thieu ve ban",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "khả năng của bạn",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "CAPABILITY_META",
+      "kha nang cua ban",
+      "CAPABILITY",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "thế còn",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "the con",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "vậy còn",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "vay con",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "thế thì",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "the thi",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "còn thì",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "con thi",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "còn",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "thì sao",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "thi sao",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "thế sao",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_CONNECTIVE",
+      "the sao",
+      "CONNECTIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhóm đó",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhom do",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhánh đó",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhanh do",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhóm này",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhom nay",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhánh này",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nhanh nay",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "chỉ tiêu đó",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "chi tieu do",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "chỉ tiêu này",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "chi tieu nay",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "ở trên",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "o tren",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "nêu trên",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "DISCOURSE_DEMONSTRATIVE",
+      "neu tren",
+      "DEMONSTRATIVE",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "trạng thái",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "trang thai",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "tiến độ",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "tien do",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "phê duyệt",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "phe duyet",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "vòng đời",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "vong doi",
+      "STATUS",
+      1.0
+    ],
+    [
+      "REPORT_STATUS_SIGNAL",
+      "report_status",
+      "STATUS",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "toàn tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "toan tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "của tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "cua tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "hệ thống",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_SCOPE_SIGNAL",
+      "he thong",
+      "PROV",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "nhóm lĩnh vực",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "nhom linh vuc",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "lĩnh vực",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "linh vuc",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "mảng",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "mang",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "ngành",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "nganh",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "khối",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "khoi",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "thuộc về",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_CUE",
+      "thuoc ve",
+      "SCOPE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "văn phòng",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "van phong",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "từng văn phòng",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "tung van phong",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "quản lý nhà nước nào",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "quản lý nhà nước",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "quan ly nha nuoc",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "xã ",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "xa ",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "phường ",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_OR_WARD_CUE",
+      "phuong ",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "văn phòng",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "van phong",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "từng văn phòng",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "tung van phong",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "lĩnh vực",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "linh vuc",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "quản lý nhà nước",
+      "CUE",
+      1.0
+    ],
+    [
+      "OFFICE_SCOPE_CUE",
+      "quan ly nha nuoc",
+      "CUE",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "các tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "cac tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh sách tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh sach tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "những tỉnh nào",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "nhung tinh nao",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "tỉnh thành nào",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "tinh thanh nao",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh mục tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh muc tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh sách các tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROVINCE_LIST_QUERY",
+      "danh sach cac tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "CODE_SEARCH_KEYWORD",
+      "mã",
+      "CODE",
+      1.0
+    ],
+    [
+      "CODE_SEARCH_KEYWORD",
+      "ma",
+      "CODE",
+      1.0
+    ],
+    [
+      "CODE_SEARCH_KEYWORD",
+      "đầu tiên",
+      "CODE",
+      1.0
+    ],
+    [
+      "CODE_SEARCH_KEYWORD",
+      "dau tien",
+      "CODE",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp số lượng",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop so luong",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp số liệu",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop so lieu",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp báo cáo",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop bao cao",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp danh sách",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop danh sach",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp tình hình",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop tinh hinh",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp các",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop cac",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tổng hợp chỉ tiêu",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_ACTION_CUE",
+      "tong hop chi tieu",
+      "ACTION",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "chỉ tiêu tổng hợp",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "chi tieu tong hop",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "trang trại tổng hợp",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "trang trai tong hop",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "lĩnh vực tổng hợp",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "linh vuc tong hop",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "nhóm tổng hợp",
+      "METRIC",
+      1.0
+    ],
+    [
+      "SYNTHESIS_METRIC_CUE",
+      "nhom tong hop",
+      "METRIC",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "lâm đồng",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "lam dong",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "văn phòng",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "van phong",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "sở",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "so",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "phòng",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "phong",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "xã",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "xa",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "phường",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "LOCAL_OFFICE_OR_WARD_CUE",
+      "phuong",
+      "LOCAL",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "xã",
+      "WARD",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "xa",
+      "WARD",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "phường",
+      "WARD",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "phuong",
+      "WARD",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "thị trấn",
+      "WARD",
+      1.0
+    ],
+    [
+      "WARD_DIMENSION",
+      "thi tran",
+      "WARD",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "thành phố",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "thanh pho",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "địa bàn",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "dia ban",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "mã tỉnh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "ma tinh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "tỉnh thành",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "tinh thanh",
+      "PROV",
+      1.0
+    ],
+    [
+      "PROV_LIST",
+      "province",
+      "PROV",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "từ tháng",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "tu thang",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "đến tháng",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "den thang",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "trong tháng",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "trong thang",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "quý",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "quy",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "nửa đầu năm",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "nua dau nam",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "nửa cuối năm",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "nua cuoi nam",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "hết năm",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "het nam",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "cuối năm",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "cuoi nam",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "đầu năm",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "dau nam",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "tới nay",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "toi nay",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "đến nay",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "den nay",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "giai đoạn",
+      "TIME",
+      1.0
+    ],
+    [
+      "TIME_TERM",
+      "giai doan",
+      "TIME",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chỉ tiêu cấp 1",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chi tieu cap 1",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chỉ tiêu cấp một",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chi tieu cap mot",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chỉ tiêu cấp i",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chi tieu cap i",
+      "LEVEL1",
+      1.0
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cấp 1",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cap 1",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cấp một",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cap mot",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cấp i",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cap i",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "bậc 1",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "bac 1",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cấp đầu",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "cap dau",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "gốc",
+      "LEVEL1",
+      0.8
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "goc",
+      "LEVEL1",
+      0.8
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "đầu mục",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "dau muc",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "tiêu chí cấp",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "tieu chi cap",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chỉ tiêu cấp",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "LEVEL1_CRITERIA_SIGNAL",
+      "chi tieu cap",
+      "LEVEL1",
+      0.9
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "nhiệm vụ",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "nhiem vu",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "lĩnh vực",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "linh vuc",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "đề án",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "de an",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "chương trình",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "chuong trinh",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "công tác",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "MISSION_SCOPE_SIGNAL",
+      "cong tac",
+      "MISSION_SCOPE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "cho tôi biết",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "cho tôi xem",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "vui lòng cho biết",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "hãy cho biết",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "thông tin số liệu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "số liệu chỉ tiêu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "số liệu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "kết quả chỉ tiêu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "giá trị chỉ tiêu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "nhóm chỉ tiêu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "chỉ tiêu",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_LEAD_NOISE",
+      "tiêu chí",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "hiện tại là bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "hiện nay là bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "hiện đạt bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "có giá trị là bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "có giá trị bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "đạt bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "là bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "bao nhiêu",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "hiện tại",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "hiện nay",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "trong năm",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "QUERY_TAIL_NOISE",
+      "năm",
+      "TAIL_NOISE",
+      1.0
+    ],
+    [
+      "OFFICER_PREFIX_NOISE",
+      "cán bộ",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "OFFICER_PREFIX_NOISE",
+      "chuyên viên",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "OFFICER_PREFIX_NOISE",
+      "đồng chí",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_PREFIX_NOISE",
+      "chỉ tiêu",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_PREFIX_NOISE",
+      "tiêu chí",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "MISSION_ENTITY_MARKER",
+      "nhiệm vụ",
+      "MARKER",
+      1.0
+    ],
+    [
+      "MISSION_ENTITY_MARKER",
+      "nhiem vu",
+      "MARKER",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hiện tại là bao nhiêu",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hien tai la bao nhieu",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hiện tại",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hien tai",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hiện nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hien nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hiện có",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hien co",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hiện đang",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hien dang",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trên hệ thống",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "tren he thong",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trên kho",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "tren kho",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "có chỉ tiêu",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "co chi tieu",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "có những",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "co nhung",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "có các",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "co cac",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "gồm những",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "gom nhung",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "gồm các",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "gom cac",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "bao gồm",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "bao gom",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trong năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trong nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thu thập",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thu thap",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trọng tâm",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "trong tam",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "chuyên môn",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "chuyen mon",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "công tác",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "cong tac",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "là gì",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "la gi",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thuộc",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thuoc",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "của",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "cua",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "tại",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "tai",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "nào",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "nao",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thì",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "thi",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hãy",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "hay",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "được",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "duoc",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "đang",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "dang",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "đã",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "da",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "do",
+      "STOP",
+      1.0
+    ],
+    [
+      "MISSION_STOP_TOKEN",
+      "?",
+      "STOP",
+      1.0
+    ],
+    [
+      "METRIC_AGG_PREFIX_NOISE",
+      "tổng số lượng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_AGG_PREFIX_NOISE",
+      "tổng số",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_AGG_PREFIX_NOISE",
+      "tổng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_AGG_PREFIX_NOISE",
+      "số lượng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "METRIC_AGG_PREFIX_NOISE",
+      "số",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "OFFICE_PREFIX_NOISE",
+      "phòng ban",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "OFFICE_PREFIX_NOISE",
+      "phòng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "OFFICE_PREFIX_NOISE",
+      "văn phòng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "DEPT_PREFIX_NOISE",
+      "sở",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "DEPT_PREFIX_NOISE",
+      "phòng",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "DEPT_PREFIX_NOISE",
+      "chi cục",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "DEPT_PREFIX_NOISE",
+      "ban",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "MISSION_LEAD_PREFIX_NOISE",
+      "kế hoạch",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "MISSION_LEAD_PREFIX_NOISE",
+      "chương trình",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "MISSION_LEAD_PREFIX_NOISE",
+      "đề án",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "MISSION_LEAD_PREFIX_NOISE",
+      "nhiệm vụ",
+      "PREFIX_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "kính chào trợ lý ảo",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "kính chào trợ lý",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "kính chào",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "kinh chao",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào chatbot",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào chatbot",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào bot",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào bot",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào đồng chí",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào đồng chí",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào bạn",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào bạn",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào anh",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào anh",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào chị",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào chị",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào em",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào em",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "xin chào",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "good morning",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "chào",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "hello",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "hi",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "hẹn gặp lại",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "thank you",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "tạm biệt",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "cảm ơn",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "GREETING_LEAD_NOISE",
+      "thanks",
+      "LEAD_NOISE",
+      1.0
+    ],
+    [
+      "FAREWELL_SIGNAL",
+      "hẹn gặp lại",
+      "FAREWELL",
+      1.0
+    ],
+    [
+      "FAREWELL_SIGNAL",
+      "thank you",
+      "FAREWELL",
+      1.0
+    ],
+    [
+      "FAREWELL_SIGNAL",
+      "tạm biệt",
+      "FAREWELL",
+      1.0
+    ],
+    [
+      "FAREWELL_SIGNAL",
+      "cảm ơn",
+      "FAREWELL",
+      1.0
+    ],
+    [
+      "FAREWELL_SIGNAL",
+      "thanks",
+      "FAREWELL",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "nhóm lĩnh vực",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "nhom linh vuc",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "lĩnh vực",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "linh vuc",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "mảng",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "mang",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "khối",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "khoi",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "thuộc về",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "thuoc ve",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "ngành",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_ENTITY_MARKER",
+      "nganh",
+      "MARKER",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "về",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "ve",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "của",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "cua",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "trong",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "thuộc",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_LEAD_PREPOSITION",
+      "thuoc",
+      "PREP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện tại là bao nhiêu",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện nay là bao nhiêu",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện tại",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hien tai",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hien nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện có",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hien co",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện đang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hien dang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hiện",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hien",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong quý",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong quy",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "ở quý",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "o quy",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "quý",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "quy",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong nửa",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong nua",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nửa đầu",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nua dau",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nửa cuối",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nua cuoi",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nửa sau",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nua sau",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "6 tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "6 thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "sáu tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "sau thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "3 tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "3 thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "9 tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "9 thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "từ đầu năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tu dau nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "đầu năm",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "dau nam",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tính từ",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tinh tu",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "lũy kế",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "luy ke",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "từ tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tu thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trong thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "ở tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "o thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tháng",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "vào ngày",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "vao ngay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "ngày",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "ngay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tính đến",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tinh den",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "đến nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "den nay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tới giờ",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "toi gio",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "đến giờ",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "den gio",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tại",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tai",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "ở",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "o",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "của",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "cua",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trên hệ thống",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tren he thong",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trên kho",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "tren kho",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thì",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thi",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hãy",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "hay",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "có những",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "co nhung",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "có các",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "co cac",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "gồm những",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "gom nhung",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "gồm các",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "gom cac",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "bao gồm",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "bao gom",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "là gì",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "la gi",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nào",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "nao",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "đang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "dang",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thuộc",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thuoc",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "triển khai",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "trien khai",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thực hiện",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "thuc hien",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "phụ trách",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "phu trach",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "quản lý",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "quan ly",
+      "STOP",
+      1.0
+    ],
+    [
+      "SCOPE_STOP_TOKEN",
+      "?",
+      "STOP",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "lĩnh vực",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "linh vuc",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phân theo lĩnh vực",
+      "ASPECT_FIELD",
+      1.2
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phan theo linh vuc",
+      "ASPECT_FIELD",
+      1.2
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mô hình",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mo hinh",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "ngành nghề",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "nganh nghe",
+      "ASPECT_FIELD",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mức đánh giá",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "muc danh gia",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mức hiệu quả",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "muc hieu qua",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mức xếp loại",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "muc xep loai",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "xếp loại hiệu quả",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "xep loai hieu qua",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "đánh giá hiệu quả",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "danh gia hieu qua",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hiệu quả hoạt động",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hieu qua hoat dong",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "cấp độ",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "cap do",
+      "ASPECT_LEVEL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "loại diện tích",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "loai dien tich",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hình thức diện tích",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hinh thuc dien tich",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "loại sản lượng",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "loai san luong",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phân loại",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phan loai",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hình thức",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "hinh thuc",
+      "ASPECT_TYPE",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "có các loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "co cac loai",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "có những loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "co nhung loai",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các mức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "cac muc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những mức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "nhung muc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "mấy mức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "may muc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "bao nhiêu mức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "bao nhieu muc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "số lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "so linh vuc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "cac linh vuc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "nhung linh vuc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "bao nhiêu lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "bao nhieu linh vuc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "mấy lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "may linh vuc",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "gồm những lĩnh vực",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những lĩnh vực nào",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những ngành nghề",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các ngành nghề",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các mô hình",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những mô hình",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "cac loai",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "nhung loai",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những loại nào",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "có những loại nào",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "có mấy loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "mấy loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "bao nhiêu loại",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "các hình thức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những hình thức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "phân theo những",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "phân bổ theo những",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "gồm các mức",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "những mức nào",
+      "TRIGGER_BREAKDOWN",
+      1.0
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "lũy kế",
+      "CUMULATIVE",
+      1.2
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "luy ke",
+      "CUMULATIVE",
+      1.2
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "đến thời điểm báo cáo",
+      "CUMULATIVE",
+      1.2
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "tích lũy",
+      "CUMULATIVE",
+      1.0
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "trong năm",
+      "ANNUAL",
+      1.2
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "trong nam",
+      "ANNUAL",
+      1.2
+    ],
+    [
+      "TEMPORAL_POLARITY",
+      "hàng năm",
+      "ANNUAL",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phân nhóm",
+      "GROUPING",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "phân hạng",
+      "RATING",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "mảng",
+      "SECTOR",
+      1.0
+    ],
+    [
+      "STRUCTURAL_BREAKDOWN_ASPECT",
+      "liên kết sản xuất",
+      "LINKAGE",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "gồm những",
+      "INCLUDES",
+      1.0
+    ],
+    [
+      "BREAKDOWN_TRIGGER",
+      "gồm các",
+      "INCLUDES",
+      1.0
+    ]
   ]
 }

@@ -326,9 +326,9 @@ class UserService:
             if u_id == clean_id or u_user == clean_id or u_name == clean_id:
                 return dict(u)
             # Hỗ trợ alias không dấu hoặc viết tắt
-            if clean_id in ("boss", "lanhdao", "lanh_dao", "lanh dao", "lãnh đạo", "leader") and (u_user == "boss" or "lãnh đạo" in u_name):
+            if clean_id in ("u_ld_001", "boss", "lanhdao", "lanh_dao", "lanh dao", "lãnh đạo", "leader") and (u_user == "boss" or "lãnh đạo" in u_name):
                 return dict(u)
-            if clean_id in ("thuylanh", "thuy_lanh", "tzyalnh", "thúy lành") and (u_user == "tzyalnh" or "thúy lành" in u_name):
+            if clean_id in ("u_level0", "user_level0", "level0", "level_0", "thuylanh", "thuy_lanh", "tzyalnh", "thúy lành") and (u_user == "tzyalnh" or "thúy lành" in u_name):
                 return dict(u)
             if clean_id in ("hongngoc", "hong_ngoc", "hngoc", "hồng ngọc") and (u_user == "hngoc" or "hồng ngọc" in u_name):
                 return dict(u)
@@ -355,7 +355,7 @@ class UserService:
         2. Người dùng không xác định (attacker/guest): Bắt buộc hạ cấp về Level 0 (Guest), is_unrestricted=False.
         """
         clean_schema = "dwh_public" if str(schema or "").strip().lower() == "dwh_public" else "dwh_internal"
-        profile = self.find_user_sync(user_identifier)
+        profile = self.find_user_sync(user_identifier) if user_identifier else None
         if profile:
             db_role_level = int(profile.get("role_level", 0))
             if role_level is not None and role_level != db_role_level:

@@ -51,6 +51,7 @@ class ChatStreamRequest(BaseModel):
     schema: str | None = Field(default="dwh_internal", description="Schema kho dữ liệu ('dwh_internal' hoặc 'dwh_public')")
     role: str | None = Field(None, description="Vai trò gửi từ frontend")
     level: int | None = Field(None, description="Cấp độ phân quyền HBAC (0: Tỉnh, 1: Sở, 2: Phòng, 3: Công dân)")
+    role_level: int | None = Field(None, description="Alias cho level")
     tenant_code: str | None = Field(None, description="Mã tỉnh/thành phố (ví dụ: '68', '79')")
     department_code: str | None = Field(None, description="Mã phòng ban/sở ngành")
     history: list[dict] | None = Field(None, description="Lịch sử hội thoại")
@@ -244,7 +245,11 @@ async def chat_sse_event_generator(
 async def chat_stream_endpoint(
     req: ChatStreamRequest,
     request: Request,
-    authorization: str | None = Header(None, alias="Authorization")
+    authorization: str | None = Header(None, alias="Authorization"),
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+    x_user_name: str | None = Header(None, alias="X-User-Name"),
+    x_role: str | None = Header(None, alias="X-Role"),
+    x_schema: str | None = Header(None, alias="X-Schema"),
 ):
     """
     Endpoint tiếp nhận prompt tra cứu và mở luồng SSE stream.
@@ -255,19 +260,25 @@ async def chat_stream_endpoint(
     if not raw_prompt:
         raise HTTPException(status_code=400, detail="Vui lòng cung cấp nội dung câu hỏi (prompt hoặc query).")
     
+    effective_user_id = req.user_id or x_user_id
+    effective_user_name = req.user_name or x_user_name
+    effective_role = req.role or x_role
+    effective_level = req.level if req.level is not None else req.role_level
+    effective_schema = x_schema or req.schema
+
     return StreamingResponse(
         chat_sse_event_generator(
             prompt=raw_prompt,
             auth_header=authorization,
             session_id=req.session_id,
             client_ip=client_ip,
-            client_role=req.role,
-            client_level=req.level,
+            client_role=effective_role,
+            client_level=effective_level,
             client_tenant=req.tenant_code,
             client_dept=req.department_code,
-            client_user_id=req.user_id,
-            client_user_name=req.user_name,
-            client_schema=req.schema,
+            client_user_id=effective_user_id,
+            client_user_name=effective_user_name,
+            client_schema=effective_schema,
             history=req.history,
         ),
         media_type="text/event-stream",
@@ -284,13 +295,23 @@ async def chat_stream_endpoint(
 async def chat_sync_endpoint(
     req: ChatStreamRequest,
     request: Request,
-    authorization: str | None = Header(None, alias="Authorization")
+    authorization: str | None = Header(None, alias="Authorization"),
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+    x_user_name: str | None = Header(None, alias="X-User-Name"),
+    x_role: str | None = Header(None, alias="X-Role"),
+    x_schema: str | None = Header(None, alias="X-Schema"),
 ):
     """Cung cấp endpoint đồng bộ dạng JSON cho các client không hỗ trợ SSE stream."""
     client_ip = request.client.host if request.client else "127.0.0.1"
     raw_prompt = (req.prompt or req.query or "").strip()
     if not raw_prompt:
         raise HTTPException(status_code=400, detail="Vui lòng cung cấp nội dung câu hỏi (prompt hoặc query).")
+
+    effective_user_id = req.user_id or x_user_id
+    effective_user_name = req.user_name or x_user_name
+    effective_role = req.role or x_role
+    effective_level = req.level if req.level is not None else req.role_level
+    effective_schema = x_schema or req.schema
 
     full_answer = ""
     tabular_data = None
@@ -300,13 +321,13 @@ async def chat_sync_endpoint(
         auth_header=authorization,
         session_id=req.session_id,
         client_ip=client_ip,
-        client_role=req.role,
-        client_level=req.level,
+        client_role=effective_role,
+        client_level=effective_level,
         client_tenant=req.tenant_code,
         client_dept=req.department_code,
-        client_user_id=req.user_id,
-        client_user_name=req.user_name,
-        client_schema=req.schema,
+        client_user_id=effective_user_id,
+        client_user_name=effective_user_name,
+        client_schema=effective_schema,
         history=req.history,
     ):
         for line in chunk.split("\n"):

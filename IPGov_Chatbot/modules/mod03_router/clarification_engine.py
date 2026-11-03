@@ -109,6 +109,43 @@ class ClarificationEngine:
 
         # 1. KIỂM TRA ĐA NGHĨA CHỈ TIÊU (REAR MARGIN GAP - ACL 2024 & ACRONYM TOPIC DISCOVERY)
         # Tra cứu động qua classify_criterion_hierarchy và catalog_acronyms trong RAM
+        if self.catalog and hasattr(self.catalog, "conn"):
+            try:
+                acronym_rows = self.catalog.conn.execute(
+                    "SELECT acronym, full_form, category FROM catalog_acronyms WHERE category = 'criteria';"
+                ).fetchall()
+                for acr, full, cat in acronym_rows:
+                    acr_low = acr.lower()
+                    full_low = full.lower()
+                    if acr_low in q_norm.split() or f" {acr_low} " in f" {q_norm} " or q_norm == acr_low or full_low in q_norm:
+                        crit_rows = self.catalog.conn.execute("""
+                            SELECT code, name FROM catalog_criteria
+                            WHERE is_leaf = TRUE AND (
+                                LOWER(name) LIKE '%' || ? || '%' 
+                                OR LOWER(name) LIKE '%' || ? || '%'
+                                OR LOWER(aliases) LIKE '%' || ? || '%'
+                            )
+                            ORDER BY length(name) ASC
+                            LIMIT 5;
+                        """, (acr_low, full_low, acr_low)).fetchall()
+                        has_exact_leaf_named = any(
+                            r[1].lower() in q_norm and len(r[1]) > len(full_low)
+                            for r in crit_rows
+                        )
+                        if len(crit_rows) > 1 and not has_exact_leaf_named:
+                            options = [
+                                SlotClarificationOption(
+                                    label=r[1],
+                                    slot_key="metric",
+                                    value=r[0] or r[1]
+                                )
+                                for r in crit_rows[:3]
+                            ]
+                            labels = [opt.label for opt in options]
+                            return True, ["metric_code"], options, labels
+            except Exception as e:
+                logger.debug("Lỗi tra cứu acronym trong ClarificationEngine: %s", e)
+
         has_specific_leaf = False
         has_exact_hierarchy_crit = False
         if self.catalog and hasattr(self.catalog, "classify_criterion_hierarchy"):

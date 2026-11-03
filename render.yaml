@@ -24,7 +24,7 @@ services:
     runtime: python
     region: singapore
     plan: free
-    buildCommand: pip install -r backend/requirements_render.txt
+    buildCommand: pip install -r IPGov_Chatbot/requirements_render.txt
     startCommand: uvicorn IPGov_Chatbot.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
