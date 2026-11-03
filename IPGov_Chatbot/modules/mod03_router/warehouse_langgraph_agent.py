@@ -696,10 +696,16 @@ class WarehouseLangGraphAgent:
                 "row_count": 0,
             }
 
-        # 3. Kiểm tra Whitelist 8 bảng nghiệp vụ
+        # 3. Kiểm tra Whitelist bảng nghiệp vụ
         cte_names = {cte.alias_or_name.lower().replace('"', '').strip() for cte in parsed.find_all(exp.CTE)}
         for t in parsed.find_all(exp.Table):
-            clean_t = t.name.lower().replace("dwh_internal.", "").replace('"', '').strip()
+            clean_t = (
+                t.name.lower()
+                .replace("dwh_internal.", "")
+                .replace("dwh_public.", "")
+                .replace('"', '')
+                .strip()
+            )
             if clean_t not in ALLOWED_CATALOG_TABLES and clean_t not in cte_names:
                 return {
                     "error": f"Vi phạm an ninh bảo mật AST: Bảng '{clean_t}' không nằm trong danh mục 8 bảng nghiệp vụ được phép truy vấn.",
@@ -715,7 +721,13 @@ class WarehouseLangGraphAgent:
         # 5. AST Column Validator: Xử lý cột id trên fact_report_criteria
         fact_aliases = set()
         for t in parsed.find_all(exp.Table):
-            clean_t = t.name.lower().replace("dwh_internal.", "").replace('"', '').strip()
+            clean_t = (
+                t.name.lower()
+                .replace("dwh_internal.", "")
+                .replace("dwh_public.", "")
+                .replace('"', '')
+                .strip()
+            )
             if clean_t == "fact_report_criteria":
                 if t.alias:
                     fact_aliases.add(t.alias.lower().strip())
@@ -742,14 +754,22 @@ class WarehouseLangGraphAgent:
                     cast_node.set("this", nullif_expr)
 
         # 6. Kiên cố hóa toàn diện qua Module 06 AST Enforcer Service (HBAC, NULLS LAST, Safe Cast, Safe Projection)
-        tenant = (user_context or {}).get("tenant_code") or "68"
-        dept = (user_context or {}).get("department_code")
+        u_ctx = user_context or {}
+        exec_schema = "dwh_public" if str(u_ctx.get("schema") or "").strip().lower() == "dwh_public" else "dwh_internal"
+        tenant = u_ctx.get("tenant_code") or "68"
+        dept = u_ctx.get("department_code")
         sec_ctx = UserSecurityContextDTO(
-            user_id="warehouse_agent",
-            username="system",
-            role_level=0,
+            user_id=str(u_ctx.get("user_id") or "warehouse_agent"),
+            username=str(u_ctx.get("username") or "system"),
+            name=u_ctx.get("name") or u_ctx.get("user_name"),
+            role_level=int(u_ctx.get("role_level", 0) or 0) if u_ctx.get("explicit_role_provided") else 0,
             tenant_code=tenant,
             department_code=dept,
+            schema=exec_schema,
+            status_filter=u_ctx.get("status_filter"),
+            explicit_role_provided=bool(u_ctx.get("explicit_role_provided", False)),
+            is_unrestricted=True if exec_schema == "dwh_public" else bool(u_ctx.get("is_unrestricted", False)),
+            assigned_mission_ids=[str(m) for m in (u_ctx.get("assigned_mission_ids") or []) if m],
         )
 
         try:
@@ -874,12 +894,14 @@ class WarehouseLangGraphAgent:
         query: str,
         norm_frame: Optional[Any] = None,
         tenant_code: Optional[str] = "68",
+        target_schema: str = "dwh_internal",
     ) -> List[Dict[str, Any]]:
         """
-        Truy vấn trực tiếp CSDL PostgreSQL dwh_internal.criteria khi DuckDB RAM bị cache-miss.
+        Truy vấn trực tiếp CSDL PostgreSQL theo target_schema khi DuckDB RAM bị cache-miss.
         Sử dụng match đa tầng: raw_metric_mentions, subject_entity, và query tokens.
         """
         import re
+        eff_schema = "dwh_public" if str(target_schema or "").strip().lower() == "dwh_public" else "dwh_internal"
         search_terms: List[str] = []
 
         # 1. Trích xuất từ các trường đã phân tích của normalizer
@@ -899,39 +921,81 @@ class WarehouseLangGraphAgent:
         if not search_terms:
             return []
 
-        # 3. Thực thi truy vấn PostgreSQL an toàn qua execute_sync_fallback
-        sql = """
-            SELECT 
-                c.id, 
-                c.code, 
-                c.name, 
-                c.level, 
-                c.parent_id,
-                NOT EXISTS (
-                    SELECT 1 
-                    FROM dwh_internal.criteria sub 
-                    WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL
-                ) AS is_leaf,
-                c.tenant_code, 
-                c.created_date,
-                p.name AS parent_name
-            FROM dwh_internal.criteria c
-            LEFT JOIN dwh_internal.criteria p ON c.parent_id = p.id
-            WHERE c.deleted_date IS NULL
-              AND (
-                  LOWER(c.name) ILIKE %s
-                  OR LOWER(c.code) ILIKE %s
-                  OR (%s != '' AND %s ILIKE ('%%' || LOWER(c.name) || '%%'))
-              )
-            ORDER BY 
-                (CASE WHEN NOT EXISTS (
-                    SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL
-                ) THEN 1 ELSE 0 END) DESC,
-                c.level DESC, 
-                LENGTH(c.name) DESC, 
-                c.created_date DESC
-            LIMIT 5;
-        """
+        # 3. Thực thi truy vấn PostgreSQL an toàn qua execute_sync_fallback theo đúng schema
+        if eff_schema == "dwh_public":
+            sql = """
+                WITH pub_crit AS (
+                    SELECT DISTINCT ON (f.criteria_id)
+                        f.criteria_id AS id,
+                        f.code,
+                        f.name,
+                        f.parent_criteria_id AS parent_id,
+                        f.tenant_code,
+                        f.report_date AS created_date,
+                        CASE WHEN f.parent_criteria_id IS NULL THEN 1 ELSE 2 END AS level
+                    FROM dwh_public.fact_report_criteria f
+                    WHERE f.report_status = 'approved'
+                    ORDER BY f.criteria_id, f.report_date DESC NULLS LAST
+                )
+                SELECT
+                    c.id,
+                    c.code,
+                    c.name,
+                    c.level,
+                    c.parent_id,
+                    NOT EXISTS (
+                        SELECT 1 FROM pub_crit sub WHERE sub.parent_id = c.id
+                    ) AS is_leaf,
+                    c.tenant_code,
+                    c.created_date,
+                    p.name AS parent_name
+                FROM pub_crit c
+                LEFT JOIN pub_crit p ON c.parent_id = p.id
+                WHERE LOWER(c.name) ILIKE %s
+                   OR LOWER(c.code) ILIKE %s
+                   OR (%s != '' AND %s ILIKE ('%%' || LOWER(c.name) || '%%'))
+                ORDER BY
+                    (CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM pub_crit sub WHERE sub.parent_id = c.id
+                    ) THEN 1 ELSE 0 END) DESC,
+                    c.level DESC,
+                    LENGTH(c.name) DESC,
+                    c.created_date DESC
+                LIMIT 5;
+            """
+        else:
+            sql = """
+                SELECT 
+                    c.id, 
+                    c.code, 
+                    c.name, 
+                    c.level, 
+                    c.parent_id,
+                    NOT EXISTS (
+                        SELECT 1 
+                        FROM dwh_internal.criteria sub 
+                        WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL
+                    ) AS is_leaf,
+                    c.tenant_code, 
+                    c.created_date,
+                    p.name AS parent_name
+                FROM dwh_internal.criteria c
+                LEFT JOIN dwh_internal.criteria p ON c.parent_id = p.id
+                WHERE c.deleted_date IS NULL
+                  AND (
+                      LOWER(c.name) ILIKE %s
+                      OR LOWER(c.code) ILIKE %s
+                      OR (%s != '' AND %s ILIKE ('%%' || LOWER(c.name) || '%%'))
+                  )
+                ORDER BY 
+                    (CASE WHEN NOT EXISTS (
+                        SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL
+                    ) THEN 1 ELSE 0 END) DESC,
+                    c.level DESC, 
+                    LENGTH(c.name) DESC, 
+                    c.created_date DESC
+                LIMIT 5;
+            """
 
         seen_ids = set()
         matched_criteria: List[Dict[str, Any]] = []
@@ -950,7 +1014,7 @@ class WarehouseLangGraphAgent:
                         seen_ids.add(cid)
                         matched_criteria.append(r)
             except Exception as e:
-                logger.warning("[LiveFallback] Lỗi truy vấn PostgreSQL criteria: %s", e)
+                logger.warning("[LiveFallback] Lỗi truy vấn PostgreSQL criteria (%s): %s", eff_schema, e)
 
         return matched_criteria
 
@@ -1041,13 +1105,18 @@ class WarehouseLangGraphAgent:
             return f"{int(parts[2]):02d}/{int(parts[1]):02d}/{parts[0]}"
         return str(d_str)[:10]
 
-    def get_warehouse_date_bounds(self, tenant_code: str = "68") -> Dict[str, Any]:
+    def get_warehouse_date_bounds(
+        self,
+        tenant_code: str = "68",
+        target_schema: str = "dwh_internal",
+    ) -> Dict[str, Any]:
         """
-        Truy vấn động biên thời gian thực tế trong kho DWH.
+        Truy vấn động biên thời gian thực tế trong kho DWH theo schema mục tiêu.
         Thay thế hoàn toàn các giá trị hardcode '2026-01-01' và '2026-10-31'.
         """
+        eff_schema = "dwh_public" if str(target_schema or "").strip().lower() == "dwh_public" else "dwh_internal"
         tc_safe = re.sub(r"[^a-zA-Z0-9_-]", "", str(tenant_code or "68")) or "68"
-        cache_key = f"wh_bounds_{tc_safe}"
+        cache_key = f"wh_bounds_{eff_schema}_{tc_safe}"
 
         # Kiểm tra in-memory cache để đạt SLA < 5ms
         if hasattr(self, "_date_bounds_cache"):
@@ -1063,11 +1132,14 @@ class WarehouseLangGraphAgent:
                 "SELECT "
                 "  MIN(report_date)::TEXT AS min_date, "
                 "  MAX(report_date)::TEXT AS max_date "
-                "FROM dwh_internal.fact_report_criteria "
+                f"FROM {eff_schema}.fact_report_criteria "
                 f"WHERE report_status = 'approved' AND tenant_code = '{tc_safe}';"
             )
             try:
-                res = self.execute_safe_sql(q_bounds)
+                res = self.execute_safe_sql(
+                    q_bounds,
+                    user_context={"schema": eff_schema, "tenant_code": tc_safe, "is_unrestricted": True},
+                )
                 rows = res.get("rows", []) if isinstance(res, dict) else []
                 if rows:
                     raw_min = str(rows[0].get("min_date") or "")[:10]
@@ -1077,7 +1149,7 @@ class WarehouseLangGraphAgent:
                     if len(raw_max) == 10 and raw_max != "None":
                         max_d = raw_max
             except Exception as e_b:
-                logger.debug("Lỗi truy vấn dynamic date bounds: %s", e_b)
+                logger.debug("Lỗi truy vấn dynamic date bounds (%s): %s", eff_schema, e_b)
 
         # Fallback an toàn nếu DB offline
         min_date = min_d or "2026-01-01"
@@ -1111,11 +1183,13 @@ class WarehouseLangGraphAgent:
         metric_ids: Optional[List[str]] = None,
         metric_names: Optional[List[str]] = None,
         require_non_zero: bool = True,
+        target_schema: str = "dwh_internal",
     ) -> List[str]:
-        """Truy vấn động các mốc ngày báo cáo thực tế trong kho dữ liệu DWH (hỗ trợ lọc theo chỉ tiêu cụ thể)."""
+        """Truy vấn động các mốc ngày báo cáo thực tế trong kho dữ liệu DWH theo target_schema."""
         if not hasattr(self, "execute_safe_sql"):
             return []
         try:
+            eff_schema = "dwh_public" if str(target_schema or "").strip().lower() == "dwh_public" else "dwh_internal"
             tc_safe = re.sub(r"[^a-zA-Z0-9_-]", "", str(tenant_code or "68")) or "68"
             conds = [
                 f"f.tenant_code = '{tc_safe}'",
@@ -1127,16 +1201,24 @@ class WarehouseLangGraphAgent:
                 if yc_safe:
                     conds.append(f"f.year_code = '{yc_safe}'")
 
+            code_col = "f.code" if eff_schema == "dwh_public" else "c.code"
+            name_col = "f.name" if eff_schema == "dwh_public" else "c.name"
+            from_clause = (
+                "FROM dwh_public.fact_report_criteria f "
+                if eff_schema == "dwh_public"
+                else "FROM dwh_internal.fact_report_criteria f LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id "
+            )
+
             m_filters = []
             for mid in (metric_ids or []):
                 mid_s = str(mid or "").strip().replace("'", "''")
                 if mid_s:
                     m_filters.append(f"LOWER(CAST(f.criteria_id AS TEXT)) = LOWER('{mid_s}')")
-                    m_filters.append(f"LOWER(c.code) = LOWER('{mid_s}')")
+                    m_filters.append(f"LOWER({code_col}) = LOWER('{mid_s}')")
             for mname in (metric_names or []):
                 mn_clean = re.sub(r"\s+edit\s+\d+", "", str(mname or ""), flags=re.IGNORECASE).strip().replace("'", "''")
                 if mn_clean:
-                    m_filters.append(f"LOWER(c.name) LIKE LOWER('%{mn_clean}%')")
+                    m_filters.append(f"LOWER({name_col}) LIKE LOWER('%{mn_clean}%')")
 
             if m_filters:
                 conds.append("(" + " OR ".join(m_filters) + ")")
@@ -1147,12 +1229,14 @@ class WarehouseLangGraphAgent:
             where_sql = " AND ".join(conds)
             q_sql = (
                 "SELECT DISTINCT CAST(f.report_date AS DATE) AS r_date "
-                "FROM dwh_internal.fact_report_criteria f "
-                "LEFT JOIN dwh_internal.criteria c ON f.criteria_id = c.id "
+                f"{from_clause}"
                 f"WHERE {where_sql} "
                 "ORDER BY r_date ASC LIMIT 50;"
             )
-            res = self.execute_safe_sql(q_sql)
+            res = self.execute_safe_sql(
+                q_sql,
+                user_context={"schema": eff_schema, "tenant_code": tc_safe, "is_unrestricted": True},
+            )
             r_list = res.get("rows", []) if isinstance(res, dict) else []
             dates = []
             for r in r_list:
@@ -1173,6 +1257,11 @@ class WarehouseLangGraphAgent:
         """Định dạng thông báo động khi mốc ngày/năm nằm ngoài phạm vi dữ liệu kho DWH (TC-06, TC-09)."""
         clean_names = []
         m_ids = []
+        eff_schema_oob = (
+            "dwh_public"
+            if str(getattr(norm_frame, "target_schema", "") or "").strip().lower() == "dwh_public"
+            else "dwh_internal"
+        )
         if norm_frame:
             m_ids = list(getattr(norm_frame, "canonical_metric_ids", []) or [])
             if getattr(norm_frame, "canonical_metric_names", None):
@@ -1189,12 +1278,14 @@ class WarehouseLangGraphAgent:
                 metric_ids=m_ids or None,
                 metric_names=clean_names or None,
                 require_non_zero=False,
+                target_schema=eff_schema_oob,
             )
         if not active_dates_2026:
             active_dates_2026 = self._get_warehouse_reporting_dates(
                 tenant_code=tenant_code,
                 year_code="2026",
                 require_non_zero=False,
+                target_schema=eff_schema_oob,
             )
 
         active_vn = [f"**{self._fmt_iso_to_vn(d)}**" for d in active_dates_2026]
@@ -1252,6 +1343,12 @@ class WarehouseLangGraphAgent:
         card_markdowns = []
         table_rows = []
         t_code = str(getattr(norm_frame, "tenant_code", None) or "68")
+        eff_schema_dual = (
+            "dwh_public"
+            if str(getattr(norm_frame, "target_schema", "") or "").strip().lower() == "dwh_public"
+            else "dwh_internal"
+        )
+        is_pub_dual = eff_schema_dual == "dwh_public"
 
         req_date_str = None
         if norm_frame and norm_frame.specific_date:
@@ -1287,6 +1384,7 @@ class WarehouseLangGraphAgent:
                 metric_ids=list(getattr(norm_frame, "canonical_metric_ids", []) or []) if norm_frame else None,
                 metric_names=clean_req_names or None,
                 require_non_zero=True,
+                target_schema=eff_schema_dual,
             )
             avail_note = ""
             if avail_dates:
@@ -1304,7 +1402,7 @@ class WarehouseLangGraphAgent:
             not self._check_empty_or_dash(self._extract_metric_val(r))
             for r in rows
         )
-        if not rows or not has_any_valid_data:
+        if not rows or (not has_any_valid_data and not is_pub_dual):
             return _build_no_data_dual_msg(), None
 
         row_map: Dict[str, Dict[str, Any]] = {}
@@ -1347,6 +1445,7 @@ class WarehouseLangGraphAgent:
 
         range_from_iso = str(getattr(norm_frame, "date_from", "") or "")[:10] if norm_frame else ""
         range_to_iso = str(getattr(norm_frame, "date_to", "") or "")[:10] if norm_frame else ""
+        any_matched_row = False
 
         for idx, m_name in enumerate(target_names, 1):
             m_disp = re.sub(r"\s+edit\s+\d+", "", str(m_name), flags=re.IGNORECASE).strip()
@@ -1360,6 +1459,7 @@ class WarehouseLangGraphAgent:
                 )
 
             if matched_r:
+                any_matched_row = True
                 val_raw = self._extract_metric_val(matched_r)
                 child_breakdown_note = ""
                 cid_str = str(matched_r.get("criteria_id") or "").strip().lower()
@@ -1392,8 +1492,16 @@ class WarehouseLangGraphAgent:
                         val_raw = 0
 
                 is_empty = self._check_empty_or_dash(val_raw)
-                val_fmt = "Chưa có số liệu ghi nhận (-)" if is_empty else vn_format_num(val_raw)
-                off_str = matched_r.get("ten_van_phong") or matched_r.get("office_name") or "Toàn tỉnh"
+                val_fmt = (
+                    "NULL (Chưa công bố số liệu công khai)"
+                    if (is_empty and is_pub_dual)
+                    else ("Chưa có số liệu ghi nhận (-)" if is_empty else vn_format_num(val_raw))
+                )
+                off_str = (
+                    "Dữ liệu công khai"
+                    if is_pub_dual
+                    else (matched_r.get("ten_van_phong") or matched_r.get("office_name") or "Toàn tỉnh")
+                )
                 mis_str = matched_r.get("ten_nhiem_vu") or matched_r.get("mission_name") or "-"
                 raw_d = matched_r.get("ngay_bao_cao_moi_nhat") or matched_r.get("report_date")
                 date_str = "-"
@@ -1431,6 +1539,7 @@ class WarehouseLangGraphAgent:
                         year_code=str(year or "2026"),
                         metric_ids=[cid_str] if cid_str else None,
                         metric_names=[m_disp],
+                        target_schema=eff_schema_dual,
                     )
                     in_range_dates = [d for d in m_dates if range_from_iso <= d <= range_to_iso]
                     if len(in_range_dates) >= 2:
@@ -1474,11 +1583,12 @@ class WarehouseLangGraphAgent:
                     "_parent_name": p_name_raw,
                 })
             else:
+                off_default = "Dữ liệu công khai" if is_pub_dual else "Toàn tỉnh"
                 card_md = (
                     f"### {idx}. Chỉ tiêu: **{m_disp}**\n"
                     f"- **Chỉ tiêu:** {m_disp}\n"
                     f"- **Giá trị:** Chưa có số liệu ghi nhận (-)\n"
-                    f"- **Đơn vị thực hiện:** Toàn tỉnh\n"
+                    f"- **Đơn vị thực hiện:** {off_default}\n"
                     f"- **Nhiệm vụ trọng tâm:** -\n"
                     f"- **Thời điểm báo cáo:** -"
                 )
@@ -1487,13 +1597,13 @@ class WarehouseLangGraphAgent:
                     "stt": idx,
                     "item": m_disp,
                     "value": "Chưa có số liệu (-)",
-                    "office": "Toàn tỉnh",
+                    "office": off_default,
                     "mission": "-",
                     "report_date": "-",
                     "_raw_value": None,
                 })
 
-        if not any(r.get("_raw_value") is not None for r in table_rows):
+        if not any(r.get("_raw_value") is not None for r in table_rows) and not (is_pub_dual and any_matched_row):
             return _build_no_data_dual_msg(), None
 
         if req_date_str:
@@ -1770,6 +1880,10 @@ class WarehouseLangGraphAgent:
                 if sibling_count >= 2:
                     p_val = siblings_sum
 
+            schema_name = getattr(norm_frame, "target_schema", None) or getattr(self, "active_schema", "dwh_internal") or "dwh_internal"
+            if schema_name not in ("dwh_internal", "dwh_public"):
+                schema_name = "dwh_internal"
+
             # Priority 3: Truy vấn động DWH PostgreSQL nếu parent_id khả dụng
             if (p_val is None or p_val == 0.0) and parent_id and hasattr(self, "execute_safe_sql"):
                 try:
@@ -1778,9 +1892,6 @@ class WarehouseLangGraphAgent:
                     date_cond = ""
                     if norm_frame and norm_frame.specific_date:
                         date_cond = f"AND f.report_date::date <= '{str(norm_frame.specific_date)[:10]}'::date"
-                    schema_name = getattr(norm_frame, "target_schema", None) or getattr(self, "active_schema", "dwh_internal") or "dwh_internal"
-                    if schema_name not in ("dwh_internal", "dwh_public"):
-                        schema_name = "dwh_internal"
                     dwh_parent_sql = f"""
                         SELECT f.value FROM {schema_name}.fact_report_criteria f
                         WHERE f.criteria_id = '{parent_id}'
@@ -1790,15 +1901,18 @@ class WarehouseLangGraphAgent:
                           {date_cond}
                         ORDER BY f.report_date DESC LIMIT 1;
                     """
-                    p_res = self.execute_safe_sql(dwh_parent_sql)
+                    p_res = self.execute_safe_sql(
+                        dwh_parent_sql,
+                        user_context={"schema": schema_name, "tenant_code": tenant_code, "is_unrestricted": True},
+                    )
                     p_rows = p_res.get("rows", [])
                     if p_rows:
                         p_val = _to_float(p_rows[0].get("value"))
                 except Exception:
                     pass
 
-            # Priority 4: Lấy từ latest_value trong catalog_criteria_hierarchy
-            if (p_val is None or p_val == 0.0) and parent_id and parent_id.lower() in cat_hierarchy:
+            # Priority 4: Lấy từ latest_value trong catalog_criteria_hierarchy (chỉ áp dụng cho dwh_internal)
+            if schema_name != "dwh_public" and (p_val is None or p_val == 0.0) and parent_id and parent_id.lower() in cat_hierarchy:
                 p_val = _to_float(cat_hierarchy[parent_id.lower()].get("latest_value"))
 
             # Tính toán tỷ trọng thực sự
@@ -2076,11 +2190,17 @@ class WarehouseLangGraphAgent:
                 elif len(clean_names) > 1:
                     subj_label = "các chỉ tiêu " + ", ".join(f"**{n}**" for n in clean_names)
             t_code_tr = str(getattr(norm_frame, "tenant_code", None) or "68") if norm_frame else "68"
+            eff_schema_tr = (
+                "dwh_public"
+                if str(getattr(norm_frame, "target_schema", "") or "").strip().lower() == "dwh_public"
+                else "dwh_internal"
+            )
             avail_dates = self._get_warehouse_reporting_dates(
                 tenant_code=t_code_tr,
                 year_code=str(year or "2026"),
                 metric_ids=list(getattr(norm_frame, "canonical_metric_ids", []) or []) if norm_frame else None,
                 metric_names=clean_names or None,
+                target_schema=eff_schema_tr,
             )
             avail_note = ""
             if avail_dates:
@@ -2201,6 +2321,9 @@ class WarehouseLangGraphAgent:
         temporal_meta: Dict[str, Any],
         sql: Optional[str] = None,
     ) -> Tuple[str, Dict[str, Any]]:
+        is_pub_rollup = str(getattr(norm_frame, "target_schema", "") or "").strip().lower() == "dwh_public"
+        empty_rollup_val = "NULL (Chưa công bố số liệu công khai)" if is_pub_rollup else "-"
+        default_rollup_off = "Dữ liệu công khai" if is_pub_rollup else "Toàn tỉnh"
         p_rollup_target = getattr(norm_frame, "parent_rollup_target", None) if norm_frame else None
         p_target_clean = str(p_rollup_target or "").strip().lower()
 
@@ -2274,10 +2397,10 @@ class WarehouseLangGraphAgent:
                 "stt": idx,
                 "category": parent_name,
                 "item": c_name,
-                "value": vn_format_num(v_raw) if v_num is not None else "-",
+                "value": vn_format_num(v_raw) if v_num is not None else empty_rollup_val,
                 "value_num": v_num,
                 "unit": c_unit or "-",
-                "office": r.get("ten_van_phong") or r.get("office_name") or "Toàn tỉnh",
+                "office": default_rollup_off if is_pub_rollup else (r.get("ten_van_phong") or r.get("office_name") or "Toàn tỉnh"),
             })
 
         # 4. KIỂM TRA ƯU TIÊN 2: Quyết định giá trị tổng hợp (Roll-up logic)
@@ -2326,7 +2449,7 @@ class WarehouseLangGraphAgent:
                 u_str = f" {ci['unit']}" if ci['unit'] != "-" else ""
                 ans += f"  - **{ci['item']}:** **{ci['value']}**{u_str}\n"
             ans += (
-                f"- **Đơn vị thực hiện:** Toàn tỉnh\n"
+                f"- **Đơn vị thực hiện:** {default_rollup_off}\n"
                 f"- **Nhiệm vụ trọng tâm:** Quản lý chỉ tiêu điều hành\n"
                 f"- **Thời điểm báo cáo:** {date_str}\n\n"
                 f"| STT | Phân nhóm chỉ tiêu | Tên chỉ tiêu | Giá trị | Đơn vị tính | Đơn vị thực hiện |\n"
@@ -2334,14 +2457,14 @@ class WarehouseLangGraphAgent:
             )
             for ci in child_items:
                 ans += f"| {ci['stt']} | {ci['category']} | {ci['item']} | **{ci['value']}** | {ci['unit']} | {ci['office']} |\n"
-            ans += f"| ∑ | **{parent_name}** | **Hợp nhất toàn tỉnh** | **{tot_fmt}** | {tot_unit or '-'} | Toàn tỉnh |\n"
+            ans += f"| ∑ | **{parent_name}** | **Hợp nhất toàn tỉnh** | **{tot_fmt}** | {tot_unit or '-'} | {default_rollup_off} |\n"
 
             tab_rows = [{
                 "stt": ci["stt"], "category": ci["category"], "item": ci["item"],
                 "value": ci["value"], "unit": ci["unit"], "office": ci["office"],
             } for ci in child_items] + [{
                 "stt": "∑", "category": parent_name, "item": "Hợp nhất toàn tỉnh",
-                "value": tot_fmt, "unit": tot_unit or "-", "office": "Toàn tỉnh",
+                "value": tot_fmt, "unit": tot_unit or "-", "office": default_rollup_off,
             }]
             tab_data = {
                 "title": f"Số liệu tổng hợp {parent_name}{header_d}".replace("**", "").strip(),
@@ -2357,6 +2480,44 @@ class WarehouseLangGraphAgent:
                 "total_records": len(tab_rows),
                 "rollup_total": tot_fmt,
             }
+        elif not valid_child_vals:
+            null_status_msg = (
+                f"- **{parent_name}:** **{empty_rollup_val}**\n"
+            )
+            ans = (
+                f"Thông tin số liệu của nhóm chỉ tiêu **{parent_name}**{header_d} của tỉnh Lâm Đồng:\n\n"
+                f"{null_status_msg}"
+            )
+            for ci in child_items:
+                u_str = f" ({ci['unit']})" if ci['unit'] != "-" else ""
+                ans += f"  - **{ci['item']}**{u_str}: **{ci['value']}**\n"
+            ans += (
+                f"- **Đơn vị thực hiện:** {default_rollup_off}\n"
+                f"- **Nhiệm vụ trọng tâm:** {(parent_row.get('ten_nhiem_vu') or parent_row.get('mission_name') if parent_row else None) or 'Quản lý chỉ tiêu điều hành'}\n"
+                f"- **Thời điểm báo cáo:** {date_str}\n\n"
+                f"| STT | Phân nhóm chỉ tiêu | Tên chỉ tiêu | Giá trị | Đơn vị tính | Đơn vị thực hiện |\n"
+                f"| :---: | :--- | :--- | :---: | :---: | :--- |\n"
+            )
+            for ci in child_items:
+                ans += f"| {ci['stt']} | {ci['category']} | {ci['item']} | **{ci['value']}** | {ci['unit']} | {ci['office']} |\n"
+            tab_rows = [{
+                "stt": ci["stt"], "category": ci["category"], "item": ci["item"],
+                "value": ci["value"], "unit": ci["unit"], "office": ci["office"],
+            } for ci in child_items]
+            tab_data = {
+                "title": f"Bảng số liệu chi tiết {parent_name}{header_d}".replace("**", "").strip(),
+                "columns": [
+                    {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
+                    {"key": "category", "label": "Phân nhóm chỉ tiêu", "align": "left", "data_type": "text"},
+                    {"key": "item", "label": "Tên chỉ tiêu", "align": "left", "data_type": "text"},
+                    {"key": "value", "label": "Giá trị", "align": "center", "data_type": "text"},
+                    {"key": "unit", "label": "Đơn vị tính", "align": "center", "data_type": "text"},
+                    {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
+                ],
+                "rows": tab_rows,
+                "total_records": len(tab_rows),
+                "rollup_total": None,
+            }
         else:
             # Trường hợp các chỉ tiêu con khác đơn vị tính: Báo cáo chi tiết từng thành phần, không cộng dồn số học
             distinct_u = sorted(list({ci['unit'] for ci in child_items if ci['unit'] and ci['unit'] != "-"}))
@@ -2370,7 +2531,7 @@ class WarehouseLangGraphAgent:
                 u_str = f" {ci['unit']}" if ci['unit'] != "-" else ""
                 ans += f"- **{ci['item']}:** **{ci['value']}**{u_str}\n"
             ans += (
-                f"- **Đơn vị thực hiện:** Toàn tỉnh\n"
+                f"- **Đơn vị thực hiện:** {default_rollup_off}\n"
                 f"- **Nhiệm vụ trọng tâm:** Quản lý chỉ tiêu điều hành\n"
                 f"- **Thời điểm báo cáo:** {date_str}\n\n"
                 f"| STT | Phân nhóm chỉ tiêu | Tên chỉ tiêu | Giá trị | Đơn vị tính | Đơn vị thực hiện |\n"
@@ -2727,7 +2888,12 @@ class WarehouseLangGraphAgent:
         else:
             inherited_year = None
 
-        inherited_dept = explicit_dept or (frame.department_slot if frame else None) or prev_state_dept or user_ctx.get("department_code")
+        raw_schema = str(state.get("active_schema") or (user_ctx or {}).get("schema") or "dwh_internal").strip().lower()
+        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
+        if active_schema == "dwh_public":
+            inherited_dept = explicit_dept
+        else:
+            inherited_dept = explicit_dept or (frame.department_slot if frame else None) or prev_state_dept or user_ctx.get("department_code")
         inherited_metric = frame.metric_attribute or frame.topic_entity or prev_state_metric
 
         # 7. Khởi tạo mặc định và chuẩn hóa toàn diện qua CanonicalSemanticNormalizer
@@ -2755,10 +2921,65 @@ class WarehouseLangGraphAgent:
                 session_dept=inherited_dept,
                 parent_context=inherited_parent_ctx,
             )
+        norm_frame.target_schema = active_schema
         inherited_tenant = norm_frame.tenant_code
         inherited_year = norm_frame.year_code
-        if norm_frame.department_code:
+        if active_schema == "dwh_public" and not explicit_dept:
+            norm_frame.department_code = None
+            inherited_dept = None
+        elif norm_frame.department_code:
             inherited_dept = norm_frame.department_code
+
+        if active_schema == "dwh_public" and (
+            norm_frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT
+            or getattr(norm_frame, "audit_sub_intent", None) == "MISSION_ASSIGNMENT_MATRIX"
+            or norm_frame.target_table in (
+                "user",
+                "user_mission",
+                "office",
+                "office_mission",
+                "deparment",
+                "collection_form",
+                "ward",
+                "mission_assignment_matrix",
+            )
+        ):
+            pub_scope_ans = (
+                "Thông tin cán bộ chuyên trách, cơ cấu phòng ban nội bộ và biểu mẫu nghiệp vụ không nằm trong "
+                "phạm vi **Kho dữ liệu công khai (`dwh_public`)**. Trong chế độ công khai, đồng chí có thể tra cứu "
+                "mở toàn bộ chỉ tiêu kinh tế - xã hội đã công bố, danh mục nhiệm vụ trọng tâm và các đợt báo cáo."
+            )
+            return {
+                "current_stage": "SYNTHESIZING",
+                "stage_message": "ℹ️ Dữ liệu nội bộ không thuộc phạm vi kho công khai...",
+                "is_out_of_scope": True,
+                "out_of_scope_answer": pub_scope_ans,
+                "final_answer": pub_scope_ans,
+                "is_clarification_needed": False,
+                "is_capability_query": False,
+                "is_permission_denied": False,
+                "active_schema": active_schema,
+                "inherited_tenant": inherited_tenant or "68",
+                "inherited_year": inherited_year or "2026",
+                "inherited_department": None,
+                "inherited_metric": None,
+                "candidates": None,
+                "selected_candidate": None,
+                "is_non_additive": False,
+                "is_temporal_query": False,
+                "target_department_code": None,
+                "generated_sql": None,
+                "canonical_frame": (
+                    norm_frame.model_dump(mode="json")
+                    if hasattr(norm_frame, "model_dump")
+                    else norm_frame
+                ),
+                "quick_action_chips": [
+                    {"id": "chip_pub_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_pub_2", "label": "📊 Tổng hộ sản xuất muối 2026", "query_text": "Tổng hộ sản xuất muối tính đến ngày 30/06/2026 là bao nhiêu?"},
+                    {"id": "chip_pub_3", "label": "🌾 Cơ cấu diện tích muối 2026", "query_text": "Cơ cấu diện tích sản xuất muối tính đến ngày 30/06/2026?"},
+                ],
+            }
 
         # Bỏ qua truy vấn nếu là ngoài phạm vi DWH hoặc câu hỏi toán học (Triệt tiêu bẫy gán chỉ tiêu DWH ảo)
         if norm_frame.is_out_of_scope:
@@ -2961,6 +3182,7 @@ class WarehouseLangGraphAgent:
                 query=effective_query or clean_text,
                 norm_frame=norm_frame,
                 tenant_code=inherited_tenant,
+                target_schema=active_schema,
             )
             if live_matches:
                 logger.info(
@@ -3039,8 +3261,6 @@ class WarehouseLangGraphAgent:
             is_non_add = True
 
         # Tier 1 Defense: Pre-SQL Refusal Gate (Mission-Scoped Authorization & Dual-Schema Switching)
-        raw_schema = str(state.get("active_schema") or (user_ctx or {}).get("schema") or "dwh_internal").strip().lower()
-        active_schema = "dwh_public" if raw_schema == "dwh_public" else "dwh_internal"
         is_unrestricted = bool((user_ctx or {}).get("is_unrestricted", False))
         u_name = str((user_ctx or {}).get("name") or (user_ctx or {}).get("user_name") or "").strip()
         u_username = str((user_ctx or {}).get("username") or "").strip().lower()
@@ -3374,11 +3594,21 @@ class WarehouseLangGraphAgent:
             "     - Với chỉ tiêu tỷ lệ, bình quân (Non-additive): BẮT BUỘC SELECT f.name AS ten_chi_tieu, f.value ... dùng CTE Window Function ROW_NUMBER() OVER (PARTITION BY TRIM(LOWER(f.name)) ORDER BY f.report_date DESC, f.version DESC) lấy rn = 1 để lấy kỳ báo cáo mới nhất của từng chỉ tiêu.\n"
             "     LỌC TÊN CHỈ TIÊU: NẾU CÓ CHỈ TIÊU ĐƯỢC CHỌN TỪ DANH MỤC DWH, BẮT BUỘC dùng CHÍNH XÁC tên chỉ tiêu đó trong mệnh đề WHERE (ví dụ: TRIM(f.name) ILIKE TRIM('<Tên chỉ tiêu được chọn>')). TUYỆT ĐỐI KHÔNG dùng chuỗi thô từ Yêu cầu tra cứu để lọc.\n"
             f"   - Báo cáo / Đợt nộp: bảng {active_schema}.report (r). Cột: r.id, r.report_date, r.status, r.department_code, r.year_code, r.tenant_code. LƯU Ý: Mã đơn vị của Sở Nông nghiệp và PTNT / Chi cục Nông nghiệp trong kho là '68-1-01'. TUYỆT ĐỐI KHÔNG tự bịa mã phòng ban như 'NN'.\n"
-            f"   - Biểu mẫu thu thập: bảng {active_schema}.collection_form (cf). Cột: cf.id, cf.code, cf.name, cf.department_code, cf.status (status là enum 'active' hoặc 'deprecated', KHÔNG dùng 'approved').\n"
-            f"   - Nhiệm vụ / Đề án: bảng {active_schema}.mission (m) hoặc trích xuất f.mission_name từ fact_report_criteria. Cột: m.id, m.mission_code, m.mission_name, m.department_code, m.mission_status (kiểu BOOLEAN: m.mission_status = true hoặc m.mission_status = false, TUYỆT ĐỐI KHÔNG so sánh chuỗi 'active'). LƯU Ý: Không tồn tại mã đơn vị '68-0-00'. Khi hỏi nhiệm vụ của toàn tỉnh hoặc của tỉnh Lâm Đồng, chỉ cần lọc m.mission_status = true VÀ m.year_code = '2026', TUYỆT ĐỐI KHÔNG lọc m.department_code = '68-0-00' hay m.department_code = '68'.\n"
-            "   - Cán bộ / Chuyên viên / Người dùng: bảng dwh_internal.\"user\" (u). Cột: u.id, u.name, u.username, u.position, u.department_code (KHÔNG có cột is_admin). Để tìm cán bộ quản trị: u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%'. BẮT BUỘC có dấu nháy kép \"user\".\n"
-            "   - Phân công nhiệm vụ: bảng dwh_internal.user_mission (um) gồm các cột: um.id, um.user_id, um.mission_id, um.mission_name, um.office_name, um.department_code, um.tenant_code. LƯU Ý BẢNG user_mission KHÔNG CÓ cột mission_code VÀ KHÔNG CÓ cột year_code! Bảng \"user\" cũng KHÔNG CÓ cột year_code! TUYỆT ĐỐI KHÔNG lọc um.year_code hay u.year_code! Để tra cứu cán bộ phụ trách nhiệm vụ, JOIN: dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_name ILIKE '%<tên nhiệm vụ>%' (hoặc JOIN dwh_internal.mission m ON um.mission_id = m.id). SELECT các cột: u.name, u.position, um.office_name, um.mission_name (TUYỆT ĐỐI KHÔNG tự ý alias đổi tên các cột này). ĐẶC BIỆT LƯU Ý: Để lọc đơn vị / phòng ban / chi cục của cán bộ, BẮT BUỘC dùng um.office_name (ví dụ: um.office_name NOT ILIKE '%phòng%' hoặc um.office_name ILIKE '%chi cục%'), TUYỆT ĐỐI KHÔNG lọc trên u.position! Nếu người dùng hỏi lọc theo nhiệm vụ cụ thể (ví dụ: 'phát triển nông thôn'), BẮT BUỘC phải có điều kiện lọc um.mission_name ILIKE '%phát triển nông thôn%'. QUAN TRỌNG: Mã phòng ban luôn có định dạng '68-X-YY' (ví dụ '68-1-01', '68-2-01'). TUYỆT ĐỐI KHÔNG lọc department_code = '68' (vì '68' là tenant_code cấp tỉnh, không phải mã phòng ban) và TUYỆT ĐỐI KHÔNG tự bịa u.department_code = '68-1-01' trừ khi câu hỏi đích danh một sở cụ thể.\n"
-            f"3. Bảng criteria là {active_schema}.criteria (c).\n"
+            + (
+                ""
+                if is_pub_schema
+                else f"   - Biểu mẫu thu thập: bảng {active_schema}.collection_form (cf). Cột: cf.id, cf.code, cf.name, cf.department_code, cf.status (status là enum 'active' hoặc 'deprecated', KHÔNG dùng 'approved').\n"
+            )
+            + f"   - Nhiệm vụ / Đề án: bảng {active_schema}.mission (m) hoặc trích xuất f.mission_name từ fact_report_criteria. Cột: m.id, m.mission_code, m.mission_name, m.department_code, m.mission_status (kiểu BOOLEAN: m.mission_status = true hoặc m.mission_status = false, TUYỆT ĐỐI KHÔNG so sánh chuỗi 'active'). LƯU Ý: Không tồn tại mã đơn vị '68-0-00'. Khi hỏi nhiệm vụ của toàn tỉnh hoặc của tỉnh Lâm Đồng, chỉ cần lọc m.mission_status = true VÀ m.year_code = '2026', TUYỆT ĐỐI KHÔNG lọc m.department_code = '68-0-00' hay m.department_code = '68'.\n"
+            + (
+                ""
+                if is_pub_schema
+                else (
+                    "   - Cán bộ / Chuyên viên / Người dùng: bảng dwh_internal.\"user\" (u). Cột: u.id, u.name, u.username, u.position, u.department_code (KHÔNG có cột is_admin). Để tìm cán bộ quản trị: u.name ILIKE '%admin%' OR u.name ILIKE '%quản trị%'. BẮT BUỘC có dấu nháy kép \"user\".\n"
+                    "   - Phân công nhiệm vụ: bảng dwh_internal.user_mission (um) gồm các cột: um.id, um.user_id, um.mission_id, um.mission_name, um.office_name, um.department_code, um.tenant_code. LƯU Ý BẢNG user_mission KHÔNG CÓ cột mission_code VÀ KHÔNG CÓ cột year_code! Bảng \"user\" cũng KHÔNG CÓ cột year_code! TUYỆT ĐỐI KHÔNG lọc um.year_code hay u.year_code! Để tra cứu cán bộ phụ trách nhiệm vụ, JOIN: dwh_internal.user_mission um JOIN dwh_internal.\"user\" u ON um.user_id = u.id WHERE um.mission_name ILIKE '%<tên nhiệm vụ>%' (hoặc JOIN dwh_internal.mission m ON um.mission_id = m.id). SELECT các cột: u.name, u.position, um.office_name, um.mission_name (TUYỆT ĐỐI KHÔNG tự ý alias đổi tên các cột này). ĐẶC BIỆT LƯU Ý: Để lọc đơn vị / phòng ban / chi cục của cán bộ, BẮT BUỘC dùng um.office_name (ví dụ: um.office_name NOT ILIKE '%phòng%' hoặc um.office_name ILIKE '%chi cục%'), TUYỆT ĐỐI KHÔNG lọc trên u.position! Nếu người dùng hỏi lọc theo nhiệm vụ cụ thể (ví dụ: 'phát triển nông thôn'), BẮT BUỘC phải có điều kiện lọc um.mission_name ILIKE '%phát triển nông thôn%'. QUAN TRỌNG: Mã phòng ban luôn có định dạng '68-X-YY' (ví dụ '68-1-01', '68-2-01'). TUYỆT ĐỐI KHÔNG lọc department_code = '68' (vì '68' là tenant_code cấp tỉnh, không phải mã phòng ban) và TUYỆT ĐỐI KHÔNG tự bịa u.department_code = '68-1-01' trừ khi câu hỏi đích danh một sở cụ thể.\n"
+                )
+            )
+            + f"3. Bảng criteria là {active_schema}.criteria (c).\n"
             "4. Cột năm là year_code (VARCHAR), KHÔNG được dùng year.\n"
             "5. TUYỆT ĐỐI KHÔNG JOIN bảng deparment vì bảng đó 0 dòng (Zero-JOIN). Sử dụng trực tiếp department_code.\n"
             "6. TUYỆT ĐỐI KHÔNG truy vấn bảng pipeline_logs.\n"
@@ -3409,8 +3639,12 @@ class WarehouseLangGraphAgent:
             or uname_gen in ("congdan", "congdan_tra_cuu", "guest")
             or uid_gen.startswith("u_pub")
         )
-        is_public_guest_gen = is_explicit_citizen_gen or (
-            role_lvl_gen >= 3 and (is_explicit_citizen_gen or uname_gen.startswith("pub_") or str(u_ctx_gen.get("schema") or "") == "dwh_public")
+        is_public_guest_gen = (
+            not is_pub_schema
+            and (
+                is_explicit_citizen_gen
+                or (role_lvl_gen >= 3 and (is_explicit_citizen_gen or uname_gen.startswith("pub_")))
+            )
         )
         if norm_frame and norm_frame.intent == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT and is_public_guest_gen:
             norm_frame.blocked_draft_access = True
@@ -3458,21 +3692,32 @@ class WarehouseLangGraphAgent:
                 )
             elif "criteria" in target_tables and norm_frame and norm_frame.intent == CanonicalIntentEnum.METADATA_EXPLORATION:
                 canonical_sql = self.normalizer.compile_canonical_sql(norm_frame, target_schema=active_schema)
-                generated_sql = canonical_sql or (
-                    f"SELECT c.code, c.name, c.level FROM {active_schema}.criteria AS c "
-                    "WHERE c.deleted_date IS NULL ORDER BY c.level ASC, c.code ASC;"
-                )
+                if canonical_sql:
+                    generated_sql = canonical_sql
+                elif is_pub_schema:
+                    generated_sql = (
+                        f"SELECT DISTINCT ON (f.criteria_id) f.code, f.name, "
+                        f"CASE WHEN f.parent_criteria_id IS NULL THEN 1 ELSE 2 END AS level "
+                        f"FROM dwh_public.fact_report_criteria AS f "
+                        f"WHERE f.tenant_code = '{inherited_tenant}' "
+                        f"ORDER BY f.criteria_id, f.report_date DESC NULLS LAST;"
+                    )
+                else:
+                    generated_sql = (
+                        f"SELECT c.code, c.name, c.level FROM {active_schema}.criteria AS c "
+                        "WHERE c.deleted_date IS NULL ORDER BY c.level ASC, c.code ASC;"
+                    )
             elif "mission" in target_tables:
                 generated_sql = (
                     f"SELECT m.mission_name FROM {active_schema}.mission AS m "
                     f"WHERE m.year_code = '{inherited_year}' AND m.mission_status = true;"
                 )
-            elif "collection_form" in target_tables:
+            elif "collection_form" in target_tables and not is_pub_schema:
                 generated_sql = (
                     f"SELECT cf.code, cf.name, cf.department_code, cf.status FROM dwh_internal.collection_form AS cf "
                     f"WHERE cf.year_code = '{inherited_year}';"
                 )
-            elif "user_mission" in target_tables:
+            elif "user_mission" in target_tables and not is_pub_schema:
                 crit_mission = (norm_frame.target_mission if norm_frame and norm_frame.target_mission else None) or \
                                (self.catalog.resolve_mission(clean_prompt) if hasattr(self.catalog, "resolve_mission") else None)
                 mis_cond = f"AND um.mission_name ILIKE '%{crit_mission.replace('\'', '\'\'')}%'" if crit_mission else ""
@@ -3604,14 +3849,30 @@ class WarehouseLangGraphAgent:
             effective_ctx = dict(state.get("user_context") or {})
             effective_ctx["schema"] = active_schema
             effective_ctx["tenant_code"] = inherited_tenant
-            if str(effective_ctx.get("department_code") or "").strip().lower() in ("", "all", "*"):
+            if is_pub_schema:
+                effective_ctx["department_code"] = target_dept
+                effective_ctx["is_unrestricted"] = True
+            elif str(effective_ctx.get("department_code") or "").strip().lower() in ("", "all", "*"):
                 effective_ctx["department_code"] = None
             if norm_frame and norm_frame.intent == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT:
                 effective_ctx["status_filter"] = norm_frame.status_filter
-                effective_ctx["role_level"] = 3 if is_public_guest_gen else min(role_lvl_gen, 2)
+                effective_ctx["role_level"] = 3 if (is_public_guest_gen or is_pub_schema) else min(role_lvl_gen, 2)
                 effective_ctx["explicit_role_provided"] = True
+            sec_ctx_gen = UserSecurityContextDTO(
+                user_id=str(effective_ctx.get("user_id") or "warehouse_agent"),
+                username=str(effective_ctx.get("username") or "system"),
+                name=effective_ctx.get("name") or effective_ctx.get("user_name"),
+                role_level=int(effective_ctx.get("role_level", 0) or 0) if effective_ctx.get("explicit_role_provided") else 0,
+                tenant_code=inherited_tenant,
+                department_code=effective_ctx.get("department_code"),
+                schema=active_schema,
+                status_filter=effective_ctx.get("status_filter"),
+                explicit_role_provided=bool(effective_ctx.get("explicit_role_provided", False)),
+                is_unrestricted=bool(effective_ctx.get("is_unrestricted", False)),
+                assigned_mission_ids=[str(m) for m in (effective_ctx.get("assigned_mission_ids") or []) if m],
+            )
             try:
-                cleaned_sql, _, _ = self.ast_enforcer._sanitize_single_sql_ast(cleaned_sql, effective_ctx, inject_limit=False)
+                cleaned_sql, _, _ = self.ast_enforcer._sanitize_single_sql_ast(cleaned_sql, sec_ctx_gen, inject_limit=False)
             except Exception as e:
                 logger.warning("Lỗi chuẩn hóa AST Enforcer: %s", e)
 
@@ -3629,15 +3890,25 @@ class WarehouseLangGraphAgent:
         sql = state.get("generated_sql", "")
         user_ctx = state.get("user_context", {})
         effective_ctx = dict(user_ctx or {})
+        raw_exec_schema = str(state.get("active_schema") or effective_ctx.get("schema") or "dwh_internal").strip().lower()
+        exec_schema = "dwh_public" if raw_exec_schema == "dwh_public" else "dwh_internal"
+        effective_ctx["schema"] = exec_schema
         effective_ctx["tenant_code"] = state.get("inherited_tenant") or effective_ctx.get("tenant_code") or "68"
-        if str(effective_ctx.get("department_code") or "").strip().lower() in ("", "all", "*"):
+        if exec_schema == "dwh_public":
+            effective_ctx["department_code"] = state.get("target_department_code")
+            effective_ctx["is_unrestricted"] = True
+        elif str(effective_ctx.get("department_code") or "").strip().lower() in ("", "all", "*"):
             effective_ctx["department_code"] = None
         norm_frame_raw = state.get("canonical_frame")
         norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
         if norm_frame and norm_frame.intent == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT:
             role_lvl_exec = int(effective_ctx.get("role_level", 0) or 0)
             role_name_exec = str(effective_ctx.get("role") or "").strip().lower()
-            is_public_guest_exec = role_lvl_exec >= 3 or role_name_exec in ("public", "citizen", "public_citizen", "guest", "khach", "congdan")
+            is_public_guest_exec = (
+                exec_schema == "dwh_public"
+                or role_lvl_exec >= 3
+                or role_name_exec in ("public", "citizen", "public_citizen", "guest", "khach", "congdan")
+            )
             effective_ctx["status_filter"] = norm_frame.status_filter
             effective_ctx["role_level"] = 3 if is_public_guest_exec else min(role_lvl_exec, 2)
             effective_ctx["explicit_role_provided"] = True
@@ -3665,6 +3936,14 @@ class WarehouseLangGraphAgent:
         selected_cand = state.get("selected_candidate")
         norm_frame_raw = state.get("canonical_frame")
         norm_frame = CanonicalQueryFrameDTO(**norm_frame_raw) if isinstance(norm_frame_raw, dict) else norm_frame_raw
+        raw_syn_schema = str(
+            state.get("active_schema")
+            or (state.get("user_context") or {}).get("schema")
+            or (getattr(norm_frame, "target_schema", None) if norm_frame else None)
+            or "dwh_internal"
+        ).strip().lower()
+        active_schema = "dwh_public" if raw_syn_schema == "dwh_public" else "dwh_internal"
+        is_public_schema = (active_schema == "dwh_public")
 
         # Tạo quick chips phù hợp với ngữ cảnh 4 lĩnh vực
         target_t = norm_frame.target_table if norm_frame else None
@@ -3675,11 +3954,19 @@ class WarehouseLangGraphAgent:
                 {"id": "chip_rpt_3", "label": "📊 Chỉ tiêu muối 2026", "query_text": "Tổng các hộ sản xuất muối năm 2026 của tỉnh là bao nhiêu?"},
             ]
         elif target_t in ("mission", "user_mission") or (norm_frame and norm_frame.intent == CanonicalIntentEnum.OFFICER_ASSIGNMENT):
-            chips = [
-                {"id": "chip_mis_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
-                {"id": "chip_mis_2", "label": "👤 Cán bộ phụ trách diêm nghiệp", "query_text": "Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?"},
-                {"id": "chip_mis_3", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
-            ]
+            chips = (
+                [
+                    {"id": "chip_mis_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_mis_2", "label": "📊 Tổng hộ sản xuất muối 2026", "query_text": "Tổng hộ sản xuất muối tính đến ngày 30/06/2026 là bao nhiêu?"},
+                    {"id": "chip_mis_3", "label": "🌾 Cơ cấu diện tích muối 2026", "query_text": "Cơ cấu diện tích sản xuất muối tính đến ngày 30/06/2026?"},
+                ]
+                if is_public_schema
+                else [
+                    {"id": "chip_mis_1", "label": "🏛️ Nhiệm vụ trọng tâm 2026", "query_text": "Danh mục các nhiệm vụ trọng tâm năm 2026 của tỉnh Lâm Đồng?"},
+                    {"id": "chip_mis_2", "label": "👤 Cán bộ phụ trách diêm nghiệp", "query_text": "Cán bộ nào phụ trách nhiệm vụ diêm nghiệp năm 2026?"},
+                    {"id": "chip_mis_3", "label": "🌾 Sản lượng OCOP 2026", "query_text": "Tổng sản lượng các sản phẩm OCOP đạt chuẩn năm 2026?"},
+                ]
+            )
         elif target_t == "collection_form":
             chips = [
                 {"id": "chip_bm_1", "label": "📊 Chỉ tiêu nông nghiệp 2026", "query_text": "Tổng diện tích sản xuất muối năm 2026 là bao nhiêu?"},
@@ -4073,7 +4360,7 @@ class WarehouseLangGraphAgent:
 
             draft_criteria_rows_formatted = []
             diff_rows_formatted = []
-            if not is_blocked_draft and draft_cnt > 0 and getattr(norm_frame, "include_draft_comparison", False):
+            if not is_public_schema and not is_blocked_draft and draft_cnt > 0 and getattr(norm_frame, "include_draft_comparison", False):
                 try:
                     t_c = (norm_frame.tenant_code or "68").replace("'", "''")
                     y_c = (norm_frame.year_code or year or "2026").replace("'", "''")
@@ -4238,78 +4525,134 @@ class WarehouseLangGraphAgent:
                 or (getattr(norm_frame, "time_series_periods", None) and len(norm_frame.time_series_periods) > 0)
             )
             try:
-                latest_report_date = (
-                    getattr(self.catalog, "get_latest_report_date", lambda: "-")() or "-"
-                    if hasattr(self, "catalog")
-                    else "-"
-                )
                 h_empty = self.catalog.classify_criterion_hierarchy(clean_prompt, matched_name=selected_cand)
-                if not has_temp_filter_empty:
-                    if h_empty and h_empty.get("classification") == "single_leaf" and h_empty.get("item"):
-                        it = h_empty["item"]
-                        rows = [{
-                            "ten_chi_tieu": it.get("name") or selected_cand,
-                            "gia_tri_moi_nhat": it.get("latest_value"),
-                            "ten_van_phong": it.get("office_name") or "Cấp tỉnh",
-                            "ten_nhiem_vu": it.get("mission_name") or "-",
-                            "ngay_bao_cao_moi_nhat": latest_report_date,
-                        }]
-                        selected_cand = it.get("name") or selected_cand
-                    elif h_empty and h_empty.get("classification") in ("parent", "parent_group"):
-                        rows = [{
-                            "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
-                            "gia_tri_moi_nhat": h_empty.get("parent_value"),
-                            "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
-                            "ten_nhiem_vu": h_empty.get("mission_name") or "-",
-                            "ngay_bao_cao_moi_nhat": latest_report_date,
-                        }]
-                        selected_cand = h_empty.get("parent_name") or selected_cand
-                    elif h_empty and h_empty.get("classification") == "duplicate_leaf" and h_empty.get("branches"):
-                        br0 = h_empty["branches"][0]
-                        rows = [{
-                            "ten_chi_tieu": br0.get("name") or selected_cand,
-                            "gia_tri_moi_nhat": br0.get("latest_value"),
-                            "ten_van_phong": br0.get("office_name") or "Cấp tỉnh",
-                            "ten_nhiem_vu": br0.get("mission_name") or "-",
-                            "ngay_bao_cao_moi_nhat": latest_report_date,
-                        }]
-                        selected_cand = br0.get("name") or selected_cand
-                elif (
-                    h_empty
-                    and h_empty.get("classification") in ("parent", "parent_group")
-                    and hasattr(self.catalog, "get_children_values_at_temporal_scope")
-                ):
-                    cand_nodes = (
-                        [{"id": h_empty.get("parent_id"), "name": h_empty.get("parent_name") or selected_cand}]
-                        + list(h_empty.get("direct_children") or [])
-                        + list(h_empty.get("leaf_descendants") or [])
+                if is_public_schema:
+                    if h_empty and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
+                        cls_empty = h_empty.get("classification")
+                        target_id_pub = None
+                        target_nm_pub = selected_cand
+                        target_mis_pub = h_empty.get("mission_name") or "-"
+                        cand_nodes_pub: List[Dict[str, Any]] = []
+                        if cls_empty == "single_leaf" and h_empty.get("item"):
+                            it_pub = h_empty["item"]
+                            target_id_pub = it_pub.get("id")
+                            target_nm_pub = it_pub.get("name") or selected_cand
+                            target_mis_pub = it_pub.get("mission_name") or target_mis_pub
+                            cand_nodes_pub = [it_pub]
+                        elif cls_empty in ("parent", "parent_group"):
+                            target_id_pub = h_empty.get("parent_id")
+                            target_nm_pub = h_empty.get("parent_name") or selected_cand
+                            cand_nodes_pub = (
+                                [{"id": target_id_pub, "name": target_nm_pub}]
+                                + list(h_empty.get("direct_children") or [])
+                                + list(h_empty.get("leaf_descendants") or [])
+                            )
+                        elif cls_empty == "duplicate_leaf" and h_empty.get("branches"):
+                            br0_pub = h_empty["branches"][0]
+                            target_id_pub = br0_pub.get("id")
+                            target_nm_pub = br0_pub.get("name") or selected_cand
+                            target_mis_pub = br0_pub.get("mission_name") or target_mis_pub
+                            cand_nodes_pub = list(h_empty["branches"])
+                        if cand_nodes_pub:
+                            t_map_pub = self.catalog.get_children_values_at_temporal_scope(
+                                cand_nodes_pub,
+                                year_code=str(norm_frame.year_code or year or "2026"),
+                                tenant_code=str(norm_frame.tenant_code or "68"),
+                                specific_date=norm_frame.specific_date,
+                                date_from=norm_frame.date_from,
+                                date_to=norm_frame.date_to,
+                                month_filter=norm_frame.month_filter,
+                                target_schema="dwh_public",
+                            )
+                            t_id_k = str(target_id_pub or "").lower()
+                            t_nm_k = str(target_nm_pub or "").strip().lower()
+                            pub_entry = t_map_pub.get(t_id_k) or t_map_pub.get(t_nm_k)
+                            if pub_entry is not None:
+                                rows = [{
+                                    "criteria_id": target_id_pub,
+                                    "ten_chi_tieu": target_nm_pub,
+                                    "gia_tri_moi_nhat": pub_entry.get("value"),
+                                    "ten_van_phong": "Dữ liệu công khai",
+                                    "ten_nhiem_vu": target_mis_pub,
+                                    "ngay_bao_cao": pub_entry.get("report_date") or "-",
+                                    "do_lech_ngay": pub_entry.get("do_lech_ngay"),
+                                    "can_duoi_ngay": pub_entry.get("can_duoi_ngay"),
+                                    "can_tren_ngay": pub_entry.get("can_tren_ngay"),
+                                }]
+                                selected_cand = target_nm_pub
+                else:
+                    latest_report_date = (
+                        getattr(self.catalog, "get_latest_report_date", lambda: "-")() or "-"
+                        if hasattr(self, "catalog")
+                        else "-"
                     )
-                    t_map = self.catalog.get_children_values_at_temporal_scope(
-                        cand_nodes,
-                        year_code=str(norm_frame.year_code or year or "2026"),
-                        tenant_code=str(norm_frame.tenant_code or "68"),
-                        specific_date=norm_frame.specific_date,
-                        date_from=norm_frame.date_from,
-                        date_to=norm_frame.date_to,
-                        month_filter=norm_frame.month_filter,
-                    )
-                    if t_map:
-                        sample_t = next(iter(t_map.values()))
-                        p_id_key = str(h_empty.get("parent_id") or "").lower()
-                        p_nm_key = str(h_empty.get("parent_name") or selected_cand or "").strip().lower()
-                        p_entry = t_map.get(p_id_key) or t_map.get(p_nm_key) or {}
-                        rows = [{
-                            "criteria_id": h_empty.get("parent_id"),
-                            "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
-                            "gia_tri_moi_nhat": p_entry.get("value"),
-                            "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
-                            "ten_nhiem_vu": h_empty.get("mission_name") or "-",
-                            "ngay_bao_cao": p_entry.get("report_date") or sample_t.get("report_date") or "-",
-                            "do_lech_ngay": sample_t.get("do_lech_ngay"),
-                            "can_duoi_ngay": sample_t.get("can_duoi_ngay"),
-                            "can_tren_ngay": sample_t.get("can_tren_ngay"),
-                        }]
-                        selected_cand = h_empty.get("parent_name") or selected_cand
+                    if not has_temp_filter_empty:
+                        if h_empty and h_empty.get("classification") == "single_leaf" and h_empty.get("item"):
+                            it = h_empty["item"]
+                            rows = [{
+                                "ten_chi_tieu": it.get("name") or selected_cand,
+                                "gia_tri_moi_nhat": it.get("latest_value"),
+                                "ten_van_phong": it.get("office_name") or "Cấp tỉnh",
+                                "ten_nhiem_vu": it.get("mission_name") or "-",
+                                "ngay_bao_cao_moi_nhat": latest_report_date,
+                            }]
+                            selected_cand = it.get("name") or selected_cand
+                        elif h_empty and h_empty.get("classification") in ("parent", "parent_group"):
+                            rows = [{
+                                "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
+                                "gia_tri_moi_nhat": h_empty.get("parent_value"),
+                                "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
+                                "ten_nhiem_vu": h_empty.get("mission_name") or "-",
+                                "ngay_bao_cao_moi_nhat": latest_report_date,
+                            }]
+                            selected_cand = h_empty.get("parent_name") or selected_cand
+                        elif h_empty and h_empty.get("classification") == "duplicate_leaf" and h_empty.get("branches"):
+                            br0 = h_empty["branches"][0]
+                            rows = [{
+                                "ten_chi_tieu": br0.get("name") or selected_cand,
+                                "gia_tri_moi_nhat": br0.get("latest_value"),
+                                "ten_van_phong": br0.get("office_name") or "Cấp tỉnh",
+                                "ten_nhiem_vu": br0.get("mission_name") or "-",
+                                "ngay_bao_cao_moi_nhat": latest_report_date,
+                            }]
+                            selected_cand = br0.get("name") or selected_cand
+                    elif (
+                        h_empty
+                        and h_empty.get("classification") in ("parent", "parent_group")
+                        and hasattr(self.catalog, "get_children_values_at_temporal_scope")
+                    ):
+                        cand_nodes = (
+                            [{"id": h_empty.get("parent_id"), "name": h_empty.get("parent_name") or selected_cand}]
+                            + list(h_empty.get("direct_children") or [])
+                            + list(h_empty.get("leaf_descendants") or [])
+                        )
+                        t_map = self.catalog.get_children_values_at_temporal_scope(
+                            cand_nodes,
+                            year_code=str(norm_frame.year_code or year or "2026"),
+                            tenant_code=str(norm_frame.tenant_code or "68"),
+                            specific_date=norm_frame.specific_date,
+                            date_from=norm_frame.date_from,
+                            date_to=norm_frame.date_to,
+                            month_filter=norm_frame.month_filter,
+                            target_schema=active_schema,
+                        )
+                        if t_map:
+                            sample_t = next(iter(t_map.values()))
+                            p_id_key = str(h_empty.get("parent_id") or "").lower()
+                            p_nm_key = str(h_empty.get("parent_name") or selected_cand or "").strip().lower()
+                            p_entry = t_map.get(p_id_key) or t_map.get(p_nm_key) or {}
+                            rows = [{
+                                "criteria_id": h_empty.get("parent_id"),
+                                "ten_chi_tieu": h_empty.get("parent_name") or selected_cand,
+                                "gia_tri_moi_nhat": p_entry.get("value"),
+                                "ten_van_phong": h_empty.get("office_name") or "Cấp tỉnh",
+                                "ten_nhiem_vu": h_empty.get("mission_name") or "-",
+                                "ngay_bao_cao": p_entry.get("report_date") or sample_t.get("report_date") or "-",
+                                "do_lech_ngay": sample_t.get("do_lech_ngay"),
+                                "can_duoi_ngay": sample_t.get("can_duoi_ngay"),
+                                "can_tren_ngay": sample_t.get("can_tren_ngay"),
+                            }]
+                            selected_cand = h_empty.get("parent_name") or selected_cand
             except Exception as e:
                 logger.debug("Catalog fallback on empty rows failed: %s", e)
 
@@ -4368,14 +4711,14 @@ class WarehouseLangGraphAgent:
                 year_code=str(year or "2026")
             )
             if breakdown_res and breakdown_res.get("status") == "SUCCESS":
-                p_node = breakdown_res["parent_node"]
+                p_node = dict(breakdown_res["parent_node"])
                 p_name = p_node["name"]
                 r_name = breakdown_res.get("root_name") or p_name
-                children = breakdown_res["children"]
+                children = [dict(ch) for ch in breakdown_res["children"]]
                 r3_year_str = str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026")
                 r3_tenant_str = str(norm_frame.tenant_code or "68") if norm_frame else "68"
 
-                if has_temporal_ticket_r3 and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
+                if (has_temporal_ticket_r3 or is_public_schema) and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
                     temporal_child_map = self.catalog.get_children_values_at_temporal_scope(
                         [p_node] + list(children),
                         year_code=r3_year_str,
@@ -4384,18 +4727,27 @@ class WarehouseLangGraphAgent:
                         date_from=getattr(norm_frame, "date_from", None) if norm_frame else None,
                         date_to=getattr(norm_frame, "date_to", None) if norm_frame else None,
                         month_filter=getattr(norm_frame, "month_filter", None) if norm_frame else None,
+                        target_schema=active_schema,
                     )
                     p_id_k = str(p_node.get("id") or "").lower()
                     p_nm_k = str(p_node.get("name") or "").strip().lower()
                     p_t_entry = temporal_child_map.get(p_id_k) or temporal_child_map.get(p_nm_k)
-                    if p_t_entry and p_t_entry.get("value") is not None:
+                    if is_public_schema:
+                        p_node["latest_value"] = p_t_entry.get("value") if p_t_entry else None
+                        p_node["report_date"] = p_t_entry.get("report_date") if p_t_entry else "-"
+                        p_node["office_name"] = "Dữ liệu công khai"
+                    elif p_t_entry and p_t_entry.get("value") is not None:
                         p_node["latest_value"] = p_t_entry.get("value")
                         p_node["report_date"] = p_t_entry.get("report_date")
                     for ch in children:
                         ch_id_k = str(ch.get("id") or "").lower()
                         ch_nm_k = str(ch.get("name") or "").strip().lower()
                         t_entry = temporal_child_map.get(ch_id_k) or temporal_child_map.get(ch_nm_k)
-                        if t_entry and t_entry.get("value") is not None:
+                        if is_public_schema:
+                            ch["latest_value"] = t_entry.get("value") if t_entry else None
+                            ch["report_date"] = t_entry.get("report_date") if t_entry else "-"
+                            ch["office_name"] = "Dữ liệu công khai"
+                        elif t_entry and t_entry.get("value") is not None:
                             ch["latest_value"] = t_entry.get("value")
                             ch["report_date"] = t_entry.get("report_date")
 
@@ -4405,6 +4757,7 @@ class WarehouseLangGraphAgent:
                         [p_node] + list(children),
                         year_code=r3_year_str,
                         tenant_code=r3_tenant_str,
+                        target_schema=active_schema,
                     )
 
                 p_id_lookup = str(p_node.get("id") or "").strip().lower()
@@ -4435,7 +4788,7 @@ class WarehouseLangGraphAgent:
                 ans = (
                     f"{p_summary_header}"
                     f"Trong kho dữ liệu DWH tỉnh Lâm Đồng, hiện có **{c_count}** phân nhóm/chỉ tiêu con "
-                    f"trực thuộc nhóm **'{p_name}'** (thuộc **{r_name}**) gồm: {c_names_str}.\n\n"
+                    f"trực thuộc nhóm **'{p_name}'**{f' (thuộc **{r_name}**)' if (r_name and r_name != p_name) else ''} gồm: {c_names_str}.\n\n"
                     f"Dưới đây là bảng thống kê chi tiết các chỉ tiêu {intro_period_str}:\n\n"
                     f"| STT | Tên chỉ tiêu | Nhóm chỉ tiêu | Giá trị mới nhất | Đơn vị thực hiện | Nhiệm vụ trọng tâm |\n"
                     f"| :---: | :--- | :--- | :---: | :--- | :--- |\n"
@@ -4444,8 +4797,9 @@ class WarehouseLangGraphAgent:
                 table_rows = []
                 for idx, ch in enumerate(children, 1):
                     val_raw = ch.get("latest_value")
-                    val_fmt = "Chưa có số liệu (-)" if _is_empty_or_dash(val_raw) else vn_format_num(val_raw)
-                    off_str = ch.get("office_name") or "Chi cục"
+                    empty_r3_lbl = "NULL (Chưa công bố số liệu công khai)" if is_public_schema else "Chưa có số liệu (-)"
+                    val_fmt = empty_r3_lbl if _is_empty_or_dash(val_raw) else vn_format_num(val_raw)
+                    off_str = "Dữ liệu công khai" if is_public_schema else (ch.get("office_name") or "Chi cục")
                     mis_str = ch.get("mission_name") or "-"
                     cat_str = f"{r_name} > {p_name}" if r_name != p_name else p_name
 
@@ -4629,7 +4983,7 @@ class WarehouseLangGraphAgent:
 
             # Extract all queried dates dynamically
             t_code_empty = str(getattr(norm_frame, "tenant_code", None) or "68") if norm_frame else "68"
-            bounds_empty = self.get_warehouse_date_bounds(tenant_code=t_code_empty)
+            bounds_empty = self.get_warehouse_date_bounds(tenant_code=t_code_empty, target_schema=active_schema)
 
             has_range_query_empty = bool(norm_frame and (norm_frame.date_from or norm_frame.date_to))
             if has_range_query_empty:
@@ -4716,6 +5070,7 @@ class WarehouseLangGraphAgent:
                         metric_ids=m_ids or None,
                         metric_names=clean_m_names or None,
                         require_non_zero=True,
+                        target_schema=active_schema,
                     )
                     avail_note = ""
                     if m_avail_dates:
@@ -4938,8 +5293,12 @@ class WarehouseLangGraphAgent:
                     (h_info_parent.get("direct_children") or h_info_parent.get("children") or [])
                     if h_info_parent else []
                 )
+                should_query_scoped_children = (
+                    (has_temporal_point_or_range or is_public_schema)
+                    and hasattr(self.catalog, "get_children_values_at_temporal_scope")
+                )
                 temporal_child_map: Dict[str, Dict[str, Any]] = {}
-                if has_temporal_point_or_range and hasattr(self.catalog, "get_children_values_at_temporal_scope"):
+                if should_query_scoped_children:
                     nodes_for_t = (
                         [{"id": target_pid, "name": (h_info_parent.get("parent_name") if h_info_parent else None) or selected_cand}]
                         + list(raw_children)
@@ -4953,12 +5312,13 @@ class WarehouseLangGraphAgent:
                         date_from=getattr(norm_frame, "date_from", None) if norm_frame else None,
                         date_to=getattr(norm_frame, "date_to", None) if norm_frame else None,
                         month_filter=getattr(norm_frame, "month_filter", None) if norm_frame else None,
+                        target_schema=active_schema,
                     )
 
                 for ch in raw_children:
                     ch_id_k = str(ch.get("id") or "").lower()
                     ch_nm_k = str(ch.get("name") or "").strip().lower()
-                    if has_temporal_point_or_range:
+                    if should_query_scoped_children:
                         t_entry = temporal_child_map.get(ch_id_k) or temporal_child_map.get(ch_nm_k)
                         ch_val = t_entry.get("value") if t_entry else None
                     else:
@@ -4970,7 +5330,7 @@ class WarehouseLangGraphAgent:
                         "gia_tri": ch_val,
                         "child_count": int(ch.get("child_count") or 0),
                         "is_parent_group": bool(ch.get("is_parent_group") or int(ch.get("child_count") or 0) > 0),
-                        "ten_van_phong": ch.get("office_name") or (h_info_parent.get("office_name") if h_info_parent else None) or "Cấp tỉnh",
+                        "ten_van_phong": "Dữ liệu công khai" if is_public_schema else (ch.get("office_name") or (h_info_parent.get("office_name") if h_info_parent else None) or "Cấp tỉnh"),
                         "ten_nhiem_vu": ch.get("mission_name") or (h_info_parent.get("mission_name") if h_info_parent else None) or "-",
                     })
 
@@ -4984,7 +5344,7 @@ class WarehouseLangGraphAgent:
                     parent_disp = (h_info_parent.get("parent_name") if h_info_parent else None) or selected_cand
 
                     r_parent = dict(cand_row or (rows[0] if rows else {}))
-                    if has_temporal_point_or_range and temporal_child_map:
+                    if should_query_scoped_children and temporal_child_map:
                         sample_t_meta = next(iter(temporal_child_map.values()))
                         if not r_parent.get("ngay_bao_cao") and not r_parent.get("report_date"):
                             r_parent["ngay_bao_cao"] = sample_t_meta.get("report_date")
@@ -4993,9 +5353,16 @@ class WarehouseLangGraphAgent:
                             r_parent["can_duoi_ngay"] = sample_t_meta.get("can_duoi_ngay")
                             r_parent["can_tren_ngay"] = sample_t_meta.get("can_tren_ngay")
 
-                    parent_val = _get_metric_val(cand_row) if cand_row is not None else (
-                        None if has_temporal_point_or_range else (h_info_parent.get("parent_value") or h_info_parent.get("latest_value"))
-                    )
+                    if cand_row is not None:
+                        parent_val = _get_metric_val(cand_row)
+                    elif should_query_scoped_children:
+                        p_t_entry = (
+                            temporal_child_map.get(str(target_pid or "").lower())
+                            or temporal_child_map.get(str(parent_disp or "").strip().lower())
+                        )
+                        parent_val = p_t_entry.get("value") if p_t_entry else None
+                    else:
+                        parent_val = h_info_parent.get("parent_value") or h_info_parent.get("latest_value")
 
                     # PA 3.1: Với chỉ tiêu cha có số liệu (SC-2.4a), hiển thị toàn bộ chỉ tiêu con trực tiếp;
                     # với chỉ tiêu cha rỗng (SC-2.4b), ưu tiên các chỉ tiêu con đang có số liệu (kèm nhóm trung gian có con) hoặc thu hoạch lá Cấp 3
@@ -5012,7 +5379,7 @@ class WarehouseLangGraphAgent:
                         for lf in h_info_parent.get("leaf_descendants", []):
                             lf_id_k = str(lf.get("id") or "").lower()
                             lf_nm_k = str(lf.get("name") or "").strip().lower()
-                            if has_temporal_point_or_range:
+                            if should_query_scoped_children:
                                 lf_t = temporal_child_map.get(lf_id_k) or temporal_child_map.get(lf_nm_k)
                                 lf_val = lf_t.get("value") if lf_t else None
                             else:
@@ -5025,7 +5392,7 @@ class WarehouseLangGraphAgent:
                                     "gia_tri": lf_val,
                                     "child_count": int(lf.get("child_count") or 0),
                                     "is_parent_group": bool(lf.get("is_parent_group") or int(lf.get("child_count") or 0) > 0),
-                                    "ten_van_phong": lf.get("office_name") or h_info_parent.get("office_name") or "Cấp tỉnh",
+                                    "ten_van_phong": "Dữ liệu công khai" if is_public_schema else (lf.get("office_name") or h_info_parent.get("office_name") or "Cấp tỉnh"),
                                     "ten_nhiem_vu": lf.get("mission_name") or h_info_parent.get("mission_name") or "-",
                                 })
                         if leaf_desc:
@@ -5047,7 +5414,7 @@ class WarehouseLangGraphAgent:
                         elif alt_fmt_v is not None:
                             unit_status = f"{alt_ch_cnt} chỉ tiêu con" if alt_is_grp else "Đã phê duyệt"
                         else:
-                            unit_status = "Chưa có số liệu (-)"
+                            unit_status = "NULL (Chưa công bố)" if is_public_schema else "Chưa có số liệu (-)"
                         chips.append({
                             "id": f"chip_alt_{i+1}",
                             "label": f"🔘 [{alt_name}]",
@@ -5062,7 +5429,7 @@ class WarehouseLangGraphAgent:
                         r_parent.get("ngay_bao_cao")
                         or r_parent.get("ngay_bao_cao_moi_nhat")
                         or r_parent.get("report_date")
-                        or (getattr(self.catalog, "get_latest_report_date", lambda: "-")() if hasattr(self, "catalog") else "-")
+                        or ("-" if is_public_schema else (getattr(self.catalog, "get_latest_report_date", lambda: "-")() if hasattr(self, "catalog") else "-"))
                     )
                     raw_date_iso = str(raw_date)[:10] if raw_date else "-"
                     if raw_date_iso and "-" in raw_date_iso and len(raw_date_iso) == 10:
@@ -5106,15 +5473,19 @@ class WarehouseLangGraphAgent:
                                 f"hệ thống đối chiếu mốc gần nhất ngày {date_str}{bound_note}"
                             )
 
-                    # SC-2.4a: Chỉ tiêu Cha CÓ SỐ LIỆU -> Hiển thị Thẻ 5 Trường Chuẩn + Bảng 1 dòng + Gợi ý chỉ tiêu con
-                    if not _is_empty_or_dash(parent_val):
-                        fmt_val = vn_format_num(parent_val)
-                        office_str = (
-                            (cand_row.get("ten_van_phong") or cand_row.get("ten_phong_ban") or cand_row.get("office_name"))
-                            if cand_row else None
-                        ) or (h_info_parent.get("office_name") if h_info_parent else None) or "Chi cục"
-                        if office_str.strip().lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
-                            office_str = "Chi cục"
+                    # SC-2.4a: Chỉ tiêu Cha CÓ SỐ LIỆU (hoặc bản ghi công khai có mặt với giá trị NULL) -> Hiển thị Thẻ 5 Trường Chuẩn + Bảng 1 dòng + Gợi ý chỉ tiêu con
+                    if not _is_empty_or_dash(parent_val) or (is_public_schema and cand_row is not None and not non_empty_children):
+                        is_pub_masked_parent = _is_empty_or_dash(parent_val)
+                        fmt_val = "NULL (Chưa công bố số liệu công khai)" if is_pub_masked_parent else vn_format_num(parent_val)
+                        if is_public_schema:
+                            office_str = "Dữ liệu công khai"
+                        else:
+                            office_str = (
+                                (cand_row.get("ten_van_phong") or cand_row.get("ten_phong_ban") or cand_row.get("office_name"))
+                                if cand_row else None
+                            ) or (h_info_parent.get("office_name") if h_info_parent else None) or "Chi cục"
+                            if office_str.strip().lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
+                                office_str = "Chi cục"
                         mission_str = (
                             (cand_row.get("ten_nhiem_vu") or cand_row.get("mission_name"))
                             if cand_row else None
@@ -5145,6 +5516,7 @@ class WarehouseLangGraphAgent:
                                 year_code=str(year or "2026"),
                                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
                                 child_nodes=display_children,
+                                target_schema=active_schema,
                             )
                         if parent_snaps and chips:
                             for ch_chip in chips:
@@ -5163,7 +5535,7 @@ class WarehouseLangGraphAgent:
                             "criteria_name": parent_disp,
                             "hierarchy_label": hier_suffix.replace("*", "").strip(),
                             "current_value": fmt_val,
-                            "raw_value": parent_val,
+                            "raw_value": None if is_pub_masked_parent else parent_val,
                             "office_name": office_str,
                             "mission_name": mission_str,
                             "report_date": date_str,
@@ -5192,7 +5564,7 @@ class WarehouseLangGraphAgent:
                             "columns": [
                                 {"key": "stt", "label": "STT", "align": "center", "data_type": "number"},
                                 {"key": "item", "label": "Chỉ tiêu", "align": "left", "data_type": "text"},
-                                {"key": "value", "label": "Giá trị", "align": "right", "data_type": "number"},
+                                {"key": "value", "label": "Giá trị", "align": "center" if is_pub_masked_parent else "right", "data_type": "text" if is_pub_masked_parent else "number"},
                                 {"key": "office", "label": "Đơn vị thực hiện", "align": "left", "data_type": "text"},
                                 {"key": "mission", "label": "Nhiệm vụ trọng tâm", "align": "left", "data_type": "text"},
                                 {"key": "report_date", "label": "Thời điểm báo cáo", "align": "center", "data_type": "text"},
@@ -5206,7 +5578,7 @@ class WarehouseLangGraphAgent:
                                     "office": office_str,
                                     "mission": mission_str,
                                     "report_date": date_str,
-                                    "_raw_value": parent_val,
+                                    "_raw_value": None if is_pub_masked_parent else parent_val,
                                     "timeline_values": parent_row_tv,
                                     "period_values": parent_row_tv,
                                 }
@@ -5751,7 +6123,7 @@ class WarehouseLangGraphAgent:
                 ) or "chỉ tiêu được yêu cầu"
                 display_name = raw_name.strip()
                 if _is_empty_or_dash(val):
-                    fmt_val = "Chưa có số liệu phê duyệt (-)"
+                    fmt_val = "NULL (Chưa công bố số liệu công khai)" if is_public_schema else "Chưa có số liệu phê duyệt (-)"
                 else:
                     fmt_val = vn_format_num(val)
 
@@ -5763,7 +6135,7 @@ class WarehouseLangGraphAgent:
 
                 if has_fact_context:
                     ten_chi_tieu = r0.get("ten_chi_tieu") or display_name
-                    office_str = r0.get("ten_van_phong") or r0.get("ten_phong_ban") or r0.get("office_name") or "Chi cục"
+                    office_str = "Dữ liệu công khai" if is_public_schema else (r0.get("ten_van_phong") or r0.get("ten_phong_ban") or r0.get("office_name") or "Chi cục")
                     mission_str = r0.get("ten_nhiem_vu") or r0.get("mission_name") or "-"
                     raw_date = r0.get("ngay_bao_cao") or r0.get("ngay_bao_cao_moi_nhat") or r0.get("report_date")
                     if raw_date:
@@ -5834,6 +6206,7 @@ class WarehouseLangGraphAgent:
                                 branches,
                                 year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
                                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                                target_schema=active_schema,
                             )
                         if norm_frame and getattr(norm_frame, "specific_date", None):
                             dup_period_note = f" tại kỳ báo cáo ngày **{date_str}**" if date_str and date_str != "-" else ""
@@ -5873,12 +6246,13 @@ class WarehouseLangGraphAgent:
                                 cat_disp = f"{p_name} *(Cấp {p_lvl})*"
                             if matched_row is not None:
                                 b_raw = _get_metric_val(matched_row)
-                                if b_raw is None and not has_temporal_point_or_range and br.get("latest_value") is not None:
+                                if b_raw is None and not is_public_schema and not has_temporal_point_or_range and br.get("latest_value") is not None:
                                     b_raw = br.get("latest_value")
                             else:
-                                b_raw = None if has_temporal_point_or_range else br.get("latest_value")
-                            b_fmt = "Chưa có số liệu phê duyệt (-)" if _is_empty_or_dash(b_raw) else vn_format_num(b_raw)
-                            b_off = (matched_row.get("ten_van_phong") if matched_row else None) or br.get("office_name") or office_str
+                                b_raw = None if (is_public_schema or has_temporal_point_or_range) else br.get("latest_value")
+                            empty_lbl_dup = "NULL (Chưa công bố số liệu công khai)" if is_public_schema else "Chưa có số liệu phê duyệt (-)"
+                            b_fmt = empty_lbl_dup if _is_empty_or_dash(b_raw) else vn_format_num(b_raw)
+                            b_off = "Dữ liệu công khai" if is_public_schema else ((matched_row.get("ten_van_phong") if matched_row else None) or br.get("office_name") or office_str)
                             b_mis = (matched_row.get("ten_nhiem_vu") if matched_row else None) or br.get("mission_name") or mission_str
                             b_id_k = b_id_str.strip().lower()
                             b_code_k = str(br.get("code") or "").strip().lower()
@@ -5952,6 +6326,7 @@ class WarehouseLangGraphAgent:
                                 parent_name=nhom_ct_single,
                                 year_code=str(year or "2026"),
                                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                                target_schema=active_schema,
                             )
                         single_metric_card = {
                             "criteria_id": c_id_single,
@@ -6224,6 +6599,7 @@ class WarehouseLangGraphAgent:
                                 rows,
                                 mission_filter=getattr(norm_frame, "target_mission", None) if norm_frame else None,
                                 has_temporal_filter=has_temporal_point_or_range,
+                                target_schema=active_schema,
                             )
                         except TypeError:
                             tree_data = self.catalog.build_criteria_tree_for_rows(
@@ -6248,6 +6624,7 @@ class WarehouseLangGraphAgent:
                             l1_raw,
                             year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
                             tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                            target_schema=active_schema,
                         )
 
                     l1_formatted = []
@@ -6257,7 +6634,7 @@ class WarehouseLangGraphAgent:
                         if not val_disp_l1 or _is_empty_or_dash(val_disp_l1):
                             raw_v_l1 = l1_item.get("value")
                             if _is_empty_or_dash(raw_v_l1):
-                                val_disp_l1 = "Chưa có số liệu phê duyệt (-)"
+                                val_disp_l1 = "NULL (Chưa công bố số liệu công khai)" if is_public_schema else "Chưa có số liệu phê duyệt (-)"
                             else:
                                 val_disp_l1 = vn_format_num(raw_v_l1)
 
@@ -6285,7 +6662,7 @@ class WarehouseLangGraphAgent:
                             "category": l1_item.get("loai_cau_truc_cap_1") or l1_item.get("structure_type") or ("Nhóm chỉ tiêu cha" if is_p_l1 else "Chỉ tiêu đơn (Cấp 1)"),
                             "value": val_disp_l1,
                             "child_action": child_act,
-                            "office": l1_item.get("don_vi_thuc_hien") or l1_item.get("office_name") or "Cấp tỉnh",
+                            "office": "Dữ liệu công khai" if is_public_schema else (l1_item.get("don_vi_thuc_hien") or l1_item.get("office_name") or "Cấp tỉnh"),
                             "is_parent": is_p_l1,
                             "tree_root_id": l1_item.get("criteria_id") or l1_item.get("tree_root_id"),
                             "child_count": l1_item.get("child_count", 0),
@@ -6400,6 +6777,7 @@ class WarehouseLangGraphAgent:
                                 rows,
                                 year_code=str(norm_frame.year_code or year or "2026") if norm_frame else str(year or "2026"),
                                 tenant_code=str(norm_frame.tenant_code or "68") if norm_frame else "68",
+                                target_schema=active_schema,
                             )
                         for idx, r in enumerate(rows, 1):
                             name = (
@@ -6411,9 +6789,13 @@ class WarehouseLangGraphAgent:
                             )
                             category = r.get("nhom_chi_tieu") or r.get("parent_name") or "Chỉ tiêu đơn (Cấp 1)"
                             m_val = _get_metric_val(r)
-                            raw_val = m_val if m_val is not None else (_vn_status(r.get("status")) or r.get("department_code") or "-")
-                            fmt_val = vn_format_num(raw_val)
-                            off = r.get("ten_van_phong") or r.get("ten_phong_ban") or r.get("office_name") or "Cấp tỉnh"
+                            if is_public_schema and _is_empty_or_dash(m_val):
+                                raw_val = None
+                                fmt_val = "NULL (Chưa công bố số liệu công khai)"
+                            else:
+                                raw_val = m_val if m_val is not None else (_vn_status(r.get("status")) or r.get("department_code") or "-")
+                                fmt_val = vn_format_num(raw_val)
+                            off = "Dữ liệu công khai" if is_public_schema else (r.get("ten_van_phong") or r.get("ten_phong_ban") or r.get("office_name") or "Cấp tỉnh")
                             mis = r.get("ten_nhiem_vu") or r.get("mission_name") or "-"
                             r_id_k = str(r.get("criteria_id") or r.get("id") or "").strip().lower()
                             r_code_k = str(r.get("ma_chi_tieu") or r.get("code") or "").strip().lower()

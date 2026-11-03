@@ -418,7 +418,7 @@ function cleanDisplayString(val: any, fallback = ''): string {
   return String(val).replace(/^\*\*|\*\*$/g, '').replace(/^`|`$/g, '').trim() || fallback;
 }
 
-function hasValidMetricValue(val: any): boolean {
+export function hasValidMetricValue(val: any): boolean {
   if (val === null || val === undefined) return false;
   const s = cleanDisplayString(val).toLowerCase();
   if (
@@ -426,6 +426,9 @@ function hasValidMetricValue(val: any): boolean {
     s === '-' ||
     s === 'none' ||
     s === 'null' ||
+    s.startsWith('null ') ||
+    s.startsWith('null(') ||
+    s.includes('chưa công bố') ||
     s.includes('chưa có số liệu') ||
     s.includes('không có số liệu')
   ) {
@@ -906,7 +909,9 @@ const InteractiveCriteriaTreeCanvas: React.FC<{
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[11px]">
-                Chưa có số liệu phê duyệt (-)
+                {String(node.value || '').toLowerCase().includes('chưa công bố')
+                  ? String(node.value)
+                  : 'Chưa có số liệu phê duyệt (-)'}
               </span>
             )}
 

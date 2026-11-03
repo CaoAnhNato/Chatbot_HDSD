@@ -1143,3 +1143,43 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     1. Lưu trữ từ điển ngữ nghĩa khai báo trong `IPGov_Chatbot/data/catalog_seed_metadata.json` và nạp vào bảng `semantic_lexicon` qua `_hydrate_from_seed_file()` (giữ `ALLOWED_SEMANTIC_LEXICON_SEED = ()`).
     2. Chặn `resolve_hierarchy_breakdown` đối với các intent phi số liệu và lọc bỏ các mã thử nghiệm rác (`TH`, `TH1..TH3`, `test`, `số`) trong bộ phân loại phân cấp.
     3. Sử dụng biểu thức lịch tổng quát `date_trunc('quarter', f.report_date) + interval '3 month - 1 day'` và `date_trunc('month', f.report_date) + interval '1 month - 1 day'` để ưu tiên bản ghi chốt kỳ cuối quý/cuối tháng.
+
+---
+
+### [TRAP-105] Bẫy Rò Rỉ Số Liệu Nội Bộ Qua Cache `DuckDBSemanticCatalog` Khi Truy Vấn `dwh_public`, Bất Đối Xứng Cột Vật Lý `dwh_public.criteria` Và Dư Thừa Dropdown RBAC Level Trên UI Công Khai
+- **Môi trường & Công nghệ:** `duckdb_semantic_catalog.py` / `canonical_normalizer.py` / `warehouse_langgraph_agent.py` / `ast_enforcer_service.py` / `gateway_endpoint.py` / `ChatContainer.tsx`
+- **Triệu chứng:**
+  1. Khi chuyển sang kho công khai `dwh_public` và hỏi `"số lượng bò hiện tại ?"`, dù trong `dwh_public.fact_report_criteria` cột `value` của `'Số lượng bò'` là `NULL` (ngày `16/10/2026`), hệ thống vẫn hiển thị `Giá trị: 256`, `Đơn vị thực hiện: Phòng nông nghiệp`, `Thời điểm báo cáo: 27/10/2026` và thanh trượt `Kỳ Q4 (16/10/2026) 256` của `dwh_internal`.
+  2. Nhiều nhánh sinh SQL (`compile_canonical_sql`, `execute_safe_sql`, `_get_warehouse_reporting_dates`, `ast_enforcer_service`) truy vấn cố định `dwh_internal.*` hoặc gọi `c.name`, `c.code`, `c.deleted_date`, `f.office_id` trên `dwh_public`, gây lỗi PostgreSQL `UndefinedColumn` hoặc rò rỉ dữ liệu liên schema.
+  3. Trên giao diện `dwh_public`, thanh Header vẫn hiển thị dropdown chọn tài khoản/cấp độ RBAC (`header-user-selector-container`) và phụ đề `Level X`, đồng thời gửi kèm thẻ `[user=..., level=...]` vào luồng truy vấn mở.
+- **Nguyên nhân gốc rễ:**
+  1. `DuckDBSemanticCatalog` khởi tạo bảng RAM `catalog_criteria_hierarchy` từ `dwh_internal` (lưu sẵn `latest_value = '256'` và `office_name = 'Phòng nông nghiệp'`). Khi SQL trên `dwh_public` trả về `value = NULL` hoặc 0 dòng, `node_synthesize_response` và `get_criterion_timeline_snapshots` đọc fallback từ `catalog_criteria_hierarchy` hoặc truy vấn cứng `FROM dwh_internal.fact_report_criteria`.
+  2. Bảng vật lý `dwh_public.criteria` chỉ lưu siêu dữ liệu cấu trúc (`id`, `year_code`, `mission_id`, `parent_id`, `mission_name`, `scope_id`, `scope_name`, `status`, `share_data`, `created_date`, `modified_date`, `last_modified_date`, `etl_updated_at`) mà **không có** cột `tenant_code`, `code`, `name`, `level`, `deleted_date`; đồng thời `dwh_public` **không có** bảng `office`, `user`, `role`, `deparment`, `ward`, `collection_form` và `dwh_public.fact_report_criteria` không có cột `office_id`.
+  3. `ChatContainer.tsx` chưa ẩn khối chọn tài khoản phân quyền khi `activeSchema === 'dwh_public'` và `gateway_endpoint.py` chưa xóa `department_code` / `assigned_mission_ids` kế thừa của tài khoản nội bộ khi chuyển sang `dwh_public`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối không đọc fallback `latest_value`, `office_name`, `latest_report_date` từ DuckDB RAM `catalog_criteria_hierarchy` khi `active_schema == "dwh_public"`; Không truy vấn `c.tenant_code`, `c.name`, `c.code`, `c.deleted_date` trên `dwh_public.criteria` hoặc `f.office_id` trên `dwh_public.fact_report_criteria`; Không áp đặt banner phân quyền Công dân Level 3 hoặc hiển thị bộ chọn tài khoản/cấp độ RBAC khi đang ở chế độ `dwh_public`.
+  * ✅ **ALWAYS:**
+    1. Truyền tường minh `target_schema` xuyên suốt `compile_canonical_sql`, `execute_safe_sql`, `get_criterion_timeline_snapshots`, `get_children_values_at_temporal_scope`, `get_batch_period_values`, `build_criteria_tree_for_rows` và hiển thị trung thực `"NULL (Chưa công bố số liệu công khai)"` / `"Dữ liệu công khai"` khi bản ghi `dwh_public` mang giá trị `NULL`.
+    2. Trên `dwh_public`, dựng danh mục chỉ tiêu qua subquery `DISTINCT ON (criteria_id)` từ `dwh_public.fact_report_criteria` kết hợp `dwh_public.criteria` (dùng alias `mission_name` và bí danh bảng `cr`/`fr` để không xuất hiện `p.name`/`c.name` trong SQL), và chặn cứng mọi tham chiếu `dwh_internal.*` hoặc bảng ngoài whitelist 7 bảng công khai tại TẦNG 3 của `ASTEnforcerService`.
+    3. Ẩn hoàn toàn `header-user-selector-container` cùng nhãn `Level X` trên `ChatContainer.tsx`, dùng chip chào mừng chuyên biệt `CHIPS_PUBLIC_SCHEMA`, và lược bỏ thẻ `user=`/`level=` khỏi payload khi `activeSchema === 'dwh_public'`.
+
+---
+
+### [TRAP-106] Bẫy Rò Rỉ Dữ Liệu Nội Bộ Khi Reload Phiên `dwh_public` Qua Lazy Hydration Của `ChatHistoryStore` Và Nhận Diện Sai Chuỗi `"NULL (...)"` Trong `SmartTable`
+- **Môi trường & Công nghệ:** `core/chat_history_store.py` / `frontend/src/lib/storage.ts` / `frontend/src/components/chat/SmartTable.tsx` / `ChatContainer.tsx`
+- **Triệu chứng:**
+  1. Truy vấn trực tiếp trên `dwh_public` trả về đúng `NULL (Chưa công bố số liệu công khai)` và `timeline_values = None`, nhưng ngay khi người dùng F5 tải lại trang hoặc mở lại phiên chat (`GET /api/v1/chat/history/{session_id}`), các dòng bị che (`Làng nghề`, `Số lượng gia cầm`, `Số lượng gia súc`) bị bơm ngược số liệu mật của `dwh_internal` (`1`, `5.765`, `1.396`) vào `timeline_values`, `tree_modal` và `quick_action_chips`, đồng thời lưu đè vĩnh viễn vào SQLite và `localStorage`.
+  2. Tiêu đề phiên hội thoại trên thanh Sidebar bị dính nguyên chuỗi tiền tố thô `[schema=dwh_public, tenant_code=68] ...`.
+  3. Trên `SmartTable` và `InteractiveCriteriaTreeModal`, nhãn `"NULL (Chưa công bố số liệu công khai)"` bị coi là dữ liệu số hợp lệ (`hasValidMetricValue === true`), khiến bộ lọc nhanh `⚡ Đã có số liệu` giữ lại các dòng `NULL` và cây chỉ tiêu hiển thị huy hiệu màu xanh `Số lượng: NULL (...)`.
+- **Nguyên nhân gốc rễ:**
+  1. `_hydrate_legacy_timeline_values` trong `ChatHistoryStore` tự động chạy cho mọi dòng có `!r.get("timeline_values")` và gọi `catalog.get_batch_period_values(...)` với mặc định `target_schema="dwh_internal"` mà không kiểm tra schema của phiên/tin nhắn.
+  2. Regex `_PREFIX_RE` (`chat_history_store.py`) và `CONTEXT_PREFIX_RE` (`storage.ts`) chỉ khớp tiền tố bắt đầu bằng `[tenant_code=...]`, bỏ sót `[schema=..., tenant_code=...]` và `[user=..., level=..., schema=...]`.
+  3. `hasValidMetricValue` trong `SmartTable.tsx` chỉ kiểm tra `s === 'null'`, không kiểm tra `s.startsWith('null ')`, `s.startsWith('null(')` hoặc `s.includes('chưa công bố')`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không bao giờ gọi `get_batch_period_values` trong luồng khôi phục lịch sử (`ChatHistoryStore`) với mặc định `dwh_internal` mà không xác định `active_schema` của bản ghi, và tuyệt đối không hydrate `timeline_values` cho các dòng đang mang trạng thái `NULL` / `chưa công bố`.
+  * ✅ **ALWAYS:**
+    1. Lưu kèm `active_schema` trong `tabular_data` khi `save_turn`, suy diễn `last_user_schema` từ thẻ `[schema=...]` khi đọc `chat_messages`, và truyền tường minh `target_schema=eff_schema` vào `get_batch_period_values`.
+    2. Dùng biểu thức chính quy tổng quát cho mọi khóa ngữ cảnh (`tenant_code|level|role_level|user|schema|department_code|role`) ở cả `chat_history_store.py` và `storage.ts`.
+    3. Trong `hasValidMetricValue` (`SmartTable.tsx`), chặn toàn bộ biến thể `s.startsWith('null ')`, `s.startsWith('null(')` và `s.includes('chưa công bố')`.
+
+

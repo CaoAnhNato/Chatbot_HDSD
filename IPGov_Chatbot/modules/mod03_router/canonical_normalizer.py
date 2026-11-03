@@ -58,7 +58,7 @@ def _strip_bracketed_tags(raw_content: str) -> str:
         end = raw_content.find("]", start)
         if end != -1:
             tag_content = raw_content[start + 1:end]
-            if "tenant_code=" in tag_content or "level=" in tag_content:
+            if any(k in tag_content for k in ("tenant_code=", "level=", "user=", "schema=")):
                 raw_content = raw_content[:start] + raw_content[end + 1:]
             else:
                 break
@@ -2358,8 +2358,8 @@ class CanonicalSemanticNormalizer:
                     f"    SELECT om.mission_id,\n"
                     f"           COUNT(DISTINCT o.id) AS office_count,\n"
                     f"           STRING_AGG(DISTINCT o.office_name, ', ' ORDER BY o.office_name) AS assigned_offices\n"
-                    f"    FROM dwh_internal.office_mission om\n"
-                    f"    JOIN dwh_internal.office o ON om.office_id = o.id\n"
+                    f"    FROM {eff_schema}.office_mission om\n"
+                    f"    JOIN {eff_schema}.office o ON om.office_id = o.id\n"
                     f"    WHERE om.tenant_code = '{t_code}'\n"
                     f"      AND om.deleted_date IS NULL\n"
                     f"      AND o.deleted_at IS NULL\n"
@@ -2367,7 +2367,7 @@ class CanonicalSemanticNormalizer:
                     f"),\n"
                     f"user_role_lookup AS (\n"
                     f"    SELECT ou.user_id, ou.office_id, ou.role\n"
-                    f"    FROM dwh_internal.office_user ou\n"
+                    f"    FROM {eff_schema}.office_user ou\n"
                     f"    WHERE ou.is_active = true\n"
                     f"),\n"
                     f"user_agg AS (\n"
@@ -2383,8 +2383,8 @@ class CanonicalSemanticNormalizer:
                     f"               ),\n"
                     f"               '; '\n"
                     f"           ) AS assigned_officers\n"
-                    f"    FROM dwh_internal.user_mission um\n"
-                    f"    JOIN dwh_internal.\"user\" u ON um.user_id = u.id\n"
+                    f"    FROM {eff_schema}.user_mission um\n"
+                    f"    JOIN {eff_schema}.\"user\" u ON um.user_id = u.id\n"
                     f"    LEFT JOIN user_role_lookup url ON url.user_id = u.id AND url.office_id = um.office_id\n"
                     f"    WHERE um.tenant_code = '{t_code}'\n"
                     f"      AND um.deleted_date IS NULL\n"
@@ -2393,7 +2393,7 @@ class CanonicalSemanticNormalizer:
                     f"),\n"
                     f"scope_lookup AS (\n"
                     f"    SELECT s.id, s.scope_name\n"
-                    f"    FROM dwh_internal.scope s\n"
+                    f"    FROM {eff_schema}.scope s\n"
                     f"    WHERE s.tenant_code = '{t_code}'\n"
                     f"      AND s.deleted_date IS NULL\n"
                     f")\n"
@@ -2405,7 +2405,7 @@ class CanonicalSemanticNormalizer:
                     f"       COALESCE(ua.officer_count, 0) AS officer_count,\n"
                     f"       COALESCE(ua.officer_offices, '') AS officer_offices,\n"
                     f"       COALESCE(ua.assigned_officers, 'Chưa phân công cán bộ') AS assigned_officers\n"
-                    f"FROM dwh_internal.mission m\n"
+                    f"FROM {eff_schema}.mission m\n"
                     f"LEFT JOIN scope_lookup sl ON m.scope_id = sl.id\n"
                     f"LEFT JOIN office_agg oa ON m.id = oa.mission_id\n"
                     f"LEFT JOIN user_agg ua ON m.id = ua.mission_id\n"
@@ -2418,6 +2418,71 @@ class CanonicalSemanticNormalizer:
                 cg_status_cond = ""
                 if frame.blocked_draft_access or frame.status_filter == ["approved"]:
                     cg_status_cond = "\n  AND cg.status = 'active'"
+                if is_public:
+                    return (
+                        f"WITH crit_names AS (\n"
+                        f"    SELECT DISTINCT ON (criteria_id) criteria_id, name\n"
+                        f"    FROM dwh_public.fact_report_criteria\n"
+                        f"    ORDER BY criteria_id, report_date DESC NULLS LAST, version DESC NULLS LAST\n"
+                        f"),\n"
+                        f"crit_agg AS (\n"
+                        f"    SELECT cg.id AS group_id,\n"
+                        f"           COUNT(DISTINCT CASE WHEN c.parent_id IS NULL THEN c.id END) AS root_criteria_count,\n"
+                        f"           COUNT(DISTINCT c.id) AS total_criteria_count,\n"
+                        f"           STRING_AGG(\n"
+                        f"               DISTINCT CASE WHEN c.parent_id IS NULL THEN cn.name END,\n"
+                        f"               '; '\n"
+                        f"               ORDER BY CASE WHEN c.parent_id IS NULL THEN cn.name END\n"
+                        f"           ) AS root_criteria_names,\n"
+                        f"           STRING_AGG(DISTINCT m.mission_name, ', ' ORDER BY m.mission_name) AS mission_names,\n"
+                        f"           STRING_AGG(DISTINCT s.scope_name, ', ' ORDER BY s.scope_name) AS scope_names\n"
+                        f"    FROM dwh_public.criteria_group cg\n"
+                        f"    LEFT JOIN dwh_public.mission m\n"
+                        f"      ON m.id = ANY(cg.mission_ids) AND m.deleted_date IS NULL\n"
+                        f"    LEFT JOIN dwh_public.scope s\n"
+                        f"      ON s.id = ANY(cg.scope_ids) AND s.deleted_date IS NULL\n"
+                        f"    LEFT JOIN dwh_public.criteria c\n"
+                        f"      ON c.mission_id::text = ANY(string_to_array(trim(both '{{}}' from cg.mission_ids::text), ','))\n"
+                        f"    LEFT JOIN crit_names cn ON c.id = cn.criteria_id\n"
+                        f"    WHERE cg.tenant_code = '{t_code}'\n"
+                        f"      AND cg.year_code = '{y_code}'\n"
+                        f"      AND cg.deleted_date IS NULL\n"
+                        f"    GROUP BY cg.id\n"
+                        f"),\n"
+                        f"fact_group_agg AS (\n"
+                        f"    SELECT f.criteria_group_id AS group_id,\n"
+                        f"           COUNT(f.fact_sk) AS tong_ban_ghi,\n"
+                        f"           COUNT(DISTINCT f.criteria_id) AS so_chi_tieu\n"
+                        f"    FROM dwh_public.fact_report_criteria f\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"    GROUP BY f.criteria_group_id\n"
+                        f")\n"
+                        f"SELECT cg.id::text AS group_id,\n"
+                        f"       cg.name AS group_name,\n"
+                        f"       cg.status AS group_status,\n"
+                        f"       cg.year_code,\n"
+                        f"       cg.department_code,\n"
+                        f"       COALESCE(cg.created_by, '-') AS created_by,\n"
+                        f"       COALESCE(ca.mission_names, '-') AS mission_names,\n"
+                        f"       COALESCE(ca.scope_names, '-') AS scope_names,\n"
+                        f"       COALESCE(ca.root_criteria_count, 0) AS root_criteria_count,\n"
+                        f"       COALESCE(ca.total_criteria_count, fga.so_chi_tieu, 0) AS total_criteria_count,\n"
+                        f"       COALESCE(ca.total_criteria_count, fga.so_chi_tieu, 0) AS so_chi_tieu,\n"
+                        f"       COALESCE(fga.tong_ban_ghi, 0) AS tong_ban_ghi,\n"
+                        f"       COALESCE(ca.root_criteria_names, '-') AS root_criteria_names,\n"
+                        f"       0 AS collection_form_total\n"
+                        f"FROM dwh_public.criteria_group cg\n"
+                        f"LEFT JOIN crit_agg ca ON cg.id = ca.group_id\n"
+                        f"LEFT JOIN fact_group_agg fga ON cg.id = fga.group_id\n"
+                        f"WHERE cg.tenant_code = '{t_code}'\n"
+                        f"  AND cg.year_code = '{y_code}'\n"
+                        f"  AND cg.deleted_date IS NULL{cg_status_cond}\n"
+                        f"ORDER BY CASE WHEN cg.status = 'active' THEN 1 ELSE 2 END,\n"
+                        f"         cg.name ASC,\n"
+                        f"         cg.created_date DESC NULLS LAST;"
+                    )
                 return (
                     f"WITH crit_agg AS (\n"
                     f"    SELECT cg.id AS group_id,\n"
@@ -2487,7 +2552,7 @@ class CanonicalSemanticNormalizer:
             # Default sub-intent: REPORT_SUBMISSION_STATUS (SC-5.1)
             u_ctx = user_context or getattr(frame, "user_context", None)
             is_citizen = False
-            if u_ctx:
+            if u_ctx and not is_public:
                 r_lvl = getattr(u_ctx, "role_level", None) if hasattr(u_ctx, "role_level") else (u_ctx.get("role_level") if isinstance(u_ctx, dict) else None)
                 r_name = getattr(u_ctx, "role", "") if hasattr(u_ctx, "role") else (u_ctx.get("role", "") if isinstance(u_ctx, dict) else "")
                 is_pub = getattr(u_ctx, "is_public", False) if hasattr(u_ctx, "is_public") else (u_ctx.get("is_public", False) if isinstance(u_ctx, dict) else False)
@@ -2509,6 +2574,42 @@ class CanonicalSemanticNormalizer:
                 quoted_st = ", ".join(f"'{s}'" for s in eff_statuses)
                 f_status_clause = f"AND f.report_status IN ({quoted_st})"
                 r_status_clause = f"AND r.status IN ({quoted_st})"
+
+            if is_public:
+                return (
+                    f"WITH fact_agg AS (\n"
+                    f"    SELECT f.report_id,\n"
+                    f"           STRING_AGG(DISTINCT f.mission_name, ', ' ORDER BY f.mission_name) AS mission_name,\n"
+                    f"           COUNT(f.fact_sk) AS fact_row_count,\n"
+                    f"           COUNT(DISTINCT f.criteria_id) AS criteria_count,\n"
+                    f"           COUNT(DISTINCT CASE WHEN NULLIF(TRIM(f.value), '') IS NOT NULL AND TRIM(value) != '-' THEN f.criteria_id END) AS recorded_criteria_count\n"
+                    f"    FROM dwh_public.fact_report_criteria f\n"
+                    f"    WHERE f.tenant_code = '{t_code}'\n"
+                    f"      AND f.year_code = '{y_code}'\n"
+                    f"      {f_status_clause}\n"
+                    f"    GROUP BY f.report_id\n"
+                    f")\n"
+                    f"SELECT r.id::text AS report_id,\n"
+                    f"       r.report_date::date::text AS report_date,\n"
+                    f"       r.submitted_date::date::text AS submitted_date,\n"
+                    f"       r.status AS report_status,\n"
+                    f"       r.year_code,\n"
+                    f"       r.department_code,\n"
+                    f"       COALESCE(r.created_by, '-') AS created_by,\n"
+                    f"       'Dữ liệu công khai' AS office_name,\n"
+                    f"       COALESCE(fa.mission_name, '-') AS mission_name,\n"
+                    f"       COALESCE(fa.fact_row_count, 0) AS fact_row_count,\n"
+                    f"       COALESCE(fa.criteria_count, 0) AS criteria_count,\n"
+                    f"       COALESCE(fa.recorded_criteria_count, 0) AS recorded_criteria_count\n"
+                    f"FROM dwh_public.report r\n"
+                    f"LEFT JOIN fact_agg fa ON r.id = fa.report_id\n"
+                    f"WHERE r.tenant_code = '{t_code}'\n"
+                    f"  AND r.year_code = '{y_code}'\n"
+                    f"  AND r.deleted_date IS NULL\n"
+                    f"  {r_status_clause}\n"
+                    f"ORDER BY r.report_date DESC NULLS LAST,\n"
+                    f"         r.submitted_date DESC NULLS LAST;"
+                )
 
             return (
                 f"WITH fact_agg AS (\n"
@@ -2558,6 +2659,16 @@ class CanonicalSemanticNormalizer:
         if frame.intent == CanonicalIntentEnum.ENTITY_ATTRIBUTE_LOOKUP:
             cand_name = frame.canonical_metric_names[0] if frame.canonical_metric_names else (frame.subject_entity or "")
             cand_escaped = cand_name.replace("'", "''")
+            if is_public:
+                return (
+                    f"SELECT f.name AS ten_chi_tieu, 'Dữ liệu công khai' AS ten_phong_ban, f.value, f.report_date\n"
+                    f"FROM dwh_public.fact_report_criteria f\n"
+                    f"WHERE f.tenant_code = '{frame.tenant_code}'\n"
+                    f"  AND f.report_status = 'approved'\n"
+                    f"  AND f.name ILIKE '%{cand_escaped}%'\n"
+                    f"ORDER BY f.report_date DESC\n"
+                    f"LIMIT 1;"
+                )
             return (
                 f"SELECT f.name AS ten_chi_tieu, o.office_name AS ten_phong_ban, f.value, f.report_date\n"
                 f"FROM dwh_internal.fact_report_criteria f\n"
@@ -2575,8 +2686,8 @@ class CanonicalSemanticNormalizer:
                 if frame.aggregation_function == "COUNT":
                     return (
                         f"SELECT p.name AS ten_tinh, COUNT(w.id) AS tong_so_xa_phuong\n"
-                        f"FROM dwh_internal.province p\n"
-                        f"JOIN dwh_internal.ward w ON p.code = w.province_code\n"
+                        f"FROM {eff_schema}.province p\n"
+                        f"JOIN {eff_schema}.ward w ON p.code = w.province_code\n"
                         f"WHERE p.code = '{frame.tenant_code}'\n"
                         f"GROUP BY p.name;"
                     )
@@ -2584,8 +2695,8 @@ class CanonicalSemanticNormalizer:
                     order_clause = "w.code ASC" if frame.search_keyword == "code" else "w.name ASC"
                     return (
                         f"SELECT p.name AS ten_tinh, w.code AS ma_xa, w.name AS ten_xa\n"
-                        f"FROM dwh_internal.province p\n"
-                        f"JOIN dwh_internal.ward w ON p.code = w.province_code\n"
+                        f"FROM {eff_schema}.province p\n"
+                        f"JOIN {eff_schema}.ward w ON p.code = w.province_code\n"
                         f"WHERE p.code = '{frame.tenant_code}'\n"
                         f"  AND w.is_activated = true\n"
                         f"ORDER BY {order_clause}{limit_clause}"
@@ -2604,10 +2715,10 @@ class CanonicalSemanticNormalizer:
                 where_clause = " AND ".join(conds)
                 return (
                     f"SELECT {cols}\n"
-                    f"FROM dwh_internal.office o\n"
-                    f"JOIN dwh_internal.office_mission om ON o.id = om.office_id\n"
-                    f"JOIN dwh_internal.mission m ON om.mission_id = m.id\n"
-                    f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
+                    f"FROM {eff_schema}.office o\n"
+                    f"JOIN {eff_schema}.office_mission om ON o.id = om.office_id\n"
+                    f"JOIN {eff_schema}.mission m ON om.mission_id = m.id\n"
+                    f"JOIN {eff_schema}.scope s ON m.scope_id = s.id\n"
                     f"WHERE {where_clause}\n"
                     f"ORDER BY {order_by}{limit_clause}"
                 )
@@ -2640,10 +2751,10 @@ class CanonicalSemanticNormalizer:
 
             return (
                 f"SELECT {cols}\n"
-                f"FROM dwh_internal.\"user\" u\n"
-                f"JOIN dwh_internal.user_mission um ON u.id = um.user_id\n"
-                f"JOIN dwh_internal.mission m ON um.mission_id = m.id\n"
-                f"JOIN dwh_internal.scope s ON m.scope_id = s.id\n"
+                f"FROM {eff_schema}.\"user\" u\n"
+                f"JOIN {eff_schema}.user_mission um ON u.id = um.user_id\n"
+                f"JOIN {eff_schema}.mission m ON um.mission_id = m.id\n"
+                f"JOIN {eff_schema}.scope s ON m.scope_id = s.id\n"
                 f"WHERE {where_clause}\n"
                 f"ORDER BY {order_clause}{limit_clause}"
             )
@@ -2722,6 +2833,17 @@ class CanonicalSemanticNormalizer:
             else:
                 dept_clause_dl = ""
 
+            pub_crit_subq = (
+                "(SELECT cr.id, fr.code, COALESCE(fr.crit_name, cr.mission_name) AS mission_name, "
+                "cr.mission_name AS raw_mission_name, cr.parent_id "
+                "FROM dwh_public.criteria cr "
+                "LEFT JOIN (SELECT DISTINCT ON (criteria_id) criteria_id, code, name AS crit_name "
+                "FROM dwh_public.fact_report_criteria "
+                "ORDER BY criteria_id, report_date DESC NULLS LAST, version DESC NULLS LAST) fr "
+                "ON cr.id = fr.criteria_id)"
+            )
+            crit_dim_ref = pub_crit_subq if is_public else crit_tbl
+
             dl_office_col = "" if is_public else "           f.office_id,\n"
             dl_partition = "PARTITION BY f.criteria_id" if is_public else "PARTITION BY f.criteria_id, f.office_id"
             dl_van_phong = "'Dữ liệu công khai' AS ten_van_phong" if is_public else "COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong"
@@ -2763,12 +2885,23 @@ class CanonicalSemanticNormalizer:
                 f"       {dl_van_phong},\n"
                 f"       {dl_co_quan}\n"
                 f"FROM ranked_facts rf\n"
-                f"LEFT JOIN {crit_tbl} p ON rf.parent_criteria_id = p.id\n"
+                f"LEFT JOIN {crit_dim_ref} p ON rf.parent_criteria_id = p.id\n"
                 f"{dl_office_join}"
                 f"{dl_dept_join}"
                 f"WHERE rf.rn = 1\n"
                 f"ORDER BY rf.ngay_bao_cao_moi_nhat DESC NULLS LAST, TRIM(LOWER(rf.ten_chi_tieu)) ASC, {dl_order_parent}{limit_clause}"
             )
+
+        pub_crit_subq = (
+            "(SELECT cr.id, fr.code, COALESCE(fr.crit_name, cr.mission_name) AS mission_name, "
+            "cr.mission_name AS raw_mission_name, cr.parent_id "
+            "FROM dwh_public.criteria cr "
+            "LEFT JOIN (SELECT DISTINCT ON (criteria_id) criteria_id, code, name AS crit_name "
+            "FROM dwh_public.fact_report_criteria "
+            "ORDER BY criteria_id, report_date DESC NULLS LAST, version DESC NULLS LAST) fr "
+            "ON cr.id = fr.criteria_id)"
+        )
+        crit_dim_ref = pub_crit_subq if is_public else crit_tbl
 
         # 1. METRIC_POINT_INQUIRY (Tra cứu chỉ tiêu điểm / P-04 Single Metric Snapshot)
         if frame.intent == CanonicalIntentEnum.METRIC_POINT_INQUIRY:
@@ -2887,15 +3020,23 @@ class CanonicalSemanticNormalizer:
                 if is_public:
                     target_hierarchy_cte = (
                         f"WITH target_hierarchy AS (\n"
-                        f"    SELECT c.id, f.code, c.mission_name AS name\n"
-                        f"    FROM dwh_public.criteria c\n"
-                        f"    LEFT JOIN (SELECT DISTINCT criteria_id, code FROM dwh_public.fact_report_criteria) f ON c.id = f.criteria_id\n"
-                        f"    WHERE f.code = '{p_target_esc}' OR c.id::text = '{p_target_esc}'\n"
-                        f"       OR c.parent_id IN (\n"
-                        f"           SELECT c2.id FROM dwh_public.criteria c2\n"
-                        f"           LEFT JOIN (SELECT DISTINCT criteria_id, code FROM dwh_public.fact_report_criteria) f2 ON c2.id = f2.criteria_id\n"
-                        f"           WHERE f2.code = '{p_target_esc}' OR c2.id::text = '{p_target_esc}'\n"
-                        f"       )\n"
+                        f"    SELECT id, code, mission_name FROM {pub_crit_subq} AS c_th\n"
+                        f"    WHERE code = '{p_target_esc}' OR id::text = '{p_target_esc}'\n"
+                        f"       OR parent_id IN (SELECT id FROM {pub_crit_subq} AS c_th2 WHERE code = '{p_target_esc}' OR id::text = '{p_target_esc}')\n"
+                        f"),\n"
+                    )
+                    latest_date_cte = (
+                        f"latest_date AS (\n"
+                        f"    SELECT COALESCE(\n"
+                        f"        MAX(CASE WHEN TRIM(CAST(f.value AS TEXT)) NOT IN ('', '-') THEN CAST(report_date AS DATE) END),\n"
+                        f"        MAX(CAST(report_date AS DATE))\n"
+                        f"    ) AS max_d\n"
+                        f"    FROM {fact_tbl} f\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                        f"      {date_filter_clause}\n"
                         f"),\n"
                     )
                     base_facts_cte = (
@@ -2924,6 +3065,18 @@ class CanonicalSemanticNormalizer:
                         f"WITH target_hierarchy AS (\n"
                         f"    SELECT id, code, name FROM dwh_internal.criteria\n"
                         f"    WHERE code = '{p_target_esc}' OR parent_id IN (SELECT id FROM dwh_internal.criteria WHERE code = '{p_target_esc}')\n"
+                        f"),\n"
+                    )
+                    latest_date_cte = (
+                        f"latest_date AS (\n"
+                        f"    SELECT MAX(CAST(report_date AS DATE)) AS max_d\n"
+                        f"    FROM {fact_tbl} f\n"
+                        f"    WHERE f.tenant_code = '{t_code}'\n"
+                        f"      AND f.year_code = '{y_code}'\n"
+                        f"      AND f.report_status = 'approved'\n"
+                        f"      AND TRIM(CAST(f.value AS TEXT)) NOT IN ('', '-')\n"
+                        f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
+                        f"      {date_filter_clause}\n"
                         f"),\n"
                     )
                     base_facts_cte = (
@@ -2979,16 +3132,7 @@ class CanonicalSemanticNormalizer:
 
                 return (
                     f"{target_hierarchy_cte}"
-                    f"latest_date AS (\n"
-                    f"    SELECT MAX(CAST(report_date AS DATE)) AS max_d\n"
-                    f"    FROM {fact_tbl} f\n"
-                    f"    WHERE f.tenant_code = '{t_code}'\n"
-                    f"      AND f.year_code = '{y_code}'\n"
-                    f"      AND f.report_status = 'approved'\n"
-                    f"      AND TRIM(CAST(f.value AS TEXT)) NOT IN ('', '-')\n"
-                    f"      AND (f.code IN (SELECT code FROM target_hierarchy WHERE code IS NOT NULL) OR f.criteria_id IN (SELECT id FROM target_hierarchy))\n"
-                    f"      {date_filter_clause}\n"
-                    f"),\n"
+                    f"{latest_date_cte}"
                     f"{base_facts_cte}"
                     f"SELECT \n"
                     f"    bf.criteria_id,\n"
@@ -3004,7 +3148,7 @@ class CanonicalSemanticNormalizer:
                     f"    bf.ngay_bao_cao_moi_nhat AS can_tren_ngay,\n"
                     f"    {nhom_chi_tieu_expr}\n"
                     f"FROM base_facts bf\n"
-                    f"LEFT JOIN {crit_tbl} p ON bf.parent_criteria_id = p.id\n"
+                    f"LEFT JOIN {crit_dim_ref} p ON bf.parent_criteria_id = p.id\n"
                     f"ORDER BY bf.ten_chi_tieu;"
                 )
 
@@ -3012,37 +3156,25 @@ class CanonicalSemanticNormalizer:
                 # -------------------------------------------------------------
                 # Conformed Multi-Metric Snapshot Compiler
                 # -------------------------------------------------------------
+                crit_name_col = "mission_name" if is_public else "name"
                 sub_conds = []
                 if frame.canonical_metric_ids:
                     escaped_ids = [cid.replace("'", "''") for cid in frame.canonical_metric_ids if cid]
                     if escaped_ids:
                         id_list = ", ".join(f"'{cid}'" for cid in escaped_ids)
-                        if is_public:
-                            sub_conds.append(f"(f.code IN ({id_list}) OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE id::text IN ({id_list})))")
-                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE id::text IN ({id_list}) AND parent_id IS NOT NULL)")
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE id::text IN ({id_list})))")
-                        else:
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE code IN ({id_list}) OR id::text IN ({id_list}))")
-                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE (code IN ({id_list}) OR id::text IN ({id_list})) AND parent_id IS NOT NULL)")
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE code IN ({id_list}) OR id::text IN ({id_list})))")
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_m1 WHERE code IN ({id_list}) OR id::text IN ({id_list}))")
+                        sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_dim_ref} AS c_m2 WHERE (code IN ({id_list}) OR id::text IN ({id_list})) AND parent_id IS NOT NULL)")
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_m3 WHERE parent_id IN (SELECT id FROM {crit_dim_ref} AS c_m4 WHERE code IN ({id_list}) OR id::text IN ({id_list})))")
                 if frame.canonical_metric_names:
                     escaped_names = [cname.replace("'", "''") for cname in frame.canonical_metric_names if cname]
                     if escaped_names:
                         name_list = ", ".join(f"'{cname}'" for cname in escaped_names)
-                        if is_public:
-                            sub_conds.append(f"(TRIM(f.name) IN ({name_list}) OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list})))")
-                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list}) AND parent_id IS NOT NULL)")
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(mission_name) IN ({name_list})))")
-                        else:
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list}))")
-                            sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list}) AND parent_id IS NOT NULL)")
-                            sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE TRIM(name) IN ({name_list})))")
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_n1 WHERE TRIM({crit_name_col}) IN ({name_list}))")
+                        sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_dim_ref} AS c_n2 WHERE TRIM({crit_name_col}) IN ({name_list}) AND parent_id IS NOT NULL)")
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_n3 WHERE parent_id IN (SELECT id FROM {crit_dim_ref} AS c_n4 WHERE TRIM({crit_name_col}) IN ({name_list})))")
                 if p_target:
                     p_target_esc = str(p_target).replace("'", "''")
-                    if is_public:
-                        sub_conds.append(f"(f.code = '{p_target_esc}' OR f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE id::text = '{p_target_esc}' OR parent_id IN (SELECT id FROM {crit_tbl} WHERE id::text = '{p_target_esc}')))")
-                    else:
-                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_tbl} WHERE code = '{p_target_esc}' OR parent_id IN (SELECT id FROM {crit_tbl} WHERE code = '{p_target_esc}'))")
+                    sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_pt1 WHERE code = '{p_target_esc}' OR id::text = '{p_target_esc}' OR parent_id IN (SELECT id FROM {crit_dim_ref} AS c_pt2 WHERE code = '{p_target_esc}' OR id::text = '{p_target_esc}'))")
                 cand_cond_multi = f"({' OR '.join(sub_conds)})" if sub_conds else "1=1"
 
                 partition_by_multi = "bf.criteria_id"
@@ -3082,7 +3214,7 @@ class CanonicalSemanticNormalizer:
                 join_office_f = "" if is_public else "    LEFT JOIN dwh_internal.office o ON f.office_id = o.id\n"
                 van_phong_col = "        'Dữ liệu công khai' AS ten_van_phong,\n" if is_public else "        COALESCE(o.office_name, 'Cấp tỉnh') AS ten_van_phong,\n"
                 multi_parent_name = "p.mission_name AS parent_name" if is_public else "p.name AS parent_name"
-                multi_parent_code = "lf.code AS parent_code" if is_public else "p.code AS parent_code"
+                multi_parent_code = "p.code AS parent_code"
                 multi_nhom = "COALESCE(p.mission_name, lf.ten_chi_tieu) AS nhom_chi_tieu" if is_public else "COALESCE(p.name, lf.ten_chi_tieu) AS nhom_chi_tieu"
 
                 if is_public:
@@ -3193,7 +3325,7 @@ class CanonicalSemanticNormalizer:
                     f"    lf.can_tren_ngay,\n"
                     f"    {multi_nhom}\n"
                     f"FROM ranked_facts lf\n"
-                    f"LEFT JOIN {crit_tbl} p ON lf.parent_criteria_id = p.id\n"
+                    f"LEFT JOIN {crit_dim_ref} p ON lf.parent_criteria_id = p.id\n"
                     f"WHERE lf.rn = 1\n"
                     f"{outer_order_multi};"
                 )
@@ -3245,7 +3377,7 @@ class CanonicalSemanticNormalizer:
                     f"    {mpi_nhom_chi_tieu}\n"
                     f"FROM ranked_facts AS lf\n"
                     f"{mpi_office_join}"
-                    f"LEFT JOIN {crit_tbl} AS p ON lf.parent_criteria_id = p.id\n"
+                    f"LEFT JOIN {crit_dim_ref} AS p ON lf.parent_criteria_id = p.id\n"
                     f"WHERE lf.rn = 1{office_filter}\n"
                     f"{outer_order}{limit_clause}"
                 )
@@ -3280,7 +3412,7 @@ class CanonicalSemanticNormalizer:
                     f"    {mpi_nhom_chi_tieu}\n"
                     f"FROM ranked_facts AS lf\n"
                     f"{mpi_office_join}"
-                    f"LEFT JOIN {crit_tbl} AS p ON lf.parent_criteria_id = p.id\n"
+                    f"LEFT JOIN {crit_dim_ref} AS p ON lf.parent_criteria_id = p.id\n"
                     f"WHERE lf.rn = 1{office_filter}\n"
                     f"{outer_order}{limit_clause}"
                 )
@@ -3294,12 +3426,16 @@ class CanonicalSemanticNormalizer:
 
             filter_clause = ""
             if topic_filter:
-                topk_crit_col = "mission_name" if is_public else "name"
+                tk_pred = (
+                    f"(mission_name ILIKE '%{topic_filter}%' OR raw_mission_name ILIKE '%{topic_filter}%')"
+                    if is_public
+                    else f"name ILIKE '%{topic_filter}%'"
+                )
                 filter_clause = (
                     f"      AND (\n"
                     f"          f.criteria_id IN (\n"
-                    f"              SELECT id FROM {crit_tbl}\n"
-                    f"              WHERE parent_id IN (SELECT id FROM {crit_tbl} WHERE {topk_crit_col} ILIKE '%{topic_filter}%')\n"
+                    f"              SELECT id FROM {crit_dim_ref} AS c_tk1\n"
+                    f"              WHERE parent_id IN (SELECT id FROM {crit_dim_ref} AS c_tk2 WHERE {tk_pred})\n"
                     f"          )\n"
                     f"          OR f.name ILIKE '%{topic_filter}%'\n"
                     f"      )\n"
@@ -3369,8 +3505,8 @@ class CanonicalSemanticNormalizer:
                 mis_filter = f"  AND um.mission_name ILIKE '%{mis_name}%'\n"
             return (
                 f"SELECT u.name, u.position, um.office_name, um.mission_name\n"
-                f"FROM dwh_internal.user_mission AS um\n"
-                f"JOIN dwh_internal.\"user\" AS u ON um.user_id = u.id\n"
+                f"FROM {eff_schema}.user_mission AS um\n"
+                f"JOIN {eff_schema}.\"user\" AS u ON um.user_id = u.id\n"
                 f"WHERE um.tenant_code = '{frame.tenant_code}'\n"
                 f"{mis_filter}".rstrip("\n") + f"{limit_clause}"
             )
@@ -3384,13 +3520,27 @@ class CanonicalSemanticNormalizer:
                     exclude_clauses += f"  AND p.name NOT ILIKE '%{ent_clean}%'\n"
             return (
                 f"SELECT p.code, p.name, p.is_activated\n"
-                f"FROM dwh_internal.province AS p\n"
+                f"FROM {eff_schema}.province AS p\n"
                 f"WHERE p.is_activated = true\n"
                 f"{exclude_clauses}"
                 f"ORDER BY p.name ASC{limit_clause}"
             )
 
         if frame.target_table == "criteria" and frame.intent in (CanonicalIntentEnum.METADATA_EXPLORATION, CanonicalIntentEnum.DIMENSION_LISTING):
+            if is_public:
+                kw_clause_pub = ""
+                if frame.search_keyword:
+                    kw_clean = frame.search_keyword.replace("'", "''").strip()
+                    kw_clause_pub = f"  AND f.name ILIKE '%{kw_clean}%'\n"
+                t_cond_pub = f"  AND f.tenant_code = '{frame.tenant_code}'\n" if frame.tenant_code else ""
+                return (
+                    f"SELECT DISTINCT f.code, f.name, CASE WHEN f.parent_criteria_id IS NULL THEN 1 ELSE 2 END AS level\n"
+                    f"FROM dwh_public.fact_report_criteria AS f\n"
+                    f"WHERE f.report_status = 'approved'\n"
+                    f"{t_cond_pub}"
+                    f"{kw_clause_pub}"
+                    f"ORDER BY level ASC, f.code ASC{limit_clause}"
+                )
             kw_clause = ""
             if frame.search_keyword:
                 kw_clean = frame.search_keyword.replace("'", "''").strip()
@@ -3406,7 +3556,7 @@ class CanonicalSemanticNormalizer:
         if frame.target_table == "deparment":
             return (
                 f"SELECT d.code, d.name, d.level, d.tenant_code\n"
-                f"FROM dwh_internal.deparment AS d\n"
+                f"FROM {eff_schema}.deparment AS d\n"
                 f"WHERE d.is_activated = true\n"
                 f"ORDER BY d.code ASC{limit_clause}"
             )
@@ -3414,7 +3564,7 @@ class CanonicalSemanticNormalizer:
         if frame.target_table == "office":
             return (
                 f"SELECT o.code, o.name, o.department_code\n"
-                f"FROM dwh_internal.office AS o\n"
+                f"FROM {eff_schema}.office AS o\n"
                 f"WHERE o.is_activated = true\n"
                 f"ORDER BY o.code ASC{limit_clause}"
             )
@@ -3422,7 +3572,7 @@ class CanonicalSemanticNormalizer:
         if frame.target_table == "collection_form":
             return (
                 f"SELECT cf.code, cf.name, cf.department_code, cf.status\n"
-                f"FROM dwh_internal.collection_form AS cf\n"
+                f"FROM {eff_schema}.collection_form AS cf\n"
                 f"WHERE cf.year_code = '{frame.year_code}'{limit_clause}"
             )
         if frame.target_table == "mission":
@@ -3436,7 +3586,7 @@ class CanonicalSemanticNormalizer:
             if frame.month_filter is not None:
                 mission_time_filter = (
                     f"  AND EXISTS (\n"
-                    f"      SELECT 1 FROM dwh_internal.fact_report_criteria f\n"
+                    f"      SELECT 1 FROM {fact_tbl} f\n"
                     f"      WHERE f.tenant_code = '{t_code}'\n"
                     f"        AND f.year_code = '{y_mis}'\n"
                     f"        AND f.report_status = 'approved'\n"
@@ -3447,7 +3597,7 @@ class CanonicalSemanticNormalizer:
             elif frame.specific_date is not None:
                 mission_time_filter = (
                     f"  AND EXISTS (\n"
-                    f"      SELECT 1 FROM dwh_internal.fact_report_criteria f\n"
+                    f"      SELECT 1 FROM {fact_tbl} f\n"
                     f"      WHERE f.tenant_code = '{t_code}'\n"
                     f"        AND f.year_code = '{y_mis}'\n"
                     f"        AND f.report_status = 'approved'\n"
@@ -3459,13 +3609,25 @@ class CanonicalSemanticNormalizer:
                 date_to_cond = f" AND f.report_date::date <= '{frame.date_to}'::date" if frame.date_to else ""
                 mission_time_filter = (
                     f"  AND EXISTS (\n"
-                    f"      SELECT 1 FROM dwh_internal.fact_report_criteria f\n"
+                    f"      SELECT 1 FROM {fact_tbl} f\n"
                     f"      WHERE f.tenant_code = '{t_code}'\n"
                     f"        AND f.year_code = '{y_mis}'\n"
                     f"        AND f.report_status = 'approved'\n"
                     f"        AND (f.mission_id = m.id OR TRIM(LOWER(f.mission_name)) = TRIM(LOWER(m.mission_name)))\n"
                     f"        AND f.report_date::date >= '{frame.date_from}'::date{date_to_cond}\n"
                     f"  )\n"
+                )
+            if is_public:
+                return (
+                    f"SELECT m.mission_code, m.mission_name, m.mission_status, m.department_code,\n"
+                    f"       COALESCE(s.scope_name, 'Chưa phân loại') AS linh_vuc,\n"
+                    f"       'Dữ liệu công khai' AS don_vi_phu_trach\n"
+                    f"FROM dwh_public.mission AS m\n"
+                    f"LEFT JOIN dwh_public.scope AS s ON m.scope_id = s.id\n"
+                    f"WHERE m.tenant_code = '{t_code}' AND m.year_code = '{y_mis}' AND m.mission_status = true AND m.deleted_date IS NULL\n"
+                    f"{scope_filter}"
+                    f"{mission_time_filter}"
+                    f"ORDER BY m.mission_name ASC{limit_clause}"
                 )
             return (
                 f"SELECT m.mission_code, m.mission_name, m.mission_status, m.department_code,\n"
@@ -3505,7 +3667,7 @@ class CanonicalSemanticNormalizer:
         if frame.target_table == "report":
             return (
                 f"SELECT r.report_date, r.status, r.department_code\n"
-                f"FROM dwh_internal.report AS r\n"
+                f"FROM {eff_schema}.report AS r\n"
                 f"WHERE r.tenant_code = '{frame.tenant_code}' AND r.year_code = '{frame.year_code}'{limit_clause}"
             )
 
@@ -3516,8 +3678,12 @@ class CanonicalSemanticNormalizer:
             crit_filter = ""
             if frame.canonical_metric_names:
                 names_esc = "', '".join(n.replace("'", "''") for n in frame.canonical_metric_names)
-                pc_crit_col = "mission_name" if is_public else "name"
-                crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM {crit_tbl} WHERE {pc_crit_col} IN ('{names_esc}')))\n"
+                pc_pred = (
+                    f"(mission_name IN ('{names_esc}') OR raw_mission_name IN ('{names_esc}'))"
+                    if is_public
+                    else f"name IN ('{names_esc}')"
+                )
+                crit_filter = f"  AND (f.name IN ('{names_esc}') OR f.parent_criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_pc WHERE {pc_pred}))\n"
 
             temporal_filter = ""
             if frame.specific_date:

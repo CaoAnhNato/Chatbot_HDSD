@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 logger = logging.getLogger(__name__)
 
 _PREFIX_RE = re.compile(
-    r"^\[\s*tenant_code\s*[=:]\s*[^,\]]+\s*,\s*level\s*[=:]\s*\d+\s*\]\s*",
+    r"^(?:\[\s*[^\]]*\b(?:tenant_code|level|role_level|user|schema|department_code|role)\s*[=:][^\]]*\]\s*)+",
     re.IGNORECASE,
 )
 
@@ -104,14 +104,24 @@ class ChatHistoryStore:
         tenant_code: str = "68",
         tabular_data: Optional[Dict[str, Any]] = None,
         quick_action_chips: Optional[List[Any]] = None,
+        schema: str = "dwh_internal",
     ) -> None:
         if not session_id or session_id == "default_session":
             return
         now_iso = datetime.now(timezone.utc).isoformat()
         title = _clean_title_from_prompt(user_prompt)
+        eff_schema = "dwh_public" if (
+            str(schema or "").strip().lower() == "dwh_public"
+            or "schema=dwh_public" in (user_prompt or "").lower()
+        ) else "dwh_internal"
 
         try:
-            tabular_json = json.dumps(tabular_data, ensure_ascii=False) if tabular_data else None
+            td_payload = (
+                {**tabular_data, "active_schema": tabular_data.get("active_schema") or eff_schema}
+                if isinstance(tabular_data, dict)
+                else tabular_data
+            )
+            tabular_json = json.dumps(td_payload, ensure_ascii=False) if td_payload else None
         except Exception:
             tabular_json = None
 
@@ -191,7 +201,7 @@ class ChatHistoryStore:
                     result.append(
                         {
                             "id": r["id"],
-                            "title": r["title"],
+                            "title": _clean_title_from_prompt(r["title"]),
                             "role": r["role"],
                             "level": r["level"],
                             "tenant_code": r["tenant_code"],
@@ -212,6 +222,7 @@ class ChatHistoryStore:
         content: str,
         td: Dict[str, Any],
         chips: Optional[List[Dict[str, Any]]],
+        inferred_schema: str = "dwh_internal",
     ) -> bool:
         t_rows = td.get("rows")
         if not isinstance(t_rows, list) or not t_rows:
@@ -220,13 +231,46 @@ class ChatHistoryStore:
         smc = td.get("single_metric_card") if isinstance(td.get("single_metric_card"), dict) else {}
         smc_cid = str(smc.get("criteria_id") or "").strip()
 
+        eff_schema = str(td.get("active_schema") or inferred_schema or "dwh_internal").strip().lower()
+        if eff_schema != "dwh_public":
+            smc_off = str(smc.get("office_name") or "")
+            if (
+                smc_off == "Dữ liệu công khai"
+                or "chưa công bố" in (content or "").lower()
+                or any(
+                    isinstance(r, dict)
+                    and (
+                        r.get("office") == "Dữ liệu công khai"
+                        or r.get("ten_van_phong") == "Dữ liệu công khai"
+                        or "chưa công bố"
+                        in str(r.get("value") or r.get("gia_tri_moi_nhat") or "").lower()
+                    )
+                    for r in t_rows
+                )
+            ):
+                eff_schema = "dwh_public"
+        if eff_schema != "dwh_public":
+            eff_schema = "dwh_internal"
+
+        def _is_masked_or_unrecorded(val: Any) -> bool:
+            s = str(val or "").strip().lower()
+            return (
+                s.startswith("null")
+                or "chưa công bố" in s
+                or "chưa có số liệu" in s
+            )
+
         tree_modal = td.get("tree_modal") or td.get("trees_by_root_id")
         tree_nodes_to_hydrate: List[Dict[str, Any]] = []
         if isinstance(tree_modal, dict):
             def _collect_tree_nodes(node: Any) -> None:
                 if not isinstance(node, dict):
                     return
-                if not node.get("timeline_values") and (node.get("id") or node.get("name")):
+                if (
+                    not node.get("timeline_values")
+                    and (node.get("id") or node.get("name"))
+                    and not (eff_schema == "dwh_public" and (node.get("value") is None or _is_masked_or_unrecorded(node.get("value"))))
+                ):
                     tree_nodes_to_hydrate.append(node)
                 for ch in node.get("children") or []:
                     _collect_tree_nodes(ch)
@@ -236,6 +280,7 @@ class ChatHistoryStore:
         needs_row_hydration = any(
             isinstance(r, dict)
             and not r.get("timeline_values")
+            and not _is_masked_or_unrecorded(r.get("value") or r.get("gia_tri_moi_nhat"))
             and (r.get("criteria_id") or r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name"))
             for r in t_rows
         )
@@ -252,7 +297,7 @@ class ChatHistoryStore:
 
             cand_nodes: List[Dict[str, Any]] = []
             for r in t_rows:
-                if not isinstance(r, dict):
+                if not isinstance(r, dict) or _is_masked_or_unrecorded(r.get("value") or r.get("gia_tri_moi_nhat")):
                     continue
                 c_id = r.get("criteria_id") or r.get("id") or (smc_cid if len(t_rows) == 1 else None)
                 if c_id and not r.get("criteria_id"):
@@ -267,7 +312,6 @@ class ChatHistoryStore:
 
             p_name = str(td.get("parent_criterion_name") or "").strip()
             if not p_name and content:
-                import re
                 m_parent = re.search(r"- \*\*Chỉ tiêu:\*\*\s*([^\n]+)", content)
                 if m_parent:
                     p_name = m_parent.group(1).strip()
@@ -280,13 +324,22 @@ class ChatHistoryStore:
 
             ts = td.get("temporal_scope") or {}
             y_code = str(ts.get("year") or "2026")
-            period_map = catalog.get_batch_period_values(cand_nodes, year_code=y_code, tenant_code="68")
+            period_map = catalog.get_batch_period_values(
+                cand_nodes,
+                year_code=y_code,
+                tenant_code="68",
+                target_schema=eff_schema,
+            )
             if not period_map:
                 return False
 
             updated = False
             for r in t_rows:
-                if not isinstance(r, dict) or r.get("timeline_values"):
+                if (
+                    not isinstance(r, dict)
+                    or r.get("timeline_values")
+                    or _is_masked_or_unrecorded(r.get("value") or r.get("gia_tri_moi_nhat"))
+                ):
                     continue
                 c_id_k = str(r.get("criteria_id") or r.get("id") or "").lower()
                 c_nm_k = str(r.get("ten_chi_tieu") or r.get("item") or r.get("criteria_name") or "").replace("**", "").strip().lower()
@@ -350,7 +403,15 @@ class ChatHistoryStore:
             (session_id,),
         ).fetchall()
         msgs: List[Dict[str, Any]] = []
+        last_user_schema = "dwh_internal"
         for m in rows:
+            raw_content = m["content"] or ""
+            if m["role"] == "user":
+                low_c = raw_content.lower()
+                if "schema=dwh_public" in low_c or "schema:dwh_public" in low_c:
+                    last_user_schema = "dwh_public"
+                elif "schema=dwh_internal" in low_c or "schema:dwh_internal" in low_c:
+                    last_user_schema = "dwh_internal"
             item: Dict[str, Any] = {
                 "id": m["id"],
                 "role": m["role"],
@@ -371,9 +432,10 @@ class ChatHistoryStore:
                 self._hydrate_legacy_timeline_values(
                     conn,
                     m["id"],
-                    m["content"] or "",
+                    raw_content,
                     item["tabular_data"],
                     item.get("quick_action_chips"),
+                    inferred_schema=last_user_schema,
                 )
             msgs.append(item)
         return msgs

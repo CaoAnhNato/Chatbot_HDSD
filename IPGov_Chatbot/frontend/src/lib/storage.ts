@@ -4,7 +4,7 @@ const SESSIONS_STORAGE_KEY = 'hdsd_chat_sessions_v1';
 const ACTIVE_SESSION_STORAGE_KEY = 'hdsd_active_session_id_v1';
 const MAX_SAVED_SESSIONS = 50;
 
-const CONTEXT_PREFIX_RE = /^\[\s*tenant_code\s*[=:][^\]]+\]\s*/i;
+const CONTEXT_PREFIX_RE = /^(?:\[\s*[^\]]*\b(?:tenant_code|level|role_level|user|schema|department_code|role)\s*[=:][^\]]*\]\s*)+/i;
 
 export const stripTenantContextPrefix = (text: string): string => {
   return (text || '').replace(CONTEXT_PREFIX_RE, '').trim();

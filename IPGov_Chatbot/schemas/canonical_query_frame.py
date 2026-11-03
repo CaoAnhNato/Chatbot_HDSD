@@ -238,6 +238,10 @@ class CanonicalQueryFrameDTO(BaseModel):
         default="fact_report_criteria",
         description="Bảng chính đích phục vụ truy vấn (province, criteria, deparment, office, mission, collection_form, user, ward, fact_report_criteria)"
     )
+    target_schema: str = Field(
+        default="dwh_internal",
+        description="Schema kho dữ liệu mục tiêu ('dwh_internal' hoặc 'dwh_public')"
+    )
     is_out_of_scope: bool = Field(
         default=False,
         description="True nếu câu hỏi ngoài phạm vi DWH hoặc câu hỏi toán học/chitchat"

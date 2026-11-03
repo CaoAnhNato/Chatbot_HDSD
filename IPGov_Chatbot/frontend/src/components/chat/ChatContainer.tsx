@@ -130,7 +130,24 @@ const CHIPS_LEVEL_3: QuickActionChip[] = [
   { id: 'chip_l3_4', label: '📞 Hotline hỗ trợ công dân', query_text: 'Cho tôi thông tin hotline hỗ trợ công dân' },
 ];
 
-const getWelcomeContact = (role: UserRoleProfile) => {
+const CHIPS_PUBLIC_SCHEMA: QuickActionChip[] = [
+  { id: 'chip_pub_1', label: '📋 Danh mục nhiệm vụ 2026', query_text: 'Danh sách các nhiệm vụ phát triển kinh tế - xã hội năm 2026?' },
+  { id: 'chip_pub_2', label: '🧂 Tổng hộ sản xuất muối', query_text: 'Tổng hộ sản xuất muối tính đến ngày 30/06/2026 là bao nhiêu?' },
+  { id: 'chip_pub_3', label: '📐 Cơ cấu diện tích muối', query_text: 'Cơ cấu diện tích sản xuất muối tính đến ngày 30/06/2026?' },
+  { id: 'chip_pub_4', label: '🌾 Chỉ tiêu Cấp 1 Nông thôn', query_text: 'Các chỉ tiêu Cấp 1 của nhiệm vụ Phát triển nông thôn năm 2026?' },
+];
+
+const getWelcomeContact = (
+  role: UserRoleProfile,
+  schema: 'dwh_internal' | 'dwh_public' = 'dwh_internal'
+) => {
+  if (schema === 'dwh_public') {
+    return {
+      title: `TRỢ LÝ KHO DỮ LIỆU CÔNG KHAI DWH (dwh_public • ${role.tenant_name})`,
+      working_hours: 'Hỗ trợ 24/7 • Truy cập mở toàn bộ dữ liệu công khai (không áp dụng phân cấp Level)',
+      hotlines: ['028 3535 2524'],
+    };
+  }
   if (role.role_level === 4) {
     return {
       title: `TRỢ LÝ KHO DỮ LIỆU DWH (LÃNH ĐẠO CẤP TỈNH • ${role.tenant_name})`,
@@ -182,12 +199,18 @@ const getRoleChips = (level: number): QuickActionChip[] => {
   }
 };
 
-const getWelcomeMessage = (role: UserRoleProfile): ChatMessage => ({
-  id: `welcome-${role.id}`,
+const getWelcomeMessage = (
+  role: UserRoleProfile,
+  schema: 'dwh_internal' | 'dwh_public' = 'dwh_internal'
+): ChatMessage => ({
+  id: schema === 'dwh_public' ? 'welcome-public' : `welcome-${role.id}`,
   role: 'assistant',
-  content: `Xin chào đồng chí! Hệ thống đã kích hoạt phân quyền **Level ${role.role_level} (${role.badge})** cho **${role.label}** (Tenant: ${role.tenant_code}). Bạn có thể chọn câu hỏi gợi ý bên dưới hoặc nhập câu hỏi trực tiếp:`,
-  contact_support: getWelcomeContact(role),
-  quick_action_chips: getRoleChips(role.role_level),
+  content:
+    schema === 'dwh_public'
+      ? `Xin chào! Hệ thống đang kết nối **Kho dữ liệu công khai (dwh_public)** tại địa bàn **${role.tenant_name}** (Tenant: ${role.tenant_code}) — mọi người dùng đều được truy vấn toàn bộ dữ liệu công khai hiện có (không áp dụng phân cấp Level). Bạn có thể chọn câu hỏi gợi ý bên dưới hoặc nhập câu hỏi trực tiếp:`
+      : `Xin chào đồng chí! Hệ thống đã kích hoạt phân quyền **Level ${role.role_level} (${role.badge})** cho **${role.label}** (Tenant: ${role.tenant_code}). Bạn có thể chọn câu hỏi gợi ý bên dưới hoặc nhập câu hỏi trực tiếp:`,
+  contact_support: getWelcomeContact(role, schema),
+  quick_action_chips: schema === 'dwh_public' ? CHIPS_PUBLIC_SCHEMA : getRoleChips(role.role_level),
   timestamp: new Date().toISOString(),
 });
 
@@ -195,7 +218,7 @@ export const ChatContainer: React.FC = () => {
   const [availableUsers, setAvailableUsers] = useState<UserRoleProfile[]>(PRESET_ROLES);
   const [selectedRole, setSelectedRole] = useState<UserRoleProfile>(PRESET_ROLES[0]);
   const [activeSchema, setActiveSchema] = useState<'dwh_internal' | 'dwh_public'>('dwh_internal');
-  const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage(PRESET_ROLES[0])]);
+  const [messages, setMessages] = useState<ChatMessage[]>([getWelcomeMessage(PRESET_ROLES[0], 'dwh_internal')]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [currentStage, setCurrentStage] = useState<{ stage: string; message: string } | null>(null);
@@ -262,6 +285,13 @@ export const ChatContainer: React.FC = () => {
       const savedSchema = localStorage.getItem('ipgov_active_schema');
       if (savedSchema === 'dwh_internal' || savedSchema === 'dwh_public') {
         setActiveSchema(savedSchema);
+        if (savedSchema === 'dwh_public') {
+          setMessages((prev) =>
+            prev.some((m) => m.role === 'user')
+              ? prev
+              : [getWelcomeMessage(selectedRoleRef.current, savedSchema)]
+          );
+        }
       }
     } catch (e) {}
 
@@ -310,6 +340,11 @@ export const ChatContainer: React.FC = () => {
       const target = customEvent.detail;
       if (target === 'dwh_internal' || target === 'dwh_public') {
         setActiveSchema(target);
+        setMessages((prev) =>
+          prev.some((m) => m.role === 'user')
+            ? prev
+            : [getWelcomeMessage(selectedRoleRef.current, target)]
+        );
       }
     };
 
@@ -346,12 +381,24 @@ export const ChatContainer: React.FC = () => {
         return (
           Array.isArray(rows) &&
           rows.length > 0 &&
-          rows.some(
-            (r: any) =>
-              r &&
-              (r.criteria_id || r.ten_chi_tieu || r.item || r.criteria_name) &&
-              !r.timeline_values
-          )
+          rows.some((r: any) => {
+            if (
+              !r ||
+              !(r.criteria_id || r.ten_chi_tieu || r.item || r.criteria_name) ||
+              r.timeline_values
+            ) {
+              return false;
+            }
+            const rawVal = String(r.value ?? r.gia_tri_moi_nhat ?? '').trim().toLowerCase();
+            if (
+              rawVal.startsWith('null') ||
+              rawVal.includes('chưa công bố') ||
+              rawVal.includes('chưa có số liệu')
+            ) {
+              return false;
+            }
+            return true;
+          })
         );
       });
 
@@ -412,6 +459,11 @@ export const ChatContainer: React.FC = () => {
   const handleSchemaSwitch = (nextSchema: 'dwh_internal' | 'dwh_public') => {
     if (nextSchema === activeSchema) return;
     setActiveSchema(nextSchema);
+    setMessages((prev) =>
+      prev.some((m) => m.role === 'user')
+        ? prev
+        : [getWelcomeMessage(selectedRole, nextSchema)]
+    );
     try {
       localStorage.setItem('ipgov_active_schema', nextSchema);
       window.dispatchEvent(new CustomEvent('ipgov_schema_switched', { detail: nextSchema }));
@@ -468,7 +520,7 @@ export const ChatContainer: React.FC = () => {
       if (!hasUserMessages) {
         setSessionId(undefined);
         saveActiveSessionId(undefined);
-        return [getWelcomeMessage(newRole)];
+        return [getWelcomeMessage(newRole, activeSchema)];
       }
       return prev;
     });
@@ -479,7 +531,7 @@ export const ChatContainer: React.FC = () => {
     const newSid = `session-${Date.now()}`;
     setSessionId(newSid);
     saveActiveSessionId(undefined);
-    setMessages([getWelcomeMessage(selectedRole)]);
+    setMessages([getWelcomeMessage(selectedRole, activeSchema)]);
   };
 
   const handleSelectSession = async (session: ChatSession) => {
@@ -521,7 +573,7 @@ export const ChatContainer: React.FC = () => {
       }
     }
 
-    setMessages(session.messages && session.messages.length > 0 ? session.messages : [getWelcomeMessage(matchingRole)]);
+    setMessages(session.messages && session.messages.length > 0 ? session.messages : [getWelcomeMessage(matchingRole, activeSchema)]);
   };
 
   const handleDeleteSession = (sid: string) => {
@@ -557,8 +609,11 @@ export const ChatContainer: React.FC = () => {
 
     const cleanQueryText = queryText.replace(/^\[[^\]]+\]\s*/i, '').trim();
 
-    // Chuỗi prompt kèm định danh user, level, tenant_code và schema gửi xuống backend API
-    const promptWithContext = `[user=${selectedRole.username || selectedRole.id}, level=${selectedRole.role_level}, tenant_code=${selectedRole.tenant_code}, schema=${activeSchema}] ${cleanQueryText}`;
+    // Trên dwh_public không áp dụng phân cấp Level/User nội bộ: chỉ đính kèm schema và tenant_code
+    const promptWithContext =
+      activeSchema === 'dwh_public'
+        ? `[schema=dwh_public, tenant_code=${selectedRole.tenant_code}] ${cleanQueryText}`
+        : `[user=${selectedRole.username || selectedRole.id}, level=${selectedRole.role_level}, tenant_code=${selectedRole.tenant_code}, schema=${activeSchema}] ${cleanQueryText}`;
 
     const userMsg: ChatMessage = {
       id: userMsgId,
@@ -594,8 +649,13 @@ export const ChatContainer: React.FC = () => {
         .slice(-6)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const collectionName = selectedRole.role_level <= 1 ? 'hdsd_phuong_chunks' : 'hdsd_chunks';
-      const mockToken = generateMockJWT(selectedRole);
+      const isPublicSchema = activeSchema === 'dwh_public';
+      const collectionName = isPublicSchema
+        ? 'hdsd_chunks'
+        : selectedRole.role_level <= 1
+        ? 'hdsd_phuong_chunks'
+        : 'hdsd_chunks';
+      const mockToken = isPublicSchema ? undefined : generateMockJWT(selectedRole);
 
       await sendMessageStream(
         promptWithContext,
@@ -680,14 +740,14 @@ export const ChatContainer: React.FC = () => {
             });
           },
         },
-        selectedRole.id,
+        isPublicSchema ? 'public' : selectedRole.id,
         collectionName,
-        selectedRole.role_level,
+        isPublicSchema ? undefined : selectedRole.role_level,
         selectedRole.tenant_code,
         mockToken,
         activeSchema,
-        selectedRole.user_id,
-        selectedRole.label
+        isPublicSchema ? undefined : selectedRole.user_id,
+        isPublicSchema ? undefined : selectedRole.label
       );
     } catch (err: any) {
       setCurrentStage(null);
@@ -755,9 +815,19 @@ export const ChatContainer: React.FC = () => {
                 </span>
               </h1>
               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                <span className="font-semibold text-slate-700 whitespace-nowrap">Level {selectedRole.role_level}:</span>
-                <span className="truncate max-w-[200px] sm:max-w-[320px]">{selectedRole.label}</span>
+                {activeSchema === 'dwh_public' ? (
+                  <>
+                    <Globe className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-semibold text-emerald-700 whitespace-nowrap">Kho dữ liệu công khai:</span>
+                    <span className="truncate max-w-[240px] sm:max-w-[360px]">Truy cập mở toàn bộ dữ liệu</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span className="font-semibold text-slate-700 whitespace-nowrap">Level {selectedRole.role_level}:</span>
+                    <span className="truncate max-w-[200px] sm:max-w-[320px]">{selectedRole.label}</span>
+                  </>
+                )}
               </p>
             </div>
           </div>
@@ -824,50 +894,52 @@ export const ChatContainer: React.FC = () => {
               </button>
             </div>
 
-            {/* Header User Selector Dropdown with Level Badges & Mission Count */}
-            <div
-              data-testid="header-user-selector-container"
-              className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 shadow-xs shrink-0 select-none"
-            >
-              {/* Level Badge Chip */}
-              <span
-                className={`text-xs px-2 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${getLevelBadgeStyle(selectedRole?.role_level ?? 0)?.chipClass || ''}`}
-                title={`Cấp bậc thẩm quyền: Level ${selectedRole?.role_level ?? 0}`}
+            {/* Header User Selector Dropdown with Level Badges & Mission Count (Only applicable on dwh_internal) */}
+            {activeSchema === 'dwh_internal' && (
+              <div
+                data-testid="header-user-selector-container"
+                className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200 shadow-xs shrink-0 select-none"
               >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Level {selectedRole?.role_level ?? 0}</span>
-              </span>
+                {/* Level Badge Chip */}
+                <span
+                  className={`text-xs px-2 py-0.5 rounded-md border flex items-center gap-1 shrink-0 ${getLevelBadgeStyle(selectedRole?.role_level ?? 0)?.chipClass || ''}`}
+                  title={`Cấp bậc thẩm quyền: Level ${selectedRole?.role_level ?? 0}`}
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Level {selectedRole?.role_level ?? 0}</span>
+                </span>
 
-              {/* Mission Count Chip */}
-              <span
-                className="text-[11px] font-mono px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 hidden sm:inline shrink-0"
-                title={selectedRole?.is_unrestricted ? 'Toàn quyền truy cập mọi nhiệm vụ' : `Số lượng nhiệm vụ được phân công: ${selectedRole?.mission_count ?? 0}`}
-              >
-                {selectedRole?.is_unrestricted ? 'Toàn quyền' : `${selectedRole?.mission_count ?? 0} NV`}
-              </span>
+                {/* Mission Count Chip */}
+                <span
+                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 hidden sm:inline shrink-0"
+                  title={selectedRole?.is_unrestricted ? 'Toàn quyền truy cập mọi nhiệm vụ' : `Số lượng nhiệm vụ được phân công: ${selectedRole?.mission_count ?? 0}`}
+                >
+                  {selectedRole?.is_unrestricted ? 'Toàn quyền' : `${selectedRole?.mission_count ?? 0} NV`}
+                </span>
 
-              {/* Native Select with full Playwright & Human compatibility */}
-              <select
-                id="header-user-selector"
-                name="user_role"
-                data-testid="header-user-selector"
-                value={selectedRole?.id || ''}
-                onChange={(e) => {
-                  const found = availableUsers.find(
-                    (u) => u.id === e.target.value || u.username === e.target.value
-                  );
-                  if (found) handleRoleSelect(found);
-                }}
-                className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[210px] sm:max-w-[280px] truncate"
-                aria-label="Chọn tài khoản công vụ"
-              >
-                {availableUsers.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    Level {user.role_level} • {user.name} ({user.username}) - {user.is_unrestricted ? 'Toàn quyền' : `${user.mission_count} NV`}
-                  </option>
-                ))}
-              </select>
-            </div>
+                {/* Native Select with full Playwright & Human compatibility */}
+                <select
+                  id="header-user-selector"
+                  name="user_role"
+                  data-testid="header-user-selector"
+                  value={selectedRole?.id || ''}
+                  onChange={(e) => {
+                    const found = availableUsers.find(
+                      (u) => u.id === e.target.value || u.username === e.target.value
+                    );
+                    if (found) handleRoleSelect(found);
+                  }}
+                  className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[210px] sm:max-w-[280px] truncate"
+                  aria-label="Chọn tài khoản công vụ"
+                >
+                  {availableUsers.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      Level {user.role_level} • {user.name} ({user.username}) - {user.is_unrestricted ? 'Toàn quyền' : `${user.mission_count} NV`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button
               onClick={handleNewChat}

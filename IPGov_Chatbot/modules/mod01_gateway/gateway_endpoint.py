@@ -185,6 +185,8 @@ async def chat_sse_event_generator(
     }
     yield f"event: thought_progress\ndata: {json.dumps(progress_payload, ensure_ascii=False)}\n\n"
 
+    effective_schema = user_ctx.schema or extracted_schema or "dwh_internal"
+    is_pub_eff = effective_schema == "dwh_public"
     agent_user_ctx = {
         "user_id": user_ctx.user_id,
         "username": user_ctx.username,
@@ -192,11 +194,11 @@ async def chat_sse_event_generator(
         "user_name": user_ctx.user_name or user_ctx.name,
         "role_level": user_ctx.role_level,
         "tenant_code": user_ctx.tenant_code or extracted_tenant or "68",
-        "department_code": user_ctx.department_code or extracted_dept,
-        "schema": user_ctx.schema or extracted_schema or "dwh_internal",
-        "assigned_mission_ids": user_ctx.assigned_mission_ids or [],
-        "assigned_mission_names": user_ctx.assigned_mission_names or [],
-        "is_unrestricted": user_ctx.is_unrestricted,
+        "department_code": extracted_dept if is_pub_eff else (user_ctx.department_code or extracted_dept),
+        "schema": effective_schema,
+        "assigned_mission_ids": [] if is_pub_eff else (user_ctx.assigned_mission_ids or []),
+        "assigned_mission_names": [] if is_pub_eff else (user_ctx.assigned_mission_names or []),
+        "is_unrestricted": True if is_pub_eff else user_ctx.is_unrestricted,
     }
 
     effective_session = session_id or session_ctx.session_id or "default_session"
@@ -235,6 +237,7 @@ async def chat_sse_event_generator(
                 tenant_code=agent_user_ctx["tenant_code"],
                 tabular_data=saved_tabular_data,
                 quick_action_chips=saved_chips,
+                schema=effective_schema,
             )
         except Exception as e:
             logger.warning("Could not persist turn to ChatHistoryStore: %s", e)

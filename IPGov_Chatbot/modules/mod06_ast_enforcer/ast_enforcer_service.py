@@ -240,6 +240,21 @@ class ASTEnforcerService:
             if cte.alias:
                 cte_names.add(cte.alias.lower())
 
+        active_schema = (
+            "dwh_public"
+            if str(getattr(user_ctx, "schema", "dwh_internal") or "dwh_internal").strip().lower() == "dwh_public"
+            else "dwh_internal"
+        )
+        public_allowed_tables = {
+            "fact_report_criteria",
+            "criteria",
+            "criteria_group",
+            "mission",
+            "report",
+            "scope",
+            "province",
+        }
+
         tables_validated: List[str] = []
         for tbl in parsed.find_all(exp.Table):
             tbl_name = tbl.name.lower() if tbl.name else ""
@@ -260,6 +275,14 @@ class ASTEnforcerService:
                     raw_sql=raw_sql,
                 )
 
+            if active_schema == "dwh_public" and schema_name == "dwh_internal":
+                raise SecurityEnforcementError(
+                    "Cấm truy cập chéo sang schema nội bộ 'dwh_internal' khi đang ở chế độ 'dwh_public'",
+                    violation_type=ASTViolationType.FORBIDDEN_TABLE,
+                    forbidden_tokens=["dwh_internal"],
+                    raw_sql=raw_sql,
+                )
+
             # [TRAP-005] Phát hiện sai chính tả department
             if tbl_name == "department":
                 raise SecurityEnforcementError(
@@ -273,6 +296,14 @@ class ASTEnforcerService:
             if tbl_name not in ALLOWED_TABLES:
                 raise SecurityEnforcementError(
                     f"Truy cập trái phép vào bảng không thuộc Whitelist danh mục: '{tbl_name}'",
+                    violation_type=ASTViolationType.FORBIDDEN_TABLE,
+                    forbidden_tokens=[tbl_name],
+                    raw_sql=raw_sql,
+                )
+
+            if active_schema == "dwh_public" and tbl_name not in public_allowed_tables:
+                raise SecurityEnforcementError(
+                    f"Bảng '{tbl_name}' thuộc phạm vi nội bộ, không được phép truy vấn trên 'dwh_public'",
                     violation_type=ASTViolationType.FORBIDDEN_TABLE,
                     forbidden_tokens=[tbl_name],
                     raw_sql=raw_sql,
@@ -414,7 +445,7 @@ class ASTEnforcerService:
             elif isinstance(right, exp.Column) and right.name.lower().strip() == "criteria_id":
                 col_node, val_node = right, left
 
-            if col_node and val_node:
+            if col_node and val_node and isinstance(val_node, exp.Literal):
                 parent = eq.parent
                 in_crit_sub = False
                 while parent:
@@ -428,7 +459,7 @@ class ASTEnforcerService:
                     col_sql = col_node.sql(dialect="postgres")
                     val_sql = val_node.sql(dialect="postgres")
                     replacement = sqlglot.parse_one(
-                        f"{col_sql} IN (SELECT id FROM dwh_internal.criteria WHERE parent_id = {val_sql} OR id = {val_sql})",
+                        f"{col_sql} IN (SELECT id FROM {active_schema}.criteria WHERE parent_id = {val_sql} OR id = {val_sql})",
                         read="postgres"
                     )
                     eq.replace(replacement)

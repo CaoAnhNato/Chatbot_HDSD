@@ -40,9 +40,12 @@ class RecursiveScopeVisitor:
     def is_authorized_for_non_approved(self) -> bool:
         """
         Kiểm tra người dùng có thẩm quyền xem dữ liệu báo cáo nháp (draft) / chờ duyệt (pending) hay không.
-        - role_level <= 2 (0: Lãnh đạo Tỉnh/Admin, 1: Cấp Sở, 2: Cấp Phòng/Chi cục) hoặc Lãnh đạo toàn quyền (role_level=4 / is_unrestricted): Được phép khi có status_filter tương ứng.
-        - role_level == 3 (3: Công dân / Khách vãng lai / Public): Bị chặn tuyệt đối truy cập draft/pending/rejected.
+        - Trên kho công khai `dwh_public`: Không áp dụng phân quyền theo Level (mọi người đều có quyền truy vấn mọi dữ liệu hiện có trên `dwh_public`; riêng `fact_report_criteria` vẫn giữ bất biến [C-05]).
+        - Trên `dwh_internal`: role_level <= 2 hoặc Lãnh đạo toàn quyền (role_level=4 / is_unrestricted) được phép; role_level == 3 (Công dân/Khách) bị chặn.
         """
+        raw_schema = str(getattr(self.user_ctx, "schema", "dwh_internal") or "dwh_internal").strip().lower()
+        if raw_schema == "dwh_public":
+            return True
         display_name = str(
             getattr(self.user_ctx, "name", "")
             or getattr(self.user_ctx, "user_name", "")

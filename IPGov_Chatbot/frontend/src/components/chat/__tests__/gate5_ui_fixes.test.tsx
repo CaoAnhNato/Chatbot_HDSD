@@ -3,8 +3,8 @@ import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { SmartTable, resolveSmartTableData } from '../SmartTable';
-import { stripTenantContextPrefix, compactMessageForStorage } from '../../../lib/storage';
+import { SmartTable, resolveSmartTableData, hasValidMetricValue } from '../SmartTable';
+import { stripTenantContextPrefix, cleanSessionTitle, compactMessageForStorage } from '../../../lib/storage';
 import { MessageItem } from '../MessageItem';
 import { SingleMetricSliderCard } from '../SingleMetricSliderCard';
 import { TabularData, SingleMetricCardData } from '../../../types/chat';
@@ -482,6 +482,35 @@ export function runGate5UnitTests() {
   assert.ok(
     contextTableHtml.includes('data-testid="context-ticket-q3"'),
     'Must render context-ticket-q3'
+  );
+
+  // =========================================================================
+  // TEST 8: dwh_public Context Prefix Stripping & Masked NULL Metric Detection
+  // =========================================================================
+  assert.equal(
+    stripTenantContextPrefix('[schema=dwh_public, tenant_code=68] số lượng bò hiện tại ?'),
+    'số lượng bò hiện tại ?',
+    'stripTenantContextPrefix must strip [schema=dwh_public, tenant_code=68] prefix'
+  );
+  assert.equal(
+    cleanSessionTitle('[user=lanhdao, level=4, schema=dwh_internal, tenant_code=68] Báo cáo diêm nghiệp'),
+    'Báo cáo diêm nghiệp',
+    'cleanSessionTitle must strip [user=..., level=..., schema=..., tenant_code=...] prefix'
+  );
+  assert.equal(
+    hasValidMetricValue('NULL (Chưa công bố số liệu công khai)'),
+    false,
+    'hasValidMetricValue must return false for masked dwh_public NULL label'
+  );
+  assert.equal(
+    hasValidMetricValue('NULL (Chưa công bố công khai)'),
+    false,
+    'hasValidMetricValue must return false for masked dwh_public tree NULL label'
+  );
+  assert.equal(
+    hasValidMetricValue('660'),
+    true,
+    'hasValidMetricValue must still return true for valid numeric strings'
   );
 
   console.log('ALL GATE 5 UNIT TESTS PASSED SUCCESSFULLY!');

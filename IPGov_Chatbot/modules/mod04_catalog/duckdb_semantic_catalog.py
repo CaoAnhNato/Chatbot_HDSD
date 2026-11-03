@@ -5638,6 +5638,7 @@ class DuckDBSemanticCatalog:
         rows: List[Dict[str, Any]],
         mission_filter: Optional[str] = None,
         has_temporal_filter: bool = False,
+        target_schema: str = "dwh_internal",
     ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Xây dựng cấu trúc Cây Phân cấp Chỉ tiêu (Cấp 1 -> Cấp 2 -> Cấp 3) cho từng Nhóm chỉ tiêu Cấp 1 (root).
@@ -5646,6 +5647,7 @@ class DuckDBSemanticCatalog:
         - tree_by_root_id: Dict[root_id, tree_dict] phục vụ Pop-up Modal
         - level1_summary_rows: Danh sách dòng bảng Cấp 1 phục vụ REQ-Q04 & SC-4.1
         """
+        is_pub_tree = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
         try:
             hier_rows = self.conn.execute("""
                 SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
@@ -5684,7 +5686,7 @@ class DuckDBSemanticCatalog:
                 val_by_cid[cid] = v_cand
                 date_by_cid[cid] = r.get("ngay_bao_cao_moi_nhat") or r.get("ngay_bao_cao") or r.get("ky_bao_cao") or r.get("report_date")
 
-        def_mname, def_oname = "-", "-"
+        def_mname, def_oname = "-", ("Dữ liệu công khai" if is_pub_tree else "-")
         mission_order_map: Dict[str, int] = {}
         mission_facts_map: Dict[str, bool] = {}
         try:
@@ -5700,7 +5702,8 @@ class DuckDBSemanticCatalog:
                         mission_order_map[m_n_clean] = approved_idx
                         approved_idx += 1
                         def_mname = m_n or "-"
-                        def_oname = m_off or "-"
+                        if not is_pub_tree:
+                            def_oname = m_off or "-"
         except Exception:
             pass
 
@@ -5720,7 +5723,7 @@ class DuckDBSemanticCatalog:
             (_format_ddmmyyyy(v) for v in date_by_cid.values() if _format_ddmmyyyy(v)),
             "",
         )
-        fallback_latest_ddmmyyyy = _format_ddmmyyyy(self.get_latest_report_date()) or "30/09/2026"
+        fallback_latest_ddmmyyyy = "" if is_pub_tree else (_format_ddmmyyyy(self.get_latest_report_date()) or "30/09/2026")
 
         nodes_by_id: Dict[str, Dict[str, Any]] = {}
         children_by_parent: Dict[str, List[str]] = {}
@@ -5737,8 +5740,8 @@ class DuckDBSemanticCatalog:
                 node_val = raw_row_val
             elif cid in val_by_cid:
                 node_val = raw_row_val
-            elif has_temporal_filter:
-                # PA 2.1: Khi câu hỏi có bộ lọc thời gian mà chỉ tiêu con không phát sinh báo cáo trong kỳ -> hiển thị '-' (None), cấm rò rỉ lval
+            elif has_temporal_filter or is_pub_tree:
+                # Cấm rò rỉ lval từ DuckDB RAM (dwh_internal) khi có bộ lọc thời gian hoặc khi đang ở dwh_public
                 node_val = None
             else:
                 node_val = lval
@@ -5758,7 +5761,7 @@ class DuckDBSemanticCatalog:
                 "level": int(lvl or 1),
                 "is_leaf": bool(is_leaf),
                 "mission_name": mname or def_mname,
-                "office_name": oname or def_oname,
+                "office_name": "Dữ liệu công khai" if is_pub_tree else (oname or def_oname),
                 "value": node_val,
                 "report_date": node_rep_date,
                 "children": [],
@@ -5775,6 +5778,7 @@ class DuckDBSemanticCatalog:
                     list(nodes_by_id.values()),
                     year_code="2026",
                     tenant_code="68",
+                    target_schema=target_schema,
                 )
             except Exception:
                 tree_period_map = {}
@@ -5795,6 +5799,8 @@ class DuckDBSemanticCatalog:
                 p_copy = dict(nd_p_vals)
                 nd["timeline_values"] = p_copy
                 nd["period_values"] = p_copy
+                if is_pub_tree and not has_temporal_filter and nd.get("value") is None and p_copy.get("year"):
+                    nd["value"] = p_copy["year"]
 
         def _build_subtree(node_id: str) -> Dict[str, Any]:
             node = dict(nodes_by_id[node_id])
@@ -5833,10 +5839,10 @@ class DuckDBSemanticCatalog:
             desc_count = _count_descendants(root_node)
             raw_v = root_node["value"]
             if raw_v is None or str(raw_v).strip() in ("", "-", "None"):
-                val_disp = "Chưa có số liệu phê duyệt (-)"
+                val_disp = "NULL (Chưa công bố số liệu công khai)" if is_pub_tree else "Chưa có số liệu phê duyệt (-)"
             else:
                 try:
-                    fv = float(raw_v)
+                    fv = float(str(raw_v).replace(".", "").replace(",", ".")) if isinstance(raw_v, str) and "." in str(raw_v) and str(raw_v).replace(".", "").isdigit() else float(raw_v)
                     val_disp = f"{int(fv):,}".replace(",", ".") if fv.is_integer() else f"{fv:,.2f}"
                 except Exception:
                     val_disp = str(raw_v)
@@ -5932,11 +5938,14 @@ class DuckDBSemanticCatalog:
         year_code: str = "2026",
         tenant_code: str = "68",
         child_nodes: Optional[List[Dict[str, Any]]] = None,
+        target_schema: str = "dwh_internal",
     ) -> List[Dict[str, Any]]:
         """
         Truy xuất mảng các kỳ báo cáo đã phê duyệt trong năm của một chỉ tiêu (phục vụ Ticket slider-time 0ms).
         Trả về danh sách sắp xếp tăng dần theo thời gian (iso_date ASC), kèm delta_prev, delta_pct và child_values.
         """
+        is_pub_snap = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
+        eff_schema = "dwh_public" if is_pub_snap else "dwh_internal"
         snapshots: List[Dict[str, Any]] = []
         try:
             import psycopg2
@@ -5979,31 +5988,56 @@ class DuckDBSemanticCatalog:
 
             conds.append("(" + " OR ".join(crit_sub_conds) + ")")
             if parent_name and not criteria_id and not criteria_code:
-                conds.append("REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')")
+                conds.append("REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, '')), '\\s+', ' ', 'g')) = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')" if False else "REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') = REGEXP_REPLACE(LOWER(TRIM(%s)), '\\s+', ' ', 'g')")
                 params.append(str(parent_name).strip())
 
             where_sql = " AND ".join(conds)
-            sql = f"""
-                WITH ranked_snaps AS (
-                    SELECT
-                        f.report_date::date::text AS iso_date,
-                        f.value,
-                        COALESCE(o.office_name, 'Chi cục') AS office_name,
-                        COALESCE(f.mission_name, '-') AS mission_name,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY f.report_date::date
-                            ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
-                        ) AS rn
-                    FROM dwh_internal.fact_report_criteria f
-                    LEFT JOIN dwh_internal.office o ON f.office_id = o.id
-                    LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
-                    WHERE {where_sql}
-                )
-                SELECT iso_date, value, office_name, mission_name
-                FROM ranked_snaps
-                WHERE rn = 1 AND iso_date IS NOT NULL
-                ORDER BY iso_date ASC;
-            """
+            if is_pub_snap:
+                sql = f"""
+                    WITH ranked_snaps AS (
+                        SELECT
+                            f.report_date::date::text AS iso_date,
+                            f.value,
+                            'Dữ liệu công khai' AS office_name,
+                            COALESCE(f.mission_name, '-') AS mission_name,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY f.report_date::date
+                                ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_public.fact_report_criteria f
+                        LEFT JOIN (
+                            SELECT DISTINCT criteria_id AS id, name
+                            FROM dwh_public.fact_report_criteria
+                        ) p ON f.parent_criteria_id = p.id
+                        WHERE {where_sql}
+                    )
+                    SELECT iso_date, value, office_name, mission_name
+                    FROM ranked_snaps
+                    WHERE rn = 1 AND iso_date IS NOT NULL
+                    ORDER BY iso_date ASC;
+                """
+            else:
+                sql = f"""
+                    WITH ranked_snaps AS (
+                        SELECT
+                            f.report_date::date::text AS iso_date,
+                            f.value,
+                            COALESCE(o.office_name, 'Chi cục') AS office_name,
+                            COALESCE(f.mission_name, '-') AS mission_name,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY f.report_date::date
+                                ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_internal.fact_report_criteria f
+                        LEFT JOIN dwh_internal.office o ON f.office_id = o.id
+                        LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
+                        WHERE {where_sql}
+                    )
+                    SELECT iso_date, value, office_name, mission_name
+                    FROM ranked_snaps
+                    WHERE rn = 1 AND iso_date IS NOT NULL
+                    ORDER BY iso_date ASC;
+                """
             cur.execute(sql, tuple(params))
             pg_rows = cur.fetchall()
 
@@ -6051,7 +6085,7 @@ class DuckDBSemanticCatalog:
                                     PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
                                     ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
                                 ) AS rn
-                            FROM dwh_internal.fact_report_criteria f
+                            FROM {eff_schema}.fact_report_criteria f
                             WHERE f.tenant_code = %s
                               AND f.year_code = %s
                               AND f.report_status = 'approved'
@@ -6115,9 +6149,12 @@ class DuckDBSemanticCatalog:
                 if num_val is not None:
                     prev_num = num_val
 
-                clean_off = str(off_name or "Chi cục").strip()
-                if clean_off.lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
-                    clean_off = "Chi cục"
+                if is_pub_snap:
+                    clean_off = "Dữ liệu công khai"
+                else:
+                    clean_off = str(off_name or "Chi cục").strip()
+                    if clean_off.lower() in ("cấp tỉnh", "chi cục phát triển nông thôn"):
+                        clean_off = "Chi cục"
 
                 snap_child_values: Dict[str, str] = {}
                 if child_nodes:
@@ -6173,11 +6210,14 @@ class DuckDBSemanticCatalog:
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
         month_filter: Optional[int] = None,
+        target_schema: str = "dwh_internal",
     ) -> Dict[str, Dict[str, Any]]:
         """
         Truy xuất giá trị của danh sách chỉ tiêu con (child_ids) đúng tại kỳ báo cáo thời gian đang lọc
-        (specific_date / date_from..date_to / month_filter) để ngăn chặn rò rỉ latest_value toàn năm.
+        (specific_date / date_from..date_to / month_filter) hoặc theo schema dwh_public để ngăn chặn rò rỉ latest_value.
         """
+        is_pub_scope = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
+        eff_schema = "dwh_public" if is_pub_scope else "dwh_internal"
         if not child_ids:
             return {}
         valid_ids: List[str] = []
@@ -6272,7 +6312,7 @@ class DuckDBSemanticCatalog:
                                          f.report_date DESC NULLS LAST,
                                          f.version DESC NULLS LAST
                             ) AS rn
-                        FROM dwh_internal.fact_report_criteria f
+                        FROM {eff_schema}.fact_report_criteria f
                         WHERE {where_sql}
                     )
                     SELECT cid, cname, value, iso_date, do_lech_ngay, can_duoi_ngay, can_tren_ngay
@@ -6295,64 +6335,76 @@ class DuckDBSemanticCatalog:
                     if cname:
                         result_map[str(cname).strip().lower()] = entry
 
-                # Tổng hợp base facts cho các bản ghi cấp cơ sở (office_id IS NULL)
-                try:
-                    cur.execute("""
-                        WITH latest_d AS (
-                            SELECT MAX(CAST(report_date AS DATE)) AS max_d
-                            FROM dwh_internal.fact_report_criteria
-                            WHERE tenant_code = %s
-                              AND office_id IS NULL
-                              AND (criteria_id::text = ANY(%s) OR code = ANY(%s) OR LOWER(TRIM(name)) = ANY(%s))
-                              AND CAST(report_date AS DATE) <= %s::date
-                              AND report_status = 'approved'
-                        ),
-                        base_facts AS (
-                            SELECT 
-                                f.criteria_id::text AS cid,
-                                f.name AS cname,
-                                f.code,
-                                CAST(f.value AS NUMERIC) AS val,
-                                f.report_date::date::text AS iso_date
-                            FROM dwh_internal.fact_report_criteria f
-                            JOIN latest_d ld ON CAST(f.report_date AS DATE) = ld.max_d
-                            WHERE f.tenant_code = %s
-                              AND f.office_id IS NULL
-                              AND (f.criteria_id::text = ANY(%s) OR f.code = ANY(%s) OR LOWER(TRIM(f.name)) = ANY(%s))
-                              AND f.report_status = 'approved'
-                        )
-                        SELECT cid, cname, code, CAST(SUM(val) AS TEXT) AS value, MAX(iso_date) AS iso_date
-                        FROM base_facts
-                        GROUP BY cid, cname, code;
-                    """, (
-                        str(tenant_code or "68"),
-                        valid_ids if valid_ids else ["__none__"],
-                        valid_names if valid_names else ["__none__"],
-                        valid_names if valid_names else ["__none__"],
-                        spec_d,
-                        str(tenant_code or "68"),
-                        valid_ids if valid_ids else ["__none__"],
-                        valid_names if valid_names else ["__none__"],
-                        valid_names if valid_names else ["__none__"],
-                    ))
-                    for l_cid, l_cname, l_code, l_val, l_iso in cur.fetchall():
-                        l_entry = {
-                            "value": l_val,
-                            "report_date": l_iso,
-                            "do_lech_ngay": 0,
-                            "can_duoi_ngay": l_iso,
-                            "can_tren_ngay": l_iso,
-                        }
-                        if l_cid:
-                            result_map[str(l_cid)] = l_entry
-                            result_map[str(l_cid).lower()] = l_entry
-                        if l_cname:
-                            result_map[str(l_cname).strip().lower()] = l_entry
-                        if l_code:
-                            result_map[str(l_code).strip().lower()] = l_entry
-                except Exception as e_base:
-                    logger.debug("Lỗi tra cứu base facts cấp cơ sở: %s", e_base)
+                # Tổng hợp base facts cho các bản ghi cấp cơ sở (office_id IS NULL - chỉ áp dụng dwh_internal)
+                if not is_pub_scope:
+                    try:
+                        cur.execute("""
+                            WITH latest_d AS (
+                                SELECT MAX(CAST(report_date AS DATE)) AS max_d
+                                FROM dwh_internal.fact_report_criteria
+                                WHERE tenant_code = %s
+                                  AND office_id IS NULL
+                                  AND (criteria_id::text = ANY(%s) OR code = ANY(%s) OR LOWER(TRIM(name)) = ANY(%s))
+                                  AND CAST(report_date AS DATE) <= %s::date
+                                  AND report_status = 'approved'
+                            ),
+                            base_facts AS (
+                                SELECT 
+                                    f.criteria_id::text AS cid,
+                                    f.name AS cname,
+                                    f.code,
+                                    CAST(f.value AS NUMERIC) AS val,
+                                    f.report_date::date::text AS iso_date
+                                FROM dwh_internal.fact_report_criteria f
+                                JOIN latest_d ld ON CAST(f.report_date AS DATE) = ld.max_d
+                                WHERE f.tenant_code = %s
+                                  AND f.office_id IS NULL
+                                  AND (f.criteria_id::text = ANY(%s) OR f.code = ANY(%s) OR LOWER(TRIM(name)) = ANY(%s))
+                                  AND f.report_status = 'approved'
+                            )
+                            SELECT cid, cname, code, CAST(SUM(val) AS TEXT) AS value, MAX(iso_date) AS iso_date
+                            FROM base_facts
+                            GROUP BY cid, cname, code;
+                        """, (
+                            str(tenant_code or "68"),
+                            valid_ids if valid_ids else ["__none__"],
+                            valid_names if valid_names else ["__none__"],
+                            valid_names if valid_names else ["__none__"],
+                            spec_d,
+                            str(tenant_code or "68"),
+                            valid_ids if valid_ids else ["__none__"],
+                            valid_names if valid_names else ["__none__"],
+                            valid_names if valid_names else ["__none__"],
+                        ))
+                        for l_cid, l_cname, l_code, l_val, l_iso in cur.fetchall():
+                            l_entry = {
+                                "value": l_val,
+                                "report_date": l_iso,
+                                "do_lech_ngay": 0,
+                                "can_duoi_ngay": l_iso,
+                                "can_tren_ngay": l_iso,
+                            }
+                            if l_cid:
+                                result_map[str(l_cid)] = l_entry
+                                result_map[str(l_cid).lower()] = l_entry
+                            if l_cname:
+                                result_map[str(l_cname).strip().lower()] = l_entry
+                            if l_code:
+                                result_map[str(l_code).strip().lower()] = l_entry
+                    except Exception as e_base:
+                        logger.debug("Lỗi tra cứu base facts cấp cơ sở: %s", e_base)
             else:
+                order_clause = (
+                    "f.report_date DESC NULLS LAST, f.version DESC NULLS LAST"
+                    if is_pub_scope and date_from is None and month_filter is None
+                    else """CASE 
+                                 WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0
+                                 WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1
+                                 ELSE 2
+                             END,
+                             f.report_date DESC NULLS LAST,
+                             f.version DESC NULLS LAST"""
+                )
                 sql = f"""
                     WITH ranked_ch AS (
                         SELECT
@@ -6362,15 +6414,9 @@ class DuckDBSemanticCatalog:
                             f.report_date::date::text AS iso_date,
                             ROW_NUMBER() OVER (
                                 PARTITION BY f.criteria_id
-                                ORDER BY CASE 
-                                             WHEN f.report_date::date = (date_trunc('quarter', f.report_date) + interval '3 month - 1 day')::date THEN 0
-                                             WHEN f.report_date::date = (date_trunc('month', f.report_date) + interval '1 month - 1 day')::date THEN 1
-                                             ELSE 2
-                                         END,
-                                         f.report_date DESC NULLS LAST,
-                                         f.version DESC NULLS LAST
+                                ORDER BY {order_clause}
                             ) AS rn
-                        FROM dwh_internal.fact_report_criteria f
+                        FROM {eff_schema}.fact_report_criteria f
                         WHERE {where_sql}
                     )
                     SELECT cid, cname, value, iso_date
@@ -6399,12 +6445,14 @@ class DuckDBSemanticCatalog:
         nodes: List[Any],
         year_code: str = "2026",
         tenant_code: str = "68",
+        target_schema: str = "dwh_internal",
     ) -> Dict[str, Dict[str, str]]:
         """
         Truy xuất hàng loạt giá trị theo các kỳ báo cáo (year, q1, q2, q3, q4 và ngày cụ thể)
-        của danh sách chỉ tiêu (nodes) từ PostgreSQL dwh_internal.fact_report_criteria.
+        của danh sách chỉ tiêu (nodes) từ PostgreSQL fact_report_criteria theo schema đang chọn.
         Phục vụ chuyển đổi kỳ báo cáo tại chỗ 0ms trên SmartTable (R2.2 & R2.4).
         """
+        is_pub_batch = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
         if not nodes:
             return {}
 
@@ -6473,31 +6521,61 @@ class DuckDBSemanticCatalog:
                 or_conds.append("REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') = ANY(%s)")
                 params.append(list(dict.fromkeys(c_names)))
 
-            sql = f"""
-                WITH ranked_ch AS (
-                    SELECT
-                        f.criteria_id::text AS cid,
-                        f.code AS ccode,
-                        REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') AS cname,
-                        REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') AS pname,
-                        f.report_date::date::text AS iso_date,
-                        f.value,
-                        ROW_NUMBER() OVER (
-                            PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
-                            ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
-                        ) AS rn
-                    FROM dwh_internal.fact_report_criteria f
-                    LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
-                    WHERE f.tenant_code = %s
-                      AND f.year_code = %s
-                      AND f.report_status = 'approved'
-                      AND ({" OR ".join(or_conds)})
-                )
-                SELECT cid, ccode, cname, pname, iso_date, value
-                FROM ranked_ch
-                WHERE rn = 1 AND iso_date IS NOT NULL
-                ORDER BY iso_date ASC;
-            """
+            if is_pub_batch:
+                sql = f"""
+                    WITH ranked_ch AS (
+                        SELECT
+                            f.criteria_id::text AS cid,
+                            f.code AS ccode,
+                            REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') AS cname,
+                            REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') AS pname,
+                            f.report_date::date::text AS iso_date,
+                            f.value,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
+                                ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_public.fact_report_criteria f
+                        LEFT JOIN (
+                            SELECT DISTINCT criteria_id AS id, name
+                            FROM dwh_public.fact_report_criteria
+                        ) p ON f.parent_criteria_id = p.id
+                        WHERE f.tenant_code = %s
+                          AND f.year_code = %s
+                          AND f.report_status = 'approved'
+                          AND ({" OR ".join(or_conds)})
+                    )
+                    SELECT cid, ccode, cname, pname, iso_date, value
+                    FROM ranked_ch
+                    WHERE rn = 1 AND iso_date IS NOT NULL
+                    ORDER BY iso_date ASC;
+                """
+            else:
+                sql = f"""
+                    WITH ranked_ch AS (
+                        SELECT
+                            f.criteria_id::text AS cid,
+                            f.code AS ccode,
+                            REGEXP_REPLACE(LOWER(TRIM(f.name)), '\\s+', ' ', 'g') AS cname,
+                            REGEXP_REPLACE(LOWER(TRIM(COALESCE(p.name, ''))), '\\s+', ' ', 'g') AS pname,
+                            f.report_date::date::text AS iso_date,
+                            f.value,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY COALESCE(f.criteria_id::text, f.code, f.name), f.report_date::date
+                                ORDER BY f.version DESC NULLS LAST, f.report_date DESC NULLS LAST
+                            ) AS rn
+                        FROM dwh_internal.fact_report_criteria f
+                        LEFT JOIN dwh_internal.criteria p ON f.parent_criteria_id = p.id
+                        WHERE f.tenant_code = %s
+                          AND f.year_code = %s
+                          AND f.report_status = 'approved'
+                          AND ({" OR ".join(or_conds)})
+                    )
+                    SELECT cid, ccode, cname, pname, iso_date, value
+                    FROM ranked_ch
+                    WHERE rn = 1 AND iso_date IS NOT NULL
+                    ORDER BY iso_date ASC;
+                """
             cur.execute(sql, tuple(params))
             pg_rows = cur.fetchall()
             conn_pg.close()
@@ -6552,7 +6630,7 @@ class DuckDBSemanticCatalog:
             for inst_id, p_dict in by_instance.items():
                 for q_default in ("q1", "q2", "q3"):
                     if q_default not in p_dict:
-                        p_dict[q_default] = "Chưa có số liệu (-)"
+                        p_dict[q_default] = "NULL (Chưa công bố)" if is_pub_batch else "Chưa có số liệu (-)"
                 for k in instance_keys_map.get(inst_id, []):
                     if k not in result_map or k == inst_id:
                         result_map[k] = p_dict
