@@ -994,7 +994,7 @@ class LLMGateway:
         target_model = model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "google/gemini-3.5-flash-lite")
 
         full_system_prompt = system_prompt or (
-            "Bạn là Chuyên gia Kỹ thuật CSDL PostgreSQL của Kho Dữ Liệu Hành chính Công Tỉnh Lâm Đồng. "
+            f"Bạn là Chuyên gia Kỹ thuật CSDL PostgreSQL của Kho Dữ Liệu Hành chính Công {settings.get_province_label()}. "
             "Nhiệm vụ của bạn là sinh câu lệnh SQL PostgreSQL 16 thuần túy, an toàn, chuẩn xác cú pháp. "
             "Tuyệt đối KHÔNG giải thích, chỉ trả về duy nhất câu lệnh SQL."
         )
@@ -1022,7 +1022,7 @@ class LLMGateway:
         """Sinh câu lệnh SQL đồng bộ cho benchmark/scripts."""
         target_model = model or getattr(settings, "OPENROUTER_HEAVY_MODEL", "google/gemini-3.5-flash-lite")
         full_system_prompt = system_prompt or (
-            "Bạn là Chuyên gia Kỹ thuật CSDL PostgreSQL của Kho Dữ Liệu Hành chính Công Tỉnh Lâm Đồng. "
+            f"Bạn là Chuyên gia Kỹ thuật CSDL PostgreSQL của Kho Dữ Liệu Hành chính Công {settings.get_province_label()}. "
             "Nhiệm vụ của bạn là sinh câu lệnh SQL PostgreSQL 16 thuần túy, an toàn, chuẩn xác cú pháp. "
             "Tuyệt đối KHÔNG giải thích, chỉ trả về duy nhất câu lệnh SQL."
         )

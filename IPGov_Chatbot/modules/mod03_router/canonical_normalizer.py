@@ -306,6 +306,8 @@ class CanonicalSemanticNormalizer:
                     "TUYỆT ĐỐI KHÔNG phân loại vào OUT_OF_SCOPE.\n\n"
                 )
 
+        prov_lbl = settings.get_province_label()
+        default_tc = settings.DEFAULT_TENANT_CODE
         prompt = (
             f"Phân tích câu hỏi: \"{query}\"\n\n"
             f"{schema_context}"
@@ -340,7 +342,7 @@ class CanonicalSemanticNormalizer:
             "   -> reasoning: 'Câu hỏi toán học ngoài phạm vi DWH...', intent: 'OUT_OF_SCOPE', is_out_of_scope: true, direct_answer: null\n"
             "7. Prototype Greeting & Farewell (GREETING_FAREWELL):\n"
             "   'Xin chào trợ lý, cảm ơn bạn rất nhiều nhé'\n"
-            "   -> reasoning: 'Lời chào hỏi và cảm ơn xã giao...', intent: 'GREETING_FAREWELL', is_out_of_scope: false, is_conversational_only: true, direct_answer: 'Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH tỉnh Lâm Đồng. Chúc đồng chí một ngày làm việc hiệu quả!'\n"
+            f"   -> reasoning: 'Lời chào hỏi và cảm ơn xã giao...', intent: 'GREETING_FAREWELL', is_out_of_scope: false, is_conversational_only: true, direct_answer: 'Cảm ơn đồng chí. Rất hân hạnh được hỗ trợ đồng chí tra cứu số liệu DWH {prov_lbl}. Chúc đồng chí một ngày làm việc hiệu quả!'\n"
             "8. Prototype Capability Inquiry (CAPABILITY_INTRO):\n"
             "   'Bạn có thể giúp gì cho tôi, hệ thống hỗ trợ những chức năng nào?'\n"
             "   -> reasoning: 'Hỏi về chức năng và khả năng hỗ trợ của trợ lý DWH...', intent: 'CAPABILITY_INTRO', is_out_of_scope: false, is_conversational_only: false, direct_answer: null\n\n"
@@ -363,14 +365,14 @@ class CanonicalSemanticNormalizer:
             "  \"is_inventory_query\": boolean,\n"
             "  \"target_table\": string or null,\n"
             "  \"time_filter\": \"2026\",\n"
-            "  \"spatial_filter\": \"68\",\n"
+            f"  \"spatial_filter\": \"{default_tc}\",\n"
             "  \"temporal_slot\": null,\n"
             "  \"is_mixed_multi_metric\": boolean,\n"
             "  \"sub_queries\": []\n"
             "}"
         )
         sys_prompt = (
-            "Bạn là bộ phân tích ngôn ngữ tự nhiên NLU cho hệ thống IPGov DWH tỉnh Lâm Đồng. "
+            f"Bạn là bộ phân tích ngôn ngữ tự nhiên NLU cho hệ thống IPGov DWH {prov_lbl}. "
             "Chỉ trả về JSON thuần túy, không markdown, không giải thích ngoài JSON."
         )
 
@@ -618,7 +620,8 @@ class CanonicalSemanticNormalizer:
     def _extract_stream_a_deterministic(
         self,
         raw_input: str,
-        stream_b: Optional[Dict[str, Any]] = None
+        stream_b: Optional[Dict[str, Any]] = None,
+        tenant_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Stream A Deterministic Fallback: Phân tích intent, target table,
@@ -627,6 +630,16 @@ class CanonicalSemanticNormalizer:
         2. Fact Plane (Quantitative Metrics / Aggregations): fact_report_criteria, report, user_mission.
         """
         norm_input = raw_input.lower().strip()
+        eff_tenant = tenant_code or settings.DEFAULT_TENANT_CODE
+        if tenant_code is None and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+            try:
+                has_t = self.catalog.conn.execute(
+                    "SELECT 1 FROM catalog_criteria WHERE tenant_code = ? LIMIT 1;", [eff_tenant]
+                ).fetchone()
+                if not has_t:
+                    eff_tenant = None
+            except Exception:
+                pass
 
         # -1. Tra cứu Chào hỏi & Tạm biệt (GREETING_FAREWELL) ủy thác qua Catalog RAM
         has_greet_signal = False
@@ -707,7 +720,7 @@ class CanonicalSemanticNormalizer:
                 }
         if audit_info:
             resolved_mis = (stream_b.get("target_mission") if stream_b else None) or (
-                self.catalog.resolve_mission(raw_input) if hasattr(self.catalog, "resolve_mission") else None
+                self.catalog.resolve_mission(raw_input, tenant_code=eff_tenant) if hasattr(self.catalog, "resolve_mission") else None
             )
             return {
                 "intent": CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT,
@@ -736,7 +749,7 @@ class CanonicalSemanticNormalizer:
 
             # Phân giải nhiệm vụ động qua DuckDB Catalog
             if hasattr(self.catalog, "resolve_mission"):
-                target_mission = self.catalog.resolve_mission(raw_input)
+                target_mission = self.catalog.resolve_mission(raw_input, tenant_code=eff_tenant)
 
             # Phân giải đơn vị / phòng ban qua DuckDB Catalog động
             admin_scope = self.catalog.resolve_administrative_scope(raw_input) if hasattr(self.catalog, "resolve_administrative_scope") else {}
@@ -801,7 +814,7 @@ class CanonicalSemanticNormalizer:
         is_metric_listing = bool(has_lex_target and has_lex_trigger)
 
         # 1.9 REQ-Q04 / SC-4.1 / SC-4.2: Hiển thị các chỉ tiêu cấp 1 của nhiệm vụ / các nhiệm vụ
-        mis_info = self.catalog.extract_mission_from_query(raw_input) if hasattr(self.catalog, "extract_mission_from_query") else {"status": "NONE"}
+        mis_info = self.catalog.extract_mission_from_query(raw_input, tenant_code=eff_tenant) if hasattr(self.catalog, "extract_mission_from_query") else {"status": "NONE"}
         has_mission = bool(mis_info and mis_info.get("status") in ("MATCH", "FOUND", "NOT_FOUND")) or (
             hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(raw_input, "MISSION_KEYWORD")
         )
@@ -827,7 +840,7 @@ class CanonicalSemanticNormalizer:
                 resolved_mis = (
                     (mis_info.get("mission_name") if mis_info and mis_info.get("status") in ("FOUND", "MATCH") else None)
                     or (stream_b.get("target_mission") if stream_b else None)
-                    or (self.catalog.resolve_mission(raw_input) if hasattr(self.catalog, "resolve_mission") else None)
+                    or (self.catalog.resolve_mission(raw_input, tenant_code=eff_tenant) if hasattr(self.catalog, "resolve_mission") else None)
                 )
             return {
                 "intent": CanonicalIntentEnum.DIMENSION_LISTING,
@@ -844,7 +857,7 @@ class CanonicalSemanticNormalizer:
             }
 
         # 2. Khám phá quan hệ liên bảng / nhiệm vụ trọng tâm (Dimension: mission) qua DuckDB Catalog RAM
-        scope_info = self.catalog.extract_scope_from_query(raw_input) if hasattr(self.catalog, "extract_scope_from_query") else None
+        scope_info = self.catalog.extract_scope_from_query(raw_input, tenant_code=eff_tenant) if hasattr(self.catalog, "extract_scope_from_query") else None
         has_mission_kw = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_KEYWORD")
         has_mission_scope = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_SCOPE_CUE")
         has_off_or_ward = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "OFFICE_OR_WARD_CUE")
@@ -942,7 +955,7 @@ class CanonicalSemanticNormalizer:
         matched_catalog_mention = None
         if hasattr(self.catalog, "classify_criterion_hierarchy"):
             try:
-                h_det = self.catalog.classify_criterion_hierarchy(raw_input)
+                h_det = self.catalog.classify_criterion_hierarchy(raw_input, tenant_code=eff_tenant)
                 allowed_classes = ("single_leaf", "duplicate_leaf", "parent", "parent_group")
                 if h_det and h_det.get("classification") in allowed_classes and h_det.get("matched_name"):
                     has_specific_catalog_metric = True
@@ -952,7 +965,18 @@ class CanonicalSemanticNormalizer:
 
         if not is_metric_listing and not matched_catalog_mention:
             if hasattr(self.catalog, "_criteria_cache_names"):
-                for crit_name in sorted(self.catalog._criteria_cache_names, key=len, reverse=True):
+                cache_names = self.catalog._criteria_cache_names
+                if eff_tenant and hasattr(self.catalog, "conn"):
+                    try:
+                        t_rows = self.catalog.conn.execute(
+                            "SELECT DISTINCT name FROM catalog_criteria WHERE tenant_code = ? OR tenant_code = '' OR tenant_code = '00';",
+                            [eff_tenant],
+                        ).fetchall()
+                        if t_rows:
+                            cache_names = [r[0] for r in t_rows if r and r[0]]
+                    except Exception:
+                        pass
+                for crit_name in sorted(cache_names, key=len, reverse=True):
                     cn_low = crit_name.lower().strip()
                     if cn_low and len(cn_low) >= 6 and cn_low in norm_input:
                         has_specific_catalog_metric = True
@@ -962,6 +986,8 @@ class CanonicalSemanticNormalizer:
                 has_mission_context = hasattr(self.catalog, "has_lexicon_term") and self.catalog.has_lexicon_term(norm_input, "MISSION_KEYWORD")
                 if not has_mission_context:
                     for entry in sorted(self.catalog._alias_registry, key=lambda x: len(x.get("alias", "")), reverse=True):
+                        if eff_tenant and entry.get("tenant_code") not in (None, "", "00", eff_tenant):
+                            continue
                         if entry.get("type") == "criteria" or entry.get("target_table") == "dwh_internal.criteria":
                             al_low = (entry.get("alias") or "").lower().strip()
                             if al_low and len(al_low) > 6 and al_low in norm_input:
@@ -1020,7 +1046,18 @@ class CanonicalSemanticNormalizer:
         # Kiểm tra các từ khóa tính toán / tổng hợp của Fact Plane bằng tra cứu dynamic từ Catalog
         is_fact_calc = bool(matched_catalog_mention or has_specific_catalog_metric)
         if not is_fact_calc and hasattr(self.catalog, "_criteria_cache_names"):
-            for crit_name in self.catalog._criteria_cache_names:
+            chk_names = self.catalog._criteria_cache_names
+            if eff_tenant and hasattr(self.catalog, "conn"):
+                try:
+                    t_rows = self.catalog.conn.execute(
+                        "SELECT DISTINCT name FROM catalog_criteria WHERE tenant_code = ? OR tenant_code = '' OR tenant_code = '00';",
+                        [eff_tenant],
+                    ).fetchall()
+                    if t_rows:
+                        chk_names = [r[0] for r in t_rows if r and r[0]]
+                except Exception:
+                    pass
+            for crit_name in chk_names:
                 cn_low = crit_name.lower().strip()
                 if cn_low and len(cn_low) >= 6 and cn_low in norm_input:
                     is_fact_calc = True
@@ -1108,14 +1145,16 @@ class CanonicalSemanticNormalizer:
         if any(w in norm_input for w in ("tổng đàn", "tính tổng", "tổng số lượng", "tổng toàn bộ", "tổng sản lượng", "tổng diện tích", "liệt kê chi tiết", "chi tiết diện tích", "chi tiết sản lượng", "theo từng hình thức")):
             if hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
                 try:
-                    p_rows = self.catalog.conn.execute("""
+                    t_sql_pr = " AND (tenant_code = ? OR tenant_code = '' OR tenant_code = '00')" if eff_tenant else ""
+                    t_param_pr = (eff_tenant,) if eff_tenant else ()
+                    p_rows = self.catalog.conn.execute(f"""
                         SELECT code, name, level, is_leaf 
                         FROM catalog_criteria 
                         WHERE (is_leaf = FALSE OR level = 1)
                           AND code NOT LIKE 'test%' 
                           AND name NOT LIKE 'test%'
-                          AND code NOT IN ('th', 'th1', 'th2', 'th3', 'so', 'dung_sai', 'ngay_thang', 'danh_sach_nhap_lieu', 'danh_sach_lua_chon', 'tra_loi_doan', 'tra_loi_ngan')
-                    """).fetchall()
+                          AND code NOT IN ('th', 'th1', 'th2', 'th3', 'so', 'dung_sai', 'ngay_thang', 'danh_sach_nhap_lieu', 'danh_sach_lua_chon', 'tra_loi_doan', 'tra_loi_ngan'){t_sql_pr}
+                    """, t_param_pr).fetchall()
                     best_match_len = 0
                     for p_code, p_name, _, _ in p_rows:
                         pn_clean = p_name.lower().strip()
@@ -1139,12 +1178,14 @@ class CanonicalSemanticNormalizer:
         if core_phrase and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
             try:
                 cp_clean = " ".join(core_phrase.lower().split())
+                t_sql_cp = " AND (tenant_code = ? OR tenant_code = '' OR tenant_code = '00')" if eff_tenant else ""
+                t_param_cp = (eff_tenant,) if eff_tenant else ()
                 # Kiểm tra nếu toàn bộ core_phrase khớp chính xác hoặc tương đồng cao (>= 90%) với một chỉ tiêu đơn lẻ trong kho
-                row = self.catalog.conn.execute("""
+                row = self.catalog.conn.execute(f"""
                     SELECT name, code FROM catalog_criteria
-                    WHERE LOWER(TRIM(name)) = ? OR LOWER(TRIM(name)) LIKE ?
+                    WHERE (LOWER(TRIM(name)) = ? OR LOWER(TRIM(name)) LIKE ?){t_sql_cp}
                     LIMIT 1;
-                """, (cp_clean, f"%{cp_clean}%")).fetchone()
+                """, (cp_clean, f"%{cp_clean}%") + t_param_cp).fetchone()
                 if row:
                     from rapidfuzz import fuzz
                     ratio = fuzz.ratio(cp_clean, row[0].lower().strip())
@@ -1180,12 +1221,22 @@ class CanonicalSemanticNormalizer:
     # --------------------------------------------------------------------------
     # STREAM B: TRÍCH XUẤT THỜI GIAN VÀ ĐỊA BÀN (TEMPORAL & SPATIAL DETECTOR)
     # --------------------------------------------------------------------------
-    def _extract_stream_b_deterministic(self, raw_input: str) -> Dict[str, Any]:
+    def _extract_stream_b_deterministic(self, raw_input: str, tenant_code: Optional[str] = None) -> Dict[str, Any]:
         """
         Stream B Deterministic Fallback: Phân tích mốc thời gian, kỳ báo cáo,
         và thực thể địa danh (khử bẫy đa nghĩa polysemy LĐ = Lao động vs Lâm Đồng).
         Không sử dụng thư viện regex.
         """
+        eff_tenant = tenant_code or settings.DEFAULT_TENANT_CODE
+        if tenant_code is None and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
+            try:
+                has_t = self.catalog.conn.execute(
+                    "SELECT 1 FROM catalog_criteria WHERE tenant_code = ? LIMIT 1;", [eff_tenant]
+                ).fetchone()
+                if not has_t:
+                    eff_tenant = None
+            except Exception:
+                pass
         norm_input = raw_input.lower().strip()
 
         # 1. Trích xuất năm (year_code)
@@ -1599,11 +1650,11 @@ class CanonicalSemanticNormalizer:
             target_office = admin_scope.get("office_name") or admin_scope.get("name")
 
         if hasattr(self.catalog, "resolve_mission"):
-            target_mission = self.catalog.resolve_mission(raw_input)
+            target_mission = self.catalog.resolve_mission(raw_input, tenant_code=eff_tenant)
 
         target_scope = None
         if ("nhiệm vụ" in norm_input or "nhiem vu" in norm_input) and hasattr(self.catalog, "extract_scope_from_query"):
-            sc_info = self.catalog.extract_scope_from_query(raw_input)
+            sc_info = self.catalog.extract_scope_from_query(raw_input, tenant_code=eff_tenant)
             if sc_info and sc_info.get("status") != "NONE":
                 target_scope = sc_info.get("scope_name") or sc_info.get("requested_scope")
 
@@ -1772,15 +1823,16 @@ class CanonicalSemanticNormalizer:
     def normalize_query(
         self,
         query: str,
-        session_tenant: str = "68",
+        session_tenant: Optional[str] = None,
         session_year: str = "2026",
         session_dept: Optional[str] = None,
         parent_context: Optional[str] = None,
     ) -> CanonicalQueryFrameDTO:
         """
         Chuẩn hóa toàn diện một câu hỏi sang CanonicalQueryFrameDTO.
-        Khởi tạo mặc định: tenant_code = '68' (Lâm Đồng), year_code = '2026'.
+        Khởi tạo mặc định: tenant_code = settings.DEFAULT_TENANT_CODE, year_code = '2026'.
         """
+        eff_session_tenant = session_tenant or settings.DEFAULT_TENANT_CODE
         clean_query = _strip_bracketed_tags(query)
 
         # Bóc tách tiền tố chào hỏi ủy thác qua Catalog RAM
@@ -1823,7 +1875,7 @@ class CanonicalSemanticNormalizer:
                 direct_answer=direct_ans,
                 is_out_of_scope=False,
                 is_conversational_only=True,
-                tenant_code=session_tenant or "68",
+                tenant_code=eff_session_tenant,
                 year_code=session_year or "2026",
             )
 
@@ -1834,7 +1886,9 @@ class CanonicalSemanticNormalizer:
         # 0. Kiểm tra Động cơ Làm Rõ Chủ Động (Active Clarification Gate - P-05, P-06, Turn 1 Temporal)
         if hasattr(self, "clarification_engine") and self.clarification_engine:
             if not self._is_officer_query(clean_query):
-                is_needed, slots, options, labels = self.clarification_engine.check_clarification_needed(clean_query)
+                is_needed, slots, options, labels = self.clarification_engine.check_clarification_needed(
+                    clean_query, tenant_code=eff_session_tenant
+                )
                 if is_needed and options:
                     if "metric_code" in slots or "metric" in slots:
                         return CanonicalQueryFrameDTO(
@@ -1845,7 +1899,7 @@ class CanonicalSemanticNormalizer:
                             clarification_candidates=[opt.label for opt in options],
                             canonical_metric_names=[opt.label for opt in options],
                             canonical_metric_ids=[opt.value for opt in options],
-                            tenant_code=session_tenant or "68",
+                            tenant_code=eff_session_tenant,
                             year_code=session_year or "2026",
                         )
                     else:
@@ -1857,13 +1911,13 @@ class CanonicalSemanticNormalizer:
                             clarification_candidates=[opt.label for opt in options],
                             canonical_metric_names=[],
                             canonical_metric_ids=[],
-                            tenant_code=session_tenant or "68",
+                            tenant_code=eff_session_tenant,
                             year_code=session_year or "2026",
                         )
 
         # Chạy Stream B trước để lấy context thời gian/địa bàn, sau đó chạy Stream A
-        stream_b = self._extract_stream_b_deterministic(clean_query)
-        stream_a = self._extract_stream_a_deterministic(clean_query, stream_b=stream_b)
+        stream_b = self._extract_stream_b_deterministic(clean_query, tenant_code=eff_session_tenant)
+        stream_a = self._extract_stream_a_deterministic(clean_query, stream_b=stream_b, tenant_code=eff_session_tenant)
 
         is_fact_calc = stream_a.get("is_fact_calc", False)
 
@@ -1873,7 +1927,7 @@ class CanonicalSemanticNormalizer:
             cand_metrics = []
             if hasattr(self.catalog, "retrieve_candidate_metrics"):
                 cand_metrics = self.catalog.retrieve_candidate_metrics(
-                    clean_query, top_k=3, score_threshold=0.40, tenant_code=session_tenant or "68"
+                    clean_query, top_k=3, score_threshold=0.40, tenant_code=eff_session_tenant
                 )
             nlu = self._parse_query_nlu_llm(clean_query, candidate_metrics=cand_metrics)
             self._apply_nlu_to_streams(clean_query, nlu, stream_a, stream_b)
@@ -1882,7 +1936,7 @@ class CanonicalSemanticNormalizer:
             clean_query=clean_query,
             stream_a=stream_a,
             stream_b=stream_b,
-            session_tenant=session_tenant,
+            session_tenant=eff_session_tenant,
             session_year=session_year,
             session_dept=session_dept,
             parent_context=parent_context,
@@ -1981,14 +2035,14 @@ class CanonicalSemanticNormalizer:
         clean_query: str,
         stream_a: Dict[str, Any],
         stream_b: Dict[str, Any],
-        session_tenant: str = "68",
+        session_tenant: Optional[str] = None,
         session_year: str = "2026",
         session_dept: Optional[str] = None,
         parent_context: Optional[str] = None,
     ) -> CanonicalQueryFrameDTO:
         # 1. Phân giải địa bàn động (Schema-Driven Dynamic Spatial Resolution)
         spatial_mention = stream_b.get("spatial_mention")
-        resolved_tenant = self.catalog.resolve_spatial_tenant(spatial_mention, default_tenant=session_tenant or "68")
+        resolved_tenant = self.catalog.resolve_spatial_tenant(spatial_mention, default_tenant=session_tenant or settings.DEFAULT_TENANT_CODE)
 
         # 2. Phân giải năm báo cáo (Kế thừa session_year nếu không có trong câu hỏi)
         resolved_year = stream_b.get("year_code") or session_year or "2026"
@@ -2004,7 +2058,9 @@ class CanonicalSemanticNormalizer:
         h_info = None
         if hasattr(self.catalog, "classify_criterion_hierarchy"):
             try:
-                h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+                h_info = self.catalog.classify_criterion_hierarchy(
+                    clean_query, parent_context=parent_context, tenant_code=resolved_tenant
+                )
             except TypeError:
                 h_info = self.catalog.classify_criterion_hierarchy(clean_query)
 
@@ -2125,7 +2181,9 @@ class CanonicalSemanticNormalizer:
                 else:
                     if h_info is None and hasattr(self.catalog, "classify_criterion_hierarchy"):
                         try:
-                            h_info = self.catalog.classify_criterion_hierarchy(clean_query, parent_context=parent_context)
+                            h_info = self.catalog.classify_criterion_hierarchy(
+                                clean_query, parent_context=parent_context, tenant_code=resolved_tenant
+                            )
                         except TypeError:
                             h_info = self.catalog.classify_criterion_hierarchy(clean_query)
 
@@ -2204,30 +2262,34 @@ class CanonicalSemanticNormalizer:
                 # Tìm node cha/gốc trong cây phân cấp khớp với ngữ cảnh câu hỏi
                 parent_match = self.catalog.conn.execute("""
                     SELECT DISTINCT 
-                        COALESCE(parent_id, root_id, id) AS target_id,
-                        COALESCE(parent_name, root_name, name) AS target_name
-                    FROM catalog_criteria_hierarchy
-                    WHERE (level <= 2 OR is_leaf = FALSE)
+                        COALESCE(h.parent_id, h.root_id, h.id) AS target_id,
+                        COALESCE(h.parent_name, h.root_name, h.name) AS target_name
+                    FROM catalog_criteria_hierarchy h
+                    LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                    WHERE (h.level <= 2 OR h.is_leaf = FALSE)
+                      AND (? IS NULL OR cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00')
                       AND (
-                          (LENGTH(TRIM(name)) >= 4 AND INSTR(?, LOWER(TRIM(name))) > 0)
-                          OR (LENGTH(TRIM(COALESCE(parent_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(parent_name))) > 0)
-                          OR (LENGTH(TRIM(COALESCE(root_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(root_name))) > 0)
+                          (LENGTH(TRIM(h.name)) >= 4 AND INSTR(?, LOWER(TRIM(h.name))) > 0)
+                          OR (LENGTH(TRIM(COALESCE(h.parent_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(h.parent_name))) > 0)
+                          OR (LENGTH(TRIM(COALESCE(h.root_name, ''))) >= 4 AND INSTR(?, LOWER(TRIM(h.root_name))) > 0)
                       )
-                    ORDER BY LENGTH(COALESCE(parent_name, root_name, name)) DESC
+                    ORDER BY LENGTH(COALESCE(h.parent_name, h.root_name, h.name)) DESC
                     LIMIT 1;
-                """, [q_low_domain, q_low_domain, q_low_domain]).fetchone()
+                """, [resolved_tenant, resolved_tenant, q_low_domain, q_low_domain, q_low_domain]).fetchone()
 
                 if parent_match:
                     p_target_id = parent_match[0]
                     leaf_rows = self.catalog.conn.execute("""
-                        SELECT name, code 
-                        FROM catalog_criteria_hierarchy
-                        WHERE (parent_id = ? OR root_id = ? OR id = ?)
-                          AND is_leaf = TRUE
-                          AND LOWER(code) NOT IN ('th', 'so', 'test')
-                          AND LOWER(code) NOT LIKE 'test%'
-                        ORDER BY level ASC, id ASC;
-                    """, [p_target_id, p_target_id, p_target_id]).fetchall()
+                        SELECT h.name, h.code 
+                        FROM catalog_criteria_hierarchy h
+                        LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                        WHERE (h.parent_id = ? OR h.root_id = ? OR h.id = ?)
+                          AND h.is_leaf = TRUE
+                          AND (? IS NULL OR cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00')
+                          AND LOWER(h.code) NOT IN ('th', 'so', 'test')
+                          AND LOWER(h.code) NOT LIKE 'test%'
+                        ORDER BY h.level ASC, h.id ASC;
+                    """, [p_target_id, p_target_id, p_target_id, resolved_tenant, resolved_tenant]).fetchall()
 
                     if leaf_rows and len(leaf_rows) >= 2:
                         expanded_names = [r[0] for r in leaf_rows]
@@ -2340,7 +2402,7 @@ class CanonicalSemanticNormalizer:
 
         # 0.1. REPORT_FORM_MISSION_AUDIT (REQ-Q05: SC-5.1, SC-5.2, SC-5.3)
         if frame.intent == CanonicalIntentEnum.REPORT_FORM_MISSION_AUDIT:
-            t_code = (frame.tenant_code or "68").replace("'", "''")
+            t_code = (frame.tenant_code or settings.DEFAULT_TENANT_CODE).replace("'", "''")
             y_code = (frame.year_code or "2026").replace("'", "''")
             sub_intent = frame.audit_sub_intent or "REPORT_SUBMISSION_STATUS"
 
@@ -2910,12 +2972,16 @@ class CanonicalSemanticNormalizer:
             cand_id_esc = cand_id.replace("'", "''") if cand_id else None
 
             is_dup_name = False
+            eff_tc_chk = str(getattr(frame, "tenant_code", None) or settings.DEFAULT_TENANT_CODE)
             if metric_name and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
                 try:
-                    cnt_row = self.catalog.conn.execute(
-                        "SELECT COUNT(*) FROM catalog_criteria_hierarchy WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))",
-                        [metric_name],
-                    ).fetchone()
+                    cnt_row = self.catalog.conn.execute("""
+                        SELECT COUNT(*)
+                        FROM catalog_criteria_hierarchy h
+                        LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                        WHERE LOWER(TRIM(h.name)) = LOWER(TRIM(?))
+                          AND (cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00')
+                    """, [metric_name, eff_tc_chk]).fetchone()
                     is_dup_name = bool(cnt_row and cnt_row[0] > 1)
                 except Exception:
                     is_dup_name = False
@@ -2979,9 +3045,9 @@ class CanonicalSemanticNormalizer:
             mpi_office_join = "" if is_public else "LEFT JOIN dwh_internal.office AS o ON lf.office_id = o.id\n"
             mpi_nhom_chi_tieu = "COALESCE(p.mission_name, 'Chỉ tiêu công khai') AS nhom_chi_tieu" if is_public else "p.name AS nhom_chi_tieu"
 
-            raw_t = str(getattr(frame, "tenant_code", None) or "68")
+            raw_t = str(getattr(frame, "tenant_code", None) or settings.DEFAULT_TENANT_CODE)
             raw_y = str(getattr(frame, "year_code", None) or "2026")
-            t_code = re.sub(r"[^a-zA-Z0-9_\-]", "", raw_t).replace("'", "''") or "68"
+            t_code = re.sub(r"[^a-zA-Z0-9_\-]", "", raw_t).replace("'", "''") or settings.DEFAULT_TENANT_CODE
             y_code = re.sub(r"[^a-zA-Z0-9_\-]", "", raw_y).replace("'", "''") or "2026"
 
             is_multi = bool(
@@ -2994,10 +3060,12 @@ class CanonicalSemanticNormalizer:
             if is_multi and frame.canonical_metric_names and len(frame.canonical_metric_names) >= 2 and hasattr(self, "catalog") and getattr(self.catalog, "conn", None):
                 try:
                     c_rows = self.catalog.conn.execute("""
-                        SELECT DISTINCT COALESCE(parent_id, id)
-                        FROM catalog_criteria_hierarchy
-                        WHERE name IN (SELECT * FROM UNNEST(?))
-                    """, [frame.canonical_metric_names]).fetchall()
+                        SELECT DISTINCT COALESCE(h.parent_id, h.id)
+                        FROM catalog_criteria_hierarchy h
+                        LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                        WHERE h.name IN (SELECT * FROM UNNEST(?))
+                          AND (cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00')
+                    """, [frame.canonical_metric_names, t_code]).fetchall()
                     if c_rows and len(c_rows) > 1:
                         is_multi_parent = True
                 except Exception:
@@ -3064,7 +3132,12 @@ class CanonicalSemanticNormalizer:
                     target_hierarchy_cte = (
                         f"WITH target_hierarchy AS (\n"
                         f"    SELECT id, code, name FROM dwh_internal.criteria\n"
-                        f"    WHERE code = '{p_target_esc}' OR parent_id IN (SELECT id FROM dwh_internal.criteria WHERE code = '{p_target_esc}')\n"
+                        f"    WHERE tenant_code = '{t_code}' AND deleted_date IS NULL\n"
+                        f"      AND (\n"
+                        f"          code = '{p_target_esc}' OR id::text = '{p_target_esc}'\n"
+                        f"          OR parent_id IN (SELECT id FROM dwh_internal.criteria WHERE tenant_code = '{t_code}' AND deleted_date IS NULL AND (code = '{p_target_esc}' OR id::text = '{p_target_esc}'))\n"
+                        f"          OR parent_id IN (SELECT id FROM dwh_internal.criteria WHERE tenant_code = '{t_code}' AND deleted_date IS NULL AND parent_id IN (SELECT id FROM dwh_internal.criteria WHERE tenant_code = '{t_code}' AND deleted_date IS NULL AND (code = '{p_target_esc}' OR id::text = '{p_target_esc}')))\n"
+                        f"      )\n"
                         f"),\n"
                     )
                     latest_date_cte = (
@@ -3162,7 +3235,7 @@ class CanonicalSemanticNormalizer:
                     escaped_ids = [cid.replace("'", "''") for cid in frame.canonical_metric_ids if cid]
                     if escaped_ids:
                         id_list = ", ".join(f"'{cid}'" for cid in escaped_ids)
-                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_m1 WHERE code IN ({id_list}) OR id::text IN ({id_list}))")
+                        sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_m1 WHERE tenant_code = '{t_code}' AND (code IN ({id_list}) OR id::text IN ({id_list})))")
                         sub_conds.append(f"f.criteria_id IN (SELECT parent_id FROM {crit_dim_ref} AS c_m2 WHERE (code IN ({id_list}) OR id::text IN ({id_list})) AND parent_id IS NOT NULL)")
                         sub_conds.append(f"f.criteria_id IN (SELECT id FROM {crit_dim_ref} AS c_m3 WHERE parent_id IN (SELECT id FROM {crit_dim_ref} AS c_m4 WHERE code IN ({id_list}) OR id::text IN ({id_list})))")
                 if frame.canonical_metric_names:
@@ -3577,7 +3650,7 @@ class CanonicalSemanticNormalizer:
             )
         if frame.target_table == "mission":
             y_mis = frame.year_code or "2026"
-            t_code = frame.tenant_code or "68"
+            t_code = frame.tenant_code or settings.DEFAULT_TENANT_CODE
             scope_filter = ""
             if frame.target_scope:
                 sc_esc = frame.target_scope.replace("'", "''")
@@ -3657,7 +3730,7 @@ class CanonicalSemanticNormalizer:
                 f"       ) AS don_vi_phu_trach\n"
                 f"FROM dwh_internal.mission AS m\n"
                 f"LEFT JOIN dwh_internal.scope AS s ON m.scope_id = s.id\n"
-                f"WHERE m.year_code = '{y_mis}' AND m.mission_status = true AND m.deleted_date IS NULL\n"
+                f"WHERE m.tenant_code = '{t_code}' AND m.year_code = '{y_mis}' AND m.mission_status = true AND m.deleted_date IS NULL\n"
                 f"{scope_filter}"
                 f"{mission_time_filter}"
                 f"ORDER BY m.mission_name ASC{limit_clause}"
@@ -3673,7 +3746,7 @@ class CanonicalSemanticNormalizer:
 
         # 7. PARENT_CHILDREN_BREAKDOWN (F8: Strict Date Filter Propagation)
         if frame.intent == CanonicalIntentEnum.PARENT_CHILDREN_BREAKDOWN:
-            t_code = (frame.tenant_code or "68").replace("'", "''")
+            t_code = (frame.tenant_code or settings.DEFAULT_TENANT_CODE).replace("'", "''")
             y_code = (frame.year_code or "2026").replace("'", "''")
             crit_filter = ""
             if frame.canonical_metric_names:
@@ -3707,7 +3780,7 @@ class CanonicalSemanticNormalizer:
 
         # 8. CROSS_BRANCH_COMPARISON
         if frame.intent == CanonicalIntentEnum.CROSS_BRANCH_COMPARISON:
-            t_code = (frame.tenant_code or "68").replace("'", "''")
+            t_code = (frame.tenant_code or settings.DEFAULT_TENANT_CODE).replace("'", "''")
             y_code = (frame.year_code or "2026").replace("'", "''")
             crit_filter = ""
             if frame.canonical_metric_names:

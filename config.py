@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     PORT: int = 8000
     HOST: str = "0.0.0.0"
+    DEFAULT_TENANT_CODE: str = os.getenv("DEFAULT_TENANT_CODE", "79")
+    PROVINCE_NAME: str = os.getenv("PROVINCE_NAME", "Thành phố Hồ Chí Minh")
+    DEFAULT_DEPARTMENT_NAME: str = os.getenv("DEFAULT_DEPARTMENT_NAME", "UBND Thành phố Hồ Chí Minh")
 
     # ==============================================================================
     # 2. CÁC API KEYS MÔ HÌNH NGÔN NGỮ ĐƯỢC PHÉP SỬ DỤNG (LLM APIS)
@@ -294,6 +297,15 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    def get_province_label(self, tenant_code: Optional[str] = None) -> str:
+        """Trả về tên địa bàn hiển thị tương ứng với mã tenant_code."""
+        tc = str(tenant_code or self.DEFAULT_TENANT_CODE or "79").strip()
+        if tc == "68":
+            return "tỉnh Lâm Đồng"
+        if tc == "79":
+            return "Thành phố Hồ Chí Minh"
+        return self.PROVINCE_NAME or "địa phương"
 
 
 # Khởi tạo singleton instance cấu hình dùng chung

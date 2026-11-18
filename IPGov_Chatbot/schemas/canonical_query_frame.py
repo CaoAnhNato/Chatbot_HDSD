@@ -14,6 +14,7 @@ from datetime import date
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Tuple
 from pydantic import BaseModel, ConfigDict, Field
+from IPGov_Chatbot.config import settings
 
 
 class TemporalSlotSpec(BaseModel):
@@ -161,7 +162,7 @@ class SemanticQueryIntentDTO(BaseModel):
         description="Mốc thời gian lọc nếu có"
     )
     spatial_filter: Optional[str] = Field(
-        default="68",
+        default_factory=lambda: settings.DEFAULT_TENANT_CODE,
         description="Mã địa phương nếu có"
     )
     target_table: Optional[str] = Field(
@@ -283,7 +284,7 @@ class CanonicalQueryFrameDTO(BaseModel):
         description="Tên địa danh thô trích xuất từ câu hỏi (phân biệt với từ viết tắt chuyên môn)"
     )
     tenant_code: str = Field(
-        default="68",
+        default_factory=lambda: settings.DEFAULT_TENANT_CODE,
         description="Mã địa bàn chuẩn hóa (mặc định '68' Lâm Đồng, '79' TP.HCM...)"
     )
     year_code: str = Field(

@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import asyncpg
 
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.modules.mod07_dwh_exec.connection_pool import DWHConnectionPool
 from IPGov_Chatbot.modules.mod07_dwh_exec.dlq_incident_logger import DLQIncidentLogger
 from IPGov_Chatbot.schemas.ast_enforcer_dto import SanitizedSQLDTO, SanitizedSubqueryTaskItem
@@ -111,7 +112,7 @@ class DWHExecutionService:
             await self.dlq_logger.log_incident_async(
                 trace_id=trace_id,
                 user_id=user_ctx.user_id if user_ctx else "unknown",
-                tenant_code=user_ctx.tenant_code if user_ctx else "68",
+                tenant_code=user_ctx.tenant_code if user_ctx else settings.DEFAULT_TENANT_CODE,
                 department_code=user_ctx.department_code if user_ctx else None,
                 raw_prompt="",
                 generated_sql=sql,
@@ -127,7 +128,7 @@ class DWHExecutionService:
             await self.dlq_logger.log_incident_async(
                 trace_id=trace_id,
                 user_id=user_ctx.user_id if user_ctx else "unknown",
-                tenant_code=user_ctx.tenant_code if user_ctx else "68",
+                tenant_code=user_ctx.tenant_code if user_ctx else settings.DEFAULT_TENANT_CODE,
                 department_code=user_ctx.department_code if user_ctx else None,
                 raw_prompt="",
                 generated_sql=sql,
@@ -144,7 +145,7 @@ class DWHExecutionService:
             await self.dlq_logger.log_incident_async(
                 trace_id=trace_id,
                 user_id=user_ctx.user_id if user_ctx else "unknown",
-                tenant_code=user_ctx.tenant_code if user_ctx else "68",
+                tenant_code=user_ctx.tenant_code if user_ctx else settings.DEFAULT_TENANT_CODE,
                 department_code=user_ctx.department_code if user_ctx else None,
                 raw_prompt="",
                 generated_sql=sql,

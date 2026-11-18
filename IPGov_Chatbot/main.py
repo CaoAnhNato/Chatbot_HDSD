@@ -201,7 +201,7 @@ app = FastAPI(
     description=(
         "Hệ sinh thái Backend phục vụ Chatbot Tra Cứu Kho Dữ Liệu Hành Chính Công (DWH).\n\n"
         "• **Module 1**: API Gateway & Context Extraction (Xác thực JWT HS256, HBAC Role Level 0-3, SSE Stream).\n"
-        "• **Module 2**: Pre-Router Security Guardrails (Lọc PII theo NĐ 13/2023, Chặn DDL/DML, Kiểm soát địa lý Lâm Đồng).\n"
+        f"• **Module 2**: Pre-Router Security Guardrails (Lọc PII theo NĐ 13/2023, Chặn DDL/DML, Kiểm soát địa lý {settings.get_province_label()}).\n"
         "• **Module 3**: Query Router & Dialogue Tracker H-DFT (Chitchat Bypass, H-DFT 2 Tầng RAM/Episodic, Action Chips).\n"
         "• **Module 4**: Dynamic Catalog & Schema Pruner (Thu gọn DDL lược đồ, giảm >90% token).\n"
         "• **Module 5**: Adaptive SQL Compiler (Track A AST Engine + Track B DIN-SQL LLM).\n"

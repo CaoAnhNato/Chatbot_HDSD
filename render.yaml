@@ -72,6 +72,12 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: "*"
+      - key: DEFAULT_TENANT_CODE
+        value: "79"
+      - key: PROVINCE_NAME
+        value: "Thành phố Hồ Chí Minh"
+      - key: DEFAULT_DEPARTMENT_NAME
+        value: "UBND Thành phố Hồ Chí Minh"
 
   # ----------------------------------------------------------------------------
   # 3. GIAO DIỆN FRONTEND NEXT.JS (SmartTable + UI)
@@ -92,3 +98,7 @@ services:
           type: web
           name: ipgov-chatbot-backend
           property: host
+      - key: NEXT_PUBLIC_DEFAULT_TENANT_CODE
+        value: "79"
+      - key: NEXT_PUBLIC_DEFAULT_TENANT_NAME
+        value: "UBND Thành phố Hồ Chí Minh"

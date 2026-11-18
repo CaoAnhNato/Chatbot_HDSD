@@ -101,7 +101,7 @@ class ModelRegistry:
                     logger.info("🔥 [ModelRegistry] Bắt đầu Warm-up Dummy Forward-Pass...")
                     try:
                         _ = model.encode(
-                            ["Khởi động hệ thống IPGov DWH phục vụ điều hành tỉnh Lâm Đồng"],
+                            [f"Khởi động hệ thống IPGov DWH phục vụ điều hành {settings.get_province_label()}"],
                             normalize_embeddings=True
                         )
                         cls._is_warmed_up = True
@@ -122,7 +122,7 @@ class ModelRegistry:
                                 cls._embed_model = SentenceTransformer(target_name)
                             cls._model_name = target_name
                             _ = cls._embed_model.encode(
-                                ["Khởi động hệ thống IPGov DWH phục vụ điều hành tỉnh Lâm Đồng"],
+                                [f"Khởi động hệ thống IPGov DWH phục vụ điều hành {settings.get_province_label()}"],
                                 normalize_embeddings=True
                             )
                             cls._is_warmed_up = True

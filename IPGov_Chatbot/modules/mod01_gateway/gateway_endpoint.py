@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 import json
 import logging
 import re
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.modules.mod01_gateway.context_extractor import ContextExtractor, SAMPLE_ROLE_PROFILES
 from IPGov_Chatbot.modules.mod01_gateway.jwt_service import JWTService
 from IPGov_Chatbot.schemas.user_context import UserSecurityContextDTO
@@ -134,7 +135,7 @@ async def chat_sse_event_generator(
                 user_identifier=extracted_user or client_role,
                 role_level=extracted_level,
                 schema=extracted_schema,
-                tenant_code=extracted_tenant or "68",
+                tenant_code=extracted_tenant or settings.DEFAULT_TENANT_CODE,
                 department_code=extracted_dept,
             )
     except Exception as e:
@@ -193,7 +194,7 @@ async def chat_sse_event_generator(
         "name": user_ctx.name or user_ctx.user_name,
         "user_name": user_ctx.user_name or user_ctx.name,
         "role_level": user_ctx.role_level,
-        "tenant_code": user_ctx.tenant_code or extracted_tenant or "68",
+        "tenant_code": user_ctx.tenant_code or extracted_tenant or settings.DEFAULT_TENANT_CODE,
         "department_code": extracted_dept if is_pub_eff else (user_ctx.department_code or extracted_dept),
         "schema": effective_schema,
         "assigned_mission_ids": [] if is_pub_eff else (user_ctx.assigned_mission_ids or []),
@@ -364,13 +365,13 @@ users_router = APIRouter(prefix="/api/v1", tags=["IPGov User Classification"])
 
 
 @users_router.get("/users", summary="Danh sách tài khoản công vụ phân cấp từ kho DWH")
-async def list_users():
-    """Trả về danh sách 8 tài khoản công vụ phân cấp theo 5 bậc thẩm quyền."""
-    return await UserService.get_instance().get_users()
+async def list_users(tenant_code: str | None = None):
+    """Trả về danh sách tài khoản công vụ phân cấp theo 5 bậc thẩm quyền của tenant hiện hành."""
+    return await UserService.get_instance().get_users(tenant_code=tenant_code)
 
 
 @router.get("/users", summary="Danh sách tài khoản công vụ phân cấp từ kho DWH (prefix /chat/users)")
-async def list_users_chat():
-    return await UserService.get_instance().get_users()
+async def list_users_chat(tenant_code: str | None = None):
+    return await UserService.get_instance().get_users(tenant_code=tenant_code)
 
 

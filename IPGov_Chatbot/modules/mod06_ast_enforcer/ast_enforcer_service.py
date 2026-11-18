@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 import sqlglot
 import sqlglot.expressions as exp
 
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.modules.mod06_ast_enforcer.scope_visitor import RecursiveScopeVisitor
 from IPGov_Chatbot.schemas.ast_enforcer_dto import (
     ASTViolationType,
@@ -150,7 +151,7 @@ class ASTEnforcerService:
                 username=str(effective_ctx.get("username") or "anonymous_user"),
                 name=effective_ctx.get("name") or effective_ctx.get("user_name"),
                 user_name=effective_ctx.get("user_name") or effective_ctx.get("name"),
-                tenant_code=str(effective_ctx.get("tenant_code") or "68"),
+                tenant_code=str(effective_ctx.get("tenant_code") or settings.DEFAULT_TENANT_CODE),
                 role_level=int(effective_ctx.get("role_level", 0)),
                 department_code=effective_ctx.get("department_code"),
                 office_id=effective_ctx.get("office_id"),
@@ -167,7 +168,7 @@ class ASTEnforcerService:
             user_ctx = UserSecurityContextDTO(
                 user_id="u_anon",
                 username="anonymous_user",
-                tenant_code="68",
+                tenant_code=settings.DEFAULT_TENANT_CODE,
                 role_level=0,
                 explicit_role_provided=False,
             )
@@ -494,7 +495,7 @@ class ASTEnforcerService:
             user_ctx = UserSecurityContextDTO(
                 user_id=str(user_ctx.get("user_id") or "u_anon"),
                 username=str(user_ctx.get("username") or "anonymous_user"),
-                tenant_code=str(user_ctx.get("tenant_code") or "68"),
+                tenant_code=str(user_ctx.get("tenant_code") or settings.DEFAULT_TENANT_CODE),
                 role_level=int(user_ctx.get("role_level", 0)),
                 department_code=user_ctx.get("department_code"),
                 office_id=user_ctx.get("office_id"),

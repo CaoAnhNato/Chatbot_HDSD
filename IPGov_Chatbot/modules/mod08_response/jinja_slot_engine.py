@@ -4,6 +4,7 @@ Phục vụ tổng hợp câu trả lời chuẩn BLUF (Bottom Line Up Front) ch
 Đạt tốc độ < 0.05ms trong bộ nhớ RAM, tiêu thụ 0 token LLM cho 85% câu hỏi chuẩn tắc.
 """
 
+import re
 from typing import Any, Dict, List, Optional, Tuple
 import jinja2
 
@@ -124,12 +125,12 @@ TEMPLATE_DEFINITIONS = {
 }
 
 
-def vn_format_num(val: Any, decimals: int = 2) -> str:
+def vn_format_num(val: Any, decimals: int = 4, protect_year: bool = True) -> str:
     """
     Định dạng số theo quy chuẩn thống nhất:
     - Phân cách hàng nghìn: dấu phẩy ',' (ví dụ: 1,320)
     - Phân cách thập phân: dấu chấm '.' (ví dụ: 12.5)
-    - Năm lịch 4 chữ số (1900 - 2099): TUYỆT ĐỐI không phân cách (giữ nguyên '2026')
+    - Năm lịch 4 chữ số (1900 - 2099): TUYỆT ĐỐI không phân cách (giữ nguyên '2026') khi protect_year=True
     """
     if val is None or val == "":
         return "0"
@@ -137,13 +138,21 @@ def vn_format_num(val: Any, decimals: int = 2) -> str:
     str_val = str(val).strip()
 
     # 1. Bảo vệ năm lịch 4 chữ số
-    if str_val.isdigit() and len(str_val) == 4 and 1900 <= int(str_val) <= 2099:
+    if protect_year and str_val.isdigit() and len(str_val) == 4 and 1900 <= int(str_val) <= 2099:
         return str_val
 
     try:
-        f_val = float(val)
+        if isinstance(val, (int, float)):
+            f_val = float(val)
+        elif re.match(r"^[+-]?\d{1,3}(?:\.\d{3})+(?:,\d+)?$", str_val) and (
+            str_val.count(".") >= 2 or "," in str_val
+        ):
+            # Chuỗi phân cách hàng nghìn kiểu VN ('1.234.567' hoặc '1.234,56'); giữ nguyên '228.1815'
+            f_val = float(str_val.replace(".", "").replace(",", "."))
+        else:
+            f_val = float(str_val.replace(",", ""))
         # Nếu là số nguyên và nằm trong khoảng năm lịch 1900-2099 (và chuỗi ban đầu có 4 ký tự)
-        if f_val.is_integer() and 1900 <= int(f_val) <= 2099 and len(str_val.split(".")[0]) == 4:
+        if protect_year and f_val.is_integer() and 1900 <= int(f_val) <= 2099 and len(str_val.split(".")[0]) == 4:
             return str(int(f_val))
 
         if f_val.is_integer():

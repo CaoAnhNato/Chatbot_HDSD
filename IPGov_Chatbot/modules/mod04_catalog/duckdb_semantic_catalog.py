@@ -196,19 +196,23 @@ DUMMY_FILTER_NAMES = {
 }
 
 
-def is_dummy_criterion(code: Optional[str] = None, name: Optional[str] = None) -> bool:
-    """Enforces quality filters: LENGTH(TRIM(c.name)) >= 6 and excludes test/dummy codes."""
+def is_dummy_criterion(
+    code: Optional[str] = None,
+    name: Optional[str] = None,
+    has_parent: Optional[bool] = None,
+) -> bool:
+    """Enforces quality filters while allowing valid short child criteria."""
     c_low = (code or "").strip().lower()
     n_low = (name or "").strip().lower()
     if not c_low and not n_low:
         return True
-    if c_low.startswith("test_") or n_low.startswith("test_"):
+    if c_low.startswith("test") or n_low.startswith("test"):
         return True
     if c_low in DUMMY_FILTER_CODES or n_low in DUMMY_FILTER_NAMES:
         return True
-    if n_low and len(n_low) < 6:
+    if n_low and len(n_low) < 2:
         return True
-    if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test'):
+    if not has_parent and n_low and len(n_low) < 6:
         return True
     return False
 
@@ -803,8 +807,8 @@ class DuckDBSemanticCatalog:
             try:
                 cur.execute("""
                     SELECT c.id, c.code, c.name, c.level,
-                           NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id) AS is_leaf,
-                           c.tenant_code, c.created_date
+                           NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
+                           c.tenant_code, c.created_date, (c.parent_id IS NOT NULL) AS has_parent
                     FROM dwh_internal.criteria c
                     WHERE c.deleted_date IS NULL
                     ORDER BY c.created_date DESC NULLS LAST;
@@ -812,13 +816,13 @@ class DuckDBSemanticCatalog:
                 pg_crits = cur.fetchall()
                 existing_ids = set(r[0] for r in self.conn.execute("SELECT id FROM catalog_criteria;").fetchall())
                 new_crit_rows = []
-                for cid, code, name, lvl, is_leaf, tenant_code, created_dt in pg_crits:
+                for cid, code, name, lvl, is_leaf, tenant_code, created_dt, has_parent in pg_crits:
                     str_cid = str(cid)
                     tc = str(tenant_code or "")
                     if str_cid and str_cid not in existing_ids and code and name:
-                        new_crit_rows.append((str_cid, code, name, "", lvl or 1, is_leaf, "", tc, created_dt))
-                        existing_ids.add(str_cid)
-                        if not is_dummy_criterion(code, name):
+                        if not is_dummy_criterion(code, name, has_parent=bool(has_parent)):
+                            new_crit_rows.append((str_cid, code, name, "", lvl or 1, is_leaf, "", tc, created_dt))
+                            existing_ids.add(str_cid)
                             self._alias_registry.append({
                                 "alias": name.lower().strip(),
                                 "code": code,
@@ -873,7 +877,7 @@ class DuckDBSemanticCatalog:
                                 SELECT o_m.office_name
                                 FROM dwh_internal.office_mission om
                                 JOIN dwh_internal.office o_m ON o_m.id = om.office_id
-                                WHERE (om.mission_id = c.mission_id OR om.mission_name = COALESCE(c.mission_name, fm.mission_name))
+                                WHERE (om.mission_id = c.mission_id OR (om.mission_name = COALESCE(c.mission_name, fm.mission_name) AND om.tenant_code = c.tenant_code))
                                   AND om.deleted_date IS NULL
                                 ORDER BY om.created_date DESC NULLS LAST
                                 LIMIT 1
@@ -891,7 +895,7 @@ class DuckDBSemanticCatalog:
                 """)
                 hier_rows = cur.fetchall()
                 if hier_rows:
-                    filtered_hier_rows = [r for r in hier_rows if not is_dummy_criterion(r[1], r[2])]
+                    filtered_hier_rows = [r for r in hier_rows if not is_dummy_criterion(r[1], r[2], has_parent=bool(r[3]))]
                     self.conn.execute("DELETE FROM catalog_criteria_hierarchy;")
                     self.conn.executemany(
                         "INSERT INTO catalog_criteria_hierarchy VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -905,7 +909,7 @@ class DuckDBSemanticCatalog:
                 cur.execute("""
                     SELECT DISTINCT s.id::text, COALESCE(s.scope_code, ''), s.scope_name, COALESCE(s.tenant_code, '68')
                     FROM dwh_internal.scope s
-                    JOIN dwh_internal.mission m ON m.scope_id = s.id;
+                    JOIN dwh_internal.mission m ON m.scope_id = s.id AND m.deleted_date IS NULL;
                 """)
                 pg_scopes = cur.fetchall()
                 if pg_scopes:
@@ -927,6 +931,7 @@ class DuckDBSemanticCatalog:
                                 FROM dwh_internal.fact_report_criteria f_off
                                 JOIN dwh_internal.office o_f ON o_f.id = f_off.office_id
                                 WHERE f_off.report_status = 'approved'
+                                  AND f_off.tenant_code = m.tenant_code
                                   AND (f_off.mission_id = m.id OR TRIM(LOWER(f_off.mission_name)) = TRIM(LOWER(m.mission_name)))
                                 ORDER BY f_off.report_date DESC NULLS LAST, f_off.version DESC NULLS LAST
                                 LIMIT 1
@@ -935,7 +940,7 @@ class DuckDBSemanticCatalog:
                                 SELECT o_m.office_name
                                 FROM dwh_internal.office_mission om
                                 JOIN dwh_internal.office o_m ON o_m.id = om.office_id
-                                WHERE om.mission_id = m.id
+                                WHERE (om.mission_id = m.id OR (TRIM(LOWER(om.mission_name)) = TRIM(LOWER(m.mission_name)) AND om.tenant_code = m.tenant_code))
                                   AND om.deleted_date IS NULL
                                   AND om.department_code = m.department_code
                                 ORDER BY om.created_date DESC NULLS LAST
@@ -945,22 +950,27 @@ class DuckDBSemanticCatalog:
                         ) AS office_names,
                         EXISTS (
                             SELECT 1 FROM dwh_internal.fact_report_criteria f
-                            WHERE (f.mission_id = m.id OR TRIM(LOWER(f.mission_name)) = TRIM(LOWER(m.mission_name)))
+                            WHERE f.tenant_code = m.tenant_code
+                              AND (f.mission_id = m.id OR TRIM(LOWER(f.mission_name)) = TRIM(LOWER(m.mission_name)))
                               AND f.report_status = 'approved'
-                        ) AS has_approved_facts
+                        ) AS has_approved_facts,
+                        COALESCE(m.department_code, COALESCE(m.tenant_code, '68') || '-1-01') AS department_code,
+                        COALESCE(m.tenant_code, '68') AS tenant_code
                     FROM dwh_internal.mission m
                     LEFT JOIN dwh_internal.scope s ON m.scope_id = s.id
                     WHERE m.deleted_date IS NULL;
                 """)
-                pg_mdetail = cur.fetchall()
-                if pg_mdetail:
+                pg_mdetail_full = cur.fetchall()
+                if pg_mdetail_full:
+                    self._mission_tenant_by_id = {str(r[0]): str(r[7] or settings.DEFAULT_TENANT_CODE) for r in pg_mdetail_full}
+                    pg_mdetail = [r[:6] for r in pg_mdetail_full]
                     self.conn.execute("DELETE FROM catalog_missions_detail;")
                     self.conn.executemany("INSERT OR REPLACE INTO catalog_missions_detail VALUES (?, ?, ?, ?, ?, ?)", pg_mdetail)
-                    for idx, (mid, mcode, mname, sname, onames, has_facts) in enumerate(pg_mdetail, start=3000):
+                    for idx, (mid, mcode, mname, sname, onames, has_facts, mdept, mtenant) in enumerate(pg_mdetail_full, start=3000):
                         if mname:
                             self.conn.execute(
                                 "INSERT OR IGNORE INTO catalog_missions VALUES (?, ?, ?, ?, ?, ?)",
-                                (idx, mcode, mname, "2026", "68-1-01", "ACTIVE")
+                                (idx, mcode, mname, "2026", str(mdept or f"{mtenant}-1-01"), "ACTIVE")
                             )
             except Exception as e:
                 logger.warning(f"Không thể đồng bộ mission detail từ PG: {e}")
@@ -993,7 +1003,7 @@ class DuckDBSemanticCatalog:
                 if pg_offices:
                     self.conn.executemany(
                         "INSERT OR REPLACE INTO catalog_offices VALUES (?, ?, ?, ?, ?, ?)",
-                        [(str(r[0]), str(r[1]), None, str(r[2]), str(r[3] or "68"), 2) for r in pg_offices]
+                        [(str(r[0]), str(r[1]), None, str(r[2]), str(r[3] or settings.DEFAULT_TENANT_CODE), 2) for r in pg_offices]
                     )
                     for oid, oname, dcode, tcode in pg_offices:
                         self._alias_registry.append({
@@ -1001,6 +1011,8 @@ class DuckDBSemanticCatalog:
                             "code": str(oid),
                             "name": oname,
                             "type": "office",
+                            "department_code": str(dcode or ""),
+                            "tenant_code": str(tcode or settings.DEFAULT_TENANT_CODE),
                             "target_table": "dwh_internal.office",
                         })
                     logger.info("Đã đồng bộ thêm %d phòng ban thực tế từ Live PostgreSQL vào DuckDB Catalog.", len(pg_offices))
@@ -1014,7 +1026,7 @@ class DuckDBSemanticCatalog:
                 if pg_users:
                     self.conn.executemany(
                         "INSERT OR REPLACE INTO catalog_users VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [(str(r[0]), str(r[1] or ""), str(r[2] or ""), str(r[3] or ""), str(r[4] or ""), str(r[5] or ""), str(r[6] or "68")) for r in pg_users]
+                        [(str(r[0]), str(r[1] or ""), str(r[2] or ""), str(r[3] or ""), str(r[4] or ""), str(r[5] or ""), str(r[6] or settings.DEFAULT_TENANT_CODE)) for r in pg_users]
                     )
                     logger.info("Đã đồng bộ thêm %d người dùng thực tế từ Live PostgreSQL vào DuckDB Catalog.", len(pg_users))
             except Exception as e:
@@ -1027,15 +1039,18 @@ class DuckDBSemanticCatalog:
                 for idx, (m_name, d_code) in enumerate(pg_um_missions, start=2000):
                     if m_name and m_name.strip():
                         m_clean = m_name.strip()
+                        d_str = str(d_code or f"{settings.DEFAULT_TENANT_CODE}-1-02")
+                        t_from_d = d_str.split("-")[0] if "-" in d_str else settings.DEFAULT_TENANT_CODE
                         self.conn.execute(
                             "INSERT OR IGNORE INTO catalog_missions VALUES (?, ?, ?, ?, ?, ?)",
-                            (idx, f"MS_UM_{idx}", m_clean, "2026", str(d_code or "68-1-01"), "ACTIVE")
+                            (idx, f"MS_UM_{idx}", m_clean, "2026", d_str, "ACTIVE")
                         )
                         self._alias_registry.append({
                             "alias": m_clean.lower().strip(),
                             "code": f"MS_UM_{idx}",
                             "name": m_clean,
                             "type": "mission",
+                            "tenant_code": t_from_d,
                             "target_table": "dwh_internal.user_mission"
                         })
             except Exception as e:
@@ -1068,18 +1083,21 @@ class DuckDBSemanticCatalog:
 
             sync_definitions_to_duckdb(DEFAULT_KB_PATH, self.conn)
 
-            # Đồng bộ từ đồng nghĩa (natural_synonyms) vào catalog_aliases và _alias_registry
+            # Đồng bộ từ đồng nghĩa (natural_synonyms) vào catalog_aliases và _alias_registry kèm tenant_code
             rows = self.conn.execute("""
-                SELECT code, name, is_leaf, natural_synonyms
-                FROM catalog_definitions
-                WHERE code IS NOT NULL;
+                SELECT d.code, d.name, d.is_leaf, d.natural_synonyms,
+                       COALESCE(NULLIF(cc.tenant_code, ''), '68') AS tenant_code,
+                       (d.parent_id IS NOT NULL) AS has_parent
+                FROM catalog_definitions d
+                LEFT JOIN catalog_criteria cc ON d.id = cc.id
+                WHERE d.code IS NOT NULL;
             """).fetchall()
 
             alias_tuples = []
-            for code, name, is_leaf, syns_json in rows:
+            for code, name, is_leaf, syns_json, kb_tc, has_parent in rows:
                 if not code:
                     continue
-                if is_dummy_criterion(code, name):
+                if is_dummy_criterion(code, name, has_parent=bool(has_parent)):
                     continue
                 code_low = str(code).strip().lower()
                 if code_low in DUMMY_FILTER_CODES:
@@ -1087,7 +1105,7 @@ class DuckDBSemanticCatalog:
                 if name and name.strip():
                     n_clean = name.strip()
                     n_low = n_clean.lower()
-                    if n_low not in DUMMY_FILTER_NAMES and len(n_low) > 2:
+                    if n_low not in DUMMY_FILTER_NAMES and len(n_low) >= 2:
                         alias_tuples.append((n_low, code, bool(is_leaf)))
                 syns = []
                 if syns_json:
@@ -1106,6 +1124,7 @@ class DuckDBSemanticCatalog:
                                 "name": name or code,
                                 "type": "criteria",
                                 "target_table": "dwh_internal.criteria",
+                                "tenant_code": str(kb_tc or "68"),
                             })
             if alias_tuples:
                 self.conn.executemany("INSERT OR IGNORE INTO catalog_aliases VALUES (?, ?, ?);", alias_tuples)
@@ -1656,10 +1675,10 @@ class DuckDBSemanticCatalog:
         dedup_rows = []
         seen_keys = set()
         for r in rows:
-            c_code, c_name, _, c_tenant, _ = r
-            if is_dummy_criterion(c_code, c_name):
+            c_code, c_name, _, c_tenant, c_lvl = r
+            if is_dummy_criterion(c_code, c_name, has_parent=(int(c_lvl or 1) > 1)):
                 continue
-            key = c_code.strip().lower()
+            key = (str(c_tenant or "").strip(), c_code.strip().lower())
             if key not in seen_keys:
                 seen_keys.add(key)
                 dedup_rows.append(r)
@@ -1933,7 +1952,7 @@ class DuckDBSemanticCatalog:
                 cur.execute("""
                     SELECT c.id, c.code, c.name, c.level,
                            NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
-                           c.tenant_code, c.created_date
+                           c.tenant_code, c.created_date, (c.parent_id IS NOT NULL) AS has_parent
                     FROM dwh_internal.criteria c
                     WHERE c.deleted_date IS NULL
                     ORDER BY c.created_date DESC NULLS LAST;
@@ -1979,7 +1998,7 @@ class DuckDBSemanticCatalog:
                                 SELECT o_m.office_name
                                 FROM dwh_internal.office_mission om
                                 JOIN dwh_internal.office o_m ON o_m.id = om.office_id
-                                WHERE (om.mission_id = c.mission_id OR om.mission_name = COALESCE(c.mission_name, fm.mission_name))
+                                WHERE (om.mission_id = c.mission_id OR (om.mission_name = COALESCE(c.mission_name, fm.mission_name) AND om.tenant_code = c.tenant_code))
                                   AND om.deleted_date IS NULL
                                 ORDER BY om.created_date DESC NULLS LAST
                                 LIMIT 1
@@ -1993,11 +2012,12 @@ class DuckDBSemanticCatalog:
                     LEFT JOIN dwh_internal.criteria gp ON p.parent_id = gp.id
                     LEFT JOIN fact_meta fm ON fm.criteria_id = c.id
                     WHERE c.deleted_date IS NULL
-                      AND LENGTH(TRIM(c.name)) >= 6
+                      AND (LENGTH(TRIM(c.name)) >= 6 OR (c.parent_id IS NOT NULL AND LENGTH(TRIM(c.name)) >= 2))
                       AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                      AND LOWER(c.code) NOT LIKE 'test%%'
                     ORDER BY c.level ASC, c.created_date ASC, c.id ASC;
                 """)
-                hier_rows = cur.fetchall()
+                hier_rows = [r for r in cur.fetchall() if not is_dummy_criterion(r[1], r[2], has_parent=bool(r[3]))]
                 conn_pg.close()
             except Exception as e:
                 logger.warning("⚠️ [DuckDBSemanticCatalog] Không thể truy vấn Live PostgreSQL để sync: %s", e)
@@ -2008,12 +2028,12 @@ class DuckDBSemanticCatalog:
                     "elapsed_ms": round((time.time() - t0) * 1000, 2)
                 }
 
-            # 4. Ingestion qua DynamicCriterionIngestor + FiveGateValidator
+            # 4. Ingestion qua DynamicCriterionIngestor + FiveGateValidator (theo tenant đang kích hoạt)
             try:
                 from IPGov_Chatbot.modules.mod04_catalog.dynamic_criterion_ingestor import DynamicCriterionIngestor, DEFAULT_KB_PATH
                 db_url = f"postgresql://{settings.DWH_USER}:{settings.DWH_PASSWORD}@{settings.DWH_HOST}:{settings.DWH_PORT}/{settings.DWH_DB}"
                 ingestor = DynamicCriterionIngestor(kb_path=DEFAULT_KB_PATH, db_url=db_url)
-                ingested = ingestor.ingest_new_criteria_into_kb(duckdb_conn=self.conn)
+                ingested = ingestor.ingest_new_criteria_into_kb(duckdb_conn=self.conn, tenant_code=settings.DEFAULT_TENANT_CODE)
                 if ingested:
                     logger.info("Đã nạp tự động %d chỉ tiêu mới vào KB qua DynamicCriterionIngestor.", len(ingested))
             except Exception as e_ing:
@@ -2024,16 +2044,17 @@ class DuckDBSemanticCatalog:
             try:
                 new_crit_rows = []
                 new_aliases = []
-                for cid, code, name, lvl, is_leaf, tenant_code, created_dt in pg_crits:
+                for cid, code, name, lvl, is_leaf, tenant_code, created_dt, has_parent in pg_crits:
                     str_cid = str(cid)
                     tc = str(tenant_code or "")
+                    if is_dummy_criterion(code, name, has_parent=bool(has_parent)):
+                        continue
                     new_crit_rows.append((str_cid, code, name, "", lvl or 1, is_leaf, "", tc, created_dt))
-                    if not is_dummy_criterion(code, name):
-                        clean_name = name.lower().strip()
-                        new_aliases.append((clean_name, code, bool(is_leaf)))
-                        unacc_name = _remove_accents(clean_name)
-                        if unacc_name and unacc_name != clean_name and len(unacc_name) >= 6:
-                            new_aliases.append((unacc_name, code, bool(is_leaf)))
+                    clean_name = name.lower().strip()
+                    new_aliases.append((clean_name, code, bool(is_leaf)))
+                    unacc_name = _remove_accents(clean_name)
+                    if unacc_name and unacc_name != clean_name and len(unacc_name) >= 6:
+                        new_aliases.append((unacc_name, code, bool(is_leaf)))
 
                 if new_crit_rows:
                     self.conn.executemany("INSERT OR REPLACE INTO catalog_criteria VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", new_crit_rows)
@@ -2075,7 +2096,7 @@ class DuckDBSemanticCatalog:
                     "elapsed_ms": round((time.time() - t0) * 1000, 2)
                 }
 
-    def lookup_or_hydrate_metric(self, mention: str, tenant_code: str = "68") -> Optional[Dict[str, Any]]:
+    def lookup_or_hydrate_metric(self, mention: str, tenant_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Tra cứu động chỉ tiêu từ Live PostgreSQL dwh_internal.criteria khi DuckDB RAM bị cache miss.
         Nếu tìm thấy, tự động đăng ký vào DuckDB RAM mà không cần khởi động lại máy chủ.
@@ -2083,6 +2104,7 @@ class DuckDBSemanticCatalog:
         if not mention or not mention.strip():
             return None
 
+        eff_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE or "79")
         clean_m = mention.strip().lower()
         try:
             import psycopg2
@@ -2102,8 +2124,10 @@ class DuckDBSemanticCatalog:
                            c.tenant_code, c.created_date, c.parent_id
                     FROM dwh_internal.criteria c
                     WHERE c.deleted_date IS NULL
-                      AND LENGTH(TRIM(c.name)) >= 6
+                      AND c.tenant_code = %s
+                      AND (LENGTH(TRIM(c.name)) >= 6 OR (c.parent_id IS NOT NULL AND LENGTH(TRIM(c.name)) >= 2))
                       AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                      AND LOWER(c.code) NOT LIKE 'test%%'
                       AND (
                           LOWER(TRIM(c.name)) = LOWER(TRIM(%s))
                           OR LOWER(TRIM(c.code)) = LOWER(TRIM(%s))
@@ -2116,7 +2140,7 @@ class DuckDBSemanticCatalog:
                       )
                     ORDER BY c.level DESC, LENGTH(c.name) DESC, c.created_date DESC NULLS LAST
                     LIMIT 1;
-                """, (clean_m, clean_m, clean_m, f"%{clean_m}%", f"%{clean_m}%", clean_m, clean_m))
+                """, (eff_tenant, clean_m, clean_m, clean_m, f"%{clean_m}%", f"%{clean_m}%", clean_m, clean_m))
                 row = cur.fetchone()
 
             conn_pg.close()
@@ -2126,7 +2150,7 @@ class DuckDBSemanticCatalog:
 
             cid, code, name, lvl, is_leaf, tc, created_dt, pid = row
             cid_str = str(cid)
-            tc_str = str(tc or tenant_code or "68")
+            tc_str = str(tc or eff_tenant)
 
             # Đăng ký tức thì vào DuckDB RAM
             with self._sync_lock:
@@ -2409,7 +2433,7 @@ class DuckDBSemanticCatalog:
                 )
             cand_text = "\n".join(cand_lines)
             system_prompt = (
-                "Bạn là trợ lý giải quyết nhập nhằng ngữ nghĩa chỉ tiêu (Criteria Disambiguator) cho Kho dữ liệu UBND Tỉnh Lâm Đồng.\n"
+                f"Bạn là trợ lý giải quyết nhập nhằng ngữ nghĩa chỉ tiêu (Criteria Disambiguator) cho Kho dữ liệu UBND {settings.get_province_label()}.\n"
                 "Hãy suy luận từng bước (Chain-of-Thought) ngắn gọn trong trường 'reason' trước khi kết luận:\n"
                 "1. Đối chiếu ngữ cảnh câu hỏi (thực thể, phạm vi thời gian lũy kế/hàng năm, tính tổng hợp/chi tiết) với cấu trúc phân cấp (Nhánh gốc > Nhánh cha | Cấp | Loại) của từng ứng viên.\n"
                 "2. Nếu câu hỏi chỉ rõ 1 chỉ tiêu cụ thể khớp với ứng viên -> trả về status = 'MATCH', kèm 'code' và 'name'.\n"
@@ -2448,7 +2472,7 @@ class DuckDBSemanticCatalog:
         limit: int = 1,
         top_k_candidates: int = 5,
         use_llm_disambiguation: bool = True,
-        tenant_code: Optional[str] = "68",
+        tenant_code: Optional[str] = None,
         role_level: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
@@ -2460,30 +2484,64 @@ class DuckDBSemanticCatalog:
         if not query:
             return []
 
+        import re
+        eff_tenant = settings.DEFAULT_TENANT_CODE if tenant_code is None else str(tenant_code)
+        if tenant_code is None and eff_tenant:
+            has_t = self.conn.execute(
+                "SELECT 1 FROM catalog_criteria WHERE tenant_code = ? LIMIT 1;", [eff_tenant]
+            ).fetchone()
+            if not has_t:
+                eff_tenant = ""
+
         q_clean = query.lower().strip()
         norm_q = " ".join(q_clean.replace("-", " ").replace("_", " ").split())
         if self.is_dimension_query(norm_q, "criteria"):
             return []
 
-        # 1. Tra cứu trực tiếp khớp tên chỉ tiêu lá (is_leaf = TRUE) trong DuckDB RAM
-        # Chỉ short-circuit khi chỉ tiêu lá chứa ít nhất 2 từ nội dung chuyên biệt (tránh khớp chỉ tiêu phụ trợ 'Lũy kế đến thời điểm báo cáo', 'Đang hoạt động' khi câu hỏi có nêu tên thực thể cụ thể như OCOP, HTX...)
+        # 1. Tra cứu trực tiếp khớp tên chỉ tiêu lá (is_leaf = TRUE) trong DuckDB RAM (phân vùng tenant_code)
+        # Chỉ short-circuit khi chỉ tiêu lá chứa ít nhất 2 từ nội dung chuyên biệt hoặc khớp chính xác tên chỉ tiêu con có cấp cha (len >= 2)
         stop_exact_leaf = {
             "đến", "thời", "điểm", "báo", "cáo", "trong", "năm", "số", "lượng",
             "tổng", "lũy", "kế", "đang", "hoạt", "động", "thành", "lập", "mới", "viên"
         }
-        exact_name_matches = self.conn.execute("""
-            SELECT code, name, length(name) as len_n, created_date
-            FROM catalog_criteria
-            WHERE is_leaf = TRUE AND length(name) >= 6 AND INSTR(?, LOWER(name)) > 0;
-        """, (q_clean,)).fetchall()
+        if eff_tenant:
+            leaf_candidates = self.conn.execute("""
+                SELECT c.code, c.name, length(c.name) as len_n, c.created_date,
+                       (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                FROM catalog_criteria c
+                LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                WHERE c.is_leaf = TRUE AND length(c.name) >= 2
+                  AND (c.tenant_code = ? OR c.tenant_code = '' OR c.tenant_code = '00');
+            """, (eff_tenant,)).fetchall()
+        else:
+            leaf_candidates = self.conn.execute("""
+                SELECT c.code, c.name, length(c.name) as len_n, c.created_date,
+                       (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                FROM catalog_criteria c
+                LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                WHERE c.is_leaf = TRUE AND length(c.name) >= 2;
+            """).fetchall()
+
+        exact_name_matches = []
+        for r in leaf_candidates:
+            c_low = str(r[1] or "").strip().lower()
+            has_p = bool(r[4])
+            if len(c_low) >= 6:
+                if c_low in q_clean:
+                    exact_name_matches.append(r)
+            elif len(c_low) >= 2 and has_p:
+                if re.search(rf"(?<!\w){re.escape(c_low)}(?!\w)", q_clean):
+                    exact_name_matches.append(r)
 
         is_cumul_q = any(w in q_clean for w in ("lũy kế", "luy ke", "đến thời điểm báo cáo", "tích lũy"))
         specific_exact_matches = [
             r for r in exact_name_matches
-            if not is_dummy_criterion(r[0], r[1]) and len(r[1].strip()) >= 6
+            if not is_dummy_criterion(r[0], r[1], has_parent=bool(r[4]))
+            and (len(r[1].strip()) >= 6 or bool(r[4]))
             and (
                 not is_cumul_q
                 or r[1].strip().lower() == q_clean
+                or bool(r[4])
                 or len([w for w in r[1].strip().lower().split() if w not in stop_exact_leaf]) >= 2
             )
         ]
@@ -2518,7 +2576,7 @@ class DuckDBSemanticCatalog:
             }]
 
         # 2. Thử đối chiếu nhanh qua Alias Registry có phân vùng tenant (Adaptive Thresholding)
-        alias_match = self.match_alias_or_abbreviation(q_clean, threshold=None, tenant_code=tenant_code)
+        alias_match = self.match_alias_or_abbreviation(q_clean, threshold=None, tenant_code=eff_tenant or None)
         if (
             alias_match 
             and alias_match.get("type") in ("criteria", "acronym") 
@@ -2526,25 +2584,33 @@ class DuckDBSemanticCatalog:
             and not is_dummy_criterion(alias_match.get("code"), alias_match.get("name"))
         ):
             alias_term = (alias_match.get("alias") or alias_match.get("name") or "").lower().strip()
+            t_filter_sql = " AND (c.tenant_code = ? OR c.tenant_code = '' OR c.tenant_code = '00')" if eff_tenant else ""
+            t_param = (eff_tenant,) if eff_tenant else ()
 
             # Đối chiếu trực tiếp alias_term
             if alias_match.get("code") == "htx_broad":
-                matched_crit_rows = self.conn.execute("""
-                    SELECT code, name FROM catalog_criteria
-                    WHERE is_leaf = TRUE AND (LOWER(name) LIKE '%hợp tác xã%' OR LOWER(name) LIKE '%htx%');
-                """).fetchall()
+                matched_crit_rows = self.conn.execute(f"""
+                    SELECT c.code, c.name, (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                    FROM catalog_criteria c
+                    LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                    WHERE c.is_leaf = TRUE AND (LOWER(c.name) LIKE '%hợp tác xã%' OR LOWER(c.name) LIKE '%htx%'){t_filter_sql};
+                """, t_param).fetchall()
             elif alias_match.get("code") == "ocop_broad":
-                matched_crit_rows = self.conn.execute("""
-                    SELECT code, name FROM catalog_criteria
-                    WHERE is_leaf = TRUE AND (LOWER(name) LIKE '%ocop%');
-                """).fetchall()
+                matched_crit_rows = self.conn.execute(f"""
+                    SELECT c.code, c.name, (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                    FROM catalog_criteria c
+                    LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                    WHERE c.is_leaf = TRUE AND (LOWER(c.name) LIKE '%ocop%'){t_filter_sql};
+                """, t_param).fetchall()
             else:
-                matched_crit_rows = self.conn.execute("""
-                    SELECT code, name FROM catalog_criteria
-                    WHERE LOWER(name) = ? OR LOWER(aliases) = ? OR INSTR(LOWER(aliases), ?) > 0;
-                """, (alias_term, alias_term, alias_term)).fetchall()
+                matched_crit_rows = self.conn.execute(f"""
+                    SELECT c.code, c.name, (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                    FROM catalog_criteria c
+                    LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                    WHERE (LOWER(c.name) = ? OR LOWER(c.aliases) = ? OR INSTR(LOWER(c.aliases), ?) > 0){t_filter_sql};
+                """, (alias_term, alias_term, alias_term) + t_param).fetchall()
 
-            matched_crit_rows = [r for r in matched_crit_rows if not is_dummy_criterion(r[0], r[1])]
+            matched_crit_rows = [r for r in matched_crit_rows if not is_dummy_criterion(r[0], r[1], has_parent=bool(r[2]))]
 
             # Nếu là từ viết tắt hoặc cụm từ ngắn chung chung (acronym/category) map tới nhiều criteria
             is_broad_alias = alias_match.get("type") in ("acronym", "category", "broad") or alias_match.get("code") in ("htx_broad", "ocop_broad")
@@ -2561,10 +2627,11 @@ class DuckDBSemanticCatalog:
                     "candidates": cands_list
                 }]
 
-            if matched_crit_rows or alias_match.get("code"):
+            if matched_crit_rows or (alias_match.get("code") and (not eff_tenant or not alias_match.get("tenant_code") or alias_match.get("tenant_code") in (eff_tenant, "00"))):
                 res_code = matched_crit_rows[0][0] if matched_crit_rows else alias_match["code"]
                 res_name = matched_crit_rows[0][1] if matched_crit_rows else alias_match["name"]
-                if not is_dummy_criterion(res_code, res_name):
+                res_has_p = bool(matched_crit_rows[0][2]) if matched_crit_rows else (len(res_name or "") < 6)
+                if not is_dummy_criterion(res_code, res_name, has_parent=res_has_p):
                     return [{
                         "code": res_code,
                         "name": res_name,
@@ -2586,7 +2653,7 @@ class DuckDBSemanticCatalog:
         # 2. Pre-filtering: Xác định tập chỉ số hợp lệ theo tenant_code và role_level
         valid_indices = []
         for i, (tc, lvl) in enumerate(zip(snap.criteria_tenants, snap.criteria_levels)):
-            if tenant_code and tc and tc != tenant_code and tc != "00":
+            if eff_tenant and tc and tc != eff_tenant and tc != "00":
                 continue
             if role_level == 3:
                 # Role 3 (Công dân): Chỉ truy cập các chỉ tiêu công khai (level <= 2)
@@ -2594,8 +2661,8 @@ class DuckDBSemanticCatalog:
                     continue
             valid_indices.append(i)
 
-        if not valid_indices:
-            # Fallback nếu không có tiêu chí nào khớp tenant
+        if not valid_indices and not eff_tenant:
+            # Chỉ fallback toàn cục khi không truyền tenant_code cụ thể
             valid_indices = list(range(len(snap.criteria_codes)))
 
         # 3. Dense Semantic Search (chỉ duyệt/xếp hạng trên valid_indices nếu có embeddings)
@@ -2680,10 +2747,22 @@ class DuckDBSemanticCatalog:
                 details[code] = {"name": name, "sparse_score": float(score), "sparse_rank": rank + 1}
 
         sorted_candidates = sorted(rrf_dict.items(), key=lambda x: x[1], reverse=True)[:top_k_candidates]
+        parented_codes = set()
+        if sorted_candidates:
+            try:
+                p_rows = self.conn.execute("""
+                    SELECT c.code FROM catalog_criteria c
+                    LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                    WHERE (c.level > 1 OR h.parent_id IS NOT NULL);
+                """).fetchall()
+                parented_codes = {str(pr[0]) for pr in p_rows if pr and pr[0]}
+            except Exception:
+                parented_codes = set()
+
         candidates = []
         for code, rrf_score in sorted_candidates:
             c_name = details[code]["name"]
-            if is_dummy_criterion(code, c_name):
+            if is_dummy_criterion(code, c_name, has_parent=(code in parented_codes)):
                 continue
             candidates.append({
                 "code": code,
@@ -2743,7 +2822,7 @@ class DuckDBSemanticCatalog:
         query: str,
         top_k: int = 5,
         score_cutoff: float = 50.0,
-        tenant_code: Optional[str] = "68"
+        tenant_code: Optional[str] = None
     ) -> Tuple[List[Dict[str, Any]], bool, float]:
         """
         Trích xuất Top-K ứng viên chỉ tiêu từ DuckDB In-Memory Catalog bằng Hybrid RRF (Dense + Sparse).
@@ -2945,7 +3024,7 @@ class DuckDBSemanticCatalog:
         return (top_candidates, is_ambiguous, score_delta)
 
     def retrieve_candidate_metrics(
-        self, query: str, top_k: int = 3, score_threshold: float = 0.40, tenant_code: str = "68"
+        self, query: str, top_k: int = 3, score_threshold: float = 0.40, tenant_code: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         Tra cứu siêu tốc các chỉ tiêu ứng viên trong DuckDB RAM phục vụ Pre-Retrieval Grounding.
@@ -3007,8 +3086,10 @@ class DuckDBSemanticCatalog:
         Phân giải phạm vi hành chính đa cấp (Tenant / Department / Office).
         Triệt tiêu 100% heuristic substring 'in' gây nuốt phạm vi cấp Tỉnh.
         """
+        default_tc = settings.DEFAULT_TENANT_CODE
+        default_prov = settings.get_province_label(default_tc)
         if not term:
-            return {"type": "unknown", "tenant_code": "68", "department_code": None, "office_id": None, "admin_level": None}
+            return {"type": "unknown", "tenant_code": default_tc, "department_code": None, "office_id": None, "admin_level": None}
 
         t_clean = term.lower().strip()
 
@@ -3029,8 +3110,8 @@ class DuckDBSemanticCatalog:
 
         if admin_level_hint == 0 or tenant_match:
             if not any(kw in t_clean_admin for kw in ("sở ", "phòng ", "chi cục", "văn phòng")):
-                t_code = tenant_match[0] if tenant_match else "68"
-                t_name = tenant_match[1] if tenant_match else "Tỉnh Lâm Đồng"
+                t_code = tenant_match[0] if tenant_match else default_tc
+                t_name = tenant_match[1] if tenant_match else default_prov
                 return {
                     "type": "tenant",
                     "tenant_code": t_code,
@@ -3048,7 +3129,7 @@ class DuckDBSemanticCatalog:
                 "department_code": alias_res["code"],
                 "code": alias_res["code"],
                 "name": alias_res["name"],
-                "tenant_code": alias_res.get("tenant_code", "68"),
+                "tenant_code": alias_res.get("tenant_code", default_tc),
                 "office_id": None,
                 "admin_level": 1
             }
@@ -3059,7 +3140,7 @@ class DuckDBSemanticCatalog:
                 "code": str(alias_res.get("code") or alias_res.get("id")),
                 "name": alias_res["name"],
                 "department_code": alias_res.get("department_code"),
-                "tenant_code": alias_res.get("tenant_code", "68"),
+                "tenant_code": alias_res.get("tenant_code", default_tc),
                 "admin_level": 2
             }
 
@@ -3111,7 +3192,7 @@ class DuckDBSemanticCatalog:
                     al_score = 95.0
                     if al_score > best_off_score:
                         best_off_score = al_score
-                        best_off = (item.get("code", item.get("id")), item.get("name"), item.get("department_code"), item.get("tenant_code", "68"))
+                        best_off = (item.get("code", item.get("id")), item.get("name"), item.get("department_code"), item.get("tenant_code", default_tc))
 
         if best_off and best_off_score >= 80.0 and (has_office_indicator or not has_dept_indicator) and admin_level_hint != 1:
             return {
@@ -3155,7 +3236,7 @@ class DuckDBSemanticCatalog:
                     al_score = 95.0
                     if al_score > best_dept_score:
                         best_dept_score = al_score
-                        best_dept = (item.get("code"), item.get("name"), item.get("tenant_code", "68"))
+                        best_dept = (item.get("code"), item.get("name"), item.get("tenant_code", default_tc))
 
         if best_dept and best_dept_score >= 80.0:
             return {
@@ -3179,7 +3260,7 @@ class DuckDBSemanticCatalog:
                 "admin_level": 2
             }
 
-        return {"type": "unknown", "tenant_code": "68", "department_code": None, "office_id": None, "admin_level": None}
+        return {"type": "unknown", "tenant_code": default_tc, "department_code": None, "office_id": None, "admin_level": None}
 
     def find_department_or_office(self, term: str, admin_level_hint: Optional[int] = None) -> Optional[Dict[str, Any]]:
         """
@@ -3261,14 +3342,15 @@ class DuckDBSemanticCatalog:
 
         return False
 
-    def resolve_spatial_tenant(self, spatial_mention: Optional[str], default_tenant: str = "68") -> str:
+    def resolve_spatial_tenant(self, spatial_mention: Optional[str], default_tenant: Optional[str] = None) -> str:
         """
         Schema-Driven Dynamic Spatial Resolution (tra cứu catalog_tenants trong DuckDB RAM).
         Đối chiếu mờ giữa spatial_mention và bảng catalog_tenants trong RAM.
-        Nếu spatial_mention là None hoặc không khớp, trả về default_tenant (mặc định '68').
+        Nếu spatial_mention là None hoặc không khớp, trả về default_tenant (mặc định settings.DEFAULT_TENANT_CODE).
         """
+        eff_default = default_tenant or settings.DEFAULT_TENANT_CODE
         if not spatial_mention:
-            return default_tenant
+            return eff_default
         s_clean = spatial_mention.lower().strip()
         try:
             res_tc = self.conn.execute(
@@ -3296,7 +3378,7 @@ class DuckDBSemanticCatalog:
                         return tc
             # Fuzzy match
             best_score = 0
-            best_tc = default_tenant
+            best_tc = eff_default
             for tc, name, aliases in rows:
                 alias_list = [name.lower()] + [a.strip() for a in aliases.lower().split(",") if a.strip()]
                 for a in alias_list:
@@ -3307,16 +3389,17 @@ class DuckDBSemanticCatalog:
             return best_tc
         except Exception as e:
             logger.warning("Lỗi resolve_spatial_tenant: %s", e)
-            return default_tenant
+            return eff_default
 
-    def get_sample_quick_chips(self, tenant_code: str = "68", limit: int = 3, year: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_sample_quick_chips(self, tenant_code: Optional[str] = None, limit: int = 3, year: Optional[str] = None) -> List[Dict[str, Any]]:
         """Lấy mẫu động các chỉ tiêu thực tế từ Catalog RAM để làm Action Chips."""
         try:
             import datetime
+            eff_tc = tenant_code or settings.DEFAULT_TENANT_CODE
             current_year = year or str(datetime.datetime.now().year)
             res = self.conn.execute(
                 "SELECT name FROM catalog_criteria WHERE tenant_code = ? ORDER BY RANDOM() LIMIT ?",
-                [tenant_code, limit]
+                [eff_tc, limit]
             ).fetchall()
             if not res:
                 res = self.conn.execute("SELECT name FROM catalog_criteria ORDER BY RANDOM() LIMIT ?", [limit]).fetchall()
@@ -3443,7 +3526,7 @@ class DuckDBSemanticCatalog:
                     t = t.replace(d_unacc, " ")
         return t
 
-    def _is_mission_shadowed_by_criterion(self, norm_query: str, unacc_query: str, m_low: str, m_unacc: str) -> bool:
+    def _is_mission_shadowed_by_criterion(self, norm_query: str, unacc_query: str, m_low: str, m_unacc: str, tenant_code: Optional[str] = None) -> bool:
         """
         Kiểm tra xem chuỗi khớp tên nhiệm vụ `m_low` trong câu hỏi có thực chất là tên chỉ tiêu (hoặc một phần tên chỉ tiêu)
         khi người dùng không nêu từ khóa định danh nhiệm vụ (MISSION_ENTITY_MARKER) hay không.
@@ -3470,10 +3553,16 @@ class DuckDBSemanticCatalog:
             return False
 
         try:
-            crit_rows = self.conn.execute(
-                "SELECT DISTINCT LOWER(TRIM(name)) FROM catalog_criteria WHERE INSTR(LOWER(name), ?) > 0;",
-                [m_low],
-            ).fetchall()
+            if tenant_code:
+                crit_rows = self.conn.execute(
+                    "SELECT DISTINCT LOWER(TRIM(name)) FROM catalog_criteria WHERE tenant_code = ? AND INSTR(LOWER(name), ?) > 0;",
+                    [tenant_code, m_low],
+                ).fetchall()
+            else:
+                crit_rows = self.conn.execute(
+                    "SELECT DISTINCT LOWER(TRIM(name)) FROM catalog_criteria WHERE INSTR(LOWER(name), ?) > 0;",
+                    [m_low],
+                ).fetchall()
         except Exception:
             crit_rows = []
 
@@ -3494,11 +3583,16 @@ class DuckDBSemanticCatalog:
                 if q_toks & {"htx", "tht", "lhhtx", "trang", "trại", "số", "lượng", "bao", "nhiêu", "giá", "trị"}:
                     return True
                 try:
-                    md_row = self.conn.execute(
-                        "SELECT BOOL_OR(has_approved_facts) FROM catalog_missions_detail WHERE LOWER(TRIM(name)) = ?;",
+                    md_rows = self.conn.execute(
+                        "SELECT id, has_approved_facts FROM catalog_missions_detail WHERE LOWER(TRIM(name)) = ?;",
                         [m_low],
-                    ).fetchone()
-                    has_facts = bool(md_row and md_row[0])
+                    ).fetchall()
+                    t_map = getattr(self, "_mission_tenant_by_id", {})
+                    if tenant_code and t_map:
+                        filtered = [bool(r[1]) for r in md_rows if t_map.get(str(r[0])) == tenant_code]
+                        has_facts = any(filtered) if filtered else any(bool(r[1]) for r in md_rows)
+                    else:
+                        has_facts = any(bool(r[1]) for r in md_rows)
                 except Exception:
                     has_facts = True
                 if not has_facts:
@@ -3506,7 +3600,7 @@ class DuckDBSemanticCatalog:
 
         return False
 
-    def resolve_mission(self, term: str) -> Optional[str]:
+    def resolve_mission(self, term: str, tenant_code: Optional[str] = None) -> Optional[str]:
         """
         Tra cứu động nhiệm vụ trọng tâm từ catalog_missions trong DuckDB RAM.
         Chỉ khớp cụm từ liền kề (contiguous phrase) có ranh giới từ hợp lệ.
@@ -3518,13 +3612,22 @@ class DuckDBSemanticCatalog:
         t_clean = self._strip_dept_noise(t_clean)
 
         t_unacc = self._remove_accents(t_clean)
-        rows = self.conn.execute("SELECT DISTINCT name FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
+        if tenant_code:
+            m_list = self.get_missions_list(tenant_code=tenant_code)
+            rows = [(m["name"],) for m in m_list if m.get("name")]
+            if not rows:
+                rows = self.conn.execute(
+                    "SELECT DISTINCT name FROM catalog_missions WHERE name IS NOT NULL AND (department_code = ? OR department_code LIKE ? || '-%');",
+                    [tenant_code, tenant_code],
+                ).fetchall()
+        else:
+            rows = self.conn.execute("SELECT DISTINCT name FROM catalog_missions WHERE name IS NOT NULL;").fetchall()
         for (m_name,) in rows:
             m_low = m_name.lower().strip()
             if m_low.startswith("nhiệm vụ ") and m_low.replace("nhiệm vụ", "").strip().isdigit():
                 continue
             m_unacc = self._remove_accents(m_low)
-            if self._is_mission_shadowed_by_criterion(t_clean, t_unacc, m_low, m_unacc):
+            if self._is_mission_shadowed_by_criterion(t_clean, t_unacc, m_low, m_unacc, tenant_code=tenant_code):
                 continue
             # 1. Khớp chính xác cụm từ có ranh giới từ hợp lệ (có dấu hoặc không dấu)
             if m_low in t_clean:
@@ -3934,15 +4037,21 @@ class DuckDBSemanticCatalog:
             return {"target_table": "fact_report_criteria", "target_attribute": target_attr}
         return None
 
-    def get_scopes_list(self) -> List[Dict[str, str]]:
+    def get_scopes_list(self, tenant_code: Optional[str] = None) -> List[Dict[str, str]]:
         """Lấy danh sách các lĩnh vực (scope) hiện có trong kho dữ liệu từ catalog_scopes."""
         try:
-            rows = self.conn.execute("SELECT id, code, name FROM catalog_scopes ORDER BY name ASC;").fetchall()
+            if tenant_code:
+                rows = self.conn.execute(
+                    "SELECT id, code, name FROM catalog_scopes WHERE tenant_code = ? ORDER BY name ASC;",
+                    [tenant_code],
+                ).fetchall()
+            else:
+                rows = self.conn.execute("SELECT id, code, name FROM catalog_scopes ORDER BY name ASC;").fetchall()
             return [{"id": r[0], "code": r[1], "name": r[2], "scope_name": r[2]} for r in rows]
         except Exception:
             return []
 
-    def extract_scope_from_query(self, raw_input: str) -> Dict[str, Any]:
+    def extract_scope_from_query(self, raw_input: str, tenant_code: Optional[str] = None) -> Dict[str, Any]:
         """
         Phân giải lĩnh vực (scope) từ câu hỏi người dùng phục vụ REQ-Q03 & SC-3.1..3.2.
         Trả về:
@@ -3966,7 +4075,7 @@ class DuckDBSemanticCatalog:
         if not has_mission_ctx:
             return {"status": "NONE"}
 
-        scopes = self.get_scopes_list()
+        scopes = self.get_scopes_list(tenant_code=tenant_code)
         for sc in scopes:
             sc_name_low = unicodedata.normalize("NFC", sc["name"]).lower().strip()
             sc_unacc = self._remove_accents(sc_name_low)
@@ -3988,7 +4097,7 @@ class DuckDBSemanticCatalog:
             markers = [mk for mk in markers if mk not in ("ngành", "nganh")]
 
         known_missions_low = set()
-        for m in self.get_missions_list():
+        for m in self.get_missions_list(tenant_code=tenant_code):
             mn = unicodedata.normalize("NFC", m["name"]).lower().strip()
             known_missions_low.add(mn)
             known_missions_low.add(self._remove_accents(mn))
@@ -4037,7 +4146,7 @@ class DuckDBSemanticCatalog:
                 and ext_unacc not in ALLOWED_GENERIC_WORDS
                 and ext_low not in known_missions_low
                 and ext_unacc not in known_missions_low
-                and not any(dept_kw in ext_low or dept_kw in ext_unacc for dept_kw in ("tỉnh ", "tinh ", "lâm đồng", "lam dong", "sở ", "so ", "phòng ", "phong ", "chi cục", "chi cuc", "ubnd"))
+                and not any(dept_kw in ext_low or dept_kw in ext_unacc for dept_kw in ("tỉnh ", "tinh ", "lâm đồng", "lam dong", "hồ chí minh", "ho chi minh", "tp.hcm", "tphcm", "thành phố", "thanh pho", "sở ", "so ", "phòng ", "phong ", "chi cục", "chi cuc", "ubnd"))
             ):
                 return {
                     "status": "NOT_FOUND",
@@ -4048,12 +4157,19 @@ class DuckDBSemanticCatalog:
 
         return {"status": "NONE"}
 
-    def get_missions_list(self) -> List[Dict[str, Any]]:
+    def get_missions_list(self, tenant_code: Optional[str] = None) -> List[Dict[str, Any]]:
         """Lấy danh sách các nhiệm vụ hiện có trong kho dữ liệu từ catalog_missions_detail."""
+        t_map = getattr(self, "_mission_tenant_by_id", {})
         try:
             rows = self.conn.execute(
                 "SELECT id, code, name, scope_name, office_names, has_approved_facts FROM catalog_missions_detail ORDER BY name ASC;"
             ).fetchall()
+            if tenant_code and rows and t_map:
+                scoped_rows = [r for r in rows if t_map.get(str(r[0])) == tenant_code]
+                if scoped_rows:
+                    rows = scoped_rows
+                else:
+                    rows = []
             if rows:
                 all_items = [
                     {
@@ -4080,9 +4196,15 @@ class DuckDBSemanticCatalog:
         except Exception:
             pass
         try:
-            rows = self.conn.execute(
-                "SELECT id, code, name FROM catalog_missions ORDER BY name ASC;"
-            ).fetchall()
+            if tenant_code:
+                rows = self.conn.execute(
+                    "SELECT id, code, name FROM catalog_missions WHERE department_code = ? OR department_code LIKE ? || '-%' ORDER BY name ASC;",
+                    [tenant_code, tenant_code],
+                ).fetchall()
+            else:
+                rows = self.conn.execute(
+                    "SELECT id, code, name FROM catalog_missions ORDER BY name ASC;"
+                ).fetchall()
             if rows:
                 return [
                     {
@@ -4102,7 +4224,7 @@ class DuckDBSemanticCatalog:
 
         return []
 
-    def extract_mission_from_query(self, raw_input: str) -> Dict[str, Any]:
+    def extract_mission_from_query(self, raw_input: str, tenant_code: Optional[str] = None) -> Dict[str, Any]:
         """
         Phân giải nhiệm vụ (mission) từ câu hỏi người dùng phục vụ REQ-Q04 & SC-4.1..4.2.
         Trả về:
@@ -4116,7 +4238,7 @@ class DuckDBSemanticCatalog:
         clean_input = unicodedata.normalize("NFC", raw_input.strip())
         norm_input = clean_input.lower()
 
-        missions = self.get_missions_list()
+        missions = self.get_missions_list(tenant_code=tenant_code)
         # Loại bỏ tên cơ quan động qua DuckDB RAM
         clean_mission_input = self._strip_dept_noise(norm_input)
 
@@ -4124,7 +4246,7 @@ class DuckDBSemanticCatalog:
         for m in missions:
             m_name_low = unicodedata.normalize("NFC", m["name"]).lower().strip()
             m_unacc = self._remove_accents(m_name_low)
-            if self._is_mission_shadowed_by_criterion(clean_mission_input, unacc_mission_input, m_name_low, m_unacc):
+            if self._is_mission_shadowed_by_criterion(clean_mission_input, unacc_mission_input, m_name_low, m_unacc, tenant_code=tenant_code):
                 continue
             if m_name_low and (m_name_low in clean_mission_input or (m_unacc and m_unacc in unacc_mission_input)):
                 return {
@@ -4184,7 +4306,7 @@ class DuckDBSemanticCatalog:
                 and ext_low not in ALLOWED_GENERIC_WORDS
                 and ext_unacc not in ALLOWED_GENERIC_WORDS
                 and not ext_low.startswith(("nào", "nao", "gì", "gi", "năm ", "nam ", "trong ", "tại ", "tai ", "của ", "cua ", "thuộc ", "thuoc ", "do "))
-                and not any(sc["name"].lower() in ext_low or self._remove_accents(sc["name"].lower()) in ext_unacc for sc in self.get_scopes_list())
+                and not any(sc["name"].lower() in ext_low or self._remove_accents(sc["name"].lower()) in ext_unacc for sc in self.get_scopes_list(tenant_code=tenant_code))
             ):
                 return {
                     "status": "NOT_FOUND",
@@ -4194,17 +4316,24 @@ class DuckDBSemanticCatalog:
 
         return {"status": "NONE"}
 
-    def get_mission_detail(self, mission_name: Optional[str]) -> Optional[Dict[str, Any]]:
+    def get_mission_detail(self, mission_name: Optional[str], tenant_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Tra cứu thông tin chi tiết nhiệm vụ (bao gồm lĩnh vực, phòng ban phụ trách và trạng thái dữ liệu fact)."""
         if not mission_name:
             return None
         import unicodedata
         m_low = unicodedata.normalize("NFC", mission_name.strip()).lower()
+        t_map = getattr(self, "_mission_tenant_by_id", {})
         try:
-            row = self.conn.execute(
-                "SELECT id, code, name, scope_name, office_names, has_approved_facts FROM catalog_missions_detail WHERE LOWER(name) = ? LIMIT 1;",
+            rows = self.conn.execute(
+                "SELECT id, code, name, scope_name, office_names, has_approved_facts FROM catalog_missions_detail WHERE LOWER(name) = ?;",
                 [m_low]
-            ).fetchone()
+            ).fetchall()
+            row = None
+            if rows:
+                if tenant_code and t_map:
+                    row = next((r for r in rows if t_map.get(str(r[0])) == tenant_code), None)
+                if row is None and not tenant_code:
+                    row = rows[0]
             if row:
                 return {
                     "id": row[0],
@@ -4217,10 +4346,16 @@ class DuckDBSemanticCatalog:
 
                     "has_approved_facts": bool(row[5]),
                 }
-            row_m = self.conn.execute(
-                "SELECT id, code, name FROM catalog_missions WHERE LOWER(name) = ? LIMIT 1;",
-                [m_low]
-            ).fetchone()
+            if tenant_code:
+                row_m = self.conn.execute(
+                    "SELECT id, code, name FROM catalog_missions WHERE LOWER(name) = ? AND (department_code = ? OR department_code LIKE ? || '-%') LIMIT 1;",
+                    [m_low, tenant_code, tenant_code]
+                ).fetchone()
+            else:
+                row_m = self.conn.execute(
+                    "SELECT id, code, name FROM catalog_missions WHERE LOWER(name) = ? LIMIT 1;",
+                    [m_low]
+                ).fetchone()
             if row_m:
                 return {
                     "id": str(row_m[0]),
@@ -4242,6 +4377,7 @@ class DuckDBSemanticCatalog:
         matched_code: Optional[str] = None,
         matched_name: Optional[str] = None,
         parent_context: Optional[str] = None,
+        tenant_code: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Phân loại cấu trúc phân cấp của chỉ tiêu được hỏi (REQ-Q02 & SC-2.1..SC-2.4):
@@ -4254,11 +4390,21 @@ class DuckDBSemanticCatalog:
         q_unaccent = self._remove_accents(q_norm)
 
         try:
-            rows = self.conn.execute("""
-                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
-                FROM catalog_criteria_hierarchy
-                ORDER BY level ASC, created_date ASC, id ASC;
-            """).fetchall()
+            if tenant_code:
+                rows = self.conn.execute("""
+                    SELECT h.id, h.code, h.name, h.parent_id, h.parent_name, h.root_id, h.root_name,
+                           h.level, h.is_leaf, h.mission_name, h.office_name, h.latest_value, h.created_date
+                    FROM catalog_criteria_hierarchy h
+                    LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                    WHERE cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00'
+                    ORDER BY h.level ASC, h.created_date ASC, h.id ASC;
+                """, [tenant_code]).fetchall()
+            else:
+                rows = self.conn.execute("""
+                    SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
+                    FROM catalog_criteria_hierarchy
+                    ORDER BY level ASC, created_date ASC, id ASC;
+                """).fetchall()
         except Exception:
             rows = []
 
@@ -4317,7 +4463,7 @@ class DuckDBSemanticCatalog:
 
         # Tìm các mục có tên xuất hiện nguyên vẹn trong câu hỏi (có kiểm tra ranh giới từ)
         def _find_span(haystack: str, needle: str) -> Optional[Tuple[int, int]]:
-            if not needle or len(needle) < 3:
+            if not needle or len(needle) < 2:
                 return None
             start = 0
             while True:
@@ -4359,7 +4505,10 @@ class DuckDBSemanticCatalog:
             return score
 
         leaf_exact_names = {it["name_low"] for it in items if it["is_leaf"]}
+        item_codes = {it.get("code") for it in items if it.get("code")}
         for al_text, a_code, a_is_leaf in alias_rows:
+            if tenant_code and a_code not in item_codes:
+                continue
             cand_it = next((it for it in items if it.get("code") == a_code), None)
             if cand_it and _score_taxonomy_context(cand_it, q_norm) < 0:
                 continue
@@ -4880,7 +5029,7 @@ class DuckDBSemanticCatalog:
         t = re.sub(r"\b(quý|q|tháng|năm|đợt|kỳ)\s*\d+(\s*[/\-]\s*\d+)?(\s+năm\s+\d{4})?\b", " ", t)
         t = re.sub(r"\b\d{1,2}\s*[/\-]\s*\d{1,2}(\s*[/\-]\s*\d{2,4})?\b", " ", t)
         t = re.sub(r"\b(năm\s+202\d|202\d|mới\s+nhất|gần\s+nhất|hiện\s+tại|hiện\s+nay|hiện\s+hành|cuối\s+kỳ|đầu\s+kỳ|kỳ\s+báo\s+cáo|đợt\s+báo\s+cáo|chốt\s+sổ|tính\s+đến\s+nay|tính\s+đến)\b", " ", t)
-        t = re.sub(r"\b(tỉnh\s+lâm\s+đồng|lâm\s+đồng|trên\s+địa\s+bàn\s+tỉnh|trên\s+địa\s+bàn|toàn\s+tỉnh|chi\s+cục\s+phát\s+triển\s+nông\s+thôn|phát\s+triển\s+nông\s+thôn)\b", " ", t)
+        t = re.sub(r"\b(tỉnh\s+lâm\s+đồng|lâm\s+đồng|thành\s+phố\s+hồ\s+chí\s+minh|tp\.?\s*hồ\s+chí\s+minh|tp\.?\s*hcm|tphcm|hồ\s+chí\s+minh|trên\s+địa\s+bàn\s+tỉnh|trên\s+địa\s+bàn\s+thành\s+phố|trên\s+địa\s+bàn|toàn\s+tỉnh|toàn\s+thành\s+phố|chi\s+cục\s+phát\s+triển\s+nông\s+thôn|phát\s+triển\s+nông\s+thôn)\b", " ", t)
         t = re.sub(r"\b(vui\s+lòng\s+cho\s+tôi\s+biết|hãy\s+cho\s+tôi\s+biết|cho\s+tôi\s+biết|cho\s+biết|bạn\s+cho\s+biết|hãy\s+cho\s+biết|thống\s+kê|báo\s+cáo|dữ\s+liệu|số\s+liệu|kết\s+quả|tình\s+hình|thực\s+trạng|hiện\s+trạng|đối\s+chiếu|so\s+sánh)\b", " ", t)
         t = re.sub(r"\b(giữa\s+các\s+loại\s+hình\s+kinh\s+tế\s+tập\s+thể|ở\s+các\s+loại\s+hình\s+kinh\s+tế\s+tập\s+thể|các\s+loại\s+hình\s+kinh\s+tế\s+tập\s+thể|kinh\s+tế\s+tập\s+thể|giữa\s+các\s+loại\s+hình|giữa\s+các\s+mô\s+hình|giữa\s+các\s+nhánh|ở\s+tất\s+cả\s+các\s+mô\s+hình|ở\s+các\s+loại\s+hình|trên\s+các\s+loại\s+hình)\b", " ", t)
         t = re.sub(r"\b(tổng\s+số\s+lượng|số\s+lượng|tổng\s+số|con\s+số|quy\s+mô|có\s+bao\s+nhiêu|bao\s+nhiêu|là\s+bao\s+nhiêu|đạt\s+bao\s+nhiêu)\b", " ", t)
@@ -5161,7 +5310,7 @@ class DuckDBSemanticCatalog:
     def resolve_hierarchy_breakdown(
         self,
         query: str,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         year_code: str = "2026"
     ) -> Optional[Dict[str, Any]]:
         """
@@ -5227,7 +5376,7 @@ class DuckDBSemanticCatalog:
         try:
             breakdown_cues = ("phân loại", "phân nhóm", "các loại", "gồm những", "gồm các", "các mức", "các lĩnh vực", "số lĩnh vực")
             if not any(bc in q_low for bc in breakdown_cues):
-                h_dup_check = self.classify_criterion_hierarchy(query)
+                h_dup_check = self.classify_criterion_hierarchy(query, tenant_code=tenant_code)
                 if h_dup_check and h_dup_check.get("classification") == "duplicate_leaf":
                     target_leaf_name = (h_dup_check.get("name") or "").lower().strip()
                     if target_leaf_name and target_leaf_name in q_low:
@@ -5263,14 +5412,26 @@ class DuckDBSemanticCatalog:
 
         # 3. Lấy toàn bộ cây phân cấp từ DuckDB RAM kết hợp thứ tự chuẩn canonical_order
         try:
-            rows = self.conn.execute("""
-                SELECT h.id, h.code, h.name, h.parent_id, h.parent_name, h.root_id, h.root_name,
-                       h.level, h.is_leaf, h.mission_name, h.office_name, h.latest_value, h.created_date,
-                       COALESCE(d.canonical_order, 999) as canon_order
-                FROM catalog_criteria_hierarchy h
-                LEFT JOIN catalog_definitions d ON h.id = d.id
-                ORDER BY h.level ASC, canon_order ASC, h.created_date ASC, h.id ASC;
-            """).fetchall()
+            if tenant_code:
+                rows = self.conn.execute("""
+                    SELECT h.id, h.code, h.name, h.parent_id, h.parent_name, h.root_id, h.root_name,
+                           h.level, h.is_leaf, h.mission_name, h.office_name, h.latest_value, h.created_date,
+                           COALESCE(d.canonical_order, 999) as canon_order
+                    FROM catalog_criteria_hierarchy h
+                    LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                    LEFT JOIN catalog_definitions d ON h.id = d.id
+                    WHERE cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00'
+                    ORDER BY h.level ASC, canon_order ASC, h.created_date ASC, h.id ASC;
+                """, [tenant_code]).fetchall()
+            else:
+                rows = self.conn.execute("""
+                    SELECT h.id, h.code, h.name, h.parent_id, h.parent_name, h.root_id, h.root_name,
+                           h.level, h.is_leaf, h.mission_name, h.office_name, h.latest_value, h.created_date,
+                           COALESCE(d.canonical_order, 999) as canon_order
+                    FROM catalog_criteria_hierarchy h
+                    LEFT JOIN catalog_definitions d ON h.id = d.id
+                    ORDER BY h.level ASC, canon_order ASC, h.created_date ASC, h.id ASC;
+                """).fetchall()
         except Exception:
             rows = []
 
@@ -5639,6 +5800,7 @@ class DuckDBSemanticCatalog:
         mission_filter: Optional[str] = None,
         has_temporal_filter: bool = False,
         target_schema: str = "dwh_internal",
+        tenant_code: Optional[str] = None,
     ) -> Tuple[Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
         """
         Xây dựng cấu trúc Cây Phân cấp Chỉ tiêu (Cấp 1 -> Cấp 2 -> Cấp 3) cho từng Nhóm chỉ tiêu Cấp 1 (root).
@@ -5648,12 +5810,23 @@ class DuckDBSemanticCatalog:
         - level1_summary_rows: Danh sách dòng bảng Cấp 1 phục vụ REQ-Q04 & SC-4.1
         """
         is_pub_tree = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
+        eff_tc = str(tenant_code or settings.DEFAULT_TENANT_CODE)
         try:
-            hier_rows = self.conn.execute("""
-                SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
-                FROM catalog_criteria_hierarchy
-                ORDER BY level ASC, created_date ASC, id ASC;
-            """).fetchall()
+            if tenant_code:
+                hier_rows = self.conn.execute("""
+                    SELECT h.id, h.code, h.name, h.parent_id, h.parent_name, h.root_id, h.root_name,
+                           h.level, h.is_leaf, h.mission_name, h.office_name, h.latest_value, h.created_date
+                    FROM catalog_criteria_hierarchy h
+                    LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                    WHERE cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00'
+                    ORDER BY h.level ASC, h.created_date ASC, h.id ASC;
+                """, [eff_tc]).fetchall()
+            else:
+                hier_rows = self.conn.execute("""
+                    SELECT id, code, name, parent_id, parent_name, root_id, root_name, level, is_leaf, mission_name, office_name, latest_value, created_date
+                    FROM catalog_criteria_hierarchy
+                    ORDER BY level ASC, created_date ASC, id ASC;
+                """).fetchall()
         except Exception:
             hier_rows = []
 
@@ -5691,10 +5864,15 @@ class DuckDBSemanticCatalog:
         mission_facts_map: Dict[str, bool] = {}
         try:
             m_all_rows = self.conn.execute(
-                "SELECT name, office_names, has_approved_facts FROM catalog_missions_detail ORDER BY name ASC;"
+                "SELECT id, name, office_names, has_approved_facts FROM catalog_missions_detail ORDER BY name ASC;"
             ).fetchall()
+            t_map = getattr(self, "_mission_tenant_by_id", {})
+            if tenant_code and t_map:
+                scoped_m = [r for r in m_all_rows if t_map.get(str(r[0])) == eff_tc]
+                if scoped_m:
+                    m_all_rows = scoped_m
             approved_idx = 0
-            for m_n, m_off, has_facts in m_all_rows:
+            for _m_id, m_n, m_off, has_facts in m_all_rows:
                 if m_n:
                     m_n_clean = m_n.strip().lower()
                     mission_facts_map[m_n_clean] = bool(has_facts)
@@ -5777,7 +5955,7 @@ class DuckDBSemanticCatalog:
                 tree_period_map = self.get_batch_period_values(
                     list(nodes_by_id.values()),
                     year_code="2026",
-                    tenant_code="68",
+                    tenant_code=eff_tc,
                     target_schema=target_schema,
                 )
             except Exception:
@@ -5841,11 +6019,7 @@ class DuckDBSemanticCatalog:
             if raw_v is None or str(raw_v).strip() in ("", "-", "None"):
                 val_disp = "NULL (Chưa công bố số liệu công khai)" if is_pub_tree else "Chưa có số liệu phê duyệt (-)"
             else:
-                try:
-                    fv = float(str(raw_v).replace(".", "").replace(",", ".")) if isinstance(raw_v, str) and "." in str(raw_v) and str(raw_v).replace(".", "").isdigit() else float(raw_v)
-                    val_disp = f"{int(fv):,}".replace(",", ".") if fv.is_integer() else f"{fv:,.2f}"
-                except Exception:
-                    val_disp = str(raw_v)
+                _, val_disp = self._parse_and_format_metric(raw_v)
 
             if is_leaf_root:
                 struct_type = "Chỉ tiêu đơn (Cấp 1)"
@@ -5936,7 +6110,7 @@ class DuckDBSemanticCatalog:
         criteria_name: Optional[str] = None,
         parent_name: Optional[str] = None,
         year_code: str = "2026",
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         child_nodes: Optional[List[Dict[str, Any]]] = None,
         target_schema: str = "dwh_internal",
     ) -> List[Dict[str, Any]]:
@@ -5944,6 +6118,7 @@ class DuckDBSemanticCatalog:
         Truy xuất mảng các kỳ báo cáo đã phê duyệt trong năm của một chỉ tiêu (phục vụ Ticket slider-time 0ms).
         Trả về danh sách sắp xếp tăng dần theo thời gian (iso_date ASC), kèm delta_prev, delta_pct và child_values.
         """
+        eff_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE)
         is_pub_snap = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
         eff_schema = "dwh_public" if is_pub_snap else "dwh_internal"
         snapshots: List[Dict[str, Any]] = []
@@ -5961,7 +6136,7 @@ class DuckDBSemanticCatalog:
             cur = conn_pg.cursor()
 
             conds = ["f.tenant_code = %s", "f.year_code = %s", "f.report_status = 'approved'"]
-            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+            params: List[Any] = [eff_tenant, str(year_code or "2026")]
 
             crit_sub_conds = []
             if criteria_id and len(str(criteria_id).strip()) == 36 and "-" in str(criteria_id):
@@ -6058,7 +6233,7 @@ class DuckDBSemanticCatalog:
                     if (ch.get("ten_chi_tieu") or ch.get("name"))
                 ]
                 ch_or_conds = []
-                ch_params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+                ch_params: List[Any] = [eff_tenant, str(year_code or "2026")]
                 if c_ids:
                     ch_or_conds.append("f.criteria_id::text = ANY(%s)")
                     ch_params.append(c_ids)
@@ -6100,11 +6275,7 @@ class DuckDBSemanticCatalog:
                     for cid_r, ccode_r, cname_r, c_iso, c_raw_v in cur.fetchall():
                         if c_raw_v is None or str(c_raw_v).strip() in ("", "-", "None", "null"):
                             continue
-                        try:
-                            c_num = float(str(c_raw_v).strip())
-                            c_fmt = f"{int(c_num):,}".replace(",", ".") if c_num.is_integer() else f"{c_num:,.2f}"
-                        except Exception:
-                            c_fmt = str(c_raw_v).strip()
+                        _, c_fmt = self._parse_and_format_metric(c_raw_v)
                         c_iso_s = str(c_iso).strip()[:10]
                         if cid_r:
                             child_history_by_id.setdefault(str(cid_r).strip().lower(), []).append((c_iso_s, c_fmt))
@@ -6129,11 +6300,7 @@ class DuckDBSemanticCatalog:
 
                 num_val: Optional[float] = None
                 if raw_val is not None and str(raw_val).strip() not in ("", "-", "None", "null"):
-                    try:
-                        num_val = float(str(raw_val).strip())
-                        val_disp = f"{int(num_val):,}".replace(",", ".") if num_val.is_integer() else f"{num_val:,.2f}"
-                    except Exception:
-                        val_disp = str(raw_val).strip()
+                    num_val, val_disp = self._parse_and_format_metric(raw_val)
                 else:
                     val_disp = "Chưa có số liệu phê duyệt (-)"
 
@@ -6143,7 +6310,7 @@ class DuckDBSemanticCatalog:
                 d_prev: Optional[float] = None
                 d_pct: Optional[float] = None
                 if num_val is not None and prev_num is not None:
-                    d_prev = round(num_val - prev_num, 2)
+                    d_prev = round(num_val - prev_num, 4)
                     if prev_num != 0:
                         d_pct = round(((num_val - prev_num) / prev_num) * 100.0, 2)
                 if num_val is not None:
@@ -6205,7 +6372,7 @@ class DuckDBSemanticCatalog:
         self,
         child_ids: List[Any],
         year_code: str = "2026",
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         specific_date: Optional[str] = None,
         date_from: Optional[str] = None,
         date_to: Optional[str] = None,
@@ -6216,6 +6383,7 @@ class DuckDBSemanticCatalog:
         Truy xuất giá trị của danh sách chỉ tiêu con (child_ids) đúng tại kỳ báo cáo thời gian đang lọc
         (specific_date / date_from..date_to / month_filter) hoặc theo schema dwh_public để ngăn chặn rò rỉ latest_value.
         """
+        eff_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE)
         is_pub_scope = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
         eff_schema = "dwh_public" if is_pub_scope else "dwh_internal"
         if not child_ids:
@@ -6264,7 +6432,7 @@ class DuckDBSemanticCatalog:
                 "f.year_code = %s",
                 "f.report_status = 'approved'",
             ]
-            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+            params: List[Any] = [eff_tenant, str(year_code or "2026")]
             if valid_ids and valid_names:
                 conds.append("(f.criteria_id::text = ANY(%s) OR LOWER(TRIM(f.name)) = ANY(%s))")
                 params.extend([valid_ids, valid_names])
@@ -6366,12 +6534,12 @@ class DuckDBSemanticCatalog:
                             FROM base_facts
                             GROUP BY cid, cname, code;
                         """, (
-                            str(tenant_code or "68"),
+                            eff_tenant,
                             valid_ids if valid_ids else ["__none__"],
                             valid_names if valid_names else ["__none__"],
                             valid_names if valid_names else ["__none__"],
                             spec_d,
-                            str(tenant_code or "68"),
+                            eff_tenant,
                             valid_ids if valid_ids else ["__none__"],
                             valid_names if valid_names else ["__none__"],
                             valid_names if valid_names else ["__none__"],
@@ -6440,11 +6608,28 @@ class DuckDBSemanticCatalog:
 
         return result_map
 
+    @staticmethod
+    def _parse_and_format_metric(raw_val: Any) -> Tuple[Optional[float], str]:
+        """Phân tích an toàn số thực/nguyên từ kho DWH (giữ nguyên tới 4 số thập phân như 228.1815) và định dạng qua vn_format_num."""
+        from IPGov_Chatbot.modules.mod08_response.jinja_slot_engine import vn_format_num
+
+        s = str(raw_val).strip()
+        try:
+            if isinstance(raw_val, (int, float)):
+                fv = float(raw_val)
+            elif re.match(r"^[+-]?\d{1,3}(?:\.\d{3})+(?:,\d+)?$", s) and (s.count(".") >= 2 or "," in s):
+                fv = float(s.replace(".", "").replace(",", "."))
+            else:
+                fv = float(s.replace(",", ""))
+            return fv, vn_format_num(fv, decimals=4, protect_year=False)
+        except Exception:
+            return None, s
+
     def get_batch_period_values(
         self,
         nodes: List[Any],
         year_code: str = "2026",
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         target_schema: str = "dwh_internal",
     ) -> Dict[str, Dict[str, str]]:
         """
@@ -6452,6 +6637,7 @@ class DuckDBSemanticCatalog:
         của danh sách chỉ tiêu (nodes) từ PostgreSQL fact_report_criteria theo schema đang chọn.
         Phục vụ chuyển đổi kỳ báo cáo tại chỗ 0ms trên SmartTable (R2.2 & R2.4).
         """
+        eff_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE)
         is_pub_batch = str(target_schema or "dwh_internal").strip().lower() == "dwh_public"
         if not nodes:
             return {}
@@ -6510,7 +6696,7 @@ class DuckDBSemanticCatalog:
             cur = conn_pg.cursor()
 
             or_conds: List[str] = []
-            params: List[Any] = [str(tenant_code or "68"), str(year_code or "2026")]
+            params: List[Any] = [eff_tenant, str(year_code or "2026")]
             if c_ids:
                 or_conds.append("f.criteria_id::text = ANY(%s)")
                 params.append(list(dict.fromkeys(c_ids)))
@@ -6586,11 +6772,7 @@ class DuckDBSemanticCatalog:
             for cid_r, ccode_r, cname_r, pname_r, c_iso, c_raw_v in pg_rows:
                 if c_raw_v is None or str(c_raw_v).strip() in ("", "-", "None", "null"):
                     continue
-                try:
-                    c_num = float(str(c_raw_v).strip())
-                    c_fmt = f"{int(c_num):,}".replace(",", ".") if c_num.is_integer() else f"{c_num:,.2f}"
-                except Exception:
-                    c_fmt = str(c_raw_v).strip()
+                _, c_fmt = self._parse_and_format_metric(c_raw_v)
 
                 iso_s = str(c_iso).strip()[:10]
                 parts = iso_s.split("-")
@@ -6616,11 +6798,10 @@ class DuckDBSemanticCatalog:
                 p_dict[ddmmyyyy] = c_fmt
                 p_dict[q_key] = c_fmt
                 p_dict[q_key.upper()] = c_fmt
-                is_quarter_end = len(parts) == 3 and parts[1] in ("03", "06", "09", "12") and parts[2] in ("30", "31")
-                if is_quarter_end or "year" not in p_dict:
-                    p_dict["year"] = c_fmt
-                    p_dict["YEAR"] = c_fmt
-                    p_dict[str(year_code)] = c_fmt
+                # pg_rows được ORDER BY iso_date ASC nên mốc cuối cùng luôn là kỳ báo cáo mới nhất của năm
+                p_dict["year"] = c_fmt
+                p_dict["YEAR"] = c_fmt
+                p_dict[str(year_code)] = c_fmt
 
                 lookup_keys = instance_keys_map.setdefault(inst_id, [])
                 for k in (cid_k, ccode_k, combo_k, cname_k):

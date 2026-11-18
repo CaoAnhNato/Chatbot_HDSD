@@ -109,7 +109,7 @@ class DLQIncidentLogger:
             "incident_id": inc_id,
             "trace_id": trace_id or "unknown_trace",
             "user_id": user_id or "anonymous",
-            "tenant_code": tenant_code or "68",
+            "tenant_code": tenant_code or settings.DEFAULT_TENANT_CODE,
             "department_code": department_code,
             "raw_prompt": raw_prompt or "",
             "generated_sql": generated_sql or "",

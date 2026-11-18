@@ -10,19 +10,102 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.modules.mod07_dwh_exec.connection_pool import DWHConnectionPool
 from IPGov_Chatbot.schemas.user_context import UserSecurityContextDTO
 
 logger = logging.getLogger("ipgov.mod01.user_service")
 
 # ---------------------------------------------------------------------------
-# FALLBACK PRE-SEEDED DATA (8 TÀI KHOẢN CÔNG VỤ CHUẨN TRONG KHO DWH vna_wom_dev)
+# FALLBACK PRE-SEEDED DATA (TÀI KHOẢN CÔNG VỤ CHUẨN TRONG KHO DWH vna_wom_dev)
 # ---------------------------------------------------------------------------
 PRE_SEEDED_USERS: List[Dict[str, Any]] = [
+    {
+        "id": "bf508c0c-79cc-4397-8b1c-82f716854568",
+        "username": "lanhdao",
+        "name": "Lãnh đạo",
+        "tenant_code": "79",
+        "tenant_name": "UBND Thành phố Hồ Chí Minh",
+        "department_code": "79-1-02",
+        "department_name": "UBND Phường Tam Bình",
+        "position": "Lãnh đạo",
+        "role_level": 4,
+        "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
+        "is_unrestricted": True,
+        "assigned_mission_ids": [],
+        "assigned_mission_names": [],
+        "mission_count": 0,
+    },
+    {
+        "id": "e5779db2-0876-4674-937e-41fe0b12fa3d",
+        "username": "hngoc",
+        "name": "Hồng Ngọc",
+        "tenant_code": "79",
+        "tenant_name": "UBND Thành phố Hồ Chí Minh",
+        "department_code": "79-1-02",
+        "department_name": "UBND Phường Tam Bình",
+        "position": "Chuyên viên",
+        "role_level": 3,
+        "badge_label": "Level 3 • Quản trị Đa nhiệm vụ",
+        "is_unrestricted": False,
+        "assigned_mission_ids": [
+            "a7545ae7-5c98-4210-a7a5-a8f09605dd44",
+            "94346f5c-4bce-4b55-80fb-7bf6ba40ba99",
+            "4c23db4a-e9ff-4c2f-9dd2-8a0173aec2c4",
+        ],
+        "assigned_mission_names": [
+            "Trồng trọt",
+            "Chăn nuôi",
+            "Thuỷ sản",
+        ],
+        "mission_count": 3,
+    },
+    {
+        "id": "fe5401af-2059-4236-aa17-0b8fed1577e4",
+        "username": "mnhat",
+        "name": "Minh Nhật",
+        "tenant_code": "79",
+        "tenant_name": "UBND Thành phố Hồ Chí Minh",
+        "department_code": "79-1-02",
+        "department_name": "UBND Phường Tam Bình",
+        "position": "cv",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": False,
+        "assigned_mission_ids": [
+            "f0d27b88-e05a-47a5-bdaa-745ed551b348",
+        ],
+        "assigned_mission_names": [
+            "Diêm nghiệp",
+        ],
+        "mission_count": 1,
+    },
+    {
+        "id": "9a8afbb0-92c4-444f-8584-7532311b1029",
+        "username": "kp12.tb",
+        "name": "Khu phố 12",
+        "tenant_code": "79",
+        "tenant_name": "UBND Thành phố Hồ Chí Minh",
+        "department_code": "79-2-01",
+        "department_name": "Khu phố 12",
+        "position": "cv",
+        "role_level": 1,
+        "badge_label": "Level 1 • Chuyên viên Đơn nhiệm",
+        "is_unrestricted": False,
+        "assigned_mission_ids": [
+            "94346f5c-4bce-4b55-80fb-7bf6ba40ba99",
+        ],
+        "assigned_mission_names": [
+            "Chăn nuôi",
+        ],
+        "mission_count": 1,
+    },
     {
         "id": "035b1733-943b-4993-b50c-96ec2ece5e74",
         "username": "boss",
         "name": "Lãnh đạo",
+        "tenant_code": "68",
+        "tenant_name": "UBND Tỉnh Lâm Đồng",
         "department_code": "68-1-01",
         "department_name": "UBND Tỉnh Lâm Đồng",
         "position": "qtv",
@@ -185,7 +268,7 @@ def classify_account(
     clean_name = (name or "").strip()
     clean_username = (username or "").strip().lower()
 
-    if clean_name == "Lãnh đạo" or clean_username == "boss":
+    if clean_name == "Lãnh đạo" or clean_username in ("boss", "lanhdao"):
         return {
             "role_level": 4,
             "badge_label": "Level 4 • Lãnh đạo Toàn quyền",
@@ -229,6 +312,7 @@ class UserService:
 
     def __init__(self) -> None:
         self._cached_users: Optional[List[Dict[str, Any]]] = None
+        self._cached_users_by_tenant: Dict[str, List[Dict[str, Any]]] = {}
 
     @classmethod
     def get_instance(cls) -> UserService:
@@ -236,13 +320,18 @@ class UserService:
             cls._instance = UserService()
         return cls._instance
 
-    async def get_users(self, force_refresh: bool = False) -> Dict[str, List[Dict[str, Any]]]:
+    async def get_users(
+        self,
+        force_refresh: bool = False,
+        tenant_code: Optional[str] = None,
+    ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Truy vấn danh sách tài khoản động từ CSDL PostgreSQL.
-        Nếu gặp sự cố mạng hoặc offline, trả về 8 tài khoản pre-seeded chuẩn.
+        Truy vấn danh sách tài khoản động từ CSDL PostgreSQL theo tenant_code hiện hành.
+        Nếu gặp sự cố mạng hoặc offline, trả về danh sách PRE_SEEDED_USERS tương ứng.
         """
-        if self._cached_users is not None and not force_refresh:
-            return {"users": self._cached_users}
+        target_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE or "79").strip()
+        if target_tenant in self._cached_users_by_tenant and not force_refresh:
+            return {"users": self._cached_users_by_tenant[target_tenant]}
 
         users_list: List[Dict[str, Any]] = []
         try:
@@ -257,15 +346,16 @@ class UserService:
                         u.department_code,
                         u.department_name,
                         u.position,
+                        u.tenant_code,
                         COALESCE(ARRAY_AGG(um.mission_id::text) FILTER (WHERE um.mission_id IS NOT NULL), '{}') AS mission_ids,
                         COALESCE(ARRAY_AGG(um.mission_name::text) FILTER (WHERE um.mission_name IS NOT NULL), '{}') AS mission_names
                     FROM dwh_internal."user" u
                     LEFT JOIN dwh_internal.user_mission um ON u.id = um.user_id AND um.deleted_date IS NULL
-                    WHERE u.deleted_at IS NULL
-                    GROUP BY u.id, u.username, u.name, u.department_code, u.department_name, u.position
+                    WHERE u.deleted_at IS NULL AND u.tenant_code = $1
+                    GROUP BY u.id, u.username, u.name, u.department_code, u.department_name, u.position, u.tenant_code
                     ORDER BY u.id;
                 """
-                records = await asyncio.wait_for(conn.fetch(sql), timeout=3.0)
+                records = await asyncio.wait_for(conn.fetch(sql, target_tenant), timeout=3.0)
                 for r in records:
                     m_ids = list(r["mission_ids"] or [])
                     m_names = list(r["mission_names"] or [])
@@ -286,10 +376,13 @@ class UserService:
                         assigned_mission_names=filtered_names,
                     )
 
+                    rec_tenant = str(r["tenant_code"] or target_tenant).strip()
                     users_list.append({
                         "id": str(r["id"]),
                         "username": r["username"] or "",
                         "name": r["name"] or "",
+                        "tenant_code": rec_tenant,
+                        "tenant_name": f"UBND {settings.get_province_label(rec_tenant).replace('tỉnh ', 'Tỉnh ')}",
                         "department_code": r["department_code"] or "",
                         "department_name": r["department_name"] or "",
                         "position": r["position"] or "",
@@ -302,42 +395,64 @@ class UserService:
                     })
 
                 if users_list:
-                    self._cached_users = users_list
+                    users_list.sort(key=lambda u: (-int(u.get("role_level", 0)), str(u.get("name", ""))))
+                    self._cached_users_by_tenant[target_tenant] = users_list
+                    if target_tenant == str(settings.DEFAULT_TENANT_CODE):
+                        self._cached_users = users_list
                     return {"users": users_list}
         except Exception as exc:
             logger.warning("Không thể truy vấn dwh_internal.\"user\" động: %s. Kích hoạt fallback offline.", exc)
 
-        # Fallback offline
-        self._cached_users = list(PRE_SEEDED_USERS)
-        return {"users": list(PRE_SEEDED_USERS)}
+        # Fallback offline theo tenant
+        fallback = [
+            dict(u) for u in PRE_SEEDED_USERS
+            if str(u.get("tenant_code") or (u.get("department_code") or "68")[:2]) == target_tenant
+        ]
+        if not fallback:
+            fallback = list(PRE_SEEDED_USERS)
+        self._cached_users_by_tenant[target_tenant] = fallback
+        if target_tenant == str(settings.DEFAULT_TENANT_CODE):
+            self._cached_users = fallback
+        return {"users": fallback}
 
-    def find_user_sync(self, identifier: Optional[str]) -> Optional[Dict[str, Any]]:
+    def find_user_sync(self, identifier: Optional[str], tenant_code: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
-        Tìm kiếm tài khoản đồng bộ theo id, username hoặc name (ưu tiên cached_users hoặc PRE_SEEDED_USERS).
+        Tìm kiếm tài khoản đồng bộ theo id, username hoặc name (ưu tiên đúng tenant_code hiện hành).
         """
         if not identifier:
             return None
         clean_id = str(identifier).strip().lower()
-        candidates_source = self._cached_users or PRE_SEEDED_USERS
-        for u in candidates_source:
-            u_id = str(u.get("id") or "").lower()
-            u_user = str(u.get("username") or "").lower()
-            u_name = str(u.get("name") or "").lower()
-            if u_id == clean_id or u_user == clean_id or u_name == clean_id:
-                return dict(u)
-            # Hỗ trợ alias không dấu hoặc viết tắt
-            if clean_id in ("u_ld_001", "boss", "lanhdao", "lanh_dao", "lanh dao", "lãnh đạo", "leader") and (u_user == "boss" or "lãnh đạo" in u_name):
-                return dict(u)
-            if clean_id in ("u_level0", "user_level0", "level0", "level_0", "thuylanh", "thuy_lanh", "tzyalnh", "thúy lành") and (u_user == "tzyalnh" or "thúy lành" in u_name):
-                return dict(u)
-            if clean_id in ("hongngoc", "hong_ngoc", "hngoc", "hồng ngọc") and (u_user == "hngoc" or "hồng ngọc" in u_name):
-                return dict(u)
-            if clean_id in ("minhanh", "minh_anh", "minh anh") and (u_user == "minhanh" or "minh anh" in u_name):
-                return dict(u)
-            if clean_id in ("bacgianghia", "bac_gia_nghia", "bacgianghia.ld") and ("bắc gia nghĩa" in u_name or u_user == "bacgianghia.ld"):
-                return dict(u)
-            if clean_id in ("donggianghia", "dong_gia_nghia", "donggianghia.ld") and ("đông gia nghĩa" in u_name or u_user == "donggianghia.ld"):
-                return dict(u)
+        target_tenant = str(tenant_code or settings.DEFAULT_TENANT_CODE or "79").strip()
+        primary_source = self._cached_users_by_tenant.get(target_tenant) or [
+            u for u in PRE_SEEDED_USERS
+            if str(u.get("tenant_code") or (u.get("department_code") or "68")[:2]) == target_tenant
+        ]
+        secondary_source = (self._cached_users or []) + PRE_SEEDED_USERS
+
+        for candidates_source in (primary_source, secondary_source):
+            for u in candidates_source:
+                u_id = str(u.get("id") or "").lower()
+                u_user = str(u.get("username") or "").lower()
+                u_name = str(u.get("name") or "").lower()
+                if u_id == clean_id or u_user == clean_id or u_name == clean_id:
+                    return dict(u)
+                # Hỗ trợ alias không dấu hoặc viết tắt
+                if clean_id in ("u_ld_001", "boss", "lanhdao", "lanh_dao", "lanh dao", "lãnh đạo", "leader") and (u_user in ("boss", "lanhdao") or "lãnh đạo" in u_name):
+                    return dict(u)
+                if clean_id in ("hongngoc", "hong_ngoc", "hngoc", "hồng ngọc") and (u_user == "hngoc" or "hồng ngọc" in u_name):
+                    return dict(u)
+                if clean_id in ("mnhat", "minh_nhat", "minhnhat", "minh nhật") and (u_user == "mnhat" or "minh nhật" in u_name):
+                    return dict(u)
+                if clean_id in ("kp12", "kp12.tb", "khu pho 12", "khu phố 12") and (u_user == "kp12.tb" or "khu phố 12" in u_name):
+                    return dict(u)
+                if clean_id in ("u_level0", "user_level0", "level0", "level_0", "thuylanh", "thuy_lanh", "tzyalnh", "thúy lành") and (u_user == "tzyalnh" or "thúy lành" in u_name):
+                    return dict(u)
+                if clean_id in ("minhanh", "minh_anh", "minh anh") and (u_user == "minhanh" or "minh anh" in u_name):
+                    return dict(u)
+                if clean_id in ("bacgianghia", "bac_gia_nghia", "bacgianghia.ld") and ("bắc gia nghĩa" in u_name or u_user == "bacgianghia.ld"):
+                    return dict(u)
+                if clean_id in ("donggianghia", "dong_gia_nghia", "donggianghia.ld") and ("đông gia nghĩa" in u_name or u_user == "donggianghia.ld"):
+                    return dict(u)
         return None
 
     def build_user_context(
@@ -355,7 +470,7 @@ class UserService:
         2. Người dùng không xác định (attacker/guest): Bắt buộc hạ cấp về Level 0 (Guest), is_unrestricted=False.
         """
         clean_schema = "dwh_public" if str(schema or "").strip().lower() == "dwh_public" else "dwh_internal"
-        profile = self.find_user_sync(user_identifier) if user_identifier else None
+        profile = self.find_user_sync(user_identifier, tenant_code=tenant_code) if user_identifier else None
         if profile:
             db_role_level = int(profile.get("role_level", 0))
             if role_level is not None and role_level != db_role_level:
@@ -369,7 +484,8 @@ class UserService:
             is_unrestricted = bool(profile.get("is_unrestricted", False))
 
             dept_code = department_code or profile.get("department_code")
-            t_code = tenant_code or (profile.get("department_code") or "68")[:2] or "68"
+            default_t = settings.DEFAULT_TENANT_CODE
+            t_code = tenant_code or profile.get("tenant_code") or (profile.get("department_code") or default_t)[:2] or default_t
 
             return UserSecurityContextDTO(
                 user_id=profile["id"],
@@ -398,7 +514,7 @@ class UserService:
             username=user_identifier or "guest",
             name="Khách vãng lai",
             user_name="Khách vãng lai",
-            tenant_code=tenant_code or "68",
+            tenant_code=tenant_code or settings.DEFAULT_TENANT_CODE,
             department_code=department_code,
             role_level=0,
             schema=clean_schema,

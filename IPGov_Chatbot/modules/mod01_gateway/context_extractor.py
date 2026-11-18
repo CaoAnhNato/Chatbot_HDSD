@@ -5,6 +5,7 @@ Cung cấp 6 Profiles mẫu phục vụ thử nghiệm phân quyền HBAC Cấp 
 """
 
 from typing import Dict, Any, Optional
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.schemas.user_context import UserSecurityContextDTO
 from IPGov_Chatbot.modules.mod01_gateway.jwt_service import JWTService, DEFAULT_JWT_SECRET
 
@@ -104,7 +105,7 @@ class ContextExtractor:
         return UserSecurityContextDTO(
             user_id=str(payload.get("user_id", "anonymous")),
             username=str(payload.get("username", "anonymous")),
-            tenant_code=str(payload.get("tenant_code", "68")),
+            tenant_code=str(payload.get("tenant_code", settings.DEFAULT_TENANT_CODE)),
             department_code=payload.get("department_code"),
             office_id=payload.get("office_id"),
             role_level=int(payload.get("role_level", 3))

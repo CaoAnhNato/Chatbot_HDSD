@@ -99,42 +99,42 @@ class ChatErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundar
 
 
 const CHIPS_LEVEL_0: QuickActionChip[] = [
-  { id: 'chip_l0_1', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
-  { id: 'chip_l0_2', label: '⚠️ TNLĐ toàn tỉnh 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
-  { id: 'chip_l0_3', label: '📈 Xếp hạng khuyến công 2026', query_text: 'Xếp hạng các huyện có kinh phí khuyến công cao nhất năm 2026' },
-  { id: 'chip_l0_4', label: '🏢 Danh mục Sở Ban Ngành', query_text: 'Báo cáo danh sách tất cả các sở, ban, ngành và đơn vị trực thuộc tỉnh Lâm Đồng' },
-  { id: 'chip_l0_5', label: '📋 Biểu mẫu active 2026', query_text: 'Hiện tại trong năm 2026 có những biểu mẫu thu thập thông tin nào đang kích hoạt?' },
-  { id: 'chip_l0_6', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
+  { id: 'chip_l0_1', label: '🐄 Số lượng bò 2026', query_text: 'Số lượng bò hiện nay là bao nhiêu?' },
+  { id: 'chip_l0_2', label: '🐂 Tổng đàn gia súc, gia cầm', query_text: 'Tổng đàn gia súc, gia cầm năm 2026 là bao nhiêu?' },
+  { id: 'chip_l0_3', label: '🌾 Chỉ tiêu Trồng trọt 2026', query_text: 'Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ Trồng trọt năm 2026?' },
+  { id: 'chip_l0_4', label: '🏛️ Danh mục nhiệm vụ 2026', query_text: 'Danh mục các nhiệm vụ trọng tâm năm 2026 của Thành phố Hồ Chí Minh?' },
+  { id: 'chip_l0_5', label: '📑 Tiến độ nộp báo cáo', query_text: 'Trạng thái các đợt nộp báo cáo năm 2026 hiện nay thế nào?' },
+  { id: 'chip_l0_6', label: '📋 Danh mục chỉ tiêu KTXH', query_text: 'Hệ thống hiện đang có những chỉ tiêu nào?' },
 ];
 
 const CHIPS_LEVEL_1: QuickActionChip[] = [
-  { id: 'chip_l1_1', label: '📋 Biểu mẫu active 2026', query_text: 'Hiện tại trong năm 2026 có những biểu mẫu thu thập thông tin nào đang kích hoạt?' },
-  { id: 'chip_l1_2', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
-  { id: 'chip_l1_3', label: '🏢 Danh sách phòng ban trực thuộc', query_text: 'Báo cáo danh sách các đơn vị và phòng ban trực thuộc' },
-  { id: 'chip_l1_4', label: '⚠️ Tình hình an toàn lao động 2026', query_text: 'Năm 2026 có bao nhiêu vụ tai nạn lao động?' },
-  { id: 'chip_l1_5', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
+  { id: 'chip_l1_1', label: '🐄 Số lượng bò 2026', query_text: 'Số lượng bò hiện nay là bao nhiêu?' },
+  { id: 'chip_l1_2', label: '🐷 Số lượng heo 2026', query_text: 'Số lượng heo năm 2026 là bao nhiêu?' },
+  { id: 'chip_l1_3', label: '🌾 Chỉ tiêu Trồng trọt 2026', query_text: 'Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ Trồng trọt năm 2026?' },
+  { id: 'chip_l1_4', label: '🐟 Chỉ tiêu Thuỷ sản 2026', query_text: 'Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ Thuỷ sản năm 2026?' },
+  { id: 'chip_l1_5', label: '🏛️ Danh mục nhiệm vụ 2026', query_text: 'Danh mục các nhiệm vụ trọng tâm năm 2026?' },
 ];
 
 const CHIPS_LEVEL_2: QuickActionChip[] = [
-  { id: 'chip_l2_1', label: '📊 Báo cáo phòng ban gần nhất', query_text: 'Kiểm tra trạng thái nộp báo cáo của các phòng ban trong kỳ gần nhất' },
-  { id: 'chip_l2_2', label: '⚠️ TNLĐ toàn tỉnh 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
-  { id: 'chip_l2_3', label: '📊 Kinh phí khuyến công 2026', query_text: 'Kinh phí thực hiện khuyến công năm 2026 là bao nhiêu?' },
+  { id: 'chip_l2_1', label: '📑 Báo cáo gần nhất 2026', query_text: 'Kiểm tra trạng thái nộp báo cáo năm 2026 hiện nay thế nào?' },
+  { id: 'chip_l2_2', label: '🐄 Số lượng bò 2026', query_text: 'Số lượng bò hiện nay là bao nhiêu?' },
+  { id: 'chip_l2_3', label: '🧂 Chỉ tiêu Diêm nghiệp 2026', query_text: 'Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ Diêm nghiệp năm 2026?' },
   { id: 'chip_l2_4', label: '🔍 Hướng dẫn cán bộ mới', query_text: 'Tôi là cán bộ mới thì nên bắt đầu tra cứu số liệu như thế nào?' },
   { id: 'chip_l2_5', label: '📞 Hotline hỗ trợ kỹ thuật', query_text: 'Cho tôi thông tin hotline hỗ trợ kỹ thuật' },
 ];
 
 const CHIPS_LEVEL_3: QuickActionChip[] = [
-  { id: 'chip_l3_1', label: 'ℹ️ Lĩnh vực quản lý DWH', query_text: 'Hệ thống hiện đang quản lý và theo dõi số liệu của những ngành, lĩnh vực nào?' },
-  { id: 'chip_l3_2', label: '📋 Hướng dẫn tra cứu công khai', query_text: 'Hướng dẫn tra cứu các chỉ tiêu kinh tế - xã hội công khai của tỉnh' },
-  { id: 'chip_l3_3', label: '📈 Số liệu tai nạn lao động 2026', query_text: 'Năm 2026 toàn tỉnh có bao nhiêu vụ tai nạn lao động?' },
+  { id: 'chip_l3_1', label: '🏛️ Danh mục nhiệm vụ 2026', query_text: 'Danh sách các nhiệm vụ phát triển kinh tế - xã hội năm 2026?' },
+  { id: 'chip_l3_2', label: '📋 Hướng dẫn tra cứu công khai', query_text: 'Hướng dẫn tra cứu các chỉ tiêu kinh tế - xã hội công khai của Thành phố Hồ Chí Minh' },
+  { id: 'chip_l3_3', label: '🐄 Số lượng bò 2026', query_text: 'Số lượng bò hiện nay là bao nhiêu?' },
   { id: 'chip_l3_4', label: '📞 Hotline hỗ trợ công dân', query_text: 'Cho tôi thông tin hotline hỗ trợ công dân' },
 ];
 
 const CHIPS_PUBLIC_SCHEMA: QuickActionChip[] = [
   { id: 'chip_pub_1', label: '📋 Danh mục nhiệm vụ 2026', query_text: 'Danh sách các nhiệm vụ phát triển kinh tế - xã hội năm 2026?' },
-  { id: 'chip_pub_2', label: '🧂 Tổng hộ sản xuất muối', query_text: 'Tổng hộ sản xuất muối tính đến ngày 30/06/2026 là bao nhiêu?' },
-  { id: 'chip_pub_3', label: '📐 Cơ cấu diện tích muối', query_text: 'Cơ cấu diện tích sản xuất muối tính đến ngày 30/06/2026?' },
-  { id: 'chip_pub_4', label: '🌾 Chỉ tiêu Cấp 1 Nông thôn', query_text: 'Các chỉ tiêu Cấp 1 của nhiệm vụ Phát triển nông thôn năm 2026?' },
+  { id: 'chip_pub_2', label: '🐄 Số lượng bò 2026', query_text: 'Số lượng bò hiện nay là bao nhiêu?' },
+  { id: 'chip_pub_3', label: '🐂 Tổng đàn gia súc, gia cầm', query_text: 'Tổng đàn gia súc, gia cầm năm 2026 là bao nhiêu?' },
+  { id: 'chip_pub_4', label: '🌾 Chỉ tiêu Cấp 1 Trồng trọt', query_text: 'Hiển thị các chỉ tiêu Cấp 1 của nhiệm vụ Trồng trọt năm 2026?' },
 ];
 
 const getWelcomeContact = (

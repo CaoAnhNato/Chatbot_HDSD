@@ -1182,4 +1182,41 @@ Tài liệu hạt nhân lưu trữ các bài học xương máu, bẫy cú pháp
     2. Dùng biểu thức chính quy tổng quát cho mọi khóa ngữ cảnh (`tenant_code|level|role_level|user|schema|department_code|role`) ở cả `chat_history_store.py` và `storage.ts`.
     3. Trong `hasValidMetricValue` (`SmartTable.tsx`), chặn toàn bộ biến thể `s.startsWith('null ')`, `s.startsWith('null(')` và `s.includes('chưa công bố')`.
 
+---
+
+### [TRAP-107] Bẫy Dùng Script Tự Chấm Điểm/Viết Feedback, Bỏ Sót Ảnh Chụp Từng Lần Bấm Button, Selector Bấm Nhầm Tin Nhắn Cũ Và Chấm Sai Do Không Nhận Diện Ngữ Cảnh Đa Lượt (`ipgov-render-scheduled-test`)
+- **Môi trường & Công nghệ:** `/automation` (`sidecar.json` của `ipgov-render-scheduled-test`) / `ui_10_quests_runner.py` / `backend_20_quests_runner.py` / `warehouse_ground_truth_checker.py` / `audit_report_generator.py`
+- **Triệu chứng:**
+  1. Agent chạy script `audit_report_generator.py` hoặc dựa vào hàm `evaluate_backend_quest()` để tự động chấm điểm và sinh nhận xét mẫu thay vì tự đọc từng bức ảnh và từng câu trả lời.
+  2. Trong `ui_10_quests_runner.py`, khi thao tác bấm từ 1–3 button trên một đáp án, script bấm liên tiếp các button rồi chỉ chụp duy nhất 1 bức ảnh ở lần bấm cuối cùng (`shot2`), làm mất toàn bộ ảnh kiểm chứng của các lần bấm button thứ 1 và thứ 2.
+  3. Các selector không khóa phạm vi vào thẻ tin nhắn mới nhất (`page.locator("button:has-text('🌳')").first` bấm nhầm nút lọc header `🌳 Có chỉ tiêu con` thay vì nút mở Modal Cây phân cấp `button[data-testid^='open-tree-modal-']`; `UI-06` và `UI-08` dùng `.last`/`.first` toàn trang nên bấm nhầm vào bảng của `UI-05`/`UI-07` hoặc chip ở đầu trang).
+  4. Agent chấm sai (`Wrong`) theo cảm tính tại `UI-06` (`"Chăn nuôi ngày 30/4"`) và `BE-10` (`"Tổng số lượng chủ thể sản phẩm OCOP trong năm là bao nhiêu?"`): không nhận diện được cơ chế duy trì ngữ cảnh đa lượt (`inherited_parent_criterion = 'Số lượng HTX phân theo lĩnh vực'` từ `UI-04`/`UI-05` trả về `Chăn nuôi = 25` tại `31/03/2026` là hợp lý) và không đối chiếu kỳ báo cáo mới nhất `12/10/2026` trong Warehouse (`OCOP = 14`: `10, 2, 2`).
+- **Nguyên nhân gốc rễ:**
+  1. Cấu hình `sidecar.json` cũ cho phép gọi `audit_report_generator` và `backend_20_quests_runner.py` chứa sẵn từ khóa hardcode lỗi thời (`"17"` thay vì `"14"` của kỳ `12/10/2026`).
+  2. `ui_10_quests_runner.py` chỉ thiết kế 1 biến `shot2_name` ở cuối khối `if/elif` thay vì chụp ảnh ngay sau mỗi thao tác click button bên trong `last_card = page.locator("div.flex-row:not(.flex-row-reverse)").last`.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Tuyệt đối cấm dùng script để chấm điểm, đánh giá đáp án hoặc tự sinh báo cáo feedback; Cấm bấm nhiều button liên tiếp mà chỉ chụp 1 ảnh cuối; Cấm dùng selector toàn trang (`page.locator(...)`) khi bấm button trong đáp án; Cấm chấm điểm theo cảm tính bỏ qua ngữ cảnh đa lượt của phiên chat.
+  * ✅ **ALWAYS:**
+    1. Chỉ dùng script cho 2 mục đích duy nhất: (a) thao tác UI + chụp ảnh từng bước / thu thập raw response API và (b) query vào Warehouse kiểm tra đáp án chuẩn.
+    2. Khóa mọi thao tác click button vào `last_card = page.locator("div.flex-row:not(.flex-row-reverse)").last` và chụp ngay 1 bức ảnh riêng biệt (`UI_XX_btn1_*.png`, `UI_XX_btn2_*.png`, `UI_XX_btn3_*.png`) sau mỗi lần bấm button.
+    3. Agent bắt buộc dùng `read_file` mở đọc trực tiếp từng bức ảnh (`initial` + `btn1` + `btn2` + `btn3`), đối chiếu với `warehouse_ground_truth_snapshot.json` + logic kế thừa ngữ cảnh đa lượt (`PA 3.1` / `H-DFT`) và tự tay viết báo cáo Markdown.
+    4. Trước mỗi đợt chạy `/automation`, Agent bắt buộc đọc logic hệ thống hiện hành và toàn bộ dữ liệu thực tế trong `warehouse_ground_truth_snapshot.json` để tự thiết kế bộ câu hỏi mới trong `quests_batch_<BATCH_ID>.json` (cấm lặp lại bộ câu hỏi tĩnh bất biến giữa các đợt chạy).
+
+---
+
+### [TRAP-108] Bẫy Ép Chuỗi Thập Phân `228.1815` Thành Hàng Nghìn `2.281.815`, Khóa `'year'` Vào Kỳ Cũ Nhất Khi `ORDER BY iso_date ASC`, Và Mất Nhánh Trùng Tên Trong `_format_dual_metric_response`
+- **Môi trường & Công nghệ:** `duckdb_semantic_catalog.py` (`build_criteria_tree_for_rows`, `get_batch_period_values`) / `jinja_slot_engine.py` (`vn_format_num`) / `warehouse_langgraph_agent.py` (`_format_dual_metric_response`)
+- **Triệu chứng:**
+  1. Giá trị số thực chuẩn SQL có 4 chữ số thập phân (ví dụ `228.1815` ha của `Trồng trọt` tenant `'79'`) bị `str(raw_v).replace(".", "").isdigit()` tưởng nhầm dấu chấm thập phân là phân cách hàng nghìn VN, chuyển thành `"2.281.815"` hoặc bị `vn_format_num(..., decimals=2)` làm tròn mất phần lẻ `.0015`.
+  2. Khi tenant có nhiều kỳ báo cáo trong Quý 4 không rơi vào ngày cuối quý (ví dụ `2026-10-07` và `2026-11-10`), `get_batch_period_values` duyệt `ORDER BY iso_date ASC` với điều kiện `if is_quarter_end or "year" not in p_dict:` khiến `p_dict["year"]` bị khóa cứng vào kỳ cũ nhất (`2026-10-07`: `137.0965 / 93.4546 / 57.2218 / 0`) thay vì kỳ mới nhất (`2026-11-10`: `85.1125 / 59.2734 / 41.8978 / 41.8978`), gây lệch tổng cha-con trên Tree Modal (`228.1815` vs `287.7729`).
+  3. Khi chỉ tiêu cùng tên nằm ở 2 nhánh (`Bò`: `bo` `Tổng số gia súc` & `bo1` `Số hộ nuôi gia súc`), `row_map` khóa theo tên chỉ giữ lại 1 nhánh duy nhất.
+- **Quy tắc dứt điểm:**
+  * ❌ **NEVER:** Không xóa toàn bộ dấu chấm `.` trên chuỗi số đơn dấu chấm từ PostgreSQL; không dùng `or "year" not in p_dict` khóa vĩnh viễn `'year'` vào dòng đầu tiên khi truy vấn `ORDER BY iso_date ASC`; không dùng `dict[name]` một phần tử làm key duy nhất khi dựng thẻ đa chỉ tiêu.
+  * ✅ **ALWAYS:**
+    1. Chuẩn hóa phân tích & định dạng số qua một helper dùng chung (`_parse_and_format_metric` $\to$ `vn_format_num(..., decimals=4, protect_year=False)`), chỉ xử lý phân cách hàng nghìn VN khi có $\ge 2$ dấu chấm hoặc có cặp `.` và `,` (`1.234,56`).
+    2. Trong `get_batch_period_values`, cập nhật `p_dict["year"]` theo từng mốc tăng dần của `iso_date ASC` để `'year'` luôn trỏ đúng kỳ mới nhất.
+    3. Lưu danh sách phân biệt theo `(criteria_id, code, nhom_chi_tieu)` trong `_format_dual_metric_response` và hiển thị cột `Nhóm chỉ tiêu` khi tồn tại chỉ tiêu trùng tên.
+
+
+
 

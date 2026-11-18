@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from IPGov_Chatbot.config import settings
+
 logger = logging.getLogger(__name__)
 
 _PREFIX_RE = re.compile(
@@ -60,13 +62,13 @@ class ChatHistoryStore:
         try:
             with self._db_lock, self._connect() as conn:
                 conn.execute(
-                    """
+                    f"""
                     CREATE TABLE IF NOT EXISTS chat_sessions (
                         id TEXT PRIMARY KEY,
                         title TEXT NOT NULL,
                         role TEXT NOT NULL DEFAULT 'phuong',
                         level INTEGER NOT NULL DEFAULT 0,
-                        tenant_code TEXT NOT NULL DEFAULT '68',
+                        tenant_code TEXT NOT NULL DEFAULT '{settings.DEFAULT_TENANT_CODE}',
                         created_at TEXT NOT NULL,
                         updated_at TEXT NOT NULL
                     )
@@ -101,7 +103,7 @@ class ChatHistoryStore:
         assistant_answer: str,
         role: str = "phuong",
         level: int = 0,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         tabular_data: Optional[Dict[str, Any]] = None,
         quick_action_chips: Optional[List[Any]] = None,
         schema: str = "dwh_internal",
@@ -142,7 +144,7 @@ class ChatHistoryStore:
                         INSERT INTO chat_sessions (id, title, role, level, tenant_code, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (session_id, title, role or "phuong", int(level or 0), tenant_code or "68", now_iso, now_iso),
+                        (session_id, title, role or "phuong", int(level or 0), tenant_code or settings.DEFAULT_TENANT_CODE, now_iso, now_iso),
                     )
                 else:
                     conn.execute(
@@ -327,7 +329,7 @@ class ChatHistoryStore:
             period_map = catalog.get_batch_period_values(
                 cand_nodes,
                 year_code=y_code,
-                tenant_code="68",
+                tenant_code=str(td.get("tenant_code") or settings.DEFAULT_TENANT_CODE),
                 target_schema=eff_schema,
             )
             if not period_map:

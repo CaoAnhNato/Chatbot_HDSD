@@ -9,8 +9,10 @@ Căn cứ:
 
 from __future__ import annotations
 import logging
+import re
 from typing import Any, List, Optional, Tuple
 
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.schemas.router_dto import (
     ActiveQuestFrameDTO,
     SlotClarificationOption,
@@ -44,7 +46,8 @@ class ClarificationEngine:
     def check_clarification_needed(
         self,
         prompt: str,
-        active_quest: Optional[ActiveQuestFrameDTO] = None
+        active_quest: Optional[ActiveQuestFrameDTO] = None,
+        tenant_code: Optional[str] = None,
     ) -> Tuple[bool, List[str], List[SlotClarificationOption], List[str]]:
         """
         Kiểm tra xem câu hỏi có cần hỏi làm rõ (Clarification) hay không.
@@ -53,6 +56,17 @@ class ClarificationEngine:
         text = prompt.strip()
         if not text:
             return False, [], [], []
+
+        eff_tenant = tenant_code or settings.DEFAULT_TENANT_CODE
+        if self.catalog and getattr(self.catalog, "conn", None) and tenant_code is None:
+            try:
+                has_t = self.catalog.conn.execute(
+                    "SELECT 1 FROM catalog_criteria WHERE tenant_code = ? LIMIT 1;", [eff_tenant]
+                ).fetchone()
+                if not has_t:
+                    eff_tenant = None
+            except Exception:
+                pass
 
         # Chuẩn hóa văn bản thuần túy không dùng regex
         q_norm = "".join(c if c not in "?!:;\"'[](){}" else " " for c in text.lower()).strip()
@@ -75,7 +89,7 @@ class ClarificationEngine:
                 pass
         if self.catalog and hasattr(self.catalog, "extract_scope_from_query"):
             try:
-                if self.catalog.extract_scope_from_query(text).get("status") != "NONE":
+                if self.catalog.extract_scope_from_query(text, tenant_code=eff_tenant).get("status") != "NONE":
                     return False, [], [], []
             except Exception:
                 pass
@@ -84,7 +98,7 @@ class ClarificationEngine:
             if has_mission_kw:
                 has_mission_info = (
                     hasattr(self.catalog, "extract_mission_from_query")
-                    and self.catalog.extract_mission_from_query(text).get("status") in ("MATCH", "FOUND")
+                    and self.catalog.extract_mission_from_query(text, tenant_code=eff_tenant).get("status") in ("MATCH", "FOUND")
                 )
                 has_crit_signal = (
                     self.catalog.has_lexicon_term(text, "METRIC_LIST_TARGET")
@@ -113,7 +127,7 @@ class ClarificationEngine:
         has_exact_hierarchy_crit = False
         if self.catalog and hasattr(self.catalog, "classify_criterion_hierarchy"):
             try:
-                h_check = self.catalog.classify_criterion_hierarchy(text)
+                h_check = self.catalog.classify_criterion_hierarchy(text, tenant_code=eff_tenant)
                 h_cls = h_check.get("classification")
                 h_mname = h_check.get("matched_name") or ""
                 if h_check.get("matched_code") or h_check.get("parent_code"):
@@ -130,14 +144,24 @@ class ClarificationEngine:
         if self.catalog and hasattr(self.catalog, "conn"):
             try:
                 # Kiểm tra xem câu hỏi có chứa chỉ tiêu cụ thể (lá hoặc nhóm cha >= 10 ký tự) trong catalog_criteria_hierarchy
-                hier_rows = self.catalog.conn.execute(
-                    "SELECT DISTINCT LOWER(TRIM(name)), NOT is_leaf FROM catalog_criteria_hierarchy;"
-                ).fetchall()
-                for h_name, h_is_parent in hier_rows:
+                if eff_tenant:
+                    hier_rows = self.catalog.conn.execute("""
+                        SELECT DISTINCT LOWER(TRIM(h.name)), NOT h.is_leaf, (h.parent_id IS NOT NULL) AS has_parent
+                        FROM catalog_criteria_hierarchy h
+                        LEFT JOIN catalog_criteria cc ON h.id = cc.id
+                        WHERE cc.tenant_code = ? OR cc.tenant_code IS NULL OR cc.tenant_code = '00';
+                    """, [eff_tenant]).fetchall()
+                else:
+                    hier_rows = self.catalog.conn.execute(
+                        "SELECT DISTINCT LOWER(TRIM(name)), NOT is_leaf, (parent_id IS NOT NULL) AS has_parent FROM catalog_criteria_hierarchy;"
+                    ).fetchall()
+                for h_name, h_is_parent, h_has_parent in hier_rows:
                     if not h_name:
                         continue
-                    if (not h_is_parent and len(h_name) >= 6 and h_name in q_norm) or (
-                        h_is_parent and len(h_name) >= 12 and h_name in q_norm
+                    if (
+                        (not h_is_parent and len(h_name) >= 6 and h_name in q_norm)
+                        or (not h_is_parent and h_has_parent and len(h_name) >= 2 and re.search(rf"(?<!\w){re.escape(h_name)}(?!\w)", q_norm))
+                        or (h_is_parent and len(h_name) >= 12 and h_name in q_norm)
                     ):
                         has_specific_leaf = True
                         has_exact_hierarchy_crit = True
@@ -147,7 +171,19 @@ class ClarificationEngine:
 
             try:
                 # Kiểm tra xem câu hỏi có chứa chỉ tiêu cụ thể hay không (loại trừ false clarification)
-                all_crits = self.catalog.conn.execute("SELECT code, name, is_leaf FROM catalog_criteria;").fetchall()
+                if eff_tenant:
+                    all_crits = self.catalog.conn.execute("""
+                        SELECT c.code, c.name, c.is_leaf, (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                        FROM catalog_criteria c
+                        LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id
+                        WHERE c.tenant_code = ? OR c.tenant_code = '' OR c.tenant_code = '00';
+                    """, [eff_tenant]).fetchall()
+                else:
+                    all_crits = self.catalog.conn.execute("""
+                        SELECT c.code, c.name, c.is_leaf, (c.level > 1 OR h.parent_id IS NOT NULL) AS has_parent
+                        FROM catalog_criteria c
+                        LEFT JOIN catalog_criteria_hierarchy h ON c.id = h.id;
+                    """).fetchall()
                 q_tokens = set("".join(c if c.isalnum() else " " for c in q_norm).split())
                 stop_tokens = {
                     "số", "lượng", "tổng", "của", "và", "trong", "năm", "một", "các", "đã", "được", 
@@ -155,7 +191,7 @@ class ClarificationEngine:
                     "có", "những", "nào", "là", "bao", "nhiêu", "mới", "nhất", "tại", "trên", 
                     "địa", "bàn", "thực", "hiện", "kỳ", "báo", "cáo", "đạt", "công", "nhận"
                 }
-                for c_code, c_name, is_leaf in all_crits:
+                for c_code, c_name, is_leaf, c_has_parent in all_crits:
                     c_low = " ".join(c_name.lower().strip().split())
                     if c_low in q_norm and len(c_low) >= 10:
                         c_toks = set(c_low.split()) - stop_tokens - {"chỉ", "tiêu"}
@@ -167,7 +203,10 @@ class ClarificationEngine:
                     if len(content_toks) >= 2 and content_toks.issubset(q_tokens):
                         has_specific_leaf = True
                         break
-                    if is_leaf and c_low in q_norm and len(c_low) >= 6:
+                    if is_leaf and (
+                        (len(c_low) >= 6 and c_low in q_norm)
+                        or (c_has_parent and len(c_low) >= 2 and re.search(rf"(?<!\w){re.escape(c_low)}(?!\w)", q_norm))
+                    ):
                         has_specific_leaf = True
                         break
 
@@ -179,16 +218,28 @@ class ClarificationEngine:
                         acr_low = acr.lower()
                         full_low = full.lower()
                         if acr_low in q_norm.split() or f" {acr_low} " in f" {q_norm} " or q_norm == acr_low or full_low in q_norm:
-                            crit_rows = self.catalog.conn.execute("""
-                                SELECT code, name FROM catalog_criteria
-                                WHERE is_leaf = TRUE AND (
-                                    LOWER(name) LIKE '%' || ? || '%' 
-                                    OR LOWER(name) LIKE '%' || ? || '%'
-                                    OR LOWER(aliases) LIKE '%' || ? || '%'
-                                )
-                                ORDER BY length(name) ASC
-                                LIMIT 5;
-                            """, (acr_low, full_low, acr_low)).fetchall()
+                            if eff_tenant:
+                                crit_rows = self.catalog.conn.execute("""
+                                    SELECT code, name FROM catalog_criteria
+                                    WHERE is_leaf = TRUE AND (tenant_code = ? OR tenant_code = '' OR tenant_code = '00') AND (
+                                        LOWER(name) LIKE '%' || ? || '%' 
+                                        OR LOWER(name) LIKE '%' || ? || '%'
+                                        OR LOWER(aliases) LIKE '%' || ? || '%'
+                                    )
+                                    ORDER BY length(name) ASC
+                                    LIMIT 5;
+                                """, (eff_tenant, acr_low, full_low, acr_low)).fetchall()
+                            else:
+                                crit_rows = self.catalog.conn.execute("""
+                                    SELECT code, name FROM catalog_criteria
+                                    WHERE is_leaf = TRUE AND (
+                                        LOWER(name) LIKE '%' || ? || '%' 
+                                        OR LOWER(name) LIKE '%' || ? || '%'
+                                        OR LOWER(aliases) LIKE '%' || ? || '%'
+                                    )
+                                    ORDER BY length(name) ASC
+                                    LIMIT 5;
+                                """, (acr_low, full_low, acr_low)).fetchall()
                             if len(crit_rows) > 1:
                                 options = [
                                     SlotClarificationOption(
@@ -206,7 +257,7 @@ class ClarificationEngine:
         # Tra cứu trực tiếp qua DuckDB Semantic Catalog không cắt chuỗi cơ học (REJ-07, REJ-08)
         if not has_exact_hierarchy_crit and self.catalog and hasattr(self.catalog, "find_top_k_candidates"):
             try:
-                cands, is_ambig, score_delta = self.catalog.find_top_k_candidates(q_norm, top_k=3)
+                cands, is_ambig, score_delta = self.catalog.find_top_k_candidates(q_norm, top_k=3, tenant_code=eff_tenant)
                 if cands and len(cands) >= 2:
                     top1_score = float(cands[0].get("score", 0.0))
                     top2_score = float(cands[1].get("score", 0.0))

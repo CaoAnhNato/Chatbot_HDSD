@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
+from IPGov_Chatbot.config import settings
+
 
 class ArchetypePatternCatalog:
     """Thư viện mẫu Single Unified SQL Window Functions cho 5 Kimball Archetypes."""
@@ -38,12 +40,13 @@ class ArchetypePatternCatalog:
         metric_code: str = "",
         metric_name: str = "",
         years: Optional[List[str]] = None,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         department_code: Optional[str] = None,
         office_id: Optional[str] = None,
         schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 1: So sánh chuỗi thời gian liên hoàn (YoY, MoM) qua hàm LAG()."""
+        tenant_code = tenant_code or settings.DEFAULT_TENANT_CODE
         comp_years = sorted(list(set(years))) if years else []
         where_conds = [
             "f.report_status = 'approved'",
@@ -120,11 +123,12 @@ ORDER BY nam DESC;"""
         metric_name: str = "",
         year: Optional[str] = None,
         top_k: int = 5,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         order_dir: str = "DESC",
         schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 3: Xếp hạng phân vị Top-K qua DENSE_RANK() kèm khoảng biến độ spread_val."""
+        tenant_code = tenant_code or settings.DEFAULT_TENANT_CODE
         year_filter_clause = f"AND f.year_code = '{year}'" if year else ""
         if not metric_code and not metric_name:
             return f"""SELECT f.department_code AS ma_phong_ban, 
@@ -222,11 +226,12 @@ ORDER BY rank_pos ASC;"""
         metric_code: str = "",
         metric_name: str = "",
         year: Optional[str] = None,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         department_code: Optional[str] = None,
         schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 2: Đối chuẩn ngang hàng đa thực thể qua AVG() OVER () và độ lệch chuẩn."""
+        tenant_code = tenant_code or settings.DEFAULT_TENANT_CODE
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
@@ -302,12 +307,13 @@ ORDER BY tong_gia_tri DESC;"""
     def build_part_to_whole_sql(
         cls,
         year: Optional[str] = None,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         department_code: Optional[str] = None,
         scope_name: Optional[str] = None,
         schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 4: Tỷ trọng cấu phần trên tổng thể qua hàm SUM() OVER ()."""
+        tenant_code = tenant_code or settings.DEFAULT_TENANT_CODE
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",
@@ -359,11 +365,12 @@ ORDER BY gia_tri_thanh_phan DESC;"""
         metric_name: str = "",
         year_start: Optional[str] = None,
         year_end: Optional[str] = None,
-        tenant_code: str = "68",
+        tenant_code: Optional[str] = None,
         department_code: Optional[str] = None,
         schema: str = "dwh_internal",
     ) -> str:
         """Mẫu 5: Ma trận phân tích chéo đa chiều qua FILTER (WHERE year_code = ...)."""
+        tenant_code = tenant_code or settings.DEFAULT_TENANT_CODE
         where_conds = [
             "f.report_status = 'approved'",
             f"f.tenant_code = '{tenant_code}'",

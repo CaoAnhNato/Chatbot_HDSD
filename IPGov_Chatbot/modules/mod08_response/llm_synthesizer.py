@@ -14,7 +14,7 @@ from IPGov_Chatbot.modules.mod08_response.jinja_slot_engine import vn_format_num
 
 logger = logging.getLogger("ipgov.mod08.llm_synthesizer")
 
-BLUF_SYSTEM_PROMPT = """Bạn là Trợ lý Tổng hợp Dữ liệu Hành chính Công vụ Tỉnh Lâm Đồng (IPGov Synthesizer).
+BLUF_SYSTEM_PROMPT = f"""Bạn là Trợ lý Tổng hợp Dữ liệu Hành chính Công vụ {settings.get_province_label()} (IPGov Synthesizer).
 Nhiệm vụ của bạn là đọc kết quả truy vấn CSDL kho dữ liệu (DWH) và trả lời người dùng theo chuẩn BLUF (Bottom Line Up Front) nghiêm ngặt nhất.
 
 CÁC RÀNG BUỘC PHỦ ĐỊNH TUYỆT ĐỐI (NEGATIVE CONSTRAINTS):

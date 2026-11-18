@@ -16,6 +16,7 @@ import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.modules.mod05_sql_compiler.ast_validator import validate_ast_syntax
 from IPGov_Chatbot.schemas.router_dto import IntentEnum, RouteTypeEnum, RouterOutputDTO
 from IPGov_Chatbot.schemas.sql_compiler_schema import (
@@ -109,7 +110,7 @@ class TrackACompiler:
         name = getattr(router_output, "metric_name", None)
         if self.catalog:
             try:
-                tc = getattr(user_ctx, "tenant_code", None) or "68"
+                tc = getattr(user_ctx, "tenant_code", None) or settings.DEFAULT_TENANT_CODE
                 rl = getattr(user_ctx, "role_level", None)
                 matched = self.catalog.find_criteria_by_name(
                     router_output.query_sanitized,
@@ -158,7 +159,7 @@ class TrackACompiler:
                 year = str(t_scope["start_year"])
         elif years:
             year = years[0]
-        tenant_code = user_ctx.tenant_code or "68"
+        tenant_code = user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE
         dept_code = user_ctx.department_code
         if any(k in query.lower() for k in ["toàn tỉnh", "toan tinh", "cả tỉnh", "toàn bộ tỉnh"]):
             dept_code = None
@@ -322,7 +323,7 @@ class TrackACompiler:
             execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
             dag_archetype="DIRECT_LOOKUP",
             tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.criteria"],
-            parameters={"tenant_code": user_ctx.tenant_code or "68"},
+            parameters={"tenant_code": user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE},
             generator_track="TRACK_A_COMPILER",
             thought_scratchpad="Biên dịch tất định qua Track A Deterministic Compiler (0 token LLM).",
             llm_provider=None,
@@ -377,7 +378,7 @@ class TrackACompiler:
                     execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                     dag_archetype=dag_archetype,
                     tables_referenced=["dwh_internal.fact_report_criteria", "dwh_internal.criteria"],
-                    parameters={"tenant_code": user_ctx.tenant_code or "68"},
+                    parameters={"tenant_code": user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE},
                     generator_track="TRACK_A_COMPILER",
                     thought_scratchpad=f"Biên dịch tất định qua Track A Archetype Pattern ({dag_archetype}) (0 token LLM).",
                     llm_provider=None,
@@ -397,7 +398,7 @@ class TrackACompiler:
             "SYSTEM_WIDE_CRITERIA_INVENTORY",
             "SINGLE_METRIC_LATEST_SNAPSHOT",
         ):
-            tenant_code = user_ctx.tenant_code or "68"
+            tenant_code = user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE
             query_low = (router_output.query_sanitized or "").lower()
             m_code, m_name = self._resolve_metric_info(router_output, user_ctx)
             if dag_archetype == "MONTHLY_COLLECTION_METRIC_LISTING":
@@ -520,7 +521,7 @@ ORDER BY lf.ngay_bao_cao_moi_nhat DESC NULLS LAST;"""
 
         # 2. Xử lý tra cứu quy trình Báo cáo hoặc Biểu mẫu
         query = (router_output.query_sanitized or "").lower()
-        tenant_code = user_ctx.tenant_code or "68"
+        tenant_code = user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE
 
         # Tra cứu trạng thái phê duyệt / tiến độ nộp báo cáo
         if any(k in query for k in ["phê duyệt", "chờ duyệt", "trạng thái", "tiến độ", "nộp trễ hạn", "từ chối", "đã nộp", "chưa nộp", "nộp báo cáo", "hạn nộp", "chưa hoàn thành nộp"]):
@@ -691,14 +692,14 @@ WHERE f.tenant_code = '{tenant_code}' AND f.report_delete_date IS NULL;"""
         if not metric_code and not metric_name:
             raw_sql = f"""SELECT f.department_code AS ma_don_vi, f.code AS ma_chi_tieu, f.name AS ten_chi_tieu, f.value AS gia_tri, f.report_date 
 FROM dwh_internal.fact_report_criteria f 
-WHERE f.year_code = '{year}' AND f.tenant_code = '{user_ctx.tenant_code or "68"}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
+WHERE f.year_code = '{year}' AND f.tenant_code = '{user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE}' AND LOWER(f.report_status) = 'approved' AND f.report_delete_date IS NULL 
 ORDER BY f.report_date DESC LIMIT 10;"""
             return True, GeneratedSQLDTO(
                 raw_sql=raw_sql,
                 execution_mode=SQLExecutionMode.SINGLE_UNIFIED,
                 dag_archetype="DIRECT_LOOKUP",
                 tables_referenced=["dwh_internal.fact_report_criteria"],
-                parameters={"tenant_code": user_ctx.tenant_code or "68"},
+                parameters={"tenant_code": user_ctx.tenant_code or settings.DEFAULT_TENANT_CODE},
                 generator_track="TRACK_A_COMPILER",
                 thought_scratchpad="Biên dịch tổng quan chỉ tiêu DWH qua Track A Deterministic Compiler.",
                 confidence_score=0.95,

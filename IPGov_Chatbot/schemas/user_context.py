@@ -6,6 +6,7 @@ Tuân thủ chuẩn Arc42, IEEE Std 1016-2009 và ipgov-coding-rules.md.
 
 from typing import Any, List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict, field_validator
+from IPGov_Chatbot.config import settings
 
 
 class UserSecurityContextDTO(BaseModel):
@@ -17,7 +18,7 @@ class UserSecurityContextDTO(BaseModel):
 
     user_id: str = Field(default="default_user", description="Định danh duy nhất của người dùng trong hệ thống")
     username: str = Field(default="user", description="Tên đăng nhập hoặc chức danh công vụ")
-    tenant_code: str = Field(default="68", description="Mã tỉnh/thành phố trực thuộc Trung ương (e.g. '68': Lâm Đồng, '79': TP.HCM)")
+    tenant_code: str = Field(default_factory=lambda: settings.DEFAULT_TENANT_CODE, description="Mã tỉnh/thành phố trực thuộc Trung ương (e.g. '68': Lâm Đồng, '79': TP.HCM)")
     department_code: Optional[str] = Field(None, description="Mã Sở/Ban/Ngành hoặc UBND huyện (e.g. '68-1-02', '79-1-01')")
     office_id: Optional[str] = Field(None, description="Định danh phòng ban chuyên môn cấp 2 (UUID hoặc chuỗi định danh)")
     name: Optional[str] = Field(default=None, description="Họ và tên hoặc tên hiển thị của tài khoản")

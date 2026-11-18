@@ -105,7 +105,7 @@ class RecursiveScopeVisitor:
 
         # 2. Cưỡng chế phân quyền cấp cơ quan (department_code) cho Level 1 & 2 (bỏ qua khi dwh_public)
         if active_schema != "dwh_public" and self.user_ctx.role_level in (1, 2) and self.user_ctx.department_code:
-            if not req_statuses or self.user_ctx.department_code == "68-1-01":
+            if not req_statuses or self.user_ctx.department_code in ("68-1-01", "79-1-02"):
                 dept_safe = self.user_ctx.department_code.replace("'", "''")
                 conditions.append(f"{table_ref}.department_code = '{dept_safe}'")
 

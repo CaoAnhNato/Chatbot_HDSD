@@ -6395,5 +6395,1612 @@
       "verified_against_dwh": true,
       "updated_at": "2026-11-02T09:02:29.964052+00:00"
     }
+  },
+  "d29c0c3e-e077-4802-9603-f58ace2f82fc": {
+    "id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "code": "tong_dan_gia_suc_gia_cam",
+    "name": "Tổng đàn gia súc, gia cầm",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Tổng đàn gia súc, gia cầm' (mã: tong_dan_gia_suc_gia_cam) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng đàn gia súc, gia cầm",
+      "chỉ tiêu tổng đàn gia súc, gia cầm",
+      "tổng đàn gia súc, gia cầm tong_dan_gia_suc_gia_cam"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng đàn gia súc, gia cầm trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:14.981285+00:00"
+    }
+  },
+  "9f4d658f-bcbc-44a8-a678-76d7653226a8": {
+    "id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "code": "tong_so_ho_nuoi_gia_suc_gia_cam",
+    "name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 2,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Tổng số hộ nuôi gia súc, gia cầm' (mã: tong_so_ho_nuoi_gia_suc_gia_cam) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng số hộ nuôi gia súc, gia cầm",
+      "chỉ tiêu tổng số hộ nuôi gia súc, gia cầm",
+      "tổng số hộ nuôi gia súc, gia cầm tong_so_ho_nuoi_gia_suc_gia_cam"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng số hộ nuôi gia súc, gia cầm trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:15.451349+00:00"
+    }
+  },
+  "c7453dda-07f4-48f3-bc84-ee169f663661": {
+    "id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "code": "tong_dien_tich_lua_hoa_mau_va_cay_an_qua",
+    "name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "root_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "canonical_order": 3,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Tổng diện tích lúa, hoa màu và cây ăn quả' (mã: tong_dien_tich_lua_hoa_mau_va_cay_an_qua) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng diện tích lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng diện tích lúa, hoa màu và cây ăn quả",
+      "chỉ tiêu tổng diện tích lúa, hoa màu và cây ăn quả",
+      "tổng diện tích lúa, hoa màu và cây ăn quả tong_dien_tich_lua_hoa_mau_va_cay_an_qua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng diện tích lúa, hoa màu và cây ăn quả trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:15.731073+00:00"
+    }
+  },
+  "3ece4584-78ec-4171-80b1-de42b84c4a3e": {
+    "id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "code": "tong_so_ho_trong_lua_hoa_mau_va_cay_an_qua",
+    "name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "root_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "canonical_order": 4,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả' (mã: tong_so_ho_trong_lua_hoa_mau_va_cay_an_qua) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+      "chỉ tiêu tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+      "tổng số hộ trồng lúa, hoa màu và cây ăn quả tong_so_ho_trong_lua_hoa_mau_va_cay_an_qua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng số hộ trồng lúa, hoa màu và cây ăn quả trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:16.012378+00:00"
+    }
+  },
+  "65c32f7b-46cf-4488-87ce-99455418c655": {
+    "id": "65c32f7b-46cf-4488-87ce-99455418c655",
+    "code": "so_co_so_nuoi_thuy_san_long_be",
+    "name": "Số cơ sở nuôi thủy sản lồng bè",
+    "level": 1,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "65c32f7b-46cf-4488-87ce-99455418c655",
+    "root_name": "Số cơ sở nuôi thủy sản lồng bè",
+    "canonical_order": 5,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Số cơ sở nuôi thủy sản lồng bè' (mã: so_co_so_nuoi_thuy_san_long_be) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'nông nghiệp' thuộc thực thể 'Số cơ sở nuôi thủy sản lồng bè', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số cơ sở nuôi thủy sản lồng bè",
+      "chỉ tiêu số cơ sở nuôi thủy sản lồng bè",
+      "số cơ sở nuôi thủy sản lồng bè so_co_so_nuoi_thuy_san_long_be"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số cơ sở nuôi thủy sản lồng bè trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:16.272766+00:00"
+    }
+  },
+  "6f3fa91f-a7ff-4958-932a-97e1628474d3": {
+    "id": "6f3fa91f-a7ff-4958-932a-97e1628474d3",
+    "code": "so_longo_nuoi_thuy_san",
+    "name": "Số lồng/ô nuôi thủy sản",
+    "level": 1,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "6f3fa91f-a7ff-4958-932a-97e1628474d3",
+    "root_name": "Số lồng/ô nuôi thủy sản",
+    "canonical_order": 6,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Số lồng/ô nuôi thủy sản' (mã: so_longo_nuoi_thuy_san) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'nông nghiệp' thuộc thực thể 'Số lồng/ô nuôi thủy sản', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số lồng/ô nuôi thủy sản",
+      "chỉ tiêu số lồng/ô nuôi thủy sản",
+      "số lồng/ô nuôi thủy sản so_longo_nuoi_thuy_san"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số lồng/ô nuôi thủy sản trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:16.530319+00:00"
+    }
+  },
+  "bd80be6c-217c-4905-9eed-e10c4de084ee": {
+    "id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "code": "co_so_nuoi_thuy_san_trong_ao",
+    "name": "Cơ sở nuôi thủy sản trong ao",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "root_name": "Cơ sở nuôi thủy sản trong ao",
+    "canonical_order": 7,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Cơ sở nuôi thủy sản trong ao' (mã: co_so_nuoi_thuy_san_trong_ao) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'nông nghiệp' thuộc thực thể 'Cơ sở nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "cơ sở nuôi thủy sản trong ao",
+      "chỉ tiêu cơ sở nuôi thủy sản trong ao",
+      "cơ sở nuôi thủy sản trong ao co_so_nuoi_thuy_san_trong_ao"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Cơ sở nuôi thủy sản trong ao trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:16.789290+00:00"
+    }
+  },
+  "821b845a-aa6d-4806-94ca-5dc873f081df": {
+    "id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "code": "dien_tich_mat_nuoc_nuoi_thuy_san_trong_ao",
+    "name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "root_name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "canonical_order": 8,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Diện tích mặt nước nuôi thủy sản trong ao' (mã: dien_tich_mat_nuoc_nuoi_thuy_san_trong_ao) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'nông nghiệp' thuộc thực thể 'Diện tích mặt nước nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích mặt nước nuôi thủy sản trong ao",
+      "chỉ tiêu diện tích mặt nước nuôi thủy sản trong ao",
+      "diện tích mặt nước nuôi thủy sản trong ao dien_tich_mat_nuoc_nuoi_thuy_san_trong_ao"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích mặt nước nuôi thủy sản trong ao trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:17.044345+00:00"
+    }
+  },
+  "7b48f605-93b4-4fd6-9504-a096a732a9e9": {
+    "id": "7b48f605-93b4-4fd6-9504-a096a732a9e9",
+    "code": "nang_suat_san_xuat_muoi_binh_quan_cua_ca_nhan",
+    "name": "Năng suất sản xuất muối bình quân của cá nhân",
+    "level": 1,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "7b48f605-93b4-4fd6-9504-a096a732a9e9",
+    "root_name": "Năng suất sản xuất muối bình quân của cá nhân",
+    "canonical_order": 9,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Năng suất sản xuất muối bình quân của cá nhân' (mã: nang_suat_san_xuat_muoi_binh_quan_cua_ca_nhan) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'nông nghiệp' thuộc thực thể 'Năng suất sản xuất muối bình quân của cá nhân', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "năng suất sản xuất muối bình quân của cá nhân",
+      "chỉ tiêu năng suất sản xuất muối bình quân của cá nhân",
+      "năng suất sản xuất muối bình quân của cá nhân nang_suat_san_xuat_muoi_binh_quan_cua_ca_nhan"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Năng suất sản xuất muối bình quân của cá nhân trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:17.398569+00:00"
+    }
+  },
+  "4c557e8a-71e7-4e7d-b22e-adab671d94d6": {
+    "id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "code": "tong_dien_tich_san_xuat_muoi",
+    "name": "Tổng diện tích sản xuất muối",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "root_name": "Tổng diện tích sản xuất muối",
+    "canonical_order": 10,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Tổng diện tích sản xuất muối' (mã: tong_dien_tich_san_xuat_muoi) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng diện tích sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng diện tích sản xuất muối",
+      "chỉ tiêu tổng diện tích sản xuất muối",
+      "tổng diện tích sản xuất muối tong_dien_tich_san_xuat_muoi"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng diện tích sản xuất muối trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:17.822840+00:00"
+    }
+  },
+  "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47": {
+    "id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "code": "tong_chu_the_san_xuat_muoi",
+    "name": "Tổng chủ thể sản xuất muối",
+    "level": 1,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": null,
+    "parent_name": null,
+    "root_id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "root_name": "Tổng chủ thể sản xuất muối",
+    "canonical_order": 11,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Tổng chủ thể sản xuất muối' (mã: tong_chu_the_san_xuat_muoi) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'nông nghiệp' thuộc thực thể 'Tổng chủ thể sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng chủ thể sản xuất muối",
+      "chỉ tiêu tổng chủ thể sản xuất muối",
+      "tổng chủ thể sản xuất muối tong_chu_the_san_xuat_muoi"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng chủ thể sản xuất muối trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:18.129465+00:00"
+    }
+  },
+  "eb7af6eb-8674-426d-9d13-5fa991a6a037": {
+    "id": "eb7af6eb-8674-426d-9d13-5fa991a6a037",
+    "code": "tong_so_gia_cam",
+    "name": "Tổng số gia cầm",
+    "level": 2,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "parent_name": "Tổng đàn gia súc, gia cầm",
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 2,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Tổng số gia cầm' (mã: tong_so_gia_cam) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "tổng số gia cầm",
+      "chỉ tiêu tổng số gia cầm",
+      "tổng số gia cầm tong_so_gia_cam"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng số gia cầm trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:18.818031+00:00"
+    }
+  },
+  "82c0e249-eeaf-4d21-b701-a801df6a0446": {
+    "id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "code": "so_ho_nuoi_gia_suc",
+    "name": "Số hộ nuôi gia súc",
+    "level": 2,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "parent_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Số hộ nuôi gia súc' (mã: so_ho_nuoi_gia_suc) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số hộ nuôi gia súc",
+      "chỉ tiêu số hộ nuôi gia súc",
+      "số hộ nuôi gia súc so_ho_nuoi_gia_suc"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ nuôi gia súc trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:19.083233+00:00"
+    }
+  },
+  "1d5face8-8bd5-4ed9-a802-48bd61b35978": {
+    "id": "1d5face8-8bd5-4ed9-a802-48bd61b35978",
+    "code": "dien_tich_lua",
+    "name": "Diện tích lúa",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "parent_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "root_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "root_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Diện tích lúa' (mã: dien_tich_lua) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Tổng diện tích lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích lúa",
+      "chỉ tiêu diện tích lúa",
+      "diện tích lúa dien_tich_lua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích lúa trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:19.633908+00:00"
+    }
+  },
+  "fe6fb913-e88d-412e-981e-140239850f14": {
+    "id": "fe6fb913-e88d-412e-981e-140239850f14",
+    "code": "dien_tich_hoa_mau",
+    "name": "Diện tích hoa màu",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "parent_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "root_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "root_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "canonical_order": 2,
+    "siblings": [
+      "Diện tích lúa"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Diện tích hoa màu' (mã: dien_tich_hoa_mau) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Tổng diện tích lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích hoa màu",
+      "chỉ tiêu diện tích hoa màu",
+      "diện tích hoa màu dien_tich_hoa_mau"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích hoa màu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:19.911517+00:00"
+    }
+  },
+  "65d83a68-728d-40a3-ba1c-5cea0dd9eae2": {
+    "id": "65d83a68-728d-40a3-ba1c-5cea0dd9eae2",
+    "code": "dien_tich_cay_thanh_long",
+    "name": "Diện tích cây thanh long",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "parent_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "root_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "root_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "canonical_order": 4,
+    "siblings": [
+      "Diện tích lúa",
+      "Diện tích hoa màu"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Diện tích cây thanh long' (mã: dien_tich_cay_thanh_long) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'Tổng diện tích lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích cây thanh long",
+      "chỉ tiêu diện tích cây thanh long",
+      "diện tích cây thanh long dien_tich_cay_thanh_long"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích cây thanh long trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:20.674053+00:00"
+    }
+  },
+  "bbb6f7e1-6579-41d1-b7d9-4d756709f029": {
+    "id": "bbb6f7e1-6579-41d1-b7d9-4d756709f029",
+    "code": "so_ho_trong_lua",
+    "name": "Số hộ trồng lúa",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "parent_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "root_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "root_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Số hộ trồng lúa' (mã: so_ho_trong_lua) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số hộ trồng lúa",
+      "chỉ tiêu số hộ trồng lúa",
+      "số hộ trồng lúa so_ho_trong_lua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ trồng lúa trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:21.071285+00:00"
+    }
+  },
+  "0577ea73-b661-42b2-80fa-68619db246af": {
+    "id": "0577ea73-b661-42b2-80fa-68619db246af",
+    "code": "so_ho_trong_hoa_mau",
+    "name": "Số hộ trồng hoa màu",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "parent_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "root_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "root_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "canonical_order": 2,
+    "siblings": [
+      "Số hộ trồng lúa"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Số hộ trồng hoa màu' (mã: so_ho_trong_hoa_mau) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số hộ trồng hoa màu",
+      "chỉ tiêu số hộ trồng hoa màu",
+      "số hộ trồng hoa màu so_ho_trong_hoa_mau"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ trồng hoa màu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:21.379129+00:00"
+    }
+  },
+  "b6c49783-da1f-48e2-9bde-f9e72ea3684c": {
+    "id": "b6c49783-da1f-48e2-9bde-f9e72ea3684c",
+    "code": "so_ho_trong_cay_an_qua",
+    "name": "Số hộ trồng cây ăn quả",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "parent_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "root_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "root_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "canonical_order": 3,
+    "siblings": [
+      "Số hộ trồng lúa",
+      "Số hộ trồng hoa màu"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Số hộ trồng cây ăn quả' (mã: so_ho_trong_cay_an_qua) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số hộ trồng cây ăn quả",
+      "chỉ tiêu số hộ trồng cây ăn quả",
+      "số hộ trồng cây ăn quả so_ho_trong_cay_an_qua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ trồng cây ăn quả trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:21.625108+00:00"
+    }
+  },
+  "3947153b-f4b7-4d9f-9282-1c2d480b86d4": {
+    "id": "3947153b-f4b7-4d9f-9282-1c2d480b86d4",
+    "code": "so_ho_trong_thanh_long",
+    "name": "Số hộ trồng thanh long",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "parent_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "root_id": "3ece4584-78ec-4171-80b1-de42b84c4a3e",
+    "root_name": "Tổng số hộ trồng lúa, hoa màu và cây ăn quả",
+    "canonical_order": 4,
+    "siblings": [
+      "Số hộ trồng lúa",
+      "Số hộ trồng hoa màu",
+      "Số hộ trồng cây ăn quả"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Số hộ trồng thanh long' (mã: so_ho_trong_thanh_long) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'Tổng số hộ trồng lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số hộ trồng thanh long",
+      "chỉ tiêu số hộ trồng thanh long",
+      "số hộ trồng thanh long so_ho_trong_thanh_long"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ trồng thanh long trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:21.875723+00:00"
+    }
+  },
+  "7800c5da-adb6-4f17-9e69-a6f6390db91b": {
+    "id": "7800c5da-adb6-4f17-9e69-a6f6390db91b",
+    "code": "so_co_so_nuoi_oc_huong",
+    "name": "Số cơ sở nuôi ốc hương",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "parent_name": "Cơ sở nuôi thủy sản trong ao",
+    "root_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "root_name": "Cơ sở nuôi thủy sản trong ao",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Số cơ sở nuôi ốc hương' (mã: so_co_so_nuoi_oc_huong) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Cơ sở nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số cơ sở nuôi ốc hương",
+      "chỉ tiêu số cơ sở nuôi ốc hương",
+      "số cơ sở nuôi ốc hương so_co_so_nuoi_oc_huong"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số cơ sở nuôi ốc hương trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:22.173662+00:00"
+    }
+  },
+  "d5ee99d5-49dd-4fe8-977c-ea7817756405": {
+    "id": "d5ee99d5-49dd-4fe8-977c-ea7817756405",
+    "code": "so_co_so_nuoi_tom_the_theo_mo_hinh_2_giai_doan",
+    "name": "Số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "parent_name": "Cơ sở nuôi thủy sản trong ao",
+    "root_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "root_name": "Cơ sở nuôi thủy sản trong ao",
+    "canonical_order": 2,
+    "siblings": [
+      "Số cơ sở nuôi ốc hương"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn' (mã: so_co_so_nuoi_tom_the_theo_mo_hinh_2_giai_doan) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Cơ sở nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn",
+      "chỉ tiêu số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn",
+      "số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn so_co_so_nuoi_tom_the_theo_mo_hinh_2_giai_doan"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:22.442039+00:00"
+    }
+  },
+  "99fe470b-715a-4e33-ba20-0ad95f86c105": {
+    "id": "99fe470b-715a-4e33-ba20-0ad95f86c105",
+    "code": "so_co_so_nuoi_tom_the_theo_mo_hinh_3_giai_doan",
+    "name": "Số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "parent_name": "Cơ sở nuôi thủy sản trong ao",
+    "root_id": "bd80be6c-217c-4905-9eed-e10c4de084ee",
+    "root_name": "Cơ sở nuôi thủy sản trong ao",
+    "canonical_order": 3,
+    "siblings": [
+      "Số cơ sở nuôi ốc hương",
+      "Số cơ sở nuôi tôm thẻ theo mô hình 2 giai đoạn"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn' (mã: so_co_so_nuoi_tom_the_theo_mo_hinh_3_giai_doan) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'Cơ sở nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn",
+      "chỉ tiêu số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn",
+      "số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn so_co_so_nuoi_tom_the_theo_mo_hinh_3_giai_doan"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số cơ sở nuôi tôm thẻ theo mô hình 3 giai đoạn trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:22.697610+00:00"
+    }
+  },
+  "0cccbc9f-5b11-456c-8337-d92c1a922a24": {
+    "id": "0cccbc9f-5b11-456c-8337-d92c1a922a24",
+    "code": "dien_tich_mat_nuoc_nuoi_oc_huong",
+    "name": "Diện tích mặt nước nuôi ốc hương",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "parent_name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "root_id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "root_name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Diện tích mặt nước nuôi ốc hương' (mã: dien_tich_mat_nuoc_nuoi_oc_huong) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Diện tích mặt nước nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích mặt nước nuôi ốc hương",
+      "chỉ tiêu diện tích mặt nước nuôi ốc hương",
+      "diện tích mặt nước nuôi ốc hương dien_tich_mat_nuoc_nuoi_oc_huong"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích mặt nước nuôi ốc hương trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:23.065252+00:00"
+    }
+  },
+  "f24b5e00-596e-48cb-b0e5-9e586a9a1f8a": {
+    "id": "f24b5e00-596e-48cb-b0e5-9e586a9a1f8a",
+    "code": "dien_tich_mat_nuoc_nuoi_tom_the",
+    "name": "Diện tích mặt nước nuôi tôm thẻ",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "parent_name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "root_id": "821b845a-aa6d-4806-94ca-5dc873f081df",
+    "root_name": "Diện tích mặt nước nuôi thủy sản trong ao",
+    "canonical_order": 2,
+    "siblings": [
+      "Diện tích mặt nước nuôi ốc hương"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Diện tích mặt nước nuôi tôm thẻ' (mã: dien_tich_mat_nuoc_nuoi_tom_the) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Diện tích mặt nước nuôi thủy sản trong ao', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích mặt nước nuôi tôm thẻ",
+      "chỉ tiêu diện tích mặt nước nuôi tôm thẻ",
+      "diện tích mặt nước nuôi tôm thẻ dien_tich_mat_nuoc_nuoi_tom_the"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích mặt nước nuôi tôm thẻ trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:23.326642+00:00"
+    }
+  },
+  "68733008-3176-4cc7-8f8b-698680e74817": {
+    "id": "68733008-3176-4cc7-8f8b-698680e74817",
+    "code": "dien_tich_san_xuat_muoi_cua_ca_nhan",
+    "name": "Diện tích sản xuất muối của cá nhân",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "parent_name": "Tổng diện tích sản xuất muối",
+    "root_id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "root_name": "Tổng diện tích sản xuất muối",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Diện tích sản xuất muối của cá nhân' (mã: dien_tich_san_xuat_muoi_cua_ca_nhan) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Tổng diện tích sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích sản xuất muối của cá nhân",
+      "chỉ tiêu diện tích sản xuất muối của cá nhân",
+      "diện tích sản xuất muối của cá nhân dien_tich_san_xuat_muoi_cua_ca_nhan"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích sản xuất muối của cá nhân trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:23.571788+00:00"
+    }
+  },
+  "2a3a5648-55bc-43a6-a5e2-991bbef190e8": {
+    "id": "2a3a5648-55bc-43a6-a5e2-991bbef190e8",
+    "code": "dien_tich_san_xuat_muoi_cua_doanh_nghiep",
+    "name": "Diện tích sản xuất muối của doanh nghiệp",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "parent_name": "Tổng diện tích sản xuất muối",
+    "root_id": "4c557e8a-71e7-4e7d-b22e-adab671d94d6",
+    "root_name": "Tổng diện tích sản xuất muối",
+    "canonical_order": 2,
+    "siblings": [
+      "Diện tích sản xuất muối của cá nhân"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Diện tích sản xuất muối của doanh nghiệp' (mã: dien_tich_san_xuat_muoi_cua_doanh_nghiep) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Tổng diện tích sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích sản xuất muối của doanh nghiệp",
+      "chỉ tiêu diện tích sản xuất muối của doanh nghiệp",
+      "diện tích sản xuất muối của doanh nghiệp dien_tich_san_xuat_muoi_cua_doanh_nghiep"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích sản xuất muối của doanh nghiệp trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:23.830648+00:00"
+    }
+  },
+  "b2aee143-6b3a-4fe0-8c86-9659ad745e65": {
+    "id": "b2aee143-6b3a-4fe0-8c86-9659ad745e65",
+    "code": "so_doanh_nghiep_san_xuat_muoi",
+    "name": "Số doanh nghiệp sản xuất muối",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "parent_name": "Tổng chủ thể sản xuất muối",
+    "root_id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "root_name": "Tổng chủ thể sản xuất muối",
+    "canonical_order": 2,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Số doanh nghiệp sản xuất muối' (mã: so_doanh_nghiep_san_xuat_muoi) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Tổng chủ thể sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "số doanh nghiệp sản xuất muối",
+      "chỉ tiêu số doanh nghiệp sản xuất muối",
+      "số doanh nghiệp sản xuất muối so_doanh_nghiep_san_xuat_muoi"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số doanh nghiệp sản xuất muối trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:24.387599+00:00"
+    }
+  },
+  "d965f525-71de-4b8b-8c5c-8218bb0f11c6": {
+    "id": "d965f525-71de-4b8b-8c5c-8218bb0f11c6",
+    "code": "heo",
+    "name": "Heo",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "parent_name": null,
+    "root_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "root_name": "Heo",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Heo' (mã: heo) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'nông nghiệp' thuộc thực thể 'Heo', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "heo",
+      "chỉ tiêu heo",
+      "heo heo"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Heo trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:24.964304+00:00"
+    }
+  },
+  "bc47ff98-af07-42a1-bcb3-9ad93191f1d4": {
+    "id": "bc47ff98-af07-42a1-bcb3-9ad93191f1d4",
+    "code": "bo",
+    "name": "Bò",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "parent_name": null,
+    "root_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "root_name": "Bò",
+    "canonical_order": 2,
+    "siblings": [
+      "Heo"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Bò' (mã: bo) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'nông nghiệp' thuộc thực thể 'Bò', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "bò",
+      "chỉ tiêu bò",
+      "bò bo"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Bò trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:25.221854+00:00"
+    }
+  },
+  "7489b59f-5932-4c3b-a81d-05eb55e3e2ca": {
+    "id": "7489b59f-5932-4c3b-a81d-05eb55e3e2ca",
+    "code": "trau",
+    "name": "Trâu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "parent_name": null,
+    "root_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "root_name": "Trâu",
+    "canonical_order": 3,
+    "siblings": [
+      "Heo",
+      "Bò"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Trâu' (mã: trau) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'nông nghiệp' thuộc thực thể 'Trâu', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "trâu",
+      "chỉ tiêu trâu",
+      "trâu trau"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Trâu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:25.468342+00:00"
+    }
+  },
+  "9589af8d-127b-4048-be86-2655a45c45cc": {
+    "id": "9589af8d-127b-4048-be86-2655a45c45cc",
+    "code": "de",
+    "name": "Dê",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "parent_name": null,
+    "root_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "root_name": "Dê",
+    "canonical_order": 4,
+    "siblings": [
+      "Heo",
+      "Bò",
+      "Trâu"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Dê' (mã: de) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'nông nghiệp' thuộc thực thể 'Dê', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "dê",
+      "chỉ tiêu dê",
+      "dê de"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Dê trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:25.706581+00:00"
+    }
+  },
+  "a972b118-4c3e-4686-be33-050f26a82069": {
+    "id": "a972b118-4c3e-4686-be33-050f26a82069",
+    "code": "cuu",
+    "name": "Cừu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "parent_name": null,
+    "root_id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "root_name": "Cừu",
+    "canonical_order": 5,
+    "siblings": [
+      "Heo",
+      "Bò",
+      "Trâu",
+      "Dê"
+    ],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Cừu' (mã: cuu) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'nông nghiệp' thuộc thực thể 'Cừu', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "cừu",
+      "chỉ tiêu cừu",
+      "cừu cuu"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Cừu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:26.090312+00:00"
+    }
+  },
+  "3b03ace8-7985-47ae-9397-d53879370978": {
+    "id": "3b03ace8-7985-47ae-9397-d53879370978",
+    "code": "ga",
+    "name": "Gà",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "eb7af6eb-8674-426d-9d13-5fa991a6a037",
+    "parent_name": "Tổng số gia cầm",
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Gà' (mã: ga) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'Tổng số gia cầm' thuộc thực thể 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "gà",
+      "chỉ tiêu gà",
+      "gà ga"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Gà trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:26.604364+00:00"
+    }
+  },
+  "d5b65464-9995-4c78-98cf-732957119e34": {
+    "id": "d5b65464-9995-4c78-98cf-732957119e34",
+    "code": "bo_cau",
+    "name": "Bồ câu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "eb7af6eb-8674-426d-9d13-5fa991a6a037",
+    "parent_name": "Tổng số gia cầm",
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 3,
+    "siblings": [
+      "Gà"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Bồ câu' (mã: bo_cau) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'Tổng số gia cầm' thuộc thực thể 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "bồ câu",
+      "chỉ tiêu bồ câu",
+      "bồ câu bo_cau"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Bồ câu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:27.414720+00:00"
+    }
+  },
+  "ee384050-0840-491e-9be6-8052fd466758": {
+    "id": "ee384050-0840-491e-9be6-8052fd466758",
+    "code": "bo1",
+    "name": "Bò",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "parent_name": "Số hộ nuôi gia súc",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 2,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Bò' (mã: bo1) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'Số hộ nuôi gia súc' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "bò",
+      "chỉ tiêu bò",
+      "bò bo1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Bò trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:28.135215+00:00"
+    }
+  },
+  "cbe08f44-9d09-4e8e-81c9-a39b4c461104": {
+    "id": "cbe08f44-9d09-4e8e-81c9-a39b4c461104",
+    "code": "trau1",
+    "name": "Trâu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "parent_name": "Số hộ nuôi gia súc",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 3,
+    "siblings": [
+      "Bò"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Trâu' (mã: trau1) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'Số hộ nuôi gia súc' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "trâu",
+      "chỉ tiêu trâu",
+      "trâu trau1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Trâu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:28.462882+00:00"
+    }
+  },
+  "bc0a7f90-7c44-43e7-8f39-77764a503281": {
+    "id": "bc0a7f90-7c44-43e7-8f39-77764a503281",
+    "code": "de1",
+    "name": "Dê",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "parent_name": "Số hộ nuôi gia súc",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 4,
+    "siblings": [
+      "Bò",
+      "Trâu"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục theo dõi 'Dê' (mã: de1) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo trong nhóm 'Số hộ nuôi gia súc' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "dê",
+      "chỉ tiêu dê",
+      "dê de1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Dê trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:28.719057+00:00"
+    }
+  },
+  "f76229cb-c011-4096-a35e-3b36a010a736": {
+    "id": "f76229cb-c011-4096-a35e-3b36a010a736",
+    "code": "cuu1",
+    "name": "Cừu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "parent_name": "Số hộ nuôi gia súc",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 5,
+    "siblings": [
+      "Bò",
+      "Trâu",
+      "Dê"
+    ],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Cừu' (mã: cuu1) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'Số hộ nuôi gia súc' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "cừu",
+      "chỉ tiêu cừu",
+      "cừu cuu1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Cừu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:29.005304+00:00"
+    }
+  },
+  "ea440e96-a33d-4319-ac33-a4b5e8845179": {
+    "id": "ea440e96-a33d-4319-ac33-a4b5e8845179",
+    "code": "ga1",
+    "name": "Gà",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "parent_name": null,
+    "root_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "root_name": "Gà",
+    "canonical_order": 1,
+    "siblings": [],
+    "children_ids": [],
+    "definition": "Chỉ số chuyên môn 'Gà' (mã: ga1) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế trong nhóm 'nông nghiệp' thuộc thực thể 'Gà', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "gà",
+      "chỉ tiêu gà",
+      "gà ga1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Gà trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:29.263696+00:00"
+    }
+  },
+  "9a07fb54-1d94-4604-a935-f45b90532a00": {
+    "id": "9a07fb54-1d94-4604-a935-f45b90532a00",
+    "code": "vit1",
+    "name": "Vịt",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "parent_name": null,
+    "root_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "root_name": "Vịt",
+    "canonical_order": 2,
+    "siblings": [
+      "Gà"
+    ],
+    "children_ids": [],
+    "definition": "Dữ liệu báo cáo nghiệp vụ 'Vịt' (mã: vit1) phản ánh tổng lượng phân bố thuộc phạm vi điều hành trong nhóm 'nông nghiệp' thuộc thực thể 'Vịt', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "vịt",
+      "chỉ tiêu vịt",
+      "vịt vit1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Vịt trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:29.529818+00:00"
+    }
+  },
+  "4718b3ce-8a1c-41ad-a8b1-5745b1adfc08": {
+    "id": "4718b3ce-8a1c-41ad-a8b1-5745b1adfc08",
+    "code": "bo_cau1",
+    "name": "Bồ câu",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "parent_name": null,
+    "root_id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "root_name": "Bồ câu",
+    "canonical_order": 3,
+    "siblings": [
+      "Gà",
+      "Vịt"
+    ],
+    "children_ids": [],
+    "definition": "Nội dung thống kê 'Bồ câu' (mã: bo_cau1) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo trong nhóm 'nông nghiệp' thuộc thực thể 'Bồ câu', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "bồ câu",
+      "chỉ tiêu bồ câu",
+      "bồ câu bo_cau1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Bồ câu trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:23:29.809591+00:00"
+    }
+  },
+  "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae": {
+    "id": "cd8a161c-3114-411e-bb0e-7a8f0a9f2eae",
+    "code": "tong_so_gia_suc",
+    "name": "Tổng số gia súc",
+    "level": 2,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "parent_name": "Tổng đàn gia súc, gia cầm",
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 1,
+    "siblings": [
+      "Tổng số gia cầm"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục thống kê chi tiết 'Tổng số gia súc' (mã: tong_so_gia_suc) ghi nhận giá trị định lượng riêng biệt cho 'Tổng số gia súc' trong nhóm 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế.",
+    "natural_synonyms": [
+      "tổng số gia súc",
+      "chỉ tiêu tổng số gia súc",
+      "tổng số gia súc tong_so_gia_suc"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Tổng số gia súc trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:12.077894+00:00"
+    }
+  },
+  "4489158f-e703-4961-b33e-d9b374becaaf": {
+    "id": "4489158f-e703-4961-b33e-d9b374becaaf",
+    "code": "so_ho_nuoi_gia_cam",
+    "name": "Số hộ nuôi gia cầm",
+    "level": 2,
+    "is_leaf": false,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "parent_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 2,
+    "siblings": [
+      "Số hộ nuôi gia súc"
+    ],
+    "children_ids": [],
+    "definition": "Tiêu chí theo dõi phân cấp 'Số hộ nuôi gia cầm' (mã: so_ho_nuoi_gia_cam, cấp 2) cung cấp dữ liệu đầu vào về 'Số hộ nuôi gia cầm' cho hệ thống điều hành trong nhóm 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế.",
+    "natural_synonyms": [
+      "số hộ nuôi gia cầm",
+      "chỉ tiêu số hộ nuôi gia cầm",
+      "số hộ nuôi gia cầm so_ho_nuoi_gia_cam"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ nuôi gia cầm trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:16.060842+00:00"
+    }
+  },
+  "42dd38d0-5d77-45f7-9603-998906981cf9": {
+    "id": "42dd38d0-5d77-45f7-9603-998906981cf9",
+    "code": "dien_tich_cay_an_qua",
+    "name": "Diện tích cây ăn quả",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "parent_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "root_id": "c7453dda-07f4-48f3-bc84-ee169f663661",
+    "root_name": "Tổng diện tích lúa, hoa màu và cây ăn quả",
+    "canonical_order": 3,
+    "siblings": [
+      "Diện tích lúa",
+      "Diện tích hoa màu",
+      "Diện tích cây thanh long"
+    ],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Diện tích cây ăn quả' (mã: dien_tich_cay_an_qua, cấp 2) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'Tổng diện tích lúa, hoa màu và cây ăn quả', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "diện tích cây ăn quả",
+      "chỉ tiêu diện tích cây ăn quả",
+      "diện tích cây ăn quả dien_tich_cay_an_qua"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Diện tích cây ăn quả trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:16.416574+00:00"
+    }
+  },
+  "9efc65a9-827b-4adb-987b-2f043c397e87": {
+    "id": "9efc65a9-827b-4adb-987b-2f043c397e87",
+    "code": "so_ho_san_xuat_muoi",
+    "name": "Số hộ sản xuất muối",
+    "level": 2,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "parent_name": "Tổng chủ thể sản xuất muối",
+    "root_id": "ad3fab49-b6d0-4b36-85a8-3a9bc0cd9e47",
+    "root_name": "Tổng chủ thể sản xuất muối",
+    "canonical_order": 1,
+    "siblings": [
+      "Số doanh nghiệp sản xuất muối"
+    ],
+    "children_ids": [],
+    "definition": "Hạng mục thống kê chi tiết 'Số hộ sản xuất muối' (mã: so_ho_san_xuat_muoi) ghi nhận giá trị định lượng riêng biệt cho 'Số hộ sản xuất muối' trong nhóm 'Tổng chủ thể sản xuất muối', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế.",
+    "natural_synonyms": [
+      "số hộ sản xuất muối",
+      "chỉ tiêu số hộ sản xuất muối",
+      "số hộ sản xuất muối so_ho_san_xuat_muoi"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Số hộ sản xuất muối trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": false,
+    "available_report_dates": [],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:16.804698+00:00"
+    }
+  },
+  "59a76968-ae3d-4cb8-95f0-0defc07e7a9d": {
+    "id": "59a76968-ae3d-4cb8-95f0-0defc07e7a9d",
+    "code": "vit",
+    "name": "Vịt",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "eb7af6eb-8674-426d-9d13-5fa991a6a037",
+    "parent_name": "Tổng số gia cầm",
+    "root_id": "d29c0c3e-e077-4802-9603-f58ace2f82fc",
+    "root_name": "Tổng đàn gia súc, gia cầm",
+    "canonical_order": 2,
+    "siblings": [
+      "Gà",
+      "Bồ câu"
+    ],
+    "children_ids": [],
+    "definition": "Chỉ tiêu kỹ thuật 'Vịt' (mã: vit, cấp 3) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành trong nhóm 'Tổng số gia cầm' thuộc thực thể 'Tổng đàn gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế trên địa bàn.",
+    "natural_synonyms": [
+      "vịt",
+      "chỉ tiêu vịt",
+      "vịt vit"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Vịt trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:17.677218+00:00"
+    }
+  },
+  "adf13304-c721-4c33-a3f5-de8c21391b09": {
+    "id": "adf13304-c721-4c33-a3f5-de8c21391b09",
+    "code": "heo1",
+    "name": "Heo",
+    "level": 3,
+    "is_leaf": true,
+    "scope_name": "Nông nghiệp",
+    "parent_id": "82c0e249-eeaf-4d21-b701-a801df6a0446",
+    "parent_name": "Số hộ nuôi gia súc",
+    "root_id": "9f4d658f-bcbc-44a8-a678-76d7653226a8",
+    "root_name": "Tổng số hộ nuôi gia súc, gia cầm",
+    "canonical_order": 1,
+    "siblings": [
+      "Bò",
+      "Trâu",
+      "Dê",
+      "Cừu"
+    ],
+    "children_ids": [],
+    "definition": "Tiêu chí theo dõi phân cấp 'Heo' (mã: heo1, cấp 3) cung cấp dữ liệu đầu vào về 'Heo' cho hệ thống điều hành trong nhóm 'Số hộ nuôi gia súc' thuộc thực thể 'Tổng số hộ nuôi gia súc, gia cầm', được theo dõi định kỳ phản ánh tình hình hoạt động thực tế.",
+    "natural_synonyms": [
+      "heo",
+      "chỉ tiêu heo",
+      "heo heo1"
+    ],
+    "scope_description": "Áp dụng cho công tác thống kê và theo dõi dữ liệu Heo trong lĩnh vực Nông nghiệp.",
+    "has_approved_facts": true,
+    "available_report_dates": [
+      "2026-10-07",
+      "2026-11-10"
+    ],
+    "metadata": {
+      "source": "dynamic_ingestion_pipeline",
+      "model": "google/gemini-3.5-flash-lite",
+      "verified_against_dwh": true,
+      "updated_at": "2026-11-18T02:25:18.009444+00:00"
+    }
   }
 }

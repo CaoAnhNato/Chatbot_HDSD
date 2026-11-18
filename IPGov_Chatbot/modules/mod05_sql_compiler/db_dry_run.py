@@ -14,6 +14,8 @@ import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
+from IPGov_Chatbot.config import settings
+
 logger = logging.getLogger("ipgov.mod05.db_dry_run")
 
 
@@ -43,7 +45,7 @@ class DatabaseDryRunner:
         """Thay thế các bind parameters dạng :param bằng giá trị cụ thể để chạy EXPLAIN."""
         res_sql = sql
         defaults = {
-            "tenant_code": "68",
+            "tenant_code": settings.DEFAULT_TENANT_CODE,
             "year": "2026",
             "metric_code": "kinh_phi_khuyen_cong",
             "top_k": "5",

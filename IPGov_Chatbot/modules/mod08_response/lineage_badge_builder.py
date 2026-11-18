@@ -7,6 +7,7 @@ Tuân thủ Blueprint 07 và SSOT.
 import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
+from IPGov_Chatbot.config import settings
 from IPGov_Chatbot.schemas.response_synthesizer_dto import LineageBadgeDTO
 
 
@@ -42,7 +43,7 @@ class LineageBadgeBuilder:
         dept_code = (
             entities.get("department_code")
             or getattr(user_ctx, "department_code", None)
-            or "68"
+            or settings.DEFAULT_TENANT_CODE
         )
         
         # Ánh xạ tên cơ quan
@@ -55,7 +56,7 @@ class LineageBadgeBuilder:
             elif dept_code.startswith("79-1-01"):
                 dept_name = "Sở Nội Vụ"
             elif dept_code.startswith("79-1-02"):
-                dept_name = "Văn phòng UBND TP.HCM"
+                dept_name = "UBND Phường Tam Bình"
             elif dept_code.startswith("SCT") or "cong_thuong" in dept_code.lower():
                 dept_name = "Sở Công Thương"
             else:

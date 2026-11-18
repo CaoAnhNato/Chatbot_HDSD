@@ -52,19 +52,23 @@ DUMMY_FILTER_NAMES = {
 }
 
 
-def is_dummy_criterion(code: Optional[str] = None, name: Optional[str] = None) -> bool:
-    """Enforces quality filters: LENGTH(TRIM(c.name)) >= 6 and excludes test/dummy codes."""
+def is_dummy_criterion(
+    code: Optional[str] = None,
+    name: Optional[str] = None,
+    has_parent: Optional[bool] = None,
+) -> bool:
+    """Enforces quality filters while allowing valid short child livestock/domain criteria."""
     c_low = (code or "").strip().lower()
     n_low = (name or "").strip().lower()
     if not c_low and not n_low:
         return True
-    if c_low.startswith("test_") or n_low.startswith("test_"):
+    if c_low.startswith("test") or n_low.startswith("test"):
         return True
     if c_low in DUMMY_FILTER_CODES or n_low in DUMMY_FILTER_NAMES:
         return True
-    if n_low and len(n_low) < 6:
+    if n_low and len(n_low) < 2:
         return True
-    if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test'):
+    if not has_parent and n_low and len(n_low) < 6:
         return True
     return False
 
@@ -126,9 +130,8 @@ class FiveGateValidator:
         if len(def_clean) < 30:
             return False, f"Gate 1 Failed: 'definition' quá ngắn ({len(def_clean)} ký tự < 30 ký tự)"
 
-        c_low = (record.get("code") or "").strip().lower()
-        n_low = (record.get("name") or "").strip().lower()
-        if c_low in ('so', 'th', 'th1', 'th2', 'th3', 'test') or (n_low and len(n_low) < 6):
+        has_parent = bool(record.get("parent_id") or int(record.get("level", 1)) > 1)
+        if is_dummy_criterion(record.get("code"), record.get("name"), has_parent=has_parent):
             return False, f"Gate 1 Failed: 'code' hoặc 'name' là mã rác/thử nghiệm (dummy/short: code='{record.get('code')}', name='{record.get('name')}')"
         
         return True, "Gate 1 Passed"
@@ -153,8 +156,9 @@ class FiveGateValidator:
             "ocop": [r"\bocop\b"],
             "làng nghề": [r"\blàng nghề\b", r"\bnghề truyền thống\b"],
             "muối": [r"\bmuối\b", r"\bdiêm nghiệp\b", r"\bdiêm dân\b"],
-            "gia cầm": [r"\bgia cầm\b", r"\bgà\b", r"\bvịt\b"],
-            "gia súc": [r"\bgia súc\b", r"\btrâu\b", r"\bbò\b"],
+            "gia cầm": [r"\bgia cầm\b", r"\bgà\b", r"\bvịt\b", r"\bbồ câu\b"],
+            "gia súc": [r"\bgia súc\b", r"\btrâu\b", r"\bbò\b", r"\bheo\b", r"\blợn\b", r"\bdê\b", r"\bcừu\b"],
+            "thủy sản": [r"\bthủy sản\b", r"\bthuỷ sản\b", r"\bốc hương\b", r"\btôm thẻ\b", r"\bnuôi trồng\b"],
             "khuyến công": [r"\bkhuyến công\b"],
             "công nghiệp": [r"\bcông nghiệp\b"],
             "điện": [r"\bđiện\b", r"\bmặt trời\b", r"\bgió\b"]
@@ -460,7 +464,7 @@ class DynamicCriterionIngestor:
                 except OSError:
                     pass
 
-    def detect_unregistered_criteria(self) -> List[Dict[str, Any]]:
+    def detect_unregistered_criteria(self, tenant_code: Optional[str] = None) -> List[Dict[str, Any]]:
         """Quét PostgreSQL vna_wom_dev tìm các chỉ tiêu chưa được lập định nghĩa trong KB."""
         current_kb = self.load_kb()
         registered_ids = set(current_kb.keys())
@@ -469,10 +473,12 @@ class DynamicCriterionIngestor:
             db_url = self.db_url or getattr(settings, "sync_dwh_url", None)
             conn = psycopg2.connect(db_url, connect_timeout=3)
             cur = conn.cursor()
-            cur.execute("""
+            tenant_clause = "AND c.tenant_code = %s" if tenant_code else ""
+            params: Tuple[Any, ...] = (tenant_code,) if tenant_code else ()
+            cur.execute(f"""
                 SELECT 
-                    c.id, c.code, c.name, c.level, c.parent_id, c.scope_name, c.mission_name, c.created_date,
-                    ROW_NUMBER() OVER (PARTITION BY c.parent_id ORDER BY c.created_date ASC, c.id ASC) AS canonical_order,
+                    c.id, c.code, c.name, c.level, c.parent_id, c.scope_name, c.mission_name, c.created_date, c.tenant_code,
+                    ROW_NUMBER() OVER (PARTITION BY c.parent_id, c.tenant_code ORDER BY c.created_date ASC, c.id ASC) AS canonical_order,
                     NOT EXISTS (SELECT 1 FROM dwh_internal.criteria sub WHERE sub.parent_id = c.id AND sub.deleted_date IS NULL) AS is_leaf,
                     (
                         SELECT array_agg(DISTINCT f.report_date::date::text ORDER BY f.report_date::date::text)
@@ -482,19 +488,22 @@ class DynamicCriterionIngestor:
                     ) AS available_report_dates
                 FROM dwh_internal.criteria c
                 WHERE c.deleted_date IS NULL
-                  AND LENGTH(TRIM(c.name)) >= 6
+                  {tenant_clause}
+                  AND (LENGTH(TRIM(c.name)) >= 6 OR (c.parent_id IS NOT NULL AND LENGTH(TRIM(c.name)) >= 2))
                   AND LOWER(c.code) NOT IN ('so', 'th', 'th1', 'th2', 'th3', 'test')
+                  AND LOWER(c.code) NOT LIKE 'test%%'
                 ORDER BY c.level, c.created_date ASC
-            """)
+            """, params)
             cols = [desc[0] for desc in cur.description]
             unregistered = []
 
             for row in cur.fetchall():
                 rec = dict(zip(cols, row))
-                if is_dummy_criterion(rec.get("code"), rec.get("name")):
+                rec["parent_id"] = str(rec["parent_id"]) if rec["parent_id"] else None
+                if is_dummy_criterion(rec.get("code"), rec.get("name"), has_parent=(rec["parent_id"] is not None)):
                     continue
                 rec["id"] = str(rec["id"])
-                rec["parent_id"] = str(rec["parent_id"]) if rec["parent_id"] else None
+                rec["tenant_code"] = str(rec.get("tenant_code") or "")
                 rec["created_date"] = str(rec["created_date"])
                 rec["canonical_order"] = int(rec["canonical_order"]) if rec.get("canonical_order") is not None else 1
                 rec["is_leaf"] = bool(rec["is_leaf"])
@@ -518,7 +527,7 @@ class DynamicCriterionIngestor:
     ) -> Dict[str, Any]:
         """Tập hợp đầy đủ ngữ cảnh phả hệ (Parent, Grandparent, Root, Siblings, Scope)."""
         pid = criterion.get("parent_id")
-        current_kb = self.load_kb()
+        current_kb = all_criteria_map if all_criteria_map is not None else self.load_kb()
 
         parent_info = current_kb.get(pid, {}) if pid else {}
         root_name = parent_info.get("root_name") or parent_info.get("name") or criterion.get("name")
@@ -592,7 +601,7 @@ class DynamicCriterionIngestor:
             try:
                 response = self.client.chat.completions.create(
                     model=self.model_name,
-                    max_tokens=1024,
+                    max_tokens=450,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_content}
@@ -609,6 +618,8 @@ class DynamicCriterionIngestor:
                 return parsed
             except Exception as e:
                 logger.warning(f"Lỗi gọi LLM lần {attempt + 1}/{max_retries}: {e}")
+                if "402" in str(e):
+                    break
                 if "429" in str(e):
                     time.sleep(2.0 * (attempt + 1))
                 else:
@@ -635,15 +646,16 @@ class DynamicCriterionIngestor:
         else:
             temporal_phrase = "được theo dõi định kỳ phản ánh tình hình hoạt động thực tế"
 
+        lvl = int(criterion.get("level") or 1)
         templates = [
-            f"Chỉ tiêu kỹ thuật '{name}' (mã: {code}) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
-            f"Chỉ số chuyên môn '{name}' (mã: {code}) phản ánh kết quả đo lường và theo dõi dữ liệu thực tế {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
-            f"Dữ liệu báo cáo nghiệp vụ '{name}' (mã: {code}) phản ánh tổng lượng phân bố thuộc phạm vi điều hành {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
-            f"Nội dung thống kê '{name}' (mã: {code}) ghi nhận diễn biến thực tế theo định kỳ phục vụ chỉ đạo {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
-            f"Hạng mục theo dõi '{name}' (mã: {code}) cung cấp số liệu phân tích chuyên sâu cho công tác báo cáo {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Chỉ tiêu kỹ thuật '{name}' (mã: {code}, cấp {lvl}) xác định quy mô thống kê phục vụ công tác quản lý chuyên ngành {hierarchy_ctx}, {temporal_phrase} trên địa bàn.",
+            f"Chỉ số chuyên môn '{name}' (mã: {code}) là thành phần trực tiếp của nhánh {hierarchy_ctx}, {temporal_phrase} nhằm phục vụ tổng hợp số liệu.",
+            f"Báo cáo nghiệp vụ '{name}' (mã: {code}, thứ tự {criterion.get('canonical_order') or 1}) phản ánh mức độ biến động của đối tượng '{name}' thuộc phạm vi {hierarchy_ctx}, {temporal_phrase}.",
+            f"Hạng mục thống kê chi tiết '{name}' (mã: {code}) ghi nhận giá trị định lượng riêng biệt cho '{name}' {hierarchy_ctx}, {temporal_phrase}.",
+            f"Tiêu chí theo dõi phân cấp '{name}' (mã: {code}, cấp {lvl}) cung cấp dữ liệu đầu vào về '{name}' cho hệ thống điều hành {hierarchy_ctx}, {temporal_phrase}.",
         ]
-        order = int(criterion.get("canonical_order") or 1)
-        definition = templates[order % len(templates)]
+        idx_sel = (int(criterion.get("canonical_order") or 1) + lvl) % len(templates)
+        definition = templates[idx_sel]
 
         return {
             "definition": definition.strip(),
@@ -658,7 +670,8 @@ class DynamicCriterionIngestor:
         db_conn: Optional[Any] = None
     ) -> Dict[str, Any]:
         """Quy trình hoàn chỉnh sinh định nghĩa, chạy qua 5-Gate Validation và chuẩn bị bản ghi 19 trường."""
-        if is_dummy_criterion(criterion_record.get("code"), criterion_record.get("name")):
+        has_parent = bool(criterion_record.get("parent_id") or int(criterion_record.get("level", 1)) > 1)
+        if is_dummy_criterion(criterion_record.get("code"), criterion_record.get("name"), has_parent=has_parent):
             raise FiveGateValidationError(
                 f"Chỉ tiêu '{criterion_record.get('name')}' (mã: '{criterion_record.get('code')}') "
                 f"là mã rác/thử nghiệm (dummy/short), bị từ chối nạp vào KB."
@@ -836,9 +849,13 @@ class DynamicCriterionIngestor:
 
         return record
 
-    def ingest_new_criteria_into_kb(self, duckdb_conn: Optional[Any] = None) -> List[Dict[str, Any]]:
+    def ingest_new_criteria_into_kb(
+        self,
+        duckdb_conn: Optional[Any] = None,
+        tenant_code: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
         """Phát hiện các chỉ tiêu mới trong DWH, sinh định nghĩa, kiểm duyệt và commit vào KB + DuckDB."""
-        unregistered = self.detect_unregistered_criteria()
+        unregistered = self.detect_unregistered_criteria(tenant_code=tenant_code)
         if not unregistered:
             logger.info("Không có chỉ tiêu mới cần nạp.")
             return []
@@ -857,7 +874,8 @@ class DynamicCriterionIngestor:
         try:
             for crit in unregistered:
                 try:
-                    record = self.process_single_criterion(crit, db_conn=batch_conn)
+                    ctx = self.build_hierarchical_context(crit, all_criteria_map=kb)
+                    record = self.process_single_criterion(crit, context=ctx, db_conn=batch_conn)
                     kb[crit["id"]] = record
                     ingested.append(record)
                     logger.info(f"Đã nạp thành công chỉ tiêu '{record['name']}' vào KB.")
